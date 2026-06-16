@@ -15,10 +15,40 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::get('dashboard', function () {
-        return Inertia::render('Dashboard');
+        return Inertia::render('Dashboard', [
+            'odps' => \App\Models\Odp::all(),
+            'customers' => \App\Models\Customer::with(['odp', 'package', 'router'])->get(),
+            'routers' => \App\Models\Router::all(),
+            'packages' => \App\Models\Package::all(),
+            'invoices' => \App\Models\Invoice::with('customer')->orderBy('created_at', 'desc')->get(),
+            'settings' => \App\Models\Setting::all(),
+        ]);
     })->name('dashboard');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+
+    // GenieACS (TR-069) Routes
+    Route::get('admin/gpon/status', [\App\Http\Controllers\Admin\GenieAcsController::class, 'status']);
+    Route::post('admin/gpon/reboot', [\App\Http\Controllers\Admin\GenieAcsController::class, 'reboot']);
+
+    // Admin CRUD Actions
+    Route::post('admin/routers/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveRouter']);
+    Route::post('admin/routers/test-connection', [\App\Http\Controllers\Admin\AdminActionController::class, 'testConnection']);
+    Route::post('admin/routers/sync', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncRouter']);
+    Route::post('admin/customers/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveCustomer']);
+    Route::post('admin/customers/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteCustomer']);
+    Route::post('admin/customers/bulk-delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'bulkDeleteCustomer']);
+    Route::post('admin/packages/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'savePackage']);
+    Route::post('admin/invoices/pay-manual', [\App\Http\Controllers\Admin\AdminActionController::class, 'payInvoiceManual']);
+    Route::post('admin/invoices/generate', [\App\Http\Controllers\Admin\AdminActionController::class, 'generateInvoices']);
+    Route::post('admin/settings/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveSettings']);
+
+    // Customer Portal Routes
+    Route::get('customer/dashboard', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'index']);
+    Route::post('customer/invoice/{invoice}/pay', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'payInvoice']);
 });
+
+// Webhook Callback Payment Gateway
+Route::post('api/payment/callback', [\App\Http\Controllers\Api\PaymentWebhookController::class, 'handle']);
 
 

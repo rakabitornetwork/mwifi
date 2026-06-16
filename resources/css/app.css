@@ -7,3 +7,15 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/* Efek garis putus-putus berjalan ke arah pelanggan */
+@keyframes optical-flow {
+    to {
+        stroke-dashoffset: -20;
+    }
+}
+
+.optical-cable-flow {
+    stroke-dasharray: 8, 8;
+    animation: optical-flow 1.2s linear infinite;
+}

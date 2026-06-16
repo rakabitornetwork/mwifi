@@ -29,6 +29,11 @@ class Customer extends Model
         return $this->belongsTo(Package::class);
     }
 
+    public function odp(): BelongsTo
+    {
+        return $this->belongsTo(Odp::class);
+    }
+
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);

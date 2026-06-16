@@ -30,9 +30,12 @@ class RestApiRouterConnector implements RouterConnectorInterface
                 ->timeout(5)
                 ->get("{$this->baseUrl}/system/identity");
 
-            return $response->successful();
+            if ($response->successful()) {
+                return true;
+            }
+            throw new Exception("HTTP status " . $response->status() . " - " . $response->body());
         } catch (Exception $e) {
-            return false;
+            throw new Exception("REST API error: " . $e->getMessage());
         }
     }
 

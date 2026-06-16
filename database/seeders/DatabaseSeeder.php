@@ -51,5 +51,168 @@ class DatabaseSeeder extends Seeder
                 ]
             );
         }
+
+        // Seed a default Router
+        $router = \App\Models\Router::updateOrCreate(
+            ['host' => '103.84.12.98'],
+            [
+                'name' => 'CHR-Core-Virtualmin',
+                'port' => 80,
+                'username' => 'admin',
+                'password' => 'secret_encrypted',
+                'protocol_type' => 'rest_api',
+                'status' => true,
+            ]
+        );
+
+        // Seed a default Package
+        $package = \App\Models\Package::updateOrCreate(
+            ['name' => 'Family 20 Mbps'],
+            [
+                'price' => 150000.00,
+                'bandwidth_limit' => '20M/20M',
+                'mikrotik_profile' => 'Family-20M',
+                'description' => 'Paket internet keluarga 20 Mbps unlimited',
+            ]
+        );
+
+        // Seed some ODPs
+        $odp1 = \App\Models\Odp::updateOrCreate(
+            ['name' => 'ODP-JBG-01'],
+            [
+                'latitude' => -7.98390000,
+                'longitude' => 112.62140000,
+                'total_ports' => 8,
+                'used_ports' => 2,
+                'description' => 'Tiang listrik pojok timur Alun-alun',
+            ]
+        );
+
+        $odp2 = \App\Models\Odp::updateOrCreate(
+            ['name' => 'ODP-JBG-02'],
+            [
+                'latitude' => -7.98220000,
+                'longitude' => 112.63050000,
+                'total_ports' => 8,
+                'used_ports' => 1,
+                'description' => 'Depan ruko Swalayan A',
+            ]
+        );
+
+        $odp3 = \App\Models\Odp::updateOrCreate(
+            ['name' => 'ODP-JBG-03'],
+            [
+                'latitude' => -7.97540000,
+                'longitude' => 112.62580000,
+                'total_ports' => 8,
+                'used_ports' => 1,
+                'description' => 'Tiang dekat Masjid Jami',
+            ]
+        );
+
+        // Seed some Customers with coordinates close to their respective ODPs
+        $userBudi = User::updateOrCreate(
+            ['email' => 'budi_pppoe@mwifi.test'],
+            [
+                'name' => 'Budi Santoso',
+                'password' => \Illuminate\Support\Facades\Hash::make('budi123'),
+            ]
+        );
+        \App\Models\Customer::updateOrCreate(
+            ['username' => 'budi_pppoe'],
+            [
+                'user_id' => $userBudi->id,
+                'router_id' => $router->id,
+                'package_id' => $package->id,
+                'odp_id' => $odp1->id,
+                'service_type' => 'pppoe',
+                'password' => 'budi123',
+                'name' => 'Budi Santoso',
+                'phone_number' => '628123456789',
+                'address' => 'Jl. Merdeka No. 12, Malang',
+                'latitude' => -7.98450000,
+                'longitude' => 112.62250000,
+                'status' => 'active',
+                'billing_date' => 1,
+            ]
+        );
+
+        $userSiti = User::updateOrCreate(
+            ['email' => 'siti_hotspot@mwifi.test'],
+            [
+                'name' => 'Siti Rahma',
+                'password' => \Illuminate\Support\Facades\Hash::make('siti123'),
+            ]
+        );
+        \App\Models\Customer::updateOrCreate(
+            ['username' => 'siti_hotspot'],
+            [
+                'user_id' => $userSiti->id,
+                'router_id' => $router->id,
+                'package_id' => $package->id,
+                'odp_id' => $odp2->id,
+                'service_type' => 'hotspot',
+                'password' => 'siti123',
+                'name' => 'Siti Rahma',
+                'phone_number' => '628527711223',
+                'address' => 'Jl. Kawi No. 4, Malang',
+                'latitude' => -7.98300000,
+                'longitude' => 112.63120000,
+                'status' => 'active',
+                'billing_date' => 1,
+            ]
+        );
+
+        $userJoko = User::updateOrCreate(
+            ['email' => 'joko_pppoe@mwifi.test'],
+            [
+                'name' => 'Joko Widodo',
+                'password' => \Illuminate\Support\Facades\Hash::make('joko123'),
+            ]
+        );
+        \App\Models\Customer::updateOrCreate(
+            ['username' => 'joko_pppoe'],
+            [
+                'user_id' => $userJoko->id,
+                'router_id' => $router->id,
+                'package_id' => $package->id,
+                'odp_id' => $odp3->id,
+                'service_type' => 'pppoe',
+                'password' => 'joko123',
+                'name' => 'Joko Widodo',
+                'phone_number' => '628994433221',
+                'address' => 'Jl. Semeru No. 9, Malang',
+                'latitude' => -7.97600000,
+                'longitude' => 112.62650000,
+                'status' => 'isolated',
+                'billing_date' => 1,
+            ]
+        );
+
+        $userDewi = User::updateOrCreate(
+            ['email' => 'dewi_pppoe@mwifi.test'],
+            [
+                'name' => 'Dewi Lestari',
+                'password' => \Illuminate\Support\Facades\Hash::make('dewi123'),
+            ]
+        );
+        \App\Models\Customer::updateOrCreate(
+            ['username' => 'dewi_pppoe'],
+            [
+                'user_id' => $userDewi->id,
+                'router_id' => $router->id,
+                'package_id' => $package->id,
+                'odp_id' => $odp1->id,
+                'service_type' => 'pppoe',
+                'password' => 'dewi123',
+                'name' => 'Dewi Lestari',
+                'phone_number' => '628123456780',
+                'address' => 'Jl. Trunojoyo No. 42, Malang',
+                'latitude' => -7.98320000,
+                'longitude' => 112.62080000,
+                'status' => 'active',
+                'billing_date' => 1,
+            ]
+        );
     }
 }

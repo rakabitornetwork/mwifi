@@ -28,7 +28,7 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
             ]);
             return true;
         } catch (Exception $e) {
-            return false;
+            throw new Exception("Socket error: " . $e->getMessage());
         }
     }
 

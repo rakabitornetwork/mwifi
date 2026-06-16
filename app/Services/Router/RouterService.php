@@ -22,7 +22,7 @@ class RouterService
         }
 
         $connector = match ($router->protocol_type) {
-            'legacy_socket' => new LegacySocketRouterConnector(),
+            'legacy_socket', 'socket' => new LegacySocketRouterConnector(),
             'rest_api' => new RestApiRouterConnector(),
             default => throw new Exception("Tipe protokol router tidak didukung: {$router->protocol_type}"),
         };
@@ -34,15 +34,19 @@ class RouterService
             $password = $router->password;
         }
 
-        $connected = $connector->connect(
-            $router->host,
-            $router->port,
-            $router->username,
-            $password
-        );
+        try {
+            $connected = $connector->connect(
+                $router->host,
+                $router->port,
+                $router->username,
+                $password
+            );
 
-        if (!$connected) {
-            throw new Exception("Gagal terhubung ke router: {$router->name} ({$router->host}:{$router->port})");
+            if (!$connected) {
+                throw new Exception("Gagal melakukan handshaking.");
+            }
+        } catch (Exception $e) {
+            throw new Exception("Gagal terhubung ke router {$router->name}: " . $e->getMessage());
         }
 
         return $connector;

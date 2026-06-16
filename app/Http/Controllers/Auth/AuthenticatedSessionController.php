@@ -23,18 +23,39 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(Request $request)
     {
-        $credentials = $request->validate([
-            'email' => ['required', 'string', 'email'],
+        $request->validate([
+            'email' => ['required', 'string'],
             'password' => ['required', 'string'],
         ]);
 
-        if (!Auth::attempt($credentials, $request->boolean('remember'))) {
+        $login = $request->input('email');
+        $password = $request->input('password');
+
+        $user = null;
+
+        if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
+            $user = \App\Models\User::where('email', $login)->first();
+        } else {
+            // Try to match customer username
+            $customer = \App\Models\Customer::where('username', $login)->first();
+            if ($customer && $customer->user) {
+                $user = $customer->user;
+            }
+        }
+
+        if (!$user || !\Illuminate\Support\Facades\Hash::check($password, $user->password)) {
             throw ValidationException::withMessages([
-                'email' => 'Email atau password yang Anda masukkan salah.',
+                'email' => 'Username/Email atau password yang Anda masukkan salah.',
             ]);
         }
 
+        Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
+
+        // Check if customer
+        if ($user->customer) {
+            return redirect()->intended('/customer/dashboard');
+        }
 
         return redirect()->intended('/dashboard');
     }
