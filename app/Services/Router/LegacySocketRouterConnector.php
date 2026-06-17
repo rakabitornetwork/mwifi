@@ -185,4 +185,21 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
             return false;
         }
     }
+
+    /**
+     * Get all PPP Profiles from RouterOS.
+     */
+    public function getProfiles(): array
+    {
+        if (!$this->client) {
+            return [];
+        }
+
+        try {
+            $query = new Query('/ppp/profile/print');
+            return $this->client->query($query)->read();
+        } catch (Exception $e) {
+            return [];
+        }
+    }
 }

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 
 export default function CustomerDashboard({ auth, customer, invoices = [], activeGateway }) {
-    const [isDarkMode, setIsDarkMode] = useState(true);
+    const [isDarkMode, setIsDarkMode] = useState(false);
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('qris');
     const [isPaying, setIsPaying] = useState(null); // stores invoice ID currently processing
 

@@ -14,8 +14,9 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('dashboard', function () {
+    $renderDashboard = function ($tab) {
         return Inertia::render('Dashboard', [
+            'activeTabProp' => $tab,
             'odps' => \App\Models\Odp::all(),
             'customers' => \App\Models\Customer::with(['odp', 'package', 'router'])->get(),
             'routers' => \App\Models\Router::all(),
@@ -23,7 +24,31 @@ Route::middleware('auth')->group(function () {
             'invoices' => \App\Models\Invoice::with('customer')->orderBy('created_at', 'desc')->get(),
             'settings' => \App\Models\Setting::all(),
         ]);
+    };
+
+    Route::get('dashboard', function () use ($renderDashboard) {
+        return $renderDashboard('dashboard');
     })->name('dashboard');
+
+    Route::get('routers', function () use ($renderDashboard) {
+        return $renderDashboard('routers');
+    });
+
+    Route::get('customers', function () use ($renderDashboard) {
+        return $renderDashboard('customers');
+    });
+
+    Route::get('packages', function () use ($renderDashboard) {
+        return $renderDashboard('packages');
+    });
+
+    Route::get('invoices', function () use ($renderDashboard) {
+        return $renderDashboard('invoices');
+    });
+
+    Route::get('settings', function () use ($renderDashboard) {
+        return $renderDashboard('settings');
+    });
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
@@ -39,9 +64,11 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/customers/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteCustomer']);
     Route::post('admin/customers/bulk-delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'bulkDeleteCustomer']);
     Route::post('admin/packages/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'savePackage']);
+    Route::post('admin/packages/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deletePackage']);
     Route::post('admin/invoices/pay-manual', [\App\Http\Controllers\Admin\AdminActionController::class, 'payInvoiceManual']);
     Route::post('admin/invoices/generate', [\App\Http\Controllers\Admin\AdminActionController::class, 'generateInvoices']);
     Route::post('admin/settings/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveSettings']);
+    Route::get('admin/server/resources', [\App\Http\Controllers\Admin\AdminActionController::class, 'getServerResources']);
 
     // Customer Portal Routes
     Route::get('customer/dashboard', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'index']);

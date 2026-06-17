@@ -29,7 +29,8 @@ import {
     Plus,
     Edit,
     Trash2,
-    Save
+    Save,
+    Server
 } from 'lucide-react';
 
 export default function Dashboard({ 
@@ -39,12 +40,20 @@ export default function Dashboard({
     routers = [], 
     packages = [], 
     invoices = [], 
-    settings = [] 
+    settings = [],
+    activeTabProp = 'dashboard'
 }) {
-    const [activeTab, setActiveTab] = useState('dashboard');
+    const [activeTab, setActiveTab] = useState(activeTabProp);
     const [searchTerm, setSearchTerm] = useState('');
-    const [isDarkMode, setIsDarkMode] = useState(true); // Default to Dark mode
+    const [isDarkMode, setIsDarkMode] = useState(false); // Default to Light mode
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile menu drawer state
+    const [serverResources, setServerResources] = useState({ cpu: 15, ram: 35, disk: 20, os: 'VPS', hostname: 'vps-server' });
+    const [customerPage, setCustomerPage] = useState(1);
+    const customerPageSize = 10;
+
+    useEffect(() => {
+        setCustomerPage(1);
+    }, [searchTerm]);
 
     // Toast Notifications State & Handler
     const [toasts, setToasts] = useState([]);
@@ -148,10 +157,50 @@ export default function Dashboard({
         }
     };
 
+    const fetchServerResources = async () => {
+        try {
+            const res = await fetch('/admin/server/resources');
+            const data = await res.json();
+            setServerResources(data);
+        } catch (err) {
+            console.error("Failed to load server resources", err);
+        }
+    };
+
+    // Sync URL path with activeTab for clean SPA routing (e.g. /routers)
     useEffect(() => {
+        const handlePopState = () => {
+            const path = window.location.pathname.replace(/^\//, ''); // removes leading slash
+            const validTabs = ['dashboard', 'routers', 'customers', 'packages', 'invoices', 'settings'];
+            if (path && validTabs.includes(path)) {
+                setActiveTab(path);
+            } else {
+                setActiveTab('dashboard');
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
+
+    useEffect(() => {
+        const validTabs = ['dashboard', 'routers', 'customers', 'packages', 'invoices', 'settings'];
+        if (validTabs.includes(activeTab)) {
+            const targetPath = `/${activeTab}`;
+            if (window.location.pathname !== targetPath) {
+                window.history.pushState(null, '', targetPath);
+            }
+        }
+        
+        let interval;
         if (activeTab === 'dashboard') {
             fetchOntDevices();
+            fetchServerResources();
+            interval = setInterval(fetchServerResources, 15000);
         }
+        return () => {
+            if (interval) clearInterval(interval);
+        };
     }, [activeTab]);
 
     const handleRebootOnt = async (deviceId) => {
@@ -299,6 +348,12 @@ export default function Dashboard({
         });
     };
 
+    const handleDeletePackage = (packageId) => {
+        if (!confirm("Apakah Anda yakin ingin menghapus paket layanan ini?")) return;
+        
+        router.post('/admin/packages/delete', { id: packageId });
+    };
+
     const handlePayManual = (invoiceId) => {
         if (!confirm("Konfirmasi terima pembayaran tunai secara manual untuk tagihan ini?")) return;
         
@@ -422,19 +477,68 @@ export default function Dashboard({
 
     // System resource metrics
     const systemMetrics = [
-        { label: 'CPU Usage', value: '18%', icon: Cpu, progress: 18 },
-        { label: 'RAM Usage', value: '42%', icon: Sliders, progress: 42 },
-        { label: 'Disk Space', value: '24%', icon: HardDrive, progress: 24 }
+        { label: 'CPU Usage', value: `${serverResources.cpu}%`, icon: Cpu, progress: serverResources.cpu },
+        { label: 'RAM Usage', value: `${serverResources.ram}%`, icon: Sliders, progress: serverResources.ram },
+        { label: 'Disk Space', value: `${serverResources.disk}%`, icon: HardDrive, progress: serverResources.disk }
     ];
 
-    // High-density stats cards (6 cards)
+    // High-density stats cards (5 cards)
     const stats = [
-        { name: 'PPP Active', value: customers.filter(c => c.service_type === 'pppoe' && c.status === 'active').length, change: 'ONT Terhubung', icon: Users, color: 'text-emerald-500', bgDark: 'bg-emerald-500/5 border-emerald-500/10', bgLight: 'bg-emerald-50/40 border-emerald-100/40' },
-        { name: 'Hotspot Active', value: customers.filter(c => c.service_type === 'hotspot' && c.status === 'active').length, change: 'Voucher aktif', icon: Radio, color: 'text-blue-500', bgDark: 'bg-blue-500/5 border-blue-500/10', bgLight: 'bg-blue-50/40 border-blue-100/40' },
-        { name: 'Terisolir', value: customers.filter(c => c.status === 'isolated').length, change: 'Menunggak', icon: UserX, color: 'text-rose-500', bgDark: 'bg-rose-500/5 border-rose-500/10', bgLight: 'bg-rose-50/40 border-rose-100/40' },
-        { name: 'Total Pelanggan', value: customers.length, change: 'Basis Data', icon: Activity, color: 'text-purple-500', bgDark: 'bg-purple-500/5 border-purple-500/10', bgLight: 'bg-purple-50/40 border-purple-100/40' },
-        { name: 'Total Invoice', value: invoices.length, change: 'Terbit bulanan', icon: CreditCard, color: 'text-amber-500', bgDark: 'bg-amber-500/5 border-amber-500/10', bgLight: 'bg-emerald-50/40 border-emerald-100/40' },
-        { name: 'WA Gateway Uptime', value: 'Online', change: 'Gateway aktif', icon: MessageSquare, color: 'text-emerald-500', bgDark: 'bg-emerald-500/5 border-emerald-500/10', bgLight: 'bg-emerald-50/40 border-emerald-100/40' },
+        { 
+            name: 'PPP Active', 
+            value: customers.filter(c => c.service_type === 'pppoe' && c.status === 'active').length, 
+            change: 'ONT Terhubung', 
+            icon: Users, 
+            cardClass: 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/20 text-white shadow-md shadow-emerald-500/5', 
+            iconClass: 'text-emerald-100', 
+            nameClass: 'text-emerald-100/80', 
+            valClass: 'text-white', 
+            changeClass: 'text-emerald-100/70' 
+        },
+        { 
+            name: 'Hotspot Active', 
+            value: customers.filter(c => c.service_type === 'hotspot' && c.status === 'active').length, 
+            change: 'Voucher aktif', 
+            icon: Radio, 
+            cardClass: 'bg-gradient-to-br from-blue-500 to-indigo-600 border-blue-400/20 text-white shadow-md shadow-blue-500/5', 
+            iconClass: 'text-blue-100', 
+            nameClass: 'text-blue-100/80', 
+            valClass: 'text-white', 
+            changeClass: 'text-blue-100/70' 
+        },
+        { 
+            name: 'Terisolir', 
+            value: customers.filter(c => c.status === 'isolated').length, 
+            change: 'Menunggak', 
+            icon: UserX, 
+            cardClass: 'bg-gradient-to-br from-rose-500 to-red-600 border-rose-400/20 text-white shadow-md shadow-rose-500/5', 
+            iconClass: 'text-rose-100', 
+            nameClass: 'text-rose-100/80', 
+            valClass: 'text-white', 
+            changeClass: 'text-rose-100/70' 
+        },
+        { 
+            name: 'Total Pelanggan', 
+            value: customers.length, 
+            change: 'Basis Data', 
+            icon: Activity, 
+            cardClass: 'bg-gradient-to-br from-purple-500 to-violet-600 border-purple-400/20 text-white shadow-md shadow-purple-500/5', 
+            iconClass: 'text-purple-100', 
+            nameClass: 'text-purple-100/80', 
+            valClass: 'text-white', 
+            changeClass: 'text-purple-100/70' 
+        },
+        { 
+            name: 'Total Invoice', 
+            value: invoices.length, 
+            change: 'Terbit bulanan', 
+            icon: CreditCard, 
+            cardClass: 'bg-gradient-to-br from-amber-500 to-orange-600 border-amber-400/20 text-white shadow-md shadow-amber-500/5', 
+            iconClass: 'text-amber-100', 
+            nameClass: 'text-amber-100/80', 
+            valClass: 'text-white', 
+            changeClass: 'text-amber-100/70' 
+        },
     ];
 
     // WhatsApp Gateway real-time simulation logs
@@ -447,21 +551,40 @@ export default function Dashboard({
 
     // Theme Tokens
     const themeBg = isDarkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-zinc-50 text-zinc-800';
-    const themeSidebar = isDarkMode ? 'bg-zinc-950 border-zinc-900/60' : 'bg-white border-zinc-200 shadow-sm';
+    const themeSidebar = isDarkMode ? 'bg-zinc-950' : 'bg-white';
     const themeSidebarBottom = isDarkMode ? 'bg-zinc-950' : 'bg-zinc-50/50';
     const themeCard = isDarkMode ? 'bg-zinc-900/50 border-zinc-800/80 backdrop-blur-md' : 'bg-white border-zinc-200/80 shadow-xs';
     const themeTextTitle = isDarkMode ? 'text-white' : 'text-zinc-900';
     const themeTextSub = isDarkMode ? 'text-zinc-400' : 'text-zinc-500';
     const themeTextDesc = isDarkMode ? 'text-zinc-500' : 'text-zinc-400';
-    const themeBorderSep = isDarkMode ? 'border-zinc-900/50' : 'border-zinc-200/60';
-    const themeHeader = isDarkMode ? 'bg-zinc-950/80 border-zinc-900/50' : 'bg-white/80 border-zinc-200';
+    const themeBorderSep = isDarkMode ? 'border-zinc-900' : 'border-zinc-200';
+    const themeHeader = isDarkMode ? 'bg-zinc-950/80' : 'bg-white/80';
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeInput = isDarkMode ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700' : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
     const themeLabel = isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
+    const getNavLinkClass = (tabName) => {
+        const isActive = activeTab === tabName;
+        if (isActive) {
+            return isDarkMode 
+                ? 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all duration-150 border bg-zinc-900 text-emerald-400 border-zinc-800/40 shadow-xs cursor-pointer'
+                : 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all duration-150 border bg-emerald-50 text-emerald-600 border-emerald-100 shadow-xs cursor-pointer';
+        } else {
+            return isDarkMode
+                ? 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-medium text-xs transition-all duration-150 border border-transparent text-zinc-400 hover:bg-zinc-900 hover:text-emerald-400 hover:border-zinc-800/40 cursor-pointer'
+                : 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-medium text-xs transition-all duration-150 border border-transparent text-zinc-650 hover:bg-zinc-100 hover:text-emerald-600 hover:border-zinc-200/50 cursor-pointer';
+        }
+    };
+
     const filteredCustomers = customers.filter(cust => 
         cust.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         cust.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (cust.package && cust.package.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    const totalCustomerPages = Math.ceil(filteredCustomers.length / customerPageSize) || 1;
+    const paginatedCustomers = filteredCustomers.slice(
+        (customerPage - 1) * customerPageSize,
+        customerPage * customerPageSize
     );
 
     return (
@@ -470,11 +593,11 @@ export default function Dashboard({
             <div className={`flex h-screen overflow-hidden font-sans antialiased transition-colors duration-250 ${themeBg}`}>
                 
                 {/* Left Sidebar */}
-                <aside className={`hidden md:flex flex-col w-56 shrink-0 border-r transition-colors duration-250 ${themeSidebar}`}>
+                <aside className={`hidden md:flex flex-col w-56 shrink-0 border-r ${themeBorderSep} transition-colors duration-250 ${themeSidebar}`}>
                     <div className="flex-1 overflow-y-auto">
                         
                         {/* Logo header */}
-                        <div className={`p-4 border-b ${themeBorderSep} flex items-center space-x-2.5`}>
+                        <div className={`h-14 px-4 border-b ${themeBorderSep} flex items-center space-x-2.5 shrink-0`}>
                             <div className="w-7 h-7 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
                                 <Wifi className="w-4 h-4 text-white" />
                             </div>
@@ -490,42 +613,42 @@ export default function Dashboard({
                         <nav className="p-2.5 space-y-0.5">
                             <button 
                                 onClick={() => setActiveTab('dashboard')} 
-                                className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all duration-150 cursor-pointer ${activeTab === 'dashboard' ? (isDarkMode ? 'bg-zinc-900 text-emerald-400 border border-zinc-800/40' : 'bg-emerald-50 text-emerald-600 border border-emerald-100/40') : `${themeTextDesc} hover:bg-zinc-900/40 hover:text-emerald-500`}`}
+                                className={getNavLinkClass('dashboard')}
                             >
                                 <Activity className="w-4 h-4" />
                                 <span>Dashboard (NOC)</span>
                             </button>
                             <button 
                                 onClick={() => setActiveTab('routers')} 
-                                className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all duration-150 cursor-pointer ${activeTab === 'routers' ? (isDarkMode ? 'bg-zinc-900 text-emerald-400 border border-zinc-800/40' : 'bg-emerald-50 text-emerald-600 border border-emerald-100/40') : `${themeTextDesc} hover:bg-zinc-900/40 hover:text-emerald-500`}`}
+                                className={getNavLinkClass('routers')}
                             >
                                 <Wifi className="w-4 h-4" />
                                 <span>Router Mikrotik</span>
                             </button>
                             <button 
                                 onClick={() => setActiveTab('customers')} 
-                                className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all duration-150 cursor-pointer ${activeTab === 'customers' ? (isDarkMode ? 'bg-zinc-900 text-emerald-400 border border-zinc-800/40' : 'bg-emerald-50 text-emerald-600 border border-emerald-100/40') : `${themeTextDesc} hover:bg-zinc-900/40 hover:text-emerald-500`}`}
+                                className={getNavLinkClass('customers')}
                             >
                                 <Users className="w-4 h-4" />
                                 <span>Pelanggan</span>
                             </button>
                             <button 
                                 onClick={() => setActiveTab('packages')} 
-                                className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all duration-150 cursor-pointer ${activeTab === 'packages' ? (isDarkMode ? 'bg-zinc-900 text-emerald-400 border border-zinc-800/40' : 'bg-emerald-50 text-emerald-600 border border-emerald-100/40') : `${themeTextDesc} hover:bg-zinc-900/40 hover:text-emerald-500`}`}
+                                className={getNavLinkClass('packages')}
                             >
                                 <Layers className="w-4 h-4" />
                                 <span>Paket Internet</span>
                             </button>
                             <button 
                                 onClick={() => setActiveTab('invoices')} 
-                                className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all duration-150 cursor-pointer ${activeTab === 'invoices' ? (isDarkMode ? 'bg-zinc-900 text-emerald-400 border border-zinc-800/40' : 'bg-emerald-50 text-emerald-600 border border-emerald-100/40') : `${themeTextDesc} hover:bg-zinc-900/40 hover:text-emerald-500`}`}
+                                className={getNavLinkClass('invoices')}
                             >
                                 <CreditCard className="w-4 h-4" />
                                 <span>Tagihan / Billing</span>
                             </button>
                             <button 
                                 onClick={() => setActiveTab('settings')} 
-                                className={`w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-semibold text-xs transition-all duration-150 cursor-pointer ${activeTab === 'settings' ? (isDarkMode ? 'bg-zinc-900 text-emerald-400 border border-zinc-800/40' : 'bg-emerald-50 text-emerald-600 border border-emerald-100/40') : `${themeTextDesc} hover:bg-zinc-900/40 hover:text-emerald-500`}`}
+                                className={getNavLinkClass('settings')}
                             >
                                 <Settings className="w-4 h-4" />
                                 <span>Pengaturan</span>
@@ -557,7 +680,7 @@ export default function Dashboard({
                 <div className="flex-1 flex flex-col min-w-0">
                     
                     {/* Header */}
-                    <header className={`h-14 border-b ${themeHeader} flex items-center justify-between px-4 sm:px-6 backdrop-blur-md z-10 transition-colors duration-250`}>
+                    <header className={`h-14 border-b ${themeBorderSep} ${themeHeader} flex items-center justify-between px-4 sm:px-6 backdrop-blur-md z-10 transition-colors duration-250`}>
                         
                         <div className="flex items-center space-x-3">
                             <button 
@@ -568,6 +691,19 @@ export default function Dashboard({
                             </button>
 
                             <div className="hidden lg:flex items-center space-x-6">
+                                {/* VPS Server Info */}
+                                <div className={`flex items-center space-x-2.5 border-r ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'} pr-5`}>
+                                    <div className={`p-1.5 rounded border ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-emerald-500' : 'bg-emerald-50 border-emerald-100 text-emerald-600'} flex items-center justify-center`}>
+                                        <Server className="w-3.5 h-3.5" />
+                                    </div>
+                                    <div>
+                                        <p className={`text-[10px] font-bold ${themeTextSub} uppercase leading-none tracking-wide`}>VPS Server</p>
+                                        <p className={`text-[10px] font-extrabold ${themeTextTitle} mt-1.5 leading-none`}>
+                                            {serverResources.hostname} <span className="text-[9px] opacity-60">({serverResources.os})</span>
+                                        </p>
+                                    </div>
+                                </div>
+
                                 {systemMetrics.map((metric, idx) => {
                                     const Icon = metric.icon;
                                     return (
@@ -603,6 +739,19 @@ export default function Dashboard({
                                 />
                             </div>
 
+                            {/* WA Gateway Pulse Indicator */}
+                            <div className="flex items-center space-x-1.5 mr-2 select-none" title={settingsMap['whatsapp.api_key'] ? "WhatsApp Gateway: Terinstal/Online" : "WhatsApp Gateway: Offline"}>
+                                <div className="relative flex h-2.5 w-2.5">
+                                    {settingsMap['whatsapp.api_key'] && (
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    )}
+                                    <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${settingsMap['whatsapp.api_key'] ? 'bg-emerald-500' : 'bg-zinc-500'}`}></span>
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase tracking-wider ${themeTextTitle}`}>
+                                    WA: {settingsMap['whatsapp.api_key'] ? 'Online' : 'Offline'}
+                                </span>
+                            </div>
+
                             {/* Theme switcher */}
                             <button 
                                 onClick={toggleTheme}
@@ -620,18 +769,18 @@ export default function Dashboard({
                         {activeTab === 'dashboard' && (
                             <>
                                 {/* Stats Grid */}
-                                <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+                                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                                     {stats.map((stat, idx) => {
                                         const Icon = stat.icon;
                                         return (
-                                            <div key={idx} className={`border rounded-2xl p-3.5 flex flex-col justify-between transition-colors duration-250 ${themeCard}`}>
+                                            <div key={idx} className={`border rounded-2xl p-3.5 flex flex-col justify-between transition-all duration-200 hover:scale-[1.02] ${stat.cardClass}`}>
                                                 <div className="flex justify-between items-start">
-                                                    <span className={`text-[10px] font-bold ${themeTextDesc} uppercase tracking-wider`}>{stat.name}</span>
-                                                    <Icon className={`w-4 h-4 ${stat.color}`} />
+                                                    <span className={`text-xs font-bold uppercase tracking-wider ${stat.nameClass}`}>{stat.name}</span>
+                                                    <Icon className={`w-4 h-4 ${stat.iconClass}`} />
                                                 </div>
                                                 <div className="mt-3">
-                                                    <p className={`text-lg sm:text-xl font-extrabold ${themeTextTitle} tracking-tight leading-none`}>{stat.value}</p>
-                                                    <span className={`text-[9px] font-bold ${themeTextDesc} block mt-1`}>{stat.change}</span>
+                                                    <p className={`text-xl sm:text-2xl font-extrabold tracking-tight leading-none ${stat.valClass}`}>{stat.value}</p>
+                                                    <span className={`text-[10px] font-bold block mt-1 ${stat.changeClass}`}>{stat.change}</span>
                                                 </div>
                                             </div>
                                         );
@@ -675,38 +824,39 @@ export default function Dashboard({
                                                 </div>
                                             </div>
 
-                                            <div className="space-y-1.5">
+                                            <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
                                                 {isLoadingOnt ? (
                                                     <div className="py-8 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
                                                         Loading ONT status...
                                                     </div>
-                                                ) : ontDevices.length === 0 ? (
+                                                ) : ontDevices.filter(dev => dev.status !== 'offline').length === 0 ? (
                                                     <div className="py-8 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                                                        No ONT devices found.
+                                                        No active/online ONT devices found.
                                                     </div>
                                                 ) : (
-                                                    ontDevices.map((dev, idx) => {
+                                                    ontDevices.filter(dev => dev.status !== 'offline').map((dev, idx) => {
                                                         const rxColor = 
                                                             dev.status === 'good' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
                                                             dev.status === 'warning' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 
+                                                            dev.status === 'offline' ? 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20' : 
                                                             'bg-rose-500/10 text-rose-500 border-rose-500/20';
                                                         return (
-                                                            <div key={idx} className={`p-2 border rounded-xl flex items-center justify-between text-[10px] sm:text-[11px] font-semibold transition-colors duration-150 ${themeInnerWidget}`}>
+                                                            <div key={idx} className={`p-2 border rounded-xl flex items-center justify-between text-xs sm:text-[13px] font-semibold transition-colors duration-150 ${themeInnerWidget}`}>
                                                                 <div className="space-y-0.5">
                                                                     <div className="flex items-center space-x-1.5">
                                                                         <span className={`font-bold ${themeTextTitle}`}>{dev.username}</span>
-                                                                        <span className={`text-[9px] ${themeTextSub} font-mono`}>({dev.model})</span>
+                                                                        <span className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono`}>({dev.model})</span>
                                                                     </div>
-                                                                    <p className={`text-[9px] sm:text-[10px] ${themeTextSub} font-mono leading-none`}>SN: {dev.sn}</p>
+                                                                    <p className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono leading-none`}>SN: {dev.sn}</p>
                                                                 </div>
                                                                 <div className="flex items-center space-x-1.5">
                                                                     <button 
                                                                         onClick={() => handleRebootOnt(dev.id)} 
-                                                                        className={`px-1.5 py-0.5 rounded text-[8px] font-bold border transition-colors cursor-pointer ${isDarkMode ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 hover:border-zinc-700 text-zinc-300' : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-600 shadow-2xs'}`}
+                                                                        className={`px-1.5 py-0.5 rounded text-[10px] sm:text-[11px] font-bold border transition-colors cursor-pointer ${isDarkMode ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 hover:border-zinc-700 text-zinc-300' : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-600 shadow-2xs'}`}
                                                                     >
                                                                         Reboot
                                                                     </button>
-                                                                    <span className={`px-2 py-0.5 rounded font-mono text-[9px] sm:text-[10px] border ${rxColor}`}>
+                                                                    <span className={`inline-block w-[85px] text-center px-1 py-0.5 rounded font-mono text-[11px] sm:text-xs font-bold border whitespace-nowrap shrink-0 ${rxColor}`}>
                                                                         {dev.rx}
                                                                     </span>
                                                                 </div>
@@ -724,29 +874,35 @@ export default function Dashboard({
                                                     <MessageSquare className="w-4 h-4 text-emerald-500" />
                                                     <h3 className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>WhatsApp Logs (Real-Time)</h3>
                                                 </div>
-                                                <span className={`text-[9px] ${themeTextSub} font-medium`}>Auto Refresh</span>
+                                                <span className={`text-xs ${themeTextSub} font-medium`}>Auto Refresh</span>
                                             </div>
 
                                             <div className="space-y-2 max-h-[195px] overflow-y-auto pr-1">
-                                                {waLogs.map((log, idx) => (
-                                                    <div key={idx} className={`p-2 border rounded-lg flex items-start justify-between text-[9px] sm:text-[10px] font-medium space-x-3 transition-colors duration-150 ${isDarkMode ? 'bg-zinc-950/40 border-zinc-900/50' : 'bg-zinc-50 border-zinc-200/50'}`}>
-                                                        <div className="space-y-0.5">
-                                                            <div className="flex items-center space-x-1.5">
-                                                                <span className={`px-1.5 py-0.2 rounded text-[8px] font-bold uppercase border ${isDarkMode ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-zinc-200 text-zinc-600 border-zinc-300'}`}>
-                                                                    {log.type}
-                                                                </span>
-                                                                <span className={`${themeTextTitle} font-bold`}>{log.target}</span>
-                                                            </div>
-                                                            <p className={`${themeTextDesc} line-clamp-1`}>{log.text}</p>
-                                                        </div>
-                                                        <span className={`text-[9px] ${themeTextSub} font-mono whitespace-nowrap`}>{log.time}</span>
+                                                {!settingsMap['whatsapp.api_key'] ? (
+                                                    <div className="py-8 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+                                                        WhatsApp Gateway belum aktif / terinstal.
                                                     </div>
-                                                ))}
+                                                ) : (
+                                                    waLogs.map((log, idx) => (
+                                                        <div key={idx} className={`p-2 border rounded-lg flex items-start justify-between text-xs sm:text-[13px] font-medium space-x-3 transition-colors duration-150 ${isDarkMode ? 'bg-zinc-950/40 border-zinc-900/50' : 'bg-zinc-50 border-zinc-200/50'}`}>
+                                                            <div className="space-y-0.5">
+                                                                <div className="flex items-center space-x-1.5">
+                                                                    <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase border ${isDarkMode ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-zinc-200 text-zinc-600 border-zinc-300'}`}>
+                                                                        {log.type}
+                                                                    </span>
+                                                                    <span className={`${themeTextTitle} font-bold`}>{log.target}</span>
+                                                                </div>
+                                                                <p className={`${themeTextDesc} line-clamp-1`}>{log.text}</p>
+                                                            </div>
+                                                            <span className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono whitespace-nowrap`}>{log.time}</span>
+                                                        </div>
+                                                    ))
+                                                )}
                                             </div>
                                         </div>
 
                                         {/* Quick Tools Panel */}
-                                        <div className={`p-3 border rounded-2xl flex items-center justify-between text-[10px] sm:text-[11px] font-bold transition-colors duration-250 ${themeInnerWidget}`}>
+                                        <div className={`p-3 border rounded-2xl flex items-center justify-between text-xs sm:text-[13px] font-bold transition-colors duration-250 ${themeInnerWidget}`}>
                                             <div className="flex items-center space-x-2">
                                                 <Sliders className={`w-3.5 h-3.5 ${themeTextSub}`} />
                                                 <span className={themeTextTitle}>Quick Tools Panel</span>
@@ -817,7 +973,7 @@ export default function Dashboard({
                                                             {router.status ? 'Aktif' : 'Non-Aktif'}
                                                         </span>
                                                     </td>
-                                                    <td className="py-3 px-2 text-right space-x-2">
+                                                    <td className="py-3 px-2 flex items-center justify-end gap-2">
                                                         <button 
                                                             onClick={() => handleTestConnection(router.id)}
                                                             disabled={isTestingRouter === router.id}
@@ -837,7 +993,7 @@ export default function Dashboard({
                                                                 setEditingRouter(router);
                                                                 setShowRouterModal(true);
                                                             }}
-                                                            className="inline-block p-1 text-zinc-400 hover:text-emerald-500 cursor-pointer"
+                                                            className="p-1 text-zinc-400 hover:text-emerald-500 cursor-pointer flex items-center justify-center"
                                                         >
                                                             <Edit className="w-4 h-4" />
                                                         </button>
@@ -853,12 +1009,23 @@ export default function Dashboard({
                         {/* TAB 3: CUSTOMER MANAGEMENT */}
                         {activeTab === 'customers' && (
                             <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                                <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-zinc-800/40 pb-3 gap-3">
                                     <div className="flex items-center space-x-2">
                                         <Users className="w-5 h-5 text-emerald-500" />
                                         <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Pelanggan</h2>
                                     </div>
-                                    <div className="flex items-center space-x-2">
+                                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                                        {/* Search Input Pelanggan */}
+                                        <div className="relative">
+                                            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2.5" />
+                                            <input 
+                                                type="text" 
+                                                placeholder="Cari nama / username / paket..." 
+                                                value={searchTerm}
+                                                onChange={(e) => setSearchTerm(e.target.value)}
+                                                className={`pl-8 pr-3 py-1.5 rounded-xl border text-xs font-semibold focus:outline-hidden w-44 sm:w-56 ${isDarkMode ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 focus:border-zinc-700' : 'bg-zinc-100 border-zinc-200 text-zinc-700 focus:border-zinc-300'}`}
+                                            />
+                                        </div>
                                         {selectedCustomerIds.length > 0 && (
                                             <button 
                                                 onClick={() => {
@@ -906,7 +1073,7 @@ export default function Dashboard({
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-zinc-800/20 text-xs">
-                                            {filteredCustomers.map((cust) => (
+                                             {paginatedCustomers.map((cust) => (
                                                 <tr key={cust.id} className={`${themeTextSub} hover:bg-zinc-900/10 ${selectedCustomerIds.includes(cust.id) ? 'bg-emerald-500/5' : ''}`}>
                                                     <td className="py-3 px-2 w-8">
                                                         <input 
@@ -952,6 +1119,45 @@ export default function Dashboard({
                                         </tbody>
                                     </table>
                                 </div>
+                                {/* Customer Pagination Controls */}
+                                {filteredCustomers.length > customerPageSize && (
+                                    <div className={`flex flex-col sm:flex-row items-center justify-between pt-4 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-3 text-xs`}>
+                                        <span className={themeTextSub}>
+                                            Menampilkan <span className={`font-bold ${themeTextTitle}`}>{Math.min((customerPage - 1) * customerPageSize + 1, filteredCustomers.length)}</span> hingga <span className={`font-bold ${themeTextTitle}`}>{Math.min(customerPage * customerPageSize, filteredCustomers.length)}</span> dari <span className={`font-bold ${themeTextTitle}`}>{filteredCustomers.length}</span> pelanggan
+                                        </span>
+                                        <div className="flex items-center space-x-1">
+                                            <button 
+                                                disabled={customerPage === 1}
+                                                onClick={() => setCustomerPage(p => Math.max(p - 1, 1))}
+                                                className={`px-3 py-1.5 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                                            >
+                                                Sebelumnya
+                                            </button>
+                                            {Array.from({ length: totalCustomerPages }, (_, idx) => idx + 1).map(page => {
+                                                const isCurrent = page === customerPage;
+                                                return (
+                                                    <button 
+                                                        key={page}
+                                                        onClick={() => setCustomerPage(page)}
+                                                        className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all duration-150 cursor-pointer ${isCurrent 
+                                                            ? 'bg-emerald-500 border-emerald-500 text-white' 
+                                                            : (isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-950')
+                                                        }`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                );
+                                            })}
+                                            <button 
+                                                disabled={customerPage === totalCustomerPages}
+                                                onClick={() => setCustomerPage(p => Math.min(p + 1, totalCustomerPages))}
+                                                className={`px-3 py-1.5 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                                            >
+                                                Berikutnya
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -983,6 +1189,11 @@ export default function Dashboard({
                                                 <th className="py-3 px-2">Harga</th>
                                                 <th className="py-3 px-2">Speed Limit</th>
                                                 <th className="py-3 px-2">Mikrotik Profile</th>
+                                                <th className="py-3 px-2">Local IP</th>
+                                                <th className="py-3 px-2">Remote IP</th>
+                                                <th className="py-3 px-2">DNS Server</th>
+                                                <th className="py-3 px-2">Parent Queue</th>
+                                                <th className="py-3 px-2">Queue Type</th>
                                                 <th className="py-3 px-2 text-right">Aksi</th>
                                             </tr>
                                         </thead>
@@ -993,16 +1204,36 @@ export default function Dashboard({
                                                     <td className="py-3 px-2 font-bold text-emerald-500">Rp {pkg.price.toLocaleString('id-ID')}</td>
                                                     <td className="py-3 px-2 font-mono">{pkg.bandwidth_limit}</td>
                                                     <td className="py-3 px-2 font-mono">{pkg.mikrotik_profile}</td>
+                                                    <td className="py-3 px-2 font-mono">{pkg.local_address || '-'}</td>
+                                                    <td className="py-3 px-2 font-mono">{pkg.remote_address || '-'}</td>
+                                                    <td className="py-3 px-2 font-mono">{pkg.dns_server || '-'}</td>
+                                                    <td className="py-3 px-2 font-mono">{pkg.parent_queue || '-'}</td>
+                                                    <td className="py-3 px-2 font-mono">
+                                                        {pkg.queue_type_rx || pkg.queue_type_tx 
+                                                            ? `${pkg.queue_type_rx || '-'}/${pkg.queue_type_tx || '-'}`
+                                                            : '-'
+                                                        }
+                                                    </td>
                                                     <td className="py-3 px-2 text-right">
-                                                        <button 
-                                                            onClick={() => {
-                                                                setEditingPackage(pkg);
-                                                                setShowPackageModal(true);
-                                                            }}
-                                                            className="p-1 text-zinc-400 hover:text-emerald-500 cursor-pointer"
-                                                        >
-                                                            <Edit className="w-4 h-4" />
-                                                        </button>
+                                                        <div className="flex justify-end gap-1.5">
+                                                            <button 
+                                                                onClick={() => {
+                                                                    setEditingPackage(pkg);
+                                                                    setShowPackageModal(true);
+                                                                }}
+                                                                className="p-1 text-zinc-400 hover:text-emerald-500 cursor-pointer"
+                                                                title="Edit Paket"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeletePackage(pkg.id)}
+                                                                className="p-1 text-zinc-400 hover:text-rose-500 cursor-pointer"
+                                                                title="Hapus Paket"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
@@ -1339,7 +1570,7 @@ export default function Dashboard({
                                 <button onClick={() => {
                                     setShowDeleteCustomerModal(false);
                                     setCustomerToDelete(null);
-                                }} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
+                                }} className={`text-zinc-500 ${isDarkMode ? 'hover:text-white' : 'hover:text-zinc-800'}`}><X className="w-4 h-4" /></button>
                             </div>
                             
                             <div className="text-xs space-y-3">
@@ -1347,8 +1578,8 @@ export default function Dashboard({
                                     Apakah Anda yakin ingin menghapus pelanggan <strong>{customerToDelete.name}</strong> (username: <strong>@{customerToDelete.username}</strong>)?
                                 </p>
                                 
-                                <div className="p-3 bg-zinc-950/40 border border-zinc-850 rounded-xl space-y-2">
-                                    <span className="font-bold text-zinc-400 block mb-1">Pilih Mode Penghapusan:</span>
+                                <div className={`p-3 ${themeInnerWidget} rounded-xl space-y-2`}>
+                                    <span className={`font-bold ${themeTextSub} block mb-1`}>Pilih Mode Penghapusan:</span>
                                     
                                     <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
                                         <input 
@@ -1357,15 +1588,15 @@ export default function Dashboard({
                                             value="local_only" 
                                             checked={deleteMode === 'local_only'} 
                                             onChange={() => setDeleteMode('local_only')}
-                                            className="mt-0.5 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800"
+                                            className={`mt-0.5 text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
                                         />
                                         <div className="space-y-0.5">
-                                            <span className="font-semibold text-white group-hover:text-emerald-400 transition-colors">Hapus Database Saja (Dual-Mode 1)</span>
-                                            <p className="text-zinc-500 leading-normal text-[10px]">Hanya menghapus data dari database mWiFi. Akun PPP Secret / Hotspot di Mikrotik akan tetap ada dan aktif.</p>
+                                            <span className={`font-semibold ${themeTextTitle} ${isDarkMode ? 'group-hover:text-emerald-400' : 'group-hover:text-emerald-600'} transition-colors`}>Hapus Database Saja (Dual-Mode 1)</span>
+                                            <p className={`${themeTextDesc} leading-normal text-[10px]`}>Hanya menghapus data dari database mWiFi. Akun PPP Secret / Hotspot di Mikrotik akan tetap ada dan aktif.</p>
                                         </div>
                                     </label>
 
-                                    <div className="border-t border-zinc-850/50 my-2"></div>
+                                    <div className={`border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200/60'} my-2`}></div>
 
                                     <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
                                         <input 
@@ -1374,11 +1605,11 @@ export default function Dashboard({
                                             value="total" 
                                             checked={deleteMode === 'total'} 
                                             onChange={() => setDeleteMode('total')}
-                                            className="mt-0.5 text-rose-500 focus:ring-rose-500 focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800"
+                                            className={`mt-0.5 text-rose-500 focus:ring-rose-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
                                         />
                                         <div className="space-y-0.5">
-                                            <span className="font-semibold text-rose-400 group-hover:text-rose-300 transition-colors">Hapus Database & Mikrotik (Dual-Mode 2)</span>
-                                            <p className="text-zinc-500 leading-normal text-[10px]">Menghapus data dari database mWiFi DAN menghapus secara permanen akun PPP Secret/Hotspot dari Router Mikrotik.</p>
+                                            <span className="font-semibold text-rose-500 transition-colors">Hapus Database & Mikrotik (Dual-Mode 2)</span>
+                                            <p className={`${themeTextDesc} leading-normal text-[10px]`}>Menghapus data dari database mWiFi DAN menghapus secara permanen akun PPP Secret/Hotspot dari Router Mikrotik.</p>
                                         </div>
                                     </label>
                                 </div>
@@ -1391,14 +1622,14 @@ export default function Dashboard({
                                         setShowDeleteCustomerModal(false);
                                         setCustomerToDelete(null);
                                     }} 
-                                    className="px-4 py-2 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white"
+                                    className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
                                 >
                                     Batal
                                 </button>
                                 <button 
                                     type="button" 
                                     onClick={confirmDeleteCustomer} 
-                                    className={`px-4 py-2 rounded-lg font-bold text-white transition-colors ${deleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                                    className={`px-4 py-2 rounded-lg font-bold text-white transition-colors cursor-pointer ${deleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
                                 >
                                     Konfirmasi Hapus
                                 </button>
@@ -1417,7 +1648,7 @@ export default function Dashboard({
                                 </h3>
                                 <button onClick={() => {
                                     setShowBulkDeleteModal(false);
-                                }} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
+                                }} className={`text-zinc-500 ${isDarkMode ? 'hover:text-white' : 'hover:text-zinc-800'}`}><X className="w-4 h-4" /></button>
                             </div>
                             
                             <div className="text-xs space-y-3">
@@ -1425,8 +1656,8 @@ export default function Dashboard({
                                     Anda akan menghapus secara masal <strong>{selectedCustomerIds.length}</strong> pelanggan yang dipilih. Tindakan ini tidak bisa dibatalkan!
                                 </p>
                                 
-                                <div className="p-3 bg-zinc-950/40 border border-zinc-850 rounded-xl space-y-2">
-                                    <span className="font-bold text-zinc-400 block mb-1">Pilih Mode Penghapusan Masal:</span>
+                                <div className={`p-3 ${themeInnerWidget} rounded-xl space-y-2`}>
+                                    <span className={`font-bold ${themeTextSub} block mb-1`}>Pilih Mode Penghapusan Masal:</span>
                                     
                                     <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
                                         <input 
@@ -1435,15 +1666,15 @@ export default function Dashboard({
                                             value="local_only" 
                                             checked={bulkDeleteMode === 'local_only'} 
                                             onChange={() => setBulkDeleteMode('local_only')}
-                                            className="mt-0.5 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800"
+                                            className={`mt-0.5 text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
                                         />
                                         <div className="space-y-0.5">
-                                            <span className="font-semibold text-white group-hover:text-emerald-400 transition-colors">Hapus Database Saja (Local Only)</span>
-                                            <p className="text-zinc-500 leading-normal text-[10px]">Hanya menghapus data terpilih dari database mWiFi. Akun PPP Secret / Hotspot di Mikrotik akan tetap ada dan aktif.</p>
+                                            <span className={`font-semibold ${themeTextTitle} ${isDarkMode ? 'group-hover:text-emerald-400' : 'group-hover:text-emerald-600'} transition-colors`}>Hapus Database Saja (Local Only)</span>
+                                            <p className={`${themeTextDesc} leading-normal text-[10px]`}>Hanya menghapus data terpilih dari database mWiFi. Akun PPP Secret / Hotspot di Mikrotik akan tetap ada dan aktif.</p>
                                         </div>
                                     </label>
 
-                                    <div className="border-t border-zinc-850/50 my-2"></div>
+                                    <div className={`border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200/60'} my-2`}></div>
 
                                     <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
                                         <input 
@@ -1452,11 +1683,11 @@ export default function Dashboard({
                                             value="total" 
                                             checked={bulkDeleteMode === 'total'} 
                                             onChange={() => setBulkDeleteMode('total')}
-                                            className="mt-0.5 text-rose-500 focus:ring-rose-500 focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800"
+                                            className={`mt-0.5 text-rose-500 focus:ring-rose-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
                                         />
                                         <div className="space-y-0.5">
-                                            <span className="font-semibold text-rose-400 group-hover:text-rose-300 transition-colors">Hapus Database & Mikrotik (Total)</span>
-                                            <p className="text-zinc-500 leading-normal text-[10px]">Menghapus data terpilih dari database mWiFi DAN menghapus secara permanen akun PPP Secret/Hotspot terkait dari Router Mikrotik.</p>
+                                            <span className="font-semibold text-rose-450 transition-colors">Hapus Database & Mikrotik (Total)</span>
+                                            <p className={`${themeTextDesc} leading-normal text-[10px]`}>Menghapus data terpilih dari database mWiFi DAN menghapus secara permanen akun PPP Secret/Hotspot terkait dari Router Mikrotik.</p>
                                         </div>
                                     </label>
                                 </div>
@@ -1468,14 +1699,14 @@ export default function Dashboard({
                                     onClick={() => {
                                         setShowBulkDeleteModal(false);
                                     }} 
-                                    className="px-4 py-2 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white"
+                                    className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
                                 >
                                     Batal
                                 </button>
                                 <button 
                                     type="button" 
                                     onClick={confirmBulkDeleteCustomer} 
-                                    className={`px-4 py-2 rounded-lg font-bold text-white transition-colors ${bulkDeleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                                    className={`px-4 py-2 rounded-lg font-bold text-white transition-colors cursor-pointer ${bulkDeleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
                                 >
                                     Konfirmasi Hapus Masal
                                 </button>
@@ -1512,13 +1743,43 @@ export default function Dashboard({
                                     <label className={`font-bold ${themeLabel}`}>Nama Profile Mikrotik</label>
                                     <input required name="mikrotik_profile" type="text" defaultValue={editingPackage ? editingPackage.mikrotik_profile : ''} placeholder="e.g. Family-20M" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
                                 </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>Local Address</label>
+                                        <input name="local_address" type="text" defaultValue={editingPackage ? editingPackage.local_address : ''} placeholder="e.g. 192.168.22.1" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>Remote Address</label>
+                                        <input name="remote_address" type="text" defaultValue={editingPackage ? editingPackage.remote_address : ''} placeholder="e.g. pool_ppp" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>DNS Server</label>
+                                        <input name="dns_server" type="text" defaultValue={editingPackage ? editingPackage.dns_server : ''} placeholder="e.g. 8.8.8.8, 8.8.4.4" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>Parent Queue</label>
+                                        <input name="parent_queue" type="text" defaultValue={editingPackage ? editingPackage.parent_queue : ''} placeholder="e.g. GLOBAL CONN" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>Queue Type Rx</label>
+                                        <input name="queue_type_rx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_rx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>Queue Type Tx</label>
+                                        <input name="queue_type_tx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_tx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                </div>
                                 <div className="flex flex-col gap-1">
                                     <label className={`font-bold ${themeLabel}`}>Deskripsi Paket</label>
                                     <textarea name="description" rows={2} defaultValue={editingPackage ? editingPackage.description : ''} className={`p-2 border rounded-lg ${themeInput}`} />
                                 </div>
                                 <div className="flex justify-end pt-3 gap-2">
-                                    <button type="button" onClick={() => setShowPackageModal(false)} className="px-4 py-2 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white">Batal</button>
-                                    <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold">Simpan</button>
+                                    <button type="button" onClick={() => setShowPackageModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
+                                    <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold cursor-pointer">Simpan</button>
                                 </div>
                             </form>
                         </div>
@@ -1534,39 +1795,40 @@ export default function Dashboard({
                     const isError = toast.type === 'error';
                     const isWarning = toast.type === 'warning';
                     
-                    let bgColor, borderColor, iconColor, textColor;
+                    let cardStyles = '';
+                    let iconColor = '';
                     let IconComponent = CheckCircle2; // default
                     
                     if (isSuccess) {
-                        bgColor = isDarkMode ? 'bg-zinc-900/90 border-zinc-800' : 'bg-emerald-50 border-emerald-200';
-                        borderColor = 'border-emerald-500/30';
-                        iconColor = 'text-emerald-500';
-                        textColor = isDarkMode ? 'text-zinc-100' : 'text-emerald-800';
+                        cardStyles = isDarkMode 
+                            ? 'bg-emerald-950/80 border-emerald-500/40 border-l-emerald-500 text-emerald-100' 
+                            : 'bg-emerald-50 border-emerald-300 border-l-emerald-500 text-emerald-900';
+                        iconColor = 'text-emerald-500 dark:text-emerald-400';
                         IconComponent = CheckCircle2;
                     } else if (isError) {
-                        bgColor = isDarkMode ? 'bg-zinc-900/90 border-zinc-800' : 'bg-rose-50 border-rose-200';
-                        borderColor = 'border-rose-500/30';
-                        iconColor = 'text-rose-500';
-                        textColor = isDarkMode ? 'text-zinc-100' : 'text-rose-800';
+                        cardStyles = isDarkMode 
+                            ? 'bg-rose-950/80 border-rose-500/40 border-l-rose-500 text-rose-100' 
+                            : 'bg-rose-50 border-rose-300 border-l-rose-500 text-rose-900';
+                        iconColor = 'text-rose-500 dark:text-rose-400';
                         IconComponent = AlertCircle;
                     } else if (isWarning) {
-                        bgColor = isDarkMode ? 'bg-zinc-900/90 border-zinc-800' : 'bg-amber-50 border-amber-200';
-                        borderColor = 'border-amber-500/30';
-                        iconColor = 'text-amber-500';
-                        textColor = isDarkMode ? 'text-zinc-100' : 'text-amber-800';
+                        cardStyles = isDarkMode 
+                            ? 'bg-amber-950/80 border-amber-500/40 border-l-amber-500 text-amber-100' 
+                            : 'bg-amber-50 border-amber-300 border-l-amber-500 text-amber-900';
+                        iconColor = 'text-amber-500 dark:text-amber-400';
                         IconComponent = AlertCircle;
                     } else {
-                        bgColor = isDarkMode ? 'bg-zinc-900/90 border-zinc-800' : 'bg-white border-zinc-200';
-                        borderColor = isDarkMode ? 'border-zinc-800' : 'border-zinc-200';
-                        iconColor = 'text-blue-500';
-                        textColor = isDarkMode ? 'text-zinc-100' : 'text-zinc-800';
+                        cardStyles = isDarkMode 
+                            ? 'bg-blue-950/80 border-blue-500/40 border-l-blue-500 text-blue-100' 
+                            : 'bg-blue-50 border-blue-300 border-l-blue-500 text-blue-900';
+                        iconColor = 'text-blue-500 dark:text-blue-400';
                         IconComponent = Sliders;
                     }
                     
                     return (
                         <div 
                             key={toast.id} 
-                            className={`p-3.5 border rounded-xl shadow-lg backdrop-blur-md flex items-start space-x-3 pointer-events-auto transition-all duration-300 transform translate-x-0 animate-slide-in ${bgColor} ${borderColor} ${textColor}`}
+                            className={`p-3.5 border border-l-4 rounded-xl shadow-lg backdrop-blur-md flex items-start space-x-3 pointer-events-auto transition-all duration-300 transform translate-x-0 animate-slide-in ${cardStyles}`}
                         >
                             <IconComponent className={`w-4 h-4 mt-0.5 shrink-0 ${iconColor}`} />
                             <div className="flex-1 text-xs font-semibold leading-relaxed">
@@ -1574,7 +1836,7 @@ export default function Dashboard({
                             </div>
                             <button 
                                 onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
-                                className="text-zinc-400 hover:text-white dark:hover:text-zinc-300 cursor-pointer"
+                                className="text-current opacity-60 hover:opacity-100 cursor-pointer transition-opacity"
                             >
                                 <X className="w-3.5 h-3.5" />
                             </button>

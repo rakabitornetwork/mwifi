@@ -55,6 +55,13 @@ interface RouterConnectorInterface
     public function getActiveConnections(): array;
 
     /**
+     * Get all PPP Profiles from RouterOS.
+     *
+     * @return array
+     */
+    public function getProfiles(): array;
+
+    /**
      * Forcefully disconnect an active session (useful for applying changes or isolating immediately).
      *
      * @param string $username

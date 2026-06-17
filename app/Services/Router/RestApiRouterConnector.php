@@ -193,4 +193,21 @@ class RestApiRouterConnector implements RouterConnectorInterface
             return false;
         }
     }
+
+    /**
+     * Get all PPP Profiles from RouterOS.
+     */
+    public function getProfiles(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ppp/profile");
+
+            return $response->successful() ? $response->json() : [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
 }

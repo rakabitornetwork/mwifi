@@ -212,6 +212,12 @@ class AdminActionController extends Controller
             'price' => 'required|numeric|min:0',
             'bandwidth_limit' => 'required|string',
             'mikrotik_profile' => 'required|string',
+            'local_address' => 'nullable|string|max:50',
+            'remote_address' => 'nullable|string|max:50',
+            'dns_server' => 'nullable|string|max:100',
+            'parent_queue' => 'nullable|string|max:100',
+            'queue_type_rx' => 'nullable|string|max:100',
+            'queue_type_tx' => 'nullable|string|max:100',
             'description' => 'nullable|string',
         ]);
 
@@ -221,6 +227,26 @@ class AdminActionController extends Controller
         Package::updateOrCreate(['id' => $id], $data);
 
         return redirect()->back()->with('success', 'Paket internet berhasil disimpan.');
+    }
+
+    /**
+     * Delete an Internet Package.
+     */
+    public function deletePackage(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:packages,id'
+        ]);
+
+        $package = Package::findOrFail($request->input('id'));
+        
+        if ($package->customers()->exists()) {
+            return redirect()->back()->with('error', 'Gagal menghapus paket karena masih digunakan oleh pelanggan.');
+        }
+
+        $package->delete();
+
+        return redirect()->back()->with('success', 'Paket internet berhasil dihapus.');
     }
 
     /**
@@ -307,6 +333,27 @@ class AdminActionController extends Controller
             
             // Fetch all secrets
             $secrets = $connector->getSecrets();
+
+            // Fetch all profiles from Mikrotik to import profile details
+            $profiles = [];
+            try {
+                $profiles = $connector->getProfiles();
+            } catch (\Exception $e) {}
+
+            $profileMap = [];
+            foreach ($profiles as $prof) {
+                $name = $prof['name'] ?? null;
+                if ($name) {
+                    $profileMap[$name] = [
+                        'local_address' => $prof['local-address'] ?? $prof['local_address'] ?? null,
+                        'remote_address' => $prof['remote-address'] ?? $prof['remote_address'] ?? null,
+                        'dns_server' => $prof['dns-server'] ?? $prof['dns_server'] ?? $prof['dns-servers'] ?? $prof['dns_servers'] ?? null,
+                        'parent_queue' => $prof['parent-queue'] ?? $prof['parent_queue'] ?? null,
+                        'queue_type_rx' => $prof['rx-queue-type'] ?? $prof['rx_queue_type'] ?? $prof['queue-type'] ?? $prof['queue_type'] ?? null,
+                        'queue_type_tx' => $prof['tx-queue-type'] ?? $prof['tx_queue_type'] ?? $prof['queue-type'] ?? $prof['queue_type'] ?? null,
+                    ];
+                }
+            }
             
             $importedCustomersCount = 0;
             $updatedCustomersCount = 0;
@@ -324,6 +371,8 @@ class AdminActionController extends Controller
                 
                 // Find package or create it dynamically
                 $package = Package::where('mikrotik_profile', $profileName)->first();
+                $profData = $profileMap[$profileName] ?? [];
+                
                 if (!$package && $profileName !== 'default') {
                     // Try to guess price from profile name (e.g. "25 Mbps - 150K" -> 150000, "100k" -> 100000)
                     $price = 150000; // default
@@ -339,14 +388,17 @@ class AdminActionController extends Controller
                         $bandwidth = $matches[1] . 'M';
                     }
 
-                    $package = Package::create([
+                    $package = Package::create(array_merge([
                         'name' => $profileName,
                         'price' => $price,
                         'bandwidth_limit' => $bandwidth,
                         'mikrotik_profile' => $profileName,
                         'description' => "Paket otomatis diimport dari profil Mikrotik: {$profileName}",
-                    ]);
+                    ], $profData));
                     $importedPackagesCount++;
+                } elseif ($package) {
+                    // Sync latest profile settings from Mikrotik to local package
+                    $package->update($profData);
                 }
 
                 $packageId = $package ? $package->id : null;
@@ -443,5 +495,107 @@ class AdminActionController extends Controller
         }
 
         return redirect()->back()->with('success', 'Pengaturan berhasil diperbarui.');
+    }
+
+    /**
+     * Get real-time system resource metrics of the server (VPS).
+     */
+    public function getServerResources()
+    {
+        // 1. Disk Space
+        $diskTotal = disk_total_space('/') ?: 1;
+        $diskFree = disk_free_space('/') ?: 0;
+        $diskUsed = $diskTotal - $diskFree;
+        $diskUsage = round(($diskUsed / $diskTotal) * 100);
+
+        // 2. CPU Usage
+        $cpuUsage = 15; // default fallback
+        if (stristr(PHP_OS, 'win')) {
+            try {
+                $output = @shell_exec('wmic cpu get LoadPercentage /Value 2>nul');
+                if ($output && preg_match("/LoadPercentage=(\d+)/i", $output, $matches)) {
+                    $cpuUsage = (int)$matches[1];
+                } else {
+                    $psOutput = @shell_exec('powershell -NoProfile -Command "Get-CimInstance Win32_Processor | Select-Object -ExpandProperty LoadPercentage" 2>nul');
+                    if ($psOutput && preg_match("/(\d+)/", $psOutput, $matches)) {
+                        $cpuUsage = (int)$matches[1];
+                    }
+                }
+            } catch (\Exception $e) {}
+        } else {
+            try {
+                if (function_exists('sys_getloadavg')) {
+                    $loads = sys_getloadavg();
+                    $coreCount = 1;
+                    if (is_file('/proc/cpuinfo')) {
+                        $cpuinfo = file_get_contents('/proc/cpuinfo');
+                        preg_match_all('/^processor/m', $cpuinfo, $matches);
+                        $coreCount = count($matches[0]) ?: 1;
+                    }
+                    $cpuUsage = round(($loads[0] / $coreCount) * 100);
+                    if ($cpuUsage > 100) $cpuUsage = 100;
+                }
+            } catch (\Exception $e) {}
+        }
+
+        // 3. RAM Usage
+        $ramUsage = 35; // default fallback
+        if (stristr(PHP_OS, 'win')) {
+            try {
+                $output = @shell_exec('wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /Value 2>nul');
+                if ($output && preg_match("/FreePhysicalMemory=(\d+)/i", $output, $freeMatches) && 
+                    preg_match("/TotalVisibleMemorySize=(\d+)/i", $output, $totalMatches)) {
+                    $freeMem = (int)$freeMatches[1];
+                    $totalMem = (int)$totalMatches[1];
+                    if ($totalMem > 0) {
+                        $ramUsage = round((($totalMem - $freeMem) / $totalMem) * 100);
+                    }
+                } else {
+                    $psOutput = @shell_exec('powershell -NoProfile -Command "(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory; (Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize" 2>nul');
+                    if ($psOutput) {
+                        $lines = array_filter(array_map('trim', explode("\n", trim($psOutput))));
+                        if (count($lines) >= 2) {
+                            $freeMem = (int)$lines[0];
+                            $totalMem = (int)$lines[1];
+                            if ($totalMem > 0) {
+                                $ramUsage = round((($totalMem - $freeMem) / $totalMem) * 100);
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $e) {}
+        } else {
+            try {
+                $free = shell_exec('free');
+                $free = trim($free);
+                $free_arr = explode("\n", $free);
+                if (isset($free_arr[1])) {
+                    $mem = preg_split("/\s+/", $free_arr[1]);
+                    $totalMem = $mem[1] ?? 1;
+                    $usedMem = $mem[2] ?? 0;
+                    $ramUsage = round(($usedMem / $totalMem) * 100);
+                }
+            } catch (\Exception $e) {}
+        }
+
+        $osName = PHP_OS_FAMILY;
+        if (PHP_OS_FAMILY === 'Linux') {
+            try {
+                if (is_file('/etc/os-release')) {
+                    $release = file_get_contents('/etc/os-release');
+                    if (preg_match('/PRETTY_NAME="([^"]+)"/', $release, $matches)) {
+                        $osName = $matches[1];
+                    }
+                }
+            } catch (\Exception $e) {}
+        }
+
+        return response()->json([
+            'cpu' => $cpuUsage,
+            'ram' => $ramUsage,
+            'disk' => $diskUsage,
+            'os' => $osName,
+            'hostname' => gethostname() ?: 'vps-server'
+        ]);
     }
 }

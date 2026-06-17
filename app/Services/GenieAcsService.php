@@ -22,8 +22,11 @@ class GenieAcsService
             // Projection query to request only required nodes for performance
             $projectionFields = [
                 '_id',
+                '_lastInform',
                 'InternetGatewayDevice.DeviceInfo.ModelName',
                 'Device.DeviceInfo.ModelName',
+                'InternetGatewayDevice.DeviceInfo.ProductClass',
+                'Device.DeviceInfo.ProductClass',
                 'InternetGatewayDevice.DeviceInfo.SerialNumber',
                 'Device.DeviceInfo.SerialNumber',
                 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username',
@@ -33,7 +36,9 @@ class GenieAcsService
                 'InternetGatewayDevice.X_ASB_COM_ONU.OpticalInfo.RxPower',
                 'InternetGatewayDevice.X_HW_ONU_OpticalInfo.RxPower',
                 'InternetGatewayDevice.X_HW_GponOpticalInfo.RxPower',
-                'Device.Optical.Interface.1.RxPower'
+                'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.RXPower',
+                'Device.Optical.Interface.1.RxPower',
+                'VirtualParameters.RXPower'
             ];
 
             $response = Http::timeout(4)
@@ -65,27 +70,46 @@ class GenieAcsService
                     // Extract Model Name
                     $model = self::getNestedValue($rawDev, [
                         'InternetGatewayDevice.DeviceInfo.ModelName',
-                        'Device.DeviceInfo.ModelName'
+                        'Device.DeviceInfo.ModelName',
+                        'InternetGatewayDevice.DeviceInfo.ProductClass',
+                        'Device.DeviceInfo.ProductClass'
                     ]) ?? 'Generic ONT';
 
-                    // Extract Rx Power
-                    $rxRaw = self::getNestedValue($rawDev, [
-                        'InternetGatewayDevice.X_ZTE-COM_ONU.OpticalInfo.RxPower',
-                        'InternetGatewayDevice.X_ASB_COM_ONU.OpticalInfo.RxPower',
-                        'InternetGatewayDevice.X_HW_ONU_OpticalInfo.RxPower',
-                        'InternetGatewayDevice.X_HW_GponOpticalInfo.RxPower',
-                        'Device.Optical.Interface.1.RxPower'
-                    ]);
+                    // Check last inform to determine online/offline status
+                    $lastInformStr = $rawDev['_lastInform'] ?? null;
+                    $isOnline = false;
+                    if ($lastInformStr) {
+                        $lastInform = strtotime($lastInformStr);
+                        if ($lastInform && (time() - $lastInform < 300)) {
+                            $isOnline = true;
+                        }
+                    }
 
-                    $rx = self::parseRxPower($rxRaw);
-                    $status = self::determineStatus($rx);
+                    if ($isOnline) {
+                        // Extract Rx Power
+                        $rxRaw = self::getNestedValue($rawDev, [
+                            'InternetGatewayDevice.X_ZTE-COM_ONU.OpticalInfo.RxPower',
+                            'InternetGatewayDevice.X_ASB_COM_ONU.OpticalInfo.RxPower',
+                            'InternetGatewayDevice.X_HW_ONU_OpticalInfo.RxPower',
+                            'InternetGatewayDevice.X_HW_GponOpticalInfo.RxPower',
+                            'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.RXPower',
+                            'Device.Optical.Interface.1.RxPower',
+                            'VirtualParameters.RXPower'
+                        ]);
+                        $rxVal = self::parseRxPower($rxRaw);
+                        $rxText = $rxVal . ' dBm';
+                        $status = self::determineStatus($rxVal);
+                    } else {
+                        $rxText = 'Offline';
+                        $status = 'offline';
+                    }
 
                     $devices[] = [
                         'id' => $deviceId,
                         'sn' => $sn,
                         'username' => $username,
                         'model' => $model,
-                        'rx' => $rx . ' dBm',
+                        'rx' => $rxText,
                         'status' => $status
                     ];
                 }
@@ -128,8 +152,8 @@ class GenieAcsService
                     'sn' => 'FHGAC91277F1',
                     'username' => 'joko_pppoe',
                     'model' => 'F670L',
-                    'rx' => '-31.2 dBm',
-                    'status' => 'critical'
+                    'rx' => 'Offline',
+                    'status' => 'offline'
                 ]
             ];
         }
@@ -177,6 +201,18 @@ class GenieAcsService
     private static function getNestedValue(array $data, array $keys)
     {
         foreach ($keys as $keyPath) {
+            // 1. Check direct flat dot-notation key (standard for GenieACS NBI projection responses)
+            if (isset($data[$keyPath])) {
+                $val = $data[$keyPath];
+                if (is_array($val) && isset($val['_value'])) {
+                    return $val['_value'];
+                }
+                if (!is_array($val)) {
+                    return $val;
+                }
+            }
+
+            // 2. Fallback to nested object traversal
             $parts = explode('.', $keyPath);
             $current = $data;
             $found = true;
