@@ -210,4 +210,120 @@ class RestApiRouterConnector implements RouterConnectorInterface
             return [];
         }
     }
+
+    public function getHotspotProfiles(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ip/hotspot/user-profile");
+
+            return $response->successful() ? $response->json() : [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getHotspotUsers(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ip/hotspot/user");
+
+            return $response->successful() ? $response->json() : [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function addHotspotUser(array $data): bool
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->put("{$this->baseUrl}/ip/hotspot/user", $data);
+
+            return $response->successful() || $response->status() === 201;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function deleteHotspotUser(string $username): bool
+    {
+        try {
+            $responseFind = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ip/hotspot/user", ['name' => $username]);
+
+            if (!$responseFind->successful() || empty($responseFind->json())) {
+                return false;
+            }
+
+            $users = $responseFind->json();
+            $id = $users[0]['.id'] ?? null;
+
+            if (!$id) {
+                return false;
+            }
+
+            $responseDelete = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->delete("{$this->baseUrl}/ip/hotspot/user/{$id}");
+
+            return $responseDelete->successful();
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function getHotspotActive(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ip/hotspot/active");
+
+            return $response->successful() ? $response->json() : [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function kickHotspotActive(string $username): bool
+    {
+        try {
+            $responseFind = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ip/hotspot/active", ['user' => $username]);
+
+            if (!$responseFind->successful() || empty($responseFind->json())) {
+                return true;
+            }
+
+            $actives = $responseFind->json();
+            $id = $actives[0]['.id'] ?? null;
+
+            if (!$id) {
+                return false;
+            }
+
+            $responseDelete = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->delete("{$this->baseUrl}/ip/hotspot/active/{$id}");
+
+            return $responseDelete->successful();
+        } catch (Exception $e) {
+            return false;
+        }
+    }
 }

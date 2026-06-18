@@ -13,6 +13,8 @@ use App\Services\SettingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
+use App\Models\HotspotVoucher;
+use App\Models\HotspotSale;
 
 class AdminActionController extends Controller
 {
@@ -212,6 +214,8 @@ class AdminActionController extends Controller
             'price' => 'required|numeric|min:0',
             'bandwidth_limit' => 'required|string',
             'mikrotik_profile' => 'required|string',
+            'type' => 'nullable|in:pppoe,hotspot',
+            'validity' => 'nullable|string|max:50',
             'local_address' => 'nullable|string|max:50',
             'remote_address' => 'nullable|string|max:50',
             'dns_server' => 'nullable|string|max:100',
@@ -597,5 +601,183 @@ class AdminActionController extends Controller
             'os' => $osName,
             'hostname' => gethostname() ?: 'vps-server'
         ]);
+    }
+
+    /**
+     * Synchronize Hotspot Profiles from MikroTik.
+     */
+    public function syncHotspotProfiles(Request $request)
+    {
+        $request->validate([
+            'router_id' => 'required|exists:routers,id',
+        ]);
+
+        $router = Router::findOrFail($request->input('router_id'));
+
+        try {
+            $connector = \App\Services\Router\RouterService::getConnector($router);
+            $profiles = $connector->getHotspotProfiles();
+
+            $importedCount = 0;
+            foreach ($profiles as $prof) {
+                $profileName = $prof['name'] ?? null;
+                if (!$profileName || $profileName === 'default') {
+                    continue;
+                }
+
+                // Guess price from profile name
+                $price = 5000; // default hotspot price
+                if (preg_match('/(\d+)\s*[kK]/', $profileName, $matches)) {
+                    $price = intval($matches[1]) * 1000;
+                }
+
+                // Guess speed limit
+                $bandwidth = $prof['rate-limit'] ?? $prof['rate_limit'] ?? '5M/5M';
+
+                Package::updateOrCreate(
+                    [
+                        'mikrotik_profile' => $profileName,
+                        'type' => 'hotspot'
+                    ],
+                    [
+                        'name' => "Hotspot - " . $profileName,
+                        'price' => $price,
+                        'bandwidth_limit' => $bandwidth,
+                        'validity' => '1d', // default validity 1 day
+                        'description' => "Profil hotspot diimpor otomatis dari Mikrotik: {$profileName}",
+                    ]
+                );
+                $importedCount++;
+            }
+
+            return redirect()->back()->with('success', "Berhasil mensinkronisasi {$importedCount} profil hotspot dari Mikrotik.");
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', "Gagal singkronisasi hotspot: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate Hotspot Vouchers in bulk.
+     */
+    public function generateHotspotVouchers(Request $request)
+    {
+        $data = $request->validate([
+            'router_id' => 'required|exists:routers,id',
+            'package_id' => 'required|exists:packages,id',
+            'qty' => 'required|integer|min:1|max:500',
+            'code_length' => 'required|integer|min:4|max:12',
+            'prefix' => 'nullable|string|max:10',
+        ]);
+
+        $router = Router::findOrFail($data['router_id']);
+        $package = Package::findOrFail($data['package_id']);
+
+        try {
+            $connector = \App\Services\Router\RouterService::getConnector($router);
+
+            $successCount = 0;
+            for ($i = 0; $i < $data['qty']; $i++) {
+                // Generate a random legibe code
+                $chars = 'abcdefghkmnpqrstuvwxyz23456789';
+                $code = $data['prefix'] ?? '';
+                for ($j = 0; $j < $data['code_length']; $j++) {
+                    $code .= $chars[rand(0, strlen($chars) - 1)];
+                }
+
+                // Add to MikroTik
+                $mkData = [
+                    'name' => $code,
+                    'password' => $code,
+                    'profile' => $package->mikrotik_profile,
+                    'comment' => 'mWiFi Generated',
+                ];
+
+                if (!empty($package->validity)) {
+                    $mkData['limit-uptime'] = $package->validity;
+                }
+
+                $added = $connector->addHotspotUser($mkData);
+
+                if ($added) {
+                    HotspotVoucher::create([
+                        'router_id' => $router->id,
+                        'username' => $code,
+                        'password' => $code,
+                        'mikrotik_profile' => $package->mikrotik_profile,
+                        'price' => $package->price,
+                        'validity' => $package->validity,
+                        'status' => 'unused',
+                    ]);
+                    $successCount++;
+                }
+            }
+
+            return redirect()->back()->with('success', "Berhasil men-generate {$successCount} voucher hotspot baru.");
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', "Gagal men-generate voucher: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Sell a Hotspot Voucher.
+     */
+    public function sellHotspotVoucher(Request $request)
+    {
+        $data = $request->validate([
+            'voucher_id' => 'required|exists:hotspot_vouchers,id',
+            'payment_method' => 'required|string|max:50',
+        ]);
+
+        $voucher = HotspotVoucher::findOrFail($data['voucher_id']);
+        if ($voucher->status !== 'unused') {
+            return redirect()->back()->with('error', "Voucher ini sudah terjual atau kedaluwarsa.");
+        }
+
+        // Update voucher
+        $voucher->update([
+            'status' => 'sold',
+            'sold_at' => Carbon::now(),
+        ]);
+
+        // Log sale
+        HotspotSale::create([
+            'router_id' => $voucher->router_id,
+            'username' => $voucher->username,
+            'package_name' => "Hotspot Profile: " . $voucher->mikrotik_profile,
+            'price' => $voucher->price,
+            'payment_method' => $data['payment_method'],
+        ]);
+
+        return redirect()->back()->with('success', "Voucher {$voucher->username} berhasil dicatat sebagai TERJUAL.");
+    }
+
+    /**
+     * Delete a Hotspot Voucher.
+     */
+    public function deleteHotspotVoucher(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:hotspot_vouchers,id',
+        ]);
+
+        $voucher = HotspotVoucher::findOrFail($request->input('id'));
+
+        try {
+            if ($voucher->router) {
+                try {
+                    $connector = \App\Services\Router\RouterService::getConnector($voucher->router);
+                    $connector->deleteHotspotUser($voucher->username);
+                    $connector->kickHotspotActive($voucher->username);
+                } catch (\Exception $me) {
+                    \Illuminate\Support\Facades\Log::warning("Gagal menghapus user hotspot di Mikrotik: " . $me->getMessage());
+                }
+            }
+
+            $voucher->delete();
+
+            return redirect()->back()->with('success', "Voucher hotspot berhasil dihapus.");
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', "Gagal menghapus voucher: " . $e->getMessage());
+        }
     }
 }

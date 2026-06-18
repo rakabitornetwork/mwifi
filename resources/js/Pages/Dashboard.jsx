@@ -3,6 +3,17 @@ import { Head, router, usePage } from '@inertiajs/react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { 
+    ResponsiveContainer, 
+    AreaChart, 
+    Area, 
+    XAxis, 
+    YAxis, 
+    CartesianGrid, 
+    Tooltip, 
+    BarChart, 
+    Bar 
+} from 'recharts';
+import { 
     Users, 
     Wifi, 
     CreditCard, 
@@ -76,6 +87,8 @@ export default function Dashboard({
     packages = [], 
     invoices = [], 
     settings = [],
+    hotspotVouchers = [],
+    hotspotSales = [],
     activeTabProp = 'dashboard'
 }) {
     const [activeTab, setActiveTab] = useState(activeTabProp);
@@ -85,6 +98,27 @@ export default function Dashboard({
     const [serverResources, setServerResources] = useState({ cpu: 15, ram: 35, disk: 20, os: 'VPS', hostname: 'vps-server' });
     const [customerPage, setCustomerPage] = useState(1);
     const customerPageSize = 10;
+
+    // Hotspot State
+    const [hotspotSubTab, setHotspotSubTab] = useState('vouchers');
+    const [voucherSearch, setVoucherSearch] = useState('');
+    const [voucherRouterFilter, setVoucherRouterFilter] = useState('');
+    const [voucherStatusFilter, setVoucherStatusFilter] = useState('');
+    const [voucherPage, setVoucherPage] = useState(1);
+    const [salesPage, setSalesPage] = useState(1);
+    const [isSyncingHotspot, setIsSyncingHotspot] = useState(false);
+    const [showGenerateVoucherModal, setShowGenerateVoucherModal] = useState(false);
+    const [isGeneratingVouchers, setIsGeneratingVouchers] = useState(false);
+    const [showSellVoucherModal, setShowSellVoucherModal] = useState(false);
+    const [selectedVoucherForSale, setSelectedVoucherForSale] = useState(null);
+    const [isSellingVoucher, setIsSellingVoucher] = useState(false);
+    const [selectedPackageType, setSelectedPackageType] = useState('pppoe');
+    const voucherPageSize = 10;
+    const salesPageSize = 10;
+
+    useEffect(() => {
+        setVoucherPage(1);
+    }, [voucherSearch, voucherRouterFilter, voucherStatusFilter]);
 
     useEffect(() => {
         setCustomerPage(1);
@@ -206,7 +240,7 @@ export default function Dashboard({
     useEffect(() => {
         const handlePopState = () => {
             const path = window.location.pathname.replace(/^\//, ''); // removes leading slash
-            const validTabs = ['dashboard', 'routers', 'customers', 'packages', 'invoices', 'settings'];
+            const validTabs = ['dashboard', 'routers', 'customers', 'packages', 'invoices', 'hotspot', 'settings'];
             if (path && validTabs.includes(path)) {
                 setActiveTab(path);
             } else {
@@ -219,7 +253,7 @@ export default function Dashboard({
     }, []);
 
     useEffect(() => {
-        const validTabs = ['dashboard', 'routers', 'customers', 'packages', 'invoices', 'settings'];
+        const validTabs = ['dashboard', 'routers', 'customers', 'packages', 'invoices', 'hotspot', 'settings'];
         if (validTabs.includes(activeTab)) {
             const targetPath = `/${activeTab}`;
             if (window.location.pathname !== targetPath) {
@@ -408,6 +442,72 @@ export default function Dashboard({
         
         router.post('/admin/settings/save', payload);
     };
+
+    // Hotspot Action Handlers
+    const handleSyncHotspot = (routerId) => {
+        if (!routerId) {
+            showToast("Pilih router terlebih dahulu untuk sinkronisasi profil hotspot.", "warning");
+            return;
+        }
+        setIsSyncingHotspot(true);
+        router.post('/admin/hotspot/sync-profiles', { router_id: routerId }, {
+            onSuccess: () => {
+                setIsSyncingHotspot(false);
+            },
+            onError: () => {
+                setIsSyncingHotspot(false);
+            }
+        });
+    };
+
+    const handleGenerateVouchersSubmit = (e) => {
+        e.preventDefault();
+        const data = new FormData(e.target);
+        const payload = Object.fromEntries(data.entries());
+        
+        setIsGeneratingVouchers(true);
+        router.post('/admin/hotspot/generate-vouchers', payload, {
+            onSuccess: () => {
+                setIsGeneratingVouchers(false);
+                setShowGenerateVoucherModal(false);
+            },
+            onError: () => {
+                setIsGeneratingVouchers(false);
+            }
+        });
+    };
+
+    const handleSellVoucherSubmit = (e) => {
+        e.preventDefault();
+        const data = new FormData(e.target);
+        const payload = Object.fromEntries(data.entries());
+        
+        setIsSellingVoucher(true);
+        router.post('/admin/hotspot/sell-voucher', payload, {
+            onSuccess: () => {
+                setIsSellingVoucher(false);
+                setShowSellVoucherModal(false);
+                setSelectedVoucherForSale(null);
+            },
+            onError: () => {
+                setIsSellingVoucher(false);
+            }
+        });
+    };
+
+    const handleDeleteVoucher = (voucherId) => {
+        if (!confirm("Apakah Anda yakin ingin menghapus voucher ini? Tindakan ini akan menghapus akun user dari Mikrotik dan basis data lokal.")) return;
+        
+        router.post('/admin/hotspot/delete-voucher', { id: voucherId });
+    };
+
+    useEffect(() => {
+        if (editingPackage) {
+            setSelectedPackageType(editingPackage.type || 'pppoe');
+        } else {
+            setSelectedPackageType('pppoe');
+        }
+    }, [editingPackage, showPackageModal]);
 
     // Leaflet map initialization hook
     useEffect(() => {
@@ -680,6 +780,13 @@ export default function Dashboard({
                             >
                                 <CreditCard className="w-4 h-4" />
                                 <span>Tagihan / Billing</span>
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('hotspot')} 
+                                className={getNavLinkClass('hotspot')}
+                            >
+                                <Radio className="w-4 h-4" />
+                                <span>Hotspot (Voucher)</span>
                             </button>
                             <button 
                                 onClick={() => setActiveTab('settings')} 
@@ -1210,6 +1317,8 @@ export default function Dashboard({
                                         <thead>
                                             <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
                                                 <th className="py-3 px-2">Nama Paket</th>
+                                                <th className="py-3 px-2">Jenis</th>
+                                                <th className="py-3 px-2">Masa Aktif</th>
                                                 <th className="py-3 px-2">Harga</th>
                                                 <th className="py-3 px-2">Speed Limit</th>
                                                 <th className="py-3 px-2">Mikrotik Profile</th>
@@ -1225,6 +1334,12 @@ export default function Dashboard({
                                             {packages.map((pkg) => (
                                                 <tr key={pkg.id} className={`${themeTextSub} hover:bg-zinc-900/10`}>
                                                     <td className={`py-3 px-2 font-bold ${themeTextTitle}`}>{pkg.name}</td>
+                                                    <td className="py-3 px-2 font-bold">
+                                                        <span className={`px-2 py-0.5 rounded text-[10px] ${pkg.type === 'hotspot' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-blue-500/10 text-blue-500 border border-blue-500/20'}`}>
+                                                            {pkg.type === 'hotspot' ? 'Hotspot' : 'PPPoE'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-3 px-2 font-mono">{pkg.validity || '-'}</td>
                                                     <td className="py-3 px-2 font-bold text-emerald-500">Rp {pkg.price.toLocaleString('id-ID')}</td>
                                                     <td className="py-3 px-2 font-mono">{pkg.bandwidth_limit}</td>
                                                     <td className="py-3 px-2 font-mono">{pkg.mikrotik_profile}</td>
@@ -1324,6 +1439,384 @@ export default function Dashboard({
                                             ))}
                                         </tbody>
                                     </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* TAB 5.5: HOTSPOT & VOUCHERS */}
+                        {activeTab === 'hotspot' && (
+                            <div className="space-y-6">
+                                <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
+                                    <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3 gap-3`}>
+                                        <div className="flex items-center space-x-2">
+                                            <Radio className="w-5 h-5 text-emerald-500" />
+                                            <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Hotspot & Voucher</h2>
+                                        </div>
+                                        <div className="flex items-center space-x-2 w-full sm:w-auto">
+                                            <button
+                                                onClick={() => setHotspotSubTab('vouchers')}
+                                                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'vouchers' ? 'bg-emerald-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
+                                            >
+                                                Voucher Hotspot
+                                            </button>
+                                            <button
+                                                onClick={() => setHotspotSubTab('sales')}
+                                                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'sales' ? 'bg-emerald-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
+                                            >
+                                                Laporan Penjualan
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {hotspotSubTab === 'vouchers' ? (
+                                        <div className="space-y-4">
+                                            <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
+                                                <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
+                                                    <div className="relative">
+                                                        <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2.5" />
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder="Cari kode voucher..." 
+                                                            value={voucherSearch}
+                                                            onChange={(e) => setVoucherSearch(e.target.value)}
+                                                            className={`pl-8 pr-3 py-1.5 rounded-xl border text-xs font-semibold focus:outline-hidden w-40 sm:w-48 ${themeInput}`}
+                                                        />
+                                                    </div>
+                                                    <select
+                                                        value={voucherRouterFilter}
+                                                        onChange={(e) => setVoucherRouterFilter(e.target.value)}
+                                                        className={`p-1.5 border rounded-xl text-xs ${themeInput}`}
+                                                    >
+                                                        <option value="">Semua Router</option>
+                                                        {routers.map(r => (
+                                                            <option key={r.id} value={r.id}>{r.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    <select
+                                                        value={voucherStatusFilter}
+                                                        onChange={(e) => setVoucherStatusFilter(e.target.value)}
+                                                        className={`p-1.5 border rounded-xl text-xs ${themeInput}`}
+                                                    >
+                                                        <option value="">Semua Status</option>
+                                                        <option value="unused">Belum Terpakai</option>
+                                                        <option value="sold">Terjual</option>
+                                                        <option value="expired">Kedaluwarsa</option>
+                                                    </select>
+                                                </div>
+                                                
+                                                <div className="flex gap-2 w-full md:w-auto justify-end">
+                                                    <select
+                                                        id="sync-router-select"
+                                                        defaultValue=""
+                                                        onChange={(e) => {
+                                                            if (e.target.value) {
+                                                                handleSyncHotspot(e.target.value);
+                                                                e.target.value = "";
+                                                            }
+                                                        }}
+                                                        className={`p-1.5 border rounded-xl text-xs font-bold cursor-pointer ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-amber-400 hover:text-white' : 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100'}`}
+                                                        disabled={isSyncingHotspot}
+                                                    >
+                                                        <option value="" disabled>{isSyncingHotspot ? 'Singkronisasi...' : 'Sync Profil Hotspot'}</option>
+                                                        {routers.map(r => (
+                                                            <option key={r.id} value={r.id}>{r.name}</option>
+                                                        ))}
+                                                    </select>
+
+                                                    <button
+                                                        onClick={() => setShowGenerateVoucherModal(true)}
+                                                        className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                                                    >
+                                                        <Plus className="w-3.5 h-3.5" />
+                                                        <span>Generate Voucher</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead>
+                                                        <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
+                                                            <th className="py-3 px-2">Router</th>
+                                                            <th className="py-3 px-2">Kode / Username</th>
+                                                            <th className="py-3 px-2">Profil Mikrotik</th>
+                                                            <th className="py-3 px-2">Harga</th>
+                                                            <th className="py-3 px-2">Masa Aktif</th>
+                                                            <th className="py-3 px-2">Status</th>
+                                                            <th className="py-3 px-2">Terjual Pada</th>
+                                                            <th className="py-3 px-2 text-right">Aksi</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-zinc-800/20 text-xs">
+                                                        {(() => {
+                                                            const filteredVouchers = hotspotVouchers.filter(v => {
+                                                                const matchSearch = v.username.toLowerCase().includes(voucherSearch.toLowerCase());
+                                                                const matchRouter = voucherRouterFilter === '' || String(v.router_id) === String(voucherRouterFilter);
+                                                                const matchStatus = voucherStatusFilter === '' || v.status === voucherStatusFilter;
+                                                                return matchSearch && matchRouter && matchStatus;
+                                                            });
+
+                                                            const totalVoucherPages = Math.ceil(filteredVouchers.length / voucherPageSize) || 1;
+                                                            const paginatedVouchers = filteredVouchers.slice(
+                                                                (voucherPage - 1) * voucherPageSize,
+                                                                voucherPage * voucherPageSize
+                                                            );
+
+                                                            if (paginatedVouchers.length === 0) {
+                                                                return (
+                                                                    <tr>
+                                                                        <td colSpan="8" className={`py-8 text-center font-medium ${themeTextDesc}`}>Tidak ada data voucher ditemukan.</td>
+                                                                    </tr>
+                                                                );
+                                                            }
+
+                                                            return paginatedVouchers.map((v) => (
+                                                                <tr key={v.id} className={`${themeTextSub} hover:bg-zinc-900/10`}>
+                                                                    <td className="py-3 px-2 font-semibold">{v.router ? v.router.name : '-'}</td>
+                                                                    <td className={`py-3 px-2 font-mono font-bold ${themeTextTitle}`}>{v.username}</td>
+                                                                    <td className="py-3 px-2 font-mono">{v.mikrotik_profile}</td>
+                                                                    <td className="py-3 px-2 font-bold text-emerald-500">Rp {v.price.toLocaleString('id-ID')}</td>
+                                                                    <td className="py-3 px-2 font-mono">{v.validity || '-'}</td>
+                                                                    <td className="py-3 px-2">
+                                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                                            v.status === 'unused' ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                                                                            v.status === 'sold' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                                                                            'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                                                                        }`}>
+                                                                            {v.status === 'unused' ? 'Belum Terpakai' :
+                                                                             v.status === 'sold' ? 'Terjual' : 'Kedaluwarsa'}
+                                                                        </span>
+                                                                    </td>
+                                                                    <td className="py-3 px-2 font-mono">{v.sold_at ? new Date(v.sold_at).toLocaleString('id-ID') : '-'}</td>
+                                                                    <td className="py-3 px-2 text-right">
+                                                                        <div className="flex justify-end gap-2">
+                                                                            {v.status === 'unused' && (
+                                                                                <button 
+                                                                                    onClick={() => {
+                                                                                        setSelectedVoucherForSale(v);
+                                                                                        setShowSellVoucherModal(true);
+                                                                                    }}
+                                                                                    className="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                                                                                >
+                                                                                    Jual
+                                                                                </button>
+                                                                            )}
+                                                                            <button 
+                                                                                onClick={() => handleDeleteVoucher(v.id)}
+                                                                                className="p-1 text-zinc-400 hover:text-rose-500 cursor-pointer"
+                                                                                title="Hapus Voucher"
+                                                                            >
+                                                                                <Trash2 className="w-4.5 h-4.5" />
+                                                                            </button>
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            ));
+                                                        })()}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+
+                                            {(() => {
+                                                const filteredVouchers = hotspotVouchers.filter(v => {
+                                                    const matchSearch = v.username.toLowerCase().includes(voucherSearch.toLowerCase());
+                                                    const matchRouter = voucherRouterFilter === '' || String(v.router_id) === String(voucherRouterFilter);
+                                                    const matchStatus = voucherStatusFilter === '' || v.status === voucherStatusFilter;
+                                                    return matchSearch && matchRouter && matchStatus;
+                                                });
+                                                const totalVoucherPages = Math.ceil(filteredVouchers.length / voucherPageSize) || 1;
+                                                if (totalVoucherPages > 1) {
+                                                    return (
+                                                        <div className="flex justify-between items-center pt-4 border-t border-zinc-800/10 text-xs">
+                                                            <span className={themeTextSub}>Halaman {voucherPage} dari {totalVoucherPages} ({filteredVouchers.length} voucher)</span>
+                                                            <div className="flex gap-2">
+                                                                <button 
+                                                                    onClick={() => setVoucherPage(p => Math.max(1, p - 1))}
+                                                                    disabled={voucherPage === 1}
+                                                                    className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
+                                                                >
+                                                                    Sebelumnya
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => setVoucherPage(p => Math.min(totalVoucherPages, p + 1))}
+                                                                    disabled={voucherPage === totalVoucherPages}
+                                                                    className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
+                                                                >
+                                                                    Berikutnya
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-6">
+                                            {/* Stats Cards */}
+                                            {(() => {
+                                                const totalSalesRevenue = hotspotSales.reduce((acc, sale) => acc + parseFloat(sale.price || 0), 0);
+                                                const totalSalesCount = hotspotSales.length;
+                                                const averageSalePrice = totalSalesCount > 0 ? (totalSalesRevenue / totalSalesCount) : 0;
+                                                return (
+                                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                        <div className={`border rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 hover:scale-[1.02] ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-emerald-50/50 border-emerald-100'}`}>
+                                                            <div className="flex justify-between items-start">
+                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-emerald-700'}`}>Total Pendapatan Hotspot</span>
+                                                                <CreditCard className={`w-4 h-4 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
+                                                            </div>
+                                                            <div className="mt-3">
+                                                                <p className={`text-2xl font-extrabold tracking-tight leading-none ${themeTextTitle}`}>Rp {totalSalesRevenue.toLocaleString('id-ID')}</p>
+                                                                <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Akumulasi semua transaksi hotspot</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className={`border rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 hover:scale-[1.02] ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-blue-50/50 border-blue-100'}`}>
+                                                            <div className="flex justify-between items-start">
+                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-blue-700'}`}>Voucher Terjual</span>
+                                                                <Users className={`w-4 h-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+                                                            </div>
+                                                            <div className="mt-3">
+                                                                <p className={`text-2xl font-extrabold tracking-tight leading-none ${themeTextTitle}`}>{totalSalesCount} Voucher</p>
+                                                                <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Jumlah voucher tercatat di database</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className={`border rounded-2xl p-4 flex flex-col justify-between transition-all duration-200 hover:scale-[1.02] ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-amber-50/50 border-amber-100'}`}>
+                                                            <div className="flex justify-between items-start">
+                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-amber-700'}`}>Rata-rata Transaksi</span>
+                                                                <Activity className={`w-4 h-4 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`} />
+                                                            </div>
+                                                            <div className="mt-3">
+                                                                <p className={`text-2xl font-extrabold tracking-tight leading-none ${themeTextTitle}`}>Rp {averageSalePrice.toLocaleString('id-ID')}</p>
+                                                                <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Nilai rata-rata per penjualan</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {/* Recharts Analytics */}
+                                            {(() => {
+                                                const groups = {};
+                                                hotspotSales.forEach(sale => {
+                                                    const dateStr = sale.created_at ? new Date(sale.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : 'N/A';
+                                                    groups[dateStr] = (groups[dateStr] || 0) + parseFloat(sale.price || 0);
+                                                });
+                                                const array = Object.keys(groups).map(date => ({ date, revenue: groups[date] }));
+                                                const finalChartData = array.length > 0 ? array.slice(-10) : [{ date: 'Tidak ada data', revenue: 0 }];
+
+                                                return (
+                                                    <div className={`border rounded-2xl p-5 ${themeInnerWidget} space-y-3`}>
+                                                        <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Grafik Tren Pendapatan Harian (10 Hari Terakhir)</h3>
+                                                        <div className="h-64 w-full">
+                                                            <ResponsiveContainer width="100%" height="100%">
+                                                                <AreaChart data={finalChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                                                    <defs>
+                                                                        <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.4}/>
+                                                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.0}/>
+                                                                        </linearGradient>
+                                                                    </defs>
+                                                                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} />
+                                                                    <XAxis dataKey="date" stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={10} tickLine={false} />
+                                                                    <YAxis stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `Rp ${v/1000}k`} />
+                                                                    <Tooltip 
+                                                                        contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '12px' }}
+                                                                        labelStyle={{ color: isDarkMode ? '#ffffff' : '#18181b', fontWeight: 'bold', fontSize: '12px' }}
+                                                                        itemStyle={{ color: '#10b981', fontSize: '12px' }}
+                                                                        formatter={(value) => [`Rp ${value.toLocaleString('id-ID')}`, 'Pendapatan']}
+                                                                    />
+                                                                    <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
+                                                                </AreaChart>
+                                                            </ResponsiveContainer>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {/* Transaction history list */}
+                                            <div className="space-y-3">
+                                                <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Riwayat Transaksi Penjualan</h3>
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left border-collapse">
+                                                        <thead>
+                                                            <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
+                                                                <th className="py-3 px-2">Router</th>
+                                                                <th className="py-3 px-2">Voucher / Username</th>
+                                                                <th className="py-3 px-2">Paket</th>
+                                                                <th className="py-3 px-2">Harga</th>
+                                                                <th className="py-3 px-2">Metode Pembayaran</th>
+                                                                <th className="py-3 px-2">Waktu Penjualan</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-zinc-800/20 text-xs">
+                                                            {(() => {
+                                                                const totalSalesPages = Math.ceil(hotspotSales.length / salesPageSize) || 1;
+                                                                const paginatedSales = hotspotSales.slice(
+                                                                    (salesPage - 1) * salesPageSize,
+                                                                    salesPage * salesPageSize
+                                                                );
+
+                                                                if (paginatedSales.length === 0) {
+                                                                    return (
+                                                                        <tr>
+                                                                            <td colSpan="6" className={`py-8 text-center font-medium ${themeTextDesc}`}>Belum ada data penjualan tercatat.</td>
+                                                                        </tr>
+                                                                    );
+                                                                }
+
+                                                                return paginatedSales.map((sale) => (
+                                                                    <tr key={sale.id} className={`${themeTextSub} hover:bg-zinc-900/10`}>
+                                                                        <td className="py-3 px-2 font-semibold">{sale.router ? sale.router.name : '-'}</td>
+                                                                        <td className={`py-3 px-2 font-mono font-bold ${themeTextTitle}`}>{sale.username}</td>
+                                                                        <td className="py-3 px-2">{sale.package_name || '-'}</td>
+                                                                        <td className="py-3 px-2 font-bold text-emerald-500">Rp {sale.price.toLocaleString('id-ID')}</td>
+                                                                        <td className="py-3 px-2">
+                                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                                                sale.payment_method === 'Cash' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                                                            }`}>
+                                                                                {sale.payment_method}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="py-3 px-2 font-mono">{sale.created_at ? new Date(sale.created_at).toLocaleString('id-ID') : '-'}</td>
+                                                                    </tr>
+                                                                ));
+                                                            })()}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                {(() => {
+                                                    const totalSalesPages = Math.ceil(hotspotSales.length / salesPageSize) || 1;
+                                                    if (totalSalesPages > 1) {
+                                                        return (
+                                                            <div className="flex justify-between items-center pt-4 border-t border-zinc-800/10 text-xs">
+                                                                <span className={themeTextSub}>Halaman {salesPage} dari {totalSalesPages} ({hotspotSales.length} transaksi)</span>
+                                                                <div className="flex gap-2">
+                                                                    <button 
+                                                                        onClick={() => setSalesPage(p => Math.max(1, p - 1))}
+                                                                        disabled={salesPage === 1}
+                                                                        className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
+                                                                    >
+                                                                        Sebelumnya
+                                                                    </button>
+                                                                    <button 
+                                                                        onClick={() => setSalesPage(p => Math.min(totalSalesPages, p + 1))}
+                                                                        disabled={salesPage === totalSalesPages}
+                                                                        className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
+                                                                    >
+                                                                        Berikutnya
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -1733,6 +2226,31 @@ export default function Dashboard({
                     </div>
                     <form onSubmit={handleSavePackage} className="space-y-3 text-xs">
                         <input type="hidden" name="id" value={editingPackage ? editingPackage.id : ''} />
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Jenis Layanan</label>
+                                <select 
+                                    name="type" 
+                                    value={selectedPackageType} 
+                                    onChange={(e) => setSelectedPackageType(e.target.value)} 
+                                    className={`p-2 border rounded-lg ${themeInput}`}
+                                >
+                                    <option value="pppoe">PPPoE (Kabel/Rumahan)</option>
+                                    <option value="hotspot">Hotspot (Voucher)</option>
+                                </select>
+                            </div>
+                            {selectedPackageType === 'hotspot' ? (
+                                <div className="flex flex-col gap-1">
+                                    <label className={`font-bold ${themeLabel}`}>Masa Aktif (Validity / Uptime Limit)</label>
+                                    <input required name="validity" type="text" defaultValue={editingPackage ? editingPackage.validity : ''} placeholder="e.g. 2h, 1d, 30d" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                </div>
+                            ) : (
+                                <div className="flex flex-col gap-1">
+                                    <label className={`font-bold ${themeLabel}`}>Masa Aktif</label>
+                                    <input disabled placeholder="N/A (Khusus Hotspot)" className={`p-2 border rounded-lg opacity-50 ${isDarkMode ? 'bg-zinc-800 text-zinc-500 border-zinc-700' : 'bg-zinc-100 text-zinc-400 border-zinc-200'}`} />
+                                </div>
+                            )}
+                        </div>
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Nama Paket</label>
                             <input required name="name" type="text" defaultValue={editingPackage ? editingPackage.name : ''} className={`p-2 border rounded-lg ${themeInput}`} />
@@ -1749,36 +2267,40 @@ export default function Dashboard({
                             <label className={`font-bold ${themeLabel}`}>Nama Profile Mikrotik</label>
                             <input required name="mikrotik_profile" type="text" defaultValue={editingPackage ? editingPackage.mikrotik_profile : ''} placeholder="e.g. Family-20M" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="flex flex-col gap-1">
-                                <label className={`font-bold ${themeLabel}`}>Local Address</label>
-                                <input name="local_address" type="text" defaultValue={editingPackage ? editingPackage.local_address : ''} placeholder="e.g. 192.168.22.1" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className={`font-bold ${themeLabel}`}>Remote Address</label>
-                                <input name="remote_address" type="text" defaultValue={editingPackage ? editingPackage.remote_address : ''} placeholder="e.g. pool_ppp" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="flex flex-col gap-1">
-                                <label className={`font-bold ${themeLabel}`}>DNS Server</label>
-                                <input name="dns_server" type="text" defaultValue={editingPackage ? editingPackage.dns_server : ''} placeholder="e.g. 8.8.8.8, 8.8.4.4" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className={`font-bold ${themeLabel}`}>Parent Queue</label>
-                                <input name="parent_queue" type="text" defaultValue={editingPackage ? editingPackage.parent_queue : ''} placeholder="e.g. GLOBAL CONN" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="flex flex-col gap-1">
-                                <label className={`font-bold ${themeLabel}`}>Queue Type Rx</label>
-                                <input name="queue_type_rx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_rx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className={`font-bold ${themeLabel}`}>Queue Type Tx</label>
-                                <input name="queue_type_tx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_tx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                            </div>
-                        </div>
+                        {selectedPackageType === 'pppoe' && (
+                            <>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>Local Address</label>
+                                        <input name="local_address" type="text" defaultValue={editingPackage ? editingPackage.local_address : ''} placeholder="e.g. 192.168.22.1" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>Remote Address</label>
+                                        <input name="remote_address" type="text" defaultValue={editingPackage ? editingPackage.remote_address : ''} placeholder="e.g. pool_ppp" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>DNS Server</label>
+                                        <input name="dns_server" type="text" defaultValue={editingPackage ? editingPackage.dns_server : ''} placeholder="e.g. 8.8.8.8, 8.8.4.4" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>Parent Queue</label>
+                                        <input name="parent_queue" type="text" defaultValue={editingPackage ? editingPackage.parent_queue : ''} placeholder="e.g. GLOBAL CONN" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>Queue Type Rx</label>
+                                        <input name="queue_type_rx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_rx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className={`font-bold ${themeLabel}`}>Queue Type Tx</label>
+                                        <input name="queue_type_tx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_tx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                                    </div>
+                                </div>
+                            </>
+                        )}
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Deskripsi Paket</label>
                             <textarea name="description" rows={2} defaultValue={editingPackage ? editingPackage.description : ''} className={`p-2 border rounded-lg ${themeInput}`} />
@@ -1788,6 +2310,105 @@ export default function Dashboard({
                             <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold cursor-pointer">Simpan</button>
                         </div>
                     </form>
+                </TransitionModal>
+
+                {/* Generate Voucher Modal */}
+                <TransitionModal show={showGenerateVoucherModal} themeCard={themeCard} maxWidth="md">
+                    <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                        <h3 className={`text-sm font-bold ${themeTextTitle}`}>
+                            Generate Voucher Hotspot (Bulk)
+                        </h3>
+                        <button onClick={() => setShowGenerateVoucherModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
+                    </div>
+                    <form onSubmit={handleGenerateVouchersSubmit} className="space-y-3 text-xs">
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
+                            <select required name="router_id" className={`p-2 border rounded-lg ${themeInput}`}>
+                                <option value="" disabled selected>Pilih Router</option>
+                                {routers.map(r => (
+                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Paket Hotspot (Profile)</label>
+                            <select required name="package_id" className={`p-2 border rounded-lg ${themeInput}`}>
+                                <option value="" disabled selected>Pilih Paket Hotspot</option>
+                                {packages.filter(p => p.type === 'hotspot').map(p => (
+                                    <option key={p.id} value={p.id}>{p.name} (Rp {p.price.toLocaleString('id-ID')})</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Jumlah Voucher</label>
+                                <input required name="qty" type="number" defaultValue="10" min="1" max="500" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Panjang Kode</label>
+                                <input required name="code_length" type="number" defaultValue="6" min="4" max="12" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Awalan Kode (Prefix)</label>
+                                <input name="prefix" type="text" defaultValue="WIFI-" placeholder="Optional" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                        </div>
+                        <div className="flex justify-end pt-3 gap-2">
+                            <button type="button" onClick={() => setShowGenerateVoucherModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
+                            <button type="submit" disabled={isGeneratingVouchers} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold cursor-pointer disabled:opacity-50">
+                                {isGeneratingVouchers ? 'Generating...' : 'Generate'}
+                            </button>
+                        </div>
+                    </form>
+                </TransitionModal>
+
+                {/* Sell Voucher Modal */}
+                <TransitionModal show={showSellVoucherModal} themeCard={themeCard} maxWidth="sm">
+                    <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                        <h3 className={`text-sm font-bold ${themeTextTitle}`}>
+                            Konfirmasi Penjualan Voucher
+                        </h3>
+                        <button onClick={() => { setShowSellVoucherModal(false); setSelectedVoucherForSale(null); }} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
+                    </div>
+                    {selectedVoucherForSale && (
+                        <form onSubmit={handleSellVoucherSubmit} className="space-y-3 text-xs">
+                            <input type="hidden" name="voucher_id" value={selectedVoucherForSale.id} />
+                            
+                            <div className={`p-3 rounded-lg border ${themeInnerWidget} space-y-2`}>
+                                <div className="flex justify-between">
+                                    <span className={themeTextSub}>Kode Voucher:</span>
+                                    <span className={`font-mono font-bold ${themeTextTitle}`}>{selectedVoucherForSale.username}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className={themeTextSub}>Profil:</span>
+                                    <span className={`font-mono ${themeTextTitle}`}>{selectedVoucherForSale.mikrotik_profile}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className={themeTextSub}>Harga:</span>
+                                    <span className="font-bold text-emerald-500">Rp {selectedVoucherForSale.price.toLocaleString('id-ID')}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className={themeTextSub}>Masa Aktif:</span>
+                                    <span className={`font-mono ${themeTextTitle}`}>{selectedVoucherForSale.validity || '-'}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Metode Pembayaran</label>
+                                <select required name="payment_method" className={`p-2 border rounded-lg ${themeInput}`}>
+                                    <option value="Cash">Cash (Tunai)</option>
+                                    <option value="QRIS">QRIS / E-Wallet</option>
+                                </select>
+                            </div>
+
+                            <div className="flex justify-end pt-3 gap-2">
+                                <button type="button" onClick={() => { setShowSellVoucherModal(false); setSelectedVoucherForSale(null); }} className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
+                                <button type="submit" disabled={isSellingVoucher} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold cursor-pointer disabled:opacity-50">
+                                    {isSellingVoucher ? 'Memproses...' : 'Catat Penjualan'}
+                                </button>
+                            </div>
+                        </form>
+                    )}
                 </TransitionModal>
 
             </div>

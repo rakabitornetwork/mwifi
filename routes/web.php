@@ -23,6 +23,8 @@ Route::middleware('auth')->group(function () {
             'packages' => \App\Models\Package::all(),
             'invoices' => \App\Models\Invoice::with('customer')->orderBy('created_at', 'desc')->get(),
             'settings' => \App\Models\Setting::all(),
+            'hotspotVouchers' => \App\Models\HotspotVoucher::with('router')->orderBy('created_at', 'desc')->get(),
+            'hotspotSales' => \App\Models\HotspotSale::with('router')->orderBy('created_at', 'desc')->get(),
         ]);
     };
 
@@ -44,6 +46,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('invoices', function () use ($renderDashboard) {
         return $renderDashboard('invoices');
+    });
+
+    Route::get('hotspot', function () use ($renderDashboard) {
+        return $renderDashboard('hotspot');
     });
 
     Route::get('settings', function () use ($renderDashboard) {
@@ -69,6 +75,12 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/invoices/generate', [\App\Http\Controllers\Admin\AdminActionController::class, 'generateInvoices']);
     Route::post('admin/settings/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveSettings']);
     Route::get('admin/server/resources', [\App\Http\Controllers\Admin\AdminActionController::class, 'getServerResources']);
+
+    // Admin Hotspot Actions
+    Route::post('admin/hotspot/sync-profiles', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncHotspotProfiles']);
+    Route::post('admin/hotspot/generate-vouchers', [\App\Http\Controllers\Admin\AdminActionController::class, 'generateHotspotVouchers']);
+    Route::post('admin/hotspot/sell-voucher', [\App\Http\Controllers\Admin\AdminActionController::class, 'sellHotspotVoucher']);
+    Route::post('admin/hotspot/delete-voucher', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteHotspotVoucher']);
 
     // Customer Portal Routes
     Route::get('customer/dashboard', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'index']);
