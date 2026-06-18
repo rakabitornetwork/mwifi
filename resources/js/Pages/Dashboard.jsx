@@ -732,7 +732,7 @@ export default function Dashboard({
                                 <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2.5" />
                                 <input 
                                     type="text" 
-                                    placeholder="Search nodes..." 
+                                    placeholder="Cari pelanggan..." 
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className={`w-40 sm:w-48 pl-8 pr-3 py-1.5 rounded-xl border text-[10px] sm:text-xs font-semibold focus:outline-hidden ${isDarkMode ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 focus:border-zinc-700' : 'bg-zinc-100 border-zinc-200 text-zinc-700 focus:border-zinc-300'}`}
@@ -1015,17 +1015,6 @@ export default function Dashboard({
                                         <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Pelanggan</h2>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-                                        {/* Search Input Pelanggan */}
-                                        <div className="relative">
-                                            <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2.5" />
-                                            <input 
-                                                type="text" 
-                                                placeholder="Cari nama / username / paket..." 
-                                                value={searchTerm}
-                                                onChange={(e) => setSearchTerm(e.target.value)}
-                                                className={`pl-8 pr-3 py-1.5 rounded-xl border text-xs font-semibold focus:outline-hidden w-44 sm:w-56 ${isDarkMode ? 'bg-zinc-900/60 border-zinc-800 text-zinc-300 focus:border-zinc-700' : 'bg-zinc-100 border-zinc-200 text-zinc-700 focus:border-zinc-300'}`}
-                                            />
-                                        </div>
                                         {selectedCustomerIds.length > 0 && (
                                             <button 
                                                 onClick={() => {
