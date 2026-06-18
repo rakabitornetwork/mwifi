@@ -967,7 +967,7 @@ export default function Dashboard({
                         {/* TAB 2: ROUTER MANAGEMENT */}
                         {activeTab === 'routers' && (
                             <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                                <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3">
+                                <div className={`flex justify-between items-center border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
                                     <div className="flex items-center space-x-2">
                                         <Wifi className="w-5 h-5 text-emerald-500" />
                                         <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Router Mikrotik</h2>
@@ -1044,7 +1044,7 @@ export default function Dashboard({
                         {/* TAB 3: CUSTOMER MANAGEMENT */}
                         {activeTab === 'customers' && (
                             <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-zinc-800/40 pb-3 gap-3">
+                                <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3 gap-3`}>
                                     <div className="flex items-center space-x-2">
                                         <Users className="w-5 h-5 text-emerald-500" />
                                         <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Pelanggan</h2>
@@ -1084,7 +1084,7 @@ export default function Dashboard({
                                                         type="checkbox" 
                                                         checked={filteredCustomers.length > 0 && selectedCustomerIds.length === filteredCustomers.length}
                                                         onChange={() => toggleSelectAllCustomers(filteredCustomers)}
-                                                        className="rounded text-emerald-500 focus:ring-emerald-500 focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800 cursor-pointer"
+                                                        className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
                                                     />
                                                 </th>
                                                 <th className="py-3 px-2">Nama</th>
@@ -1104,7 +1104,7 @@ export default function Dashboard({
                                                             type="checkbox" 
                                                             checked={selectedCustomerIds.includes(cust.id)}
                                                             onChange={() => toggleSelectCustomer(cust.id)}
-                                                            className="rounded text-emerald-500 focus:ring-emerald-500 focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800 cursor-pointer"
+                                                            className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
                                                         />
                                                     </td>
                                                     <td className={`py-3 px-2 font-bold ${themeTextTitle}`}>{cust.name}</td>
@@ -1188,7 +1188,7 @@ export default function Dashboard({
                         {/* TAB 4: PACKAGE MANAGEMENT */}
                         {activeTab === 'packages' && (
                             <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                                <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3">
+                                <div className={`flex justify-between items-center border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
                                     <div className="flex items-center space-x-2">
                                         <Layers className="w-5 h-5 text-emerald-500" />
                                         <h2 className={`text-sm font-bold ${themeTextTitle}`}>Paket Layanan Internet</h2>
@@ -1270,7 +1270,7 @@ export default function Dashboard({
                         {/* TAB 5: BILLING & INVOICES */}
                         {activeTab === 'invoices' && (
                             <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                                <div className="flex justify-between items-center border-b border-zinc-800/40 pb-3">
+                                <div className={`flex justify-between items-center border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
                                     <div className="flex items-center space-x-2">
                                         <CreditCard className="w-5 h-5 text-emerald-500" />
                                         <h2 className={`text-sm font-bold ${themeTextTitle}`}>Log Tagihan / Invoice</h2>
@@ -1420,7 +1420,7 @@ export default function Dashboard({
                 
                 {/* Router Modal */}
                 <TransitionModal show={showRouterModal} themeCard={themeCard} maxWidth="md">
-                    <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
+                    <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                         <h3 className={`text-sm font-bold ${themeTextTitle}`}>
                             {editingRouter ? 'Edit Router Mikrotik' : 'Tambah Router Mikrotik'}
                         </h3>
@@ -1449,9 +1449,9 @@ export default function Dashboard({
                                 </select>
                             </div>
                         </div>
-                        <div className="p-2.5 bg-zinc-950/60 border border-zinc-800/80 rounded-lg text-[10px] text-zinc-500 leading-normal space-y-1">
-                            <div>💡 <strong>REST API (v7):</strong> Menggunakan port layanan web Mikrotik (<strong>WWW</strong>, default <strong>80</strong> atau <strong>443</strong>).</div>
-                            <div>💡 <strong>Socket API (v6):</strong> Menggunakan port layanan API binary Mikrotik (<strong>api</strong>, default <strong>8728</strong> atau <strong>8729 SSL</strong>).</div>
+                        <div className={`p-2.5 ${themeInnerWidget} rounded-xl text-[10px] ${themeTextSub} leading-normal space-y-1`}>
+                            <div>💡 <strong className={themeTextTitle}>REST API (v7):</strong> Menggunakan port layanan web Mikrotik (<strong className={themeTextTitle}>WWW</strong>, default <strong className={themeTextTitle}>80</strong> atau <strong className={themeTextTitle}>443</strong>).</div>
+                            <div>💡 <strong className={themeTextTitle}>Socket API (v6):</strong> Menggunakan port layanan API binary Mikrotik (<strong className={themeTextTitle}>api</strong>, default <strong className={themeTextTitle}>8728</strong> atau <strong className={themeTextTitle}>8729 SSL</strong>).</div>
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Username</label>
@@ -1469,7 +1469,7 @@ export default function Dashboard({
                             </select>
                         </div>
                         <div className="flex justify-end pt-3 gap-2">
-                            <button type="button" onClick={() => setShowRouterModal(false)} className="px-4 py-2 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white">Batal</button>
+                            <button type="button" onClick={() => setShowRouterModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
                             <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold">Simpan</button>
                         </div>
                     </form>
@@ -1477,7 +1477,7 @@ export default function Dashboard({
 
                 {/* Customer Modal */}
                 <TransitionModal show={showCustomerModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
-                    <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
+                    <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                         <h3 className={`text-sm font-bold ${themeTextTitle}`}>
                             {editingCustomer ? 'Edit Pelanggan' : 'Tambah Pelanggan'}
                         </h3>
@@ -1569,7 +1569,7 @@ export default function Dashboard({
                         </div>
 
                         <div className="flex justify-end pt-3 gap-2">
-                            <button type="button" onClick={() => setShowCustomerModal(false)} className="px-4 py-2 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white">Batal</button>
+                            <button type="button" onClick={() => setShowCustomerModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
                             <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold">Simpan</button>
                         </div>
                     </form>
@@ -1577,7 +1577,7 @@ export default function Dashboard({
 
                 {/* Delete Customer Confirmation Modal */}
                 <TransitionModal show={showDeleteCustomerModal} themeCard={themeCard} maxWidth="md">
-                    <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
+                    <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                         <h3 className={`text-sm font-bold text-rose-500`}>
                             Hapus Pelanggan
                         </h3>
@@ -1652,7 +1652,7 @@ export default function Dashboard({
 
                 {/* Bulk Delete Customer Confirmation Modal */}
                 <TransitionModal show={showBulkDeleteModal} themeCard={themeCard} maxWidth="md">
-                    <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
+                    <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                         <h3 className={`text-sm font-bold text-rose-500`}>
                             Hapus Masal Pelanggan
                         </h3>
@@ -1725,7 +1725,7 @@ export default function Dashboard({
 
                 {/* Package Modal */}
                 <TransitionModal show={showPackageModal} themeCard={themeCard} maxWidth="md">
-                    <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
+                    <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                         <h3 className={`text-sm font-bold ${themeTextTitle}`}>
                             {editingPackage ? 'Edit Paket Layanan' : 'Tambah Paket Layanan'}
                         </h3>
