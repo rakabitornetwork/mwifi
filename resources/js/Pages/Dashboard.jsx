@@ -33,6 +33,41 @@ import {
     Server
 } from 'lucide-react';
 
+function TransitionModal({ show, children, maxWidth = 'md', className = '', themeCard = '' }) {
+    const [render, setRender] = useState(show);
+    const [animateShow, setAnimateShow] = useState(show);
+
+    useEffect(() => {
+        if (show) {
+            setRender(true);
+            const timer = setTimeout(() => setAnimateShow(true), 10);
+            return () => clearTimeout(timer);
+        } else {
+            setAnimateShow(false);
+            const timer = setTimeout(() => setRender(false), 300);
+            return () => clearTimeout(timer);
+        }
+    }, [show]);
+
+    if (!render) return null;
+
+    const maxWidthClasses = {
+        sm: 'max-w-sm',
+        md: 'max-w-md',
+        lg: 'max-w-lg',
+        xl: 'max-w-xl',
+        '2xl': 'max-w-2xl',
+    };
+
+    return (
+        <div className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 transition-opacity duration-300 ease-out ${animateShow ? 'opacity-100' : 'opacity-0'}`}>
+            <div className={`w-full ${maxWidthClasses[maxWidth] || 'max-w-md'} border rounded-2xl p-6 space-y-4 shadow-xl ${themeCard} transition-all duration-300 ease-out transform ${animateShow ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'} ${className}`}>
+                {children}
+            </div>
+        </div>
+    );
+}
+
 export default function Dashboard({ 
     auth, 
     odps = [], 
@@ -303,7 +338,7 @@ export default function Dashboard({
         }, {
             onSuccess: () => {
                 setShowDeleteCustomerModal(false);
-                setCustomerToDelete(null);
+                setTimeout(() => setCustomerToDelete(null), 300);
             }
         });
     };
@@ -330,7 +365,7 @@ export default function Dashboard({
         }, {
             onSuccess: () => {
                 setShowBulkDeleteModal(false);
-                setSelectedCustomerIds([]);
+                setTimeout(() => setSelectedCustomerIds([]), 300);
             }
         });
     };
@@ -1384,396 +1419,376 @@ export default function Dashboard({
                 {/* MODALS SECTION */}
                 
                 {/* Router Modal */}
-                {showRouterModal && (
-                    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-                        <div className={`w-full max-w-md border rounded-2xl p-6 space-y-4 shadow-xl ${themeCard}`}>
-                            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
-                                <h3 className={`text-sm font-bold ${themeTextTitle}`}>
-                                    {editingRouter ? 'Edit Router Mikrotik' : 'Tambah Router Mikrotik'}
-                                </h3>
-                                <button onClick={() => setShowRouterModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
-                            </div>
-                            <form onSubmit={handleSaveRouter} className="space-y-3 text-xs">
-                                <input type="hidden" name="id" value={editingRouter ? editingRouter.id : ''} />
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Nama Router</label>
-                                    <input required name="name" type="text" defaultValue={editingRouter ? editingRouter.name : ''} className={`p-2 border rounded-lg ${themeInput}`} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>IP Address / Host</label>
-                                    <input required name="host" type="text" defaultValue={editingRouter ? editingRouter.host : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Port API</label>
-                                        <input required name="port" type="number" defaultValue={editingRouter ? editingRouter.port : 8728} className={`p-2 border rounded-lg ${themeInput}`} />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Protokol</label>
-                                        <select name="protocol_type" defaultValue={editingRouter ? editingRouter.protocol_type : 'rest_api'} className={`p-2 border rounded-lg ${themeInput}`}>
-                                            <option value="rest_api">REST API (v7)</option>
-                                            <option value="legacy_socket">Socket API (v6)</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div className="p-2.5 bg-zinc-950/60 border border-zinc-800/80 rounded-lg text-[10px] text-zinc-500 leading-normal space-y-1">
-                                    <div>💡 <strong>REST API (v7):</strong> Menggunakan port layanan web Mikrotik (<strong>WWW</strong>, default <strong>80</strong> atau <strong>443</strong>).</div>
-                                    <div>💡 <strong>Socket API (v6):</strong> Menggunakan port layanan API binary Mikrotik (<strong>api</strong>, default <strong>8728</strong> atau <strong>8729 SSL</strong>).</div>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Username</label>
-                                    <input required name="username" type="text" defaultValue={editingRouter ? editingRouter.username : 'admin'} className={`p-2 border rounded-lg ${themeInput}`} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Password</label>
-                                    <input name="password" type="password" placeholder={editingRouter ? 'Kosongkan jika tidak diubah' : 'Password router'} className={`p-2 border rounded-lg ${themeInput}`} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Status</label>
-                                    <select name="status" defaultValue={editingRouter ? (editingRouter.status ? 1 : 0) : 1} className={`p-2 border rounded-lg ${themeInput}`}>
-                                        <option value={1}>Aktif / Hubungkan</option>
-                                        <option value={0}>Non-Aktifkan</option>
-                                    </select>
-                                </div>
-                                <div className="flex justify-end pt-3 gap-2">
-                                    <button type="button" onClick={() => setShowRouterModal(false)} className="px-4 py-2 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white">Batal</button>
-                                    <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold">Simpan</button>
-                                </div>
-                            </form>
-                        </div>
+                <TransitionModal show={showRouterModal} themeCard={themeCard} maxWidth="md">
+                    <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
+                        <h3 className={`text-sm font-bold ${themeTextTitle}`}>
+                            {editingRouter ? 'Edit Router Mikrotik' : 'Tambah Router Mikrotik'}
+                        </h3>
+                        <button onClick={() => setShowRouterModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                     </div>
-                )}
+                    <form onSubmit={handleSaveRouter} className="space-y-3 text-xs">
+                        <input type="hidden" name="id" value={editingRouter ? editingRouter.id : ''} />
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Nama Router</label>
+                            <input required name="name" type="text" defaultValue={editingRouter ? editingRouter.name : ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>IP Address / Host</label>
+                            <input required name="host" type="text" defaultValue={editingRouter ? editingRouter.host : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Port API</label>
+                                <input required name="port" type="number" defaultValue={editingRouter ? editingRouter.port : 8728} className={`p-2 border rounded-lg ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Protokol</label>
+                                <select name="protocol_type" defaultValue={editingRouter ? editingRouter.protocol_type : 'rest_api'} className={`p-2 border rounded-lg ${themeInput}`}>
+                                    <option value="rest_api">REST API (v7)</option>
+                                    <option value="legacy_socket">Socket API (v6)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="p-2.5 bg-zinc-950/60 border border-zinc-800/80 rounded-lg text-[10px] text-zinc-500 leading-normal space-y-1">
+                            <div>💡 <strong>REST API (v7):</strong> Menggunakan port layanan web Mikrotik (<strong>WWW</strong>, default <strong>80</strong> atau <strong>443</strong>).</div>
+                            <div>💡 <strong>Socket API (v6):</strong> Menggunakan port layanan API binary Mikrotik (<strong>api</strong>, default <strong>8728</strong> atau <strong>8729 SSL</strong>).</div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Username</label>
+                            <input required name="username" type="text" defaultValue={editingRouter ? editingRouter.username : 'admin'} className={`p-2 border rounded-lg ${themeInput}`} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Password</label>
+                            <input name="password" type="password" placeholder={editingRouter ? 'Kosongkan jika tidak diubah' : 'Password router'} className={`p-2 border rounded-lg ${themeInput}`} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Status</label>
+                            <select name="status" defaultValue={editingRouter ? (editingRouter.status ? 1 : 0) : 1} className={`p-2 border rounded-lg ${themeInput}`}>
+                                <option value={1}>Aktif / Hubungkan</option>
+                                <option value={0}>Non-Aktifkan</option>
+                            </select>
+                        </div>
+                        <div className="flex justify-end pt-3 gap-2">
+                            <button type="button" onClick={() => setShowRouterModal(false)} className="px-4 py-2 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white">Batal</button>
+                            <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold">Simpan</button>
+                        </div>
+                    </form>
+                </TransitionModal>
 
                 {/* Customer Modal */}
-                {showCustomerModal && (
-                    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-                        <div className={`w-full max-w-lg border rounded-2xl p-6 space-y-4 shadow-xl ${themeCard} overflow-y-auto max-h-[90vh]`}>
-                            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
-                                <h3 className={`text-sm font-bold ${themeTextTitle}`}>
-                                    {editingCustomer ? 'Edit Pelanggan' : 'Tambah Pelanggan'}
-                                </h3>
-                                <button onClick={() => setShowCustomerModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
-                            </div>
-                            <form onSubmit={handleSaveCustomer} className="space-y-3 text-xs">
-                                <input type="hidden" name="id" value={editingCustomer ? editingCustomer.id : ''} />
-                                
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Nama Lengkap</label>
-                                        <input required name="name" type="text" defaultValue={editingCustomer ? editingCustomer.name : ''} className={`p-2 border rounded-lg ${themeInput}`} />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Username Layanan</label>
-                                        <input required name="username" type="text" defaultValue={editingCustomer ? editingCustomer.username : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Password Portal</label>
-                                        <input required name="password" type="text" defaultValue={editingCustomer ? editingCustomer.password : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Nomor Telepon (WA)</label>
-                                        <input required name="phone_number" type="text" defaultValue={editingCustomer ? editingCustomer.phone_number : ''} className={`p-2 border rounded-lg ${themeInput}`} />
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Alamat Lengkap</label>
-                                    <textarea required name="address" rows={2} defaultValue={editingCustomer ? editingCustomer.address : ''} className={`p-2 border rounded-lg ${themeInput}`} />
-                                </div>
-
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Router</label>
-                                        <select name="router_id" defaultValue={editingCustomer ? editingCustomer.router_id : (routers[0]?.id || '')} className={`p-2 border rounded-lg ${themeInput}`}>
-                                            {routers.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Paket Internet</label>
-                                        <select name="package_id" defaultValue={editingCustomer ? editingCustomer.package_id : (packages[0]?.id || '')} className={`p-2 border rounded-lg ${themeInput}`}>
-                                            {packages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Titik ODP</label>
-                                        <select name="odp_id" defaultValue={editingCustomer ? editingCustomer.odp_id : (odps[0]?.id || '')} className={`p-2 border rounded-lg ${themeInput}`}>
-                                            {odps.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Jenis Layanan</label>
-                                        <select name="service_type" defaultValue={editingCustomer ? editingCustomer.service_type : 'pppoe'} className={`p-2 border rounded-lg ${themeInput}`}>
-                                            <option value="pppoe">PPPoE Secret</option>
-                                            <option value="hotspot">Hotspot Active</option>
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Status Akun</label>
-                                        <select name="status" defaultValue={editingCustomer ? editingCustomer.status : 'active'} className={`p-2 border rounded-lg ${themeInput}`}>
-                                            <option value="active">Active</option>
-                                            <option value="isolated">Isolated (Isolir)</option>
-                                            <option value="inactive">Inactive</option>
-                                            <option value="suspended">Suspended</option>
-                                        </select>
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Tgl Jatuh Tempo</label>
-                                        <input required name="billing_date" type="number" min={1} max={31} defaultValue={editingCustomer ? editingCustomer.billing_date : 1} className={`p-2 border rounded-lg ${themeInput}`} />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Lintang GPS (Latitude)</label>
-                                        <input name="latitude" type="text" defaultValue={editingCustomer ? editingCustomer.latitude : ''} placeholder="-7.98xxx" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Bujur GPS (Longitude)</label>
-                                        <input name="longitude" type="text" defaultValue={editingCustomer ? editingCustomer.longitude : ''} placeholder="112.62xxx" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-end pt-3 gap-2">
-                                    <button type="button" onClick={() => setShowCustomerModal(false)} className="px-4 py-2 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white">Batal</button>
-                                    <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold">Simpan</button>
-                                </div>
-                            </form>
-                        </div>
+                <TransitionModal show={showCustomerModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
+                    <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
+                        <h3 className={`text-sm font-bold ${themeTextTitle}`}>
+                            {editingCustomer ? 'Edit Pelanggan' : 'Tambah Pelanggan'}
+                        </h3>
+                        <button onClick={() => setShowCustomerModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                     </div>
-                )}
+                    <form onSubmit={handleSaveCustomer} className="space-y-3 text-xs">
+                        <input type="hidden" name="id" value={editingCustomer ? editingCustomer.id : ''} />
+                        
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Nama Lengkap</label>
+                                <input required name="name" type="text" defaultValue={editingCustomer ? editingCustomer.name : ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Username Layanan</label>
+                                <input required name="username" type="text" defaultValue={editingCustomer ? editingCustomer.username : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Password Portal</label>
+                                <input required name="password" type="text" defaultValue={editingCustomer ? editingCustomer.password : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Nomor Telepon (WA)</label>
+                                <input required name="phone_number" type="text" defaultValue={editingCustomer ? editingCustomer.phone_number : ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Alamat Lengkap</label>
+                            <textarea required name="address" rows={2} defaultValue={editingCustomer ? editingCustomer.address : ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Router</label>
+                                <select name="router_id" defaultValue={editingCustomer ? editingCustomer.router_id : (routers[0]?.id || '')} className={`p-2 border rounded-lg ${themeInput}`}>
+                                    {routers.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Paket Internet</label>
+                                <select name="package_id" defaultValue={editingCustomer ? editingCustomer.package_id : (packages[0]?.id || '')} className={`p-2 border rounded-lg ${themeInput}`}>
+                                    {packages.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Titik ODP</label>
+                                <select name="odp_id" defaultValue={editingCustomer ? editingCustomer.odp_id : (odps[0]?.id || '')} className={`p-2 border rounded-lg ${themeInput}`}>
+                                    {odps.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Jenis Layanan</label>
+                                <select name="service_type" defaultValue={editingCustomer ? editingCustomer.service_type : 'pppoe'} className={`p-2 border rounded-lg ${themeInput}`}>
+                                    <option value="pppoe">PPPoE Secret</option>
+                                    <option value="hotspot">Hotspot Active</option>
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Status Akun</label>
+                                <select name="status" defaultValue={editingCustomer ? editingCustomer.status : 'active'} className={`p-2 border rounded-lg ${themeInput}`}>
+                                    <option value="active">Active</option>
+                                    <option value="isolated">Isolated (Isolir)</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="suspended">Suspended</option>
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Tgl Jatuh Tempo</label>
+                                <input required name="billing_date" type="number" min={1} max={31} defaultValue={editingCustomer ? editingCustomer.billing_date : 1} className={`p-2 border rounded-lg ${themeInput}`} />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Lintang GPS (Latitude)</label>
+                                <input name="latitude" type="text" defaultValue={editingCustomer ? editingCustomer.latitude : ''} placeholder="-7.98xxx" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Bujur GPS (Longitude)</label>
+                                <input name="longitude" type="text" defaultValue={editingCustomer ? editingCustomer.longitude : ''} placeholder="112.62xxx" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-3 gap-2">
+                            <button type="button" onClick={() => setShowCustomerModal(false)} className="px-4 py-2 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white">Batal</button>
+                            <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold">Simpan</button>
+                        </div>
+                    </form>
+                </TransitionModal>
 
                 {/* Delete Customer Confirmation Modal */}
-                {showDeleteCustomerModal && customerToDelete && (
-                    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-                        <div className={`w-full max-w-md border rounded-2xl p-6 space-y-4 shadow-xl ${themeCard}`}>
-                            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
-                                <h3 className={`text-sm font-bold text-rose-500`}>
-                                    Hapus Pelanggan
-                                </h3>
-                                <button onClick={() => {
-                                    setShowDeleteCustomerModal(false);
-                                    setCustomerToDelete(null);
-                                }} className={`text-zinc-500 ${isDarkMode ? 'hover:text-white' : 'hover:text-zinc-800'}`}><X className="w-4 h-4" /></button>
-                            </div>
+                <TransitionModal show={showDeleteCustomerModal} themeCard={themeCard} maxWidth="md">
+                    <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
+                        <h3 className={`text-sm font-bold text-rose-500`}>
+                            Hapus Pelanggan
+                        </h3>
+                        <button onClick={() => {
+                            setShowDeleteCustomerModal(false);
+                            setTimeout(() => setCustomerToDelete(null), 300);
+                        }} className={`text-zinc-500 ${isDarkMode ? 'hover:text-white' : 'hover:text-zinc-800'}`}><X className="w-4 h-4" /></button>
+                    </div>
+                    
+                    <div className="text-xs space-y-3">
+                        <p className={themeTextTitle}>
+                            Apakah Anda yakin ingin menghapus pelanggan <strong>{customerToDelete?.name || ''}</strong> (username: <strong>@{customerToDelete?.username || ''}</strong>)?
+                        </p>
+                        
+                        <div className={`p-3 ${themeInnerWidget} rounded-xl space-y-2`}>
+                            <span className={`font-bold ${themeTextSub} block mb-1`}>Pilih Mode Penghapusan:</span>
                             
-                            <div className="text-xs space-y-3">
-                                <p className={themeTextTitle}>
-                                    Apakah Anda yakin ingin menghapus pelanggan <strong>{customerToDelete.name}</strong> (username: <strong>@{customerToDelete.username}</strong>)?
-                                </p>
-                                
-                                <div className={`p-3 ${themeInnerWidget} rounded-xl space-y-2`}>
-                                    <span className={`font-bold ${themeTextSub} block mb-1`}>Pilih Mode Penghapusan:</span>
-                                    
-                                    <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
-                                        <input 
-                                            type="radio" 
-                                            name="delete_mode" 
-                                            value="local_only" 
-                                            checked={deleteMode === 'local_only'} 
-                                            onChange={() => setDeleteMode('local_only')}
-                                            className={`mt-0.5 text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
-                                        />
-                                        <div className="space-y-0.5">
-                                            <span className={`font-semibold ${themeTextTitle} ${isDarkMode ? 'group-hover:text-emerald-400' : 'group-hover:text-emerald-600'} transition-colors`}>Hapus Database Saja (Dual-Mode 1)</span>
-                                            <p className={`${themeTextDesc} leading-normal text-[10px]`}>Hanya menghapus data dari database mWiFi. Akun PPP Secret / Hotspot di Mikrotik akan tetap ada dan aktif.</p>
-                                        </div>
-                                    </label>
-
-                                    <div className={`border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200/60'} my-2`}></div>
-
-                                    <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
-                                        <input 
-                                            type="radio" 
-                                            name="delete_mode" 
-                                            value="total" 
-                                            checked={deleteMode === 'total'} 
-                                            onChange={() => setDeleteMode('total')}
-                                            className={`mt-0.5 text-rose-500 focus:ring-rose-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
-                                        />
-                                        <div className="space-y-0.5">
-                                            <span className="font-semibold text-rose-500 transition-colors">Hapus Database & Mikrotik (Dual-Mode 2)</span>
-                                            <p className={`${themeTextDesc} leading-normal text-[10px]`}>Menghapus data dari database mWiFi DAN menghapus secara permanen akun PPP Secret/Hotspot dari Router Mikrotik.</p>
-                                        </div>
-                                    </label>
+                            <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
+                                <input 
+                                    type="radio" 
+                                    name="delete_mode" 
+                                    value="local_only" 
+                                    checked={deleteMode === 'local_only'} 
+                                    onChange={() => setDeleteMode('local_only')}
+                                    className={`mt-0.5 text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
+                                />
+                                <div className="space-y-0.5">
+                                    <span className={`font-semibold ${themeTextTitle} ${isDarkMode ? 'group-hover:text-emerald-400' : 'group-hover:text-emerald-600'} transition-colors`}>Hapus Database Saja (Dual-Mode 1)</span>
+                                    <p className={`${themeTextDesc} leading-normal text-[10px]`}>Hanya menghapus data dari database mWiFi. Akun PPP Secret / Hotspot di Mikrotik akan tetap ada dan aktif.</p>
                                 </div>
-                            </div>
+                            </label>
 
-                            <div className="flex justify-end pt-2 gap-2 text-xs">
-                                <button 
-                                    type="button" 
-                                    onClick={() => {
-                                        setShowDeleteCustomerModal(false);
-                                        setCustomerToDelete(null);
-                                    }} 
-                                    className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
-                                >
-                                    Batal
-                                </button>
-                                <button 
-                                    type="button" 
-                                    onClick={confirmDeleteCustomer} 
-                                    className={`px-4 py-2 rounded-lg font-bold text-white transition-colors cursor-pointer ${deleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
-                                >
-                                    Konfirmasi Hapus
-                                </button>
-                            </div>
+                            <div className={`border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200/60'} my-2`}></div>
+
+                            <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
+                                <input 
+                                    type="radio" 
+                                    name="delete_mode" 
+                                    value="total" 
+                                    checked={deleteMode === 'total'} 
+                                    onChange={() => setDeleteMode('total')}
+                                    className={`mt-0.5 text-rose-500 focus:ring-rose-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
+                                />
+                                <div className="space-y-0.5">
+                                    <span className="font-semibold text-rose-500 transition-colors">Hapus Database & Mikrotik (Dual-Mode 2)</span>
+                                    <p className={`${themeTextDesc} leading-normal text-[10px]`}>Menghapus data dari database mWiFi DAN menghapus secara permanen akun PPP Secret/Hotspot dari Router Mikrotik.</p>
+                                </div>
+                            </label>
                         </div>
                     </div>
-                )}
+
+                    <div className="flex justify-end pt-2 gap-2 text-xs">
+                        <button 
+                            type="button" 
+                            onClick={() => {
+                                setShowDeleteCustomerModal(false);
+                                setTimeout(() => setCustomerToDelete(null), 300);
+                            }} 
+                            className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                        >
+                            Batal
+                        </button>
+                        <button 
+                            type="button" 
+                            onClick={confirmDeleteCustomer} 
+                            className={`px-4 py-2 rounded-lg font-bold text-white transition-colors cursor-pointer ${deleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                        >
+                            Konfirmasi Hapus
+                        </button>
+                    </div>
+                </TransitionModal>
 
                 {/* Bulk Delete Customer Confirmation Modal */}
-                {showBulkDeleteModal && selectedCustomerIds.length > 0 && (
-                    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-                        <div className={`w-full max-w-md border rounded-2xl p-6 space-y-4 shadow-xl ${themeCard}`}>
-                            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
-                                <h3 className={`text-sm font-bold text-rose-500`}>
-                                    Hapus Masal Pelanggan
-                                </h3>
-                                <button onClick={() => {
-                                    setShowBulkDeleteModal(false);
-                                }} className={`text-zinc-500 ${isDarkMode ? 'hover:text-white' : 'hover:text-zinc-800'}`}><X className="w-4 h-4" /></button>
-                            </div>
+                <TransitionModal show={showBulkDeleteModal} themeCard={themeCard} maxWidth="md">
+                    <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
+                        <h3 className={`text-sm font-bold text-rose-500`}>
+                            Hapus Masal Pelanggan
+                        </h3>
+                        <button onClick={() => {
+                            setShowBulkDeleteModal(false);
+                        }} className={`text-zinc-500 ${isDarkMode ? 'hover:text-white' : 'hover:text-zinc-800'}`}><X className="w-4 h-4" /></button>
+                    </div>
+                    
+                    <div className="text-xs space-y-3">
+                        <p className={themeTextTitle}>
+                            Anda akan menghapus secara masal <strong>{selectedCustomerIds.length}</strong> pelanggan yang dipilih. Tindakan ini tidak bisa dibatalkan!
+                        </p>
+                        
+                        <div className={`p-3 ${themeInnerWidget} rounded-xl space-y-2`}>
+                            <span className={`font-bold ${themeTextSub} block mb-1`}>Pilih Mode Penghapusan Masal:</span>
                             
-                            <div className="text-xs space-y-3">
-                                <p className={themeTextTitle}>
-                                    Anda akan menghapus secara masal <strong>{selectedCustomerIds.length}</strong> pelanggan yang dipilih. Tindakan ini tidak bisa dibatalkan!
-                                </p>
-                                
-                                <div className={`p-3 ${themeInnerWidget} rounded-xl space-y-2`}>
-                                    <span className={`font-bold ${themeTextSub} block mb-1`}>Pilih Mode Penghapusan Masal:</span>
-                                    
-                                    <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
-                                        <input 
-                                            type="radio" 
-                                            name="bulk_delete_mode" 
-                                            value="local_only" 
-                                            checked={bulkDeleteMode === 'local_only'} 
-                                            onChange={() => setBulkDeleteMode('local_only')}
-                                            className={`mt-0.5 text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
-                                        />
-                                        <div className="space-y-0.5">
-                                            <span className={`font-semibold ${themeTextTitle} ${isDarkMode ? 'group-hover:text-emerald-400' : 'group-hover:text-emerald-600'} transition-colors`}>Hapus Database Saja (Local Only)</span>
-                                            <p className={`${themeTextDesc} leading-normal text-[10px]`}>Hanya menghapus data terpilih dari database mWiFi. Akun PPP Secret / Hotspot di Mikrotik akan tetap ada dan aktif.</p>
-                                        </div>
-                                    </label>
-
-                                    <div className={`border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200/60'} my-2`}></div>
-
-                                    <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
-                                        <input 
-                                            type="radio" 
-                                            name="bulk_delete_mode" 
-                                            value="total" 
-                                            checked={bulkDeleteMode === 'total'} 
-                                            onChange={() => setBulkDeleteMode('total')}
-                                            className={`mt-0.5 text-rose-500 focus:ring-rose-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
-                                        />
-                                        <div className="space-y-0.5">
-                                            <span className="font-semibold text-rose-450 transition-colors">Hapus Database & Mikrotik (Total)</span>
-                                            <p className={`${themeTextDesc} leading-normal text-[10px]`}>Menghapus data terpilih dari database mWiFi DAN menghapus secara permanen akun PPP Secret/Hotspot terkait dari Router Mikrotik.</p>
-                                        </div>
-                                    </label>
+                            <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
+                                <input 
+                                    type="radio" 
+                                    name="bulk_delete_mode" 
+                                    value="local_only" 
+                                    checked={bulkDeleteMode === 'local_only'} 
+                                    onChange={() => setBulkDeleteMode('local_only')}
+                                    className={`mt-0.5 text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
+                                />
+                                <div className="space-y-0.5">
+                                    <span className={`font-semibold ${themeTextTitle} ${isDarkMode ? 'group-hover:text-emerald-400' : 'group-hover:text-emerald-600'} transition-colors`}>Hapus Database Saja (Local Only)</span>
+                                    <p className={`${themeTextDesc} leading-normal text-[10px]`}>Hanya menghapus data terpilih dari database mWiFi. Akun PPP Secret / Hotspot di Mikrotik akan tetap ada dan aktif.</p>
                                 </div>
-                            </div>
+                            </label>
 
-                            <div className="flex justify-end pt-2 gap-2 text-xs">
-                                <button 
-                                    type="button" 
-                                    onClick={() => {
-                                        setShowBulkDeleteModal(false);
-                                    }} 
-                                    className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
-                                >
-                                    Batal
-                                </button>
-                                <button 
-                                    type="button" 
-                                    onClick={confirmBulkDeleteCustomer} 
-                                    className={`px-4 py-2 rounded-lg font-bold text-white transition-colors cursor-pointer ${bulkDeleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
-                                >
-                                    Konfirmasi Hapus Masal
-                                </button>
-                            </div>
+                            <div className={`border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200/60'} my-2`}></div>
+
+                            <label className="flex items-start space-x-2.5 cursor-pointer group text-[11px]">
+                                <input 
+                                    type="radio" 
+                                    name="bulk_delete_mode" 
+                                    value="total" 
+                                    checked={bulkDeleteMode === 'total'} 
+                                    onChange={() => setBulkDeleteMode('total')}
+                                    className={`mt-0.5 text-rose-500 focus:ring-rose-500 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
+                                />
+                                <div className="space-y-0.5">
+                                    <span className="font-semibold text-rose-450 transition-colors">Hapus Database & Mikrotik (Total)</span>
+                                    <p className={`${themeTextDesc} leading-normal text-[10px]`}>Menghapus data terpilih dari database mWiFi DAN menghapus secara permanen akun PPP Secret/Hotspot terkait dari Router Mikrotik.</p>
+                                </div>
+                            </label>
                         </div>
                     </div>
-                )}
+
+                    <div className="flex justify-end pt-2 gap-2 text-xs">
+                        <button 
+                            type="button" 
+                            onClick={() => {
+                                setShowBulkDeleteModal(false);
+                            }} 
+                            className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                        >
+                            Batal
+                        </button>
+                        <button 
+                            type="button" 
+                            onClick={confirmBulkDeleteCustomer} 
+                            className={`px-4 py-2 rounded-lg font-bold text-white transition-colors cursor-pointer ${bulkDeleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                        >
+                            Konfirmasi Hapus Masal
+                        </button>
+                    </div>
+                </TransitionModal>
 
                 {/* Package Modal */}
-                {showPackageModal && (
-                    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-                        <div className={`w-full max-w-md border rounded-2xl p-6 space-y-4 shadow-xl ${themeCard}`}>
-                            <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
-                                <h3 className={`text-sm font-bold ${themeTextTitle}`}>
-                                    {editingPackage ? 'Edit Paket Layanan' : 'Tambah Paket Layanan'}
-                                </h3>
-                                <button onClick={() => setShowPackageModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
-                            </div>
-                            <form onSubmit={handleSavePackage} className="space-y-3 text-xs">
-                                <input type="hidden" name="id" value={editingPackage ? editingPackage.id : ''} />
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Nama Paket</label>
-                                    <input required name="name" type="text" defaultValue={editingPackage ? editingPackage.name : ''} className={`p-2 border rounded-lg ${themeInput}`} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Harga (Rp)</label>
-                                    <input required name="price" type="number" defaultValue={editingPackage ? editingPackage.price : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Batas Kecepatan (Speed Limit)</label>
-                                    <input required name="bandwidth_limit" type="text" defaultValue={editingPackage ? editingPackage.bandwidth_limit : ''} placeholder="e.g. 20M/20M" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Nama Profile Mikrotik</label>
-                                    <input required name="mikrotik_profile" type="text" defaultValue={editingPackage ? editingPackage.mikrotik_profile : ''} placeholder="e.g. Family-20M" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Local Address</label>
-                                        <input name="local_address" type="text" defaultValue={editingPackage ? editingPackage.local_address : ''} placeholder="e.g. 192.168.22.1" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Remote Address</label>
-                                        <input name="remote_address" type="text" defaultValue={editingPackage ? editingPackage.remote_address : ''} placeholder="e.g. pool_ppp" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>DNS Server</label>
-                                        <input name="dns_server" type="text" defaultValue={editingPackage ? editingPackage.dns_server : ''} placeholder="e.g. 8.8.8.8, 8.8.4.4" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Parent Queue</label>
-                                        <input name="parent_queue" type="text" defaultValue={editingPackage ? editingPackage.parent_queue : ''} placeholder="e.g. GLOBAL CONN" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Queue Type Rx</label>
-                                        <input name="queue_type_rx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_rx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <label className={`font-bold ${themeLabel}`}>Queue Type Tx</label>
-                                        <input name="queue_type_tx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_tx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Deskripsi Paket</label>
-                                    <textarea name="description" rows={2} defaultValue={editingPackage ? editingPackage.description : ''} className={`p-2 border rounded-lg ${themeInput}`} />
-                                </div>
-                                <div className="flex justify-end pt-3 gap-2">
-                                    <button type="button" onClick={() => setShowPackageModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
-                                    <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold cursor-pointer">Simpan</button>
-                                </div>
-                            </form>
-                        </div>
+                <TransitionModal show={showPackageModal} themeCard={themeCard} maxWidth="md">
+                    <div className="flex justify-between items-center pb-2 border-b border-zinc-800/40">
+                        <h3 className={`text-sm font-bold ${themeTextTitle}`}>
+                            {editingPackage ? 'Edit Paket Layanan' : 'Tambah Paket Layanan'}
+                        </h3>
+                        <button onClick={() => setShowPackageModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                     </div>
-                )}
+                    <form onSubmit={handleSavePackage} className="space-y-3 text-xs">
+                        <input type="hidden" name="id" value={editingPackage ? editingPackage.id : ''} />
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Nama Paket</label>
+                            <input required name="name" type="text" defaultValue={editingPackage ? editingPackage.name : ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Harga (Rp)</label>
+                            <input required name="price" type="number" defaultValue={editingPackage ? editingPackage.price : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Batas Kecepatan (Speed Limit)</label>
+                            <input required name="bandwidth_limit" type="text" defaultValue={editingPackage ? editingPackage.bandwidth_limit : ''} placeholder="e.g. 20M/20M" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Nama Profile Mikrotik</label>
+                            <input required name="mikrotik_profile" type="text" defaultValue={editingPackage ? editingPackage.mikrotik_profile : ''} placeholder="e.g. Family-20M" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Local Address</label>
+                                <input name="local_address" type="text" defaultValue={editingPackage ? editingPackage.local_address : ''} placeholder="e.g. 192.168.22.1" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Remote Address</label>
+                                <input name="remote_address" type="text" defaultValue={editingPackage ? editingPackage.remote_address : ''} placeholder="e.g. pool_ppp" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>DNS Server</label>
+                                <input name="dns_server" type="text" defaultValue={editingPackage ? editingPackage.dns_server : ''} placeholder="e.g. 8.8.8.8, 8.8.4.4" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Parent Queue</label>
+                                <input name="parent_queue" type="text" defaultValue={editingPackage ? editingPackage.parent_queue : ''} placeholder="e.g. GLOBAL CONN" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Queue Type Rx</label>
+                                <input name="queue_type_rx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_rx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Queue Type Tx</label>
+                                <input name="queue_type_tx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_tx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Deskripsi Paket</label>
+                            <textarea name="description" rows={2} defaultValue={editingPackage ? editingPackage.description : ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                        </div>
+                        <div className="flex justify-end pt-3 gap-2">
+                            <button type="button" onClick={() => setShowPackageModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
+                            <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold cursor-pointer">Simpan</button>
+                        </div>
+                    </form>
+                </TransitionModal>
 
             </div>
             
