@@ -77,9 +77,17 @@ class AppUpdateService
             $canUpdate = false;
         }
 
+        $remoteReadable = !empty($remote['commit']);
+        $canRunUpdate = (bool) config('update.enabled', true)
+            && $updateAvailable
+            && $remoteReadable
+            && $git['ok']
+            && $isRepo;
+
         return [
             'enabled' => (bool) config('update.enabled', true),
             'available' => $canUpdate,
+            'can_run_update' => $canRunUpdate,
             'requirements' => $requirements,
             'repository' => [
                 'url' => $local['remote_url'] ?: $configuredRepo,
@@ -123,16 +131,20 @@ class AppUpdateService
 
         $status = $this->checkForUpdates(true);
 
-        if (!($status['available'] ?? false)) {
-            if ($status['local']['dirty'] ?? false) {
-                throw new \RuntimeException('Ada perubahan lokal yang belum di-commit. Commit/stash dulu atau set allow_dirty_tree=true di config/update.php.');
-            }
-
-            throw new \RuntimeException('Server belum memenuhi syarat pembaruan (Git, Composer, NPM, atau izin folder).');
+        if (!($status['enabled'] ?? true)) {
+            throw new \RuntimeException('Pembaruan aplikasi dinonaktifkan di konfigurasi.');
         }
 
         if (!($status['update_available'] ?? false)) {
             throw new \RuntimeException('Aplikasi sudah versi terbaru.');
+        }
+
+        if (!($status['can_run_update'] ?? false)) {
+            if (!($status['requirements']['git']['ok'] ?? false) || !($status['requirements']['is_git_repo']['ok'] ?? false)) {
+                throw new \RuntimeException('Git tidak tersedia atau folder aplikasi bukan repositori Git.');
+            }
+
+            throw new \RuntimeException('Versi GitHub belum dapat dibaca. Muat ulang halaman update lalu coba lagi.');
         }
 
         $branch = (string) ($status['repository']['branch'] ?: config('update.branch', 'main'));
@@ -235,9 +247,45 @@ class AppUpdateService
             if ($fromGit !== null) {
                 return $fromGit;
             }
+
+            $fromLsRemote = $this->getRemoteFromLsRemote($branch);
+            if ($fromLsRemote !== null) {
+                return $fromLsRemote;
+            }
         }
 
         return $this->getRemoteGitHubCommit($owner, $repo, $branch);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function getRemoteFromLsRemote(string $branch): ?array
+    {
+        $process = $this->runGit(['ls-remote', 'origin', "refs/heads/{$branch}"]);
+        if (!$process->isSuccessful()) {
+            return null;
+        }
+
+        $line = trim(strtok($process->getOutput(), "\n"));
+        if ($line === '') {
+            return null;
+        }
+
+        [$fullHash] = preg_split('/\s+/', $line) ?: [];
+        if (!is_string($fullHash) || strlen($fullHash) < 7) {
+            return null;
+        }
+
+        return [
+            'commit' => $fullHash,
+            'commit_short' => substr($fullHash, 0, 7),
+            'commit_date' => null,
+            'commit_message' => 'Commit terbaru branch ' . $branch,
+            'author' => null,
+            'source' => 'git_ls_remote',
+            'error' => null,
+        ];
     }
 
     /**

@@ -38,6 +38,7 @@ class AppUpdateTest extends TestCase
 
         $this->assertArrayHasKey('enabled', $status);
         $this->assertArrayHasKey('available', $status);
+        $this->assertArrayHasKey('can_run_update', $status);
         $this->assertArrayHasKey('requirements', $status);
         $this->assertArrayHasKey('repository', $status);
         $this->assertArrayHasKey('local', $status);

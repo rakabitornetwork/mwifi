@@ -1350,7 +1350,7 @@ export default function Dashboard({
     };
 
     const handleRunUpdate = async () => {
-        if (!appUpdateInfo.update_available || !appUpdateInfo.available || appUpdateInfo.enabled === false) {
+        if (!canRunAppUpdate) {
             return;
         }
 
@@ -1471,9 +1471,12 @@ export default function Dashboard({
     }, [updateTerminalLines, updateTerminalStatus]);
 
     const canRunAppUpdate = Boolean(
-        appUpdateInfo.update_available
-        && appUpdateInfo.available
-        && appUpdateInfo.enabled !== false
+        appUpdateInfo.can_run_update
+        ?? (
+            appUpdateInfo.update_available
+            && appUpdateInfo.enabled !== false
+            && appUpdateInfo.remote?.commit
+        )
     );
 
     const handleSaveProfile = (e) => {
@@ -4123,6 +4126,18 @@ export default function Dashboard({
                                                 <p className={`text-[10px] mt-1 line-clamp-2 ${themeTextSub}`}>{appUpdateInfo.remote?.commit_message || appUpdateInfo.remote?.error || 'Belum dapat memuat versi remote.'}</p>
                                             </div>
                                         </div>
+
+                                        {appUpdateInfo.local?.dirty && (
+                                            <p className={`text-[10px] rounded-lg px-2.5 py-2 border ${isDarkMode ? 'border-amber-500/20 bg-amber-500/10 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                                                Ada {appUpdateInfo.local.dirty_files_count} file lokal belum di-commit. Update tetap bisa dijalankan; jika git pull gagal, commit atau stash perubahan lokal dulu.
+                                            </p>
+                                        )}
+
+                                        {!appUpdateInfo.available && appUpdateInfo.update_available && (
+                                            <p className={`text-[10px] rounded-lg px-2.5 py-2 border ${isDarkMode ? 'border-sky-500/20 bg-sky-500/10 text-sky-200' : 'border-sky-200 bg-sky-50 text-sky-800'}`}>
+                                                Syarat server (Composer/NPM/izin tulis) belum lengkap di proses web, tetapi update tetap bisa dicoba — error akan muncul di terminal jika ada masalah.
+                                            </p>
+                                        )}
 
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                                             <p className={`text-[10px] ${themeTextSub}`}>
