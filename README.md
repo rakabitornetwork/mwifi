@@ -530,6 +530,25 @@ Penyebab umum:
 
 Uji langsung di browser: `https://domain-anda.com/branding/logo` — jika tampil, logo sudah benar.
 
+### Avatar admin tidak muncul di VPS
+
+Avatar disajikan lewat route `/profile/avatar` (login wajib). Penyebab & solusi sama seperti logo:
+
+1. Pastikan file ada:
+   ```bash
+   ls -la storage/app/public/avatars/
+   ```
+2. Deploy kode terbaru, lalu:
+   ```bash
+   php artisan optimize:clear
+   php artisan route:clear
+   ```
+3. Upload ulang avatar dari menu **Profil** jika path di database sudah tidak valid.
+4. Uji (harus login dulu di browser, atau):
+   ```bash
+   curl -I -b "session_cookie=..." https://domain-anda.com/profile/avatar
+   ```
+
 ### Halaman blank / error 500
 
 ```bash

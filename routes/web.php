@@ -117,6 +117,9 @@ Route::middleware('auth')->group(function () {
         return $renderDashboard('profile');
     });
 
+    Route::get('profile/avatar', [\App\Http\Controllers\ProfileAvatarController::class, 'show'])
+        ->name('profile.avatar');
+
     Route::get('network-map', function () use ($renderDashboard) {
         return $renderDashboard('network-map');
     });
