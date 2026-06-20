@@ -4017,12 +4017,6 @@ export default function Dashboard({
                                             </div>
                                         </div>
 
-                                        {!appUpdateInfo.available && (
-                                            <p className={`text-[10px] rounded-lg px-2.5 py-2 border ${isDarkMode ? 'border-amber-500/20 bg-amber-500/10 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
-                                                Server belum memenuhi syarat update (Git, Composer, NPM, atau izin folder).
-                                            </p>
-                                        )}
-
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                                             <p className={`text-[10px] ${themeTextSub}`}>
                                                 Backup database dulu via menu <span className="font-semibold">Database</span>.
