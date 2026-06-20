@@ -53,7 +53,32 @@ Untuk backup MySQL via `mysqldump`, pasang juga paket `mysql-client`.
 
 Langkah berikut asumsi VPS baru, login sebagai user dengan akses `sudo`, dan domain/subdomain sudah diarahkan ke IP VPS (mis. `mwifi.domainanda.com`).
 
-Ganti `mwifi.domainanda.com` dan path sesuai environment Anda.
+Ganti `mwifi.domainanda.com` dan path `/var/www/mwifi` sesuai environment Anda (contoh shared hosting: `~/public_html`).
+
+### Urutan langkah (penting)
+
+Jangan menjalankan `php artisan` sebelum folder `vendor/` ada. Urutan yang benar:
+
+```
+1. Clone repo
+2. cp .env.example .env  →  edit .env
+3. composer install        ← wajib dulu (membuat vendor/)
+4. php artisan key:generate
+5. npm ci && npm run build
+6. php artisan migrate
+7. php artisan storage:link
+8. Permission + optimasi cache
+9. Nginx/Apache + SSL
+10. Cron scheduler
+```
+
+Cek cepat sebelum `artisan`:
+
+```bash
+ls vendor/autoload.php   # harus ada; jika tidak → jalankan composer install
+```
+
+---
 
 ### 1. Persiapan sistem
 
@@ -111,9 +136,11 @@ git clone https://github.com/rakabitornetwork/mwifi.git
 cd mwifi
 ```
 
-### 4. Konfigurasi environment
+### 4. Salin & edit file `.env`
 
 ```bash
+cd /var/www/mwifi   # atau cd ~/public_html
+
 cp .env.example .env
 nano .env
 ```
@@ -138,21 +165,51 @@ QUEUE_CONNECTION=database
 CACHE_STORE=database
 ```
 
-Generate application key:
+> **Belum** jalankan `php artisan` di langkah ini — tunggu sampai `composer install` selesai.
+
+### 5. Install dependensi PHP (Composer)
+
+```bash
+cd /var/www/mwifi   # atau cd ~/public_html
+
+composer install --no-dev --optimize-autoloader
+```
+
+Jika perintah `composer` tidak ditemukan:
+
+```bash
+curl -sS https://getcomposer.org/installer | php
+php composer.phar install --no-dev --optimize-autoloader
+```
+
+Verifikasi:
+
+```bash
+ls vendor/autoload.php
+```
+
+Jika file di atas **tidak ada**, semua perintah `php artisan` akan gagal dengan error `vendor/autoload.php: No such file or directory`.
+
+### 6. Generate key & build frontend
+
+Baru setelah `vendor/` ada:
 
 ```bash
 php artisan key:generate
-```
 
-### 5. Install dependensi & build
-
-```bash
-composer install --no-dev --optimize-autoloader
 npm ci
 npm run build
 ```
 
-### 6. Migrasi database
+Jika server **tidak punya Node.js**, build di komputer lokal lalu upload folder `public/build/`:
+
+```bash
+# di komputer lokal (setelah git clone)
+npm ci && npm run build
+# upload public/build/ ke server
+```
+
+### 7. Migrasi database
 
 ```bash
 php artisan migrate --force
@@ -187,7 +244,7 @@ Akun default setelah seed:
 
 > **Penting:** ganti password admin segera setelah login pertama.
 
-### 7. Storage & permission
+### 8. Storage & permission
 
 ```bash
 php artisan storage:link
@@ -196,7 +253,16 @@ sudo chown -R www-data:www-data storage bootstrap/cache
 sudo chmod -R 775 storage bootstrap/cache
 ```
 
-### 8. Optimasi Laravel (produksi)
+Pada shared hosting (user `my`, path `~/public_html`), sesuaikan owner dengan user hosting Anda:
+
+```bash
+chown -R my:my storage bootstrap/cache
+chmod -R 775 storage bootstrap/cache
+```
+
+### 9. Optimasi Laravel (produksi)
+
+Jalankan **setelah** `.env` final, `key:generate`, dan `migrate` berhasil:
 
 ```bash
 php artisan config:cache
@@ -205,7 +271,7 @@ php artisan view:cache
 php artisan optimize
 ```
 
-### 9. Konfigurasi Nginx
+### 10. Konfigurasi Nginx
 
 Buat file site:
 
@@ -260,7 +326,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 10. SSL (HTTPS)
+### 11. SSL (HTTPS)
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
@@ -269,7 +335,7 @@ sudo certbot --nginx -d mwifi.domainanda.com
 
 Pastikan `APP_URL` di `.env` sudah memakai `https://`.
 
-### 11. Scheduler (billing otomatis)
+### 12. Scheduler (billing otomatis)
 
 Aplikasi menjalankan:
 
@@ -288,7 +354,7 @@ Tambahkan baris:
 * * * * * cd /var/www/mwifi && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-### 12. Queue worker (opsional tapi disarankan)
+### 13. Queue worker (opsional tapi disarankan)
 
 Jika ada job antrian, jalankan worker via Supervisor.
 
@@ -315,7 +381,7 @@ sudo supervisorctl update
 sudo supervisorctl start mwifi-worker:*
 ```
 
-### 13. Selesai — uji aplikasi
+### 14. Selesai — uji aplikasi
 
 1. Buka `https://mwifi.domainanda.com/login`
 2. Login sebagai admin
@@ -416,6 +482,22 @@ php artisan optimize:clear
 
 ## Troubleshooting
 
+### Error `vendor/autoload.php: No such file or directory`
+
+Penyebab: `composer install` belum dijalankan (atau gagal).
+
+```bash
+cd /var/www/mwifi   # atau ~/public_html
+composer install --no-dev --optimize-autoloader
+ls vendor/autoload.php
+```
+
+Baru setelah itu:
+
+```bash
+php artisan key:generate
+```
+
 ### Halaman blank / error 500
 
 ```bash
@@ -433,7 +515,9 @@ npm run build
 php artisan optimize:clear
 ```
 
-Pastikan `APP_URL` benar dan Nginx `root` mengarah ke folder `public/`.
+Pastikan `APP_URL` benar dan Nginx/Apache `root`/`DocumentRoot` mengarah ke folder **`public/`** (bukan root Laravel).
+
+Contoh shared hosting: jika project di `~/public_html`, arahkan document root ke `~/public_html/public`.
 
 ### Billing otomatis tidak jalan
 
