@@ -105,9 +105,10 @@ class AppUpdateService
     }
 
     /**
+     * @param  callable(string, string): void|null  $onLog  (line, type: info|cmd|stdout|stderr|success|error)
      * @return array{message: string, steps: array<int, string>}
      */
-    public function runUpdate(): array
+    public function runUpdate(?callable $onLog = null): array
     {
         if (!config('update.enabled', true)) {
             throw new \RuntimeException('Pembaruan aplikasi dinonaktifkan di konfigurasi.');
@@ -130,39 +131,44 @@ class AppUpdateService
         $branch = (string) ($status['repository']['branch'] ?: config('update.branch', 'main'));
         $steps = [];
 
-        $this->runGit(['fetch', 'origin', $branch], 'Fetch dari GitHub', $steps);
-        $this->runGit(['pull', 'origin', $branch, '--ff-only'], 'Pull kode terbaru', $steps);
+        $onLog?->__invoke('Memulai pembaruan mWiFi dari GitHub...', 'info');
+
+        $this->runGit(['fetch', 'origin', $branch], 'Fetch dari GitHub', $steps, $onLog);
+        $this->runGit(['pull', 'origin', $branch, '--ff-only'], 'Pull kode terbaru', $steps, $onLog);
 
         $isProduction = app()->environment('production');
         $composerArgs = ['install', '--no-interaction', '--prefer-dist', '--optimize-autoloader'];
         if ($isProduction) {
             $composerArgs[] = '--no-dev';
         }
-        $this->runProcess(array_merge(['composer'], $composerArgs), 'Composer install', $steps);
+        $this->runProcess(array_merge(['composer'], $composerArgs), 'Composer install', $steps, $onLog);
 
         if (file_exists(base_path('package-lock.json'))) {
-            $this->runProcess(['npm', 'ci', '--ignore-scripts'], 'NPM ci', $steps);
+            $this->runProcess(['npm', 'ci', '--ignore-scripts'], 'NPM ci', $steps, $onLog);
         } else {
-            $this->runProcess(['npm', 'install', '--ignore-scripts'], 'NPM install', $steps);
+            $this->runProcess(['npm', 'install', '--ignore-scripts'], 'NPM install', $steps, $onLog);
         }
 
-        $this->runProcess(['npm', 'run', 'build'], 'Build frontend (Vite)', $steps);
+        $this->runProcess(['npm', 'run', 'build'], 'Build frontend (Vite)', $steps, $onLog);
 
-        $this->runProcess([PHP_BINARY, 'artisan', 'migrate', '--force'], 'Migrasi database', $steps);
-        $this->runProcess([PHP_BINARY, 'artisan', 'optimize:clear'], 'Bersihkan cache', $steps);
-        $this->runProcess([PHP_BINARY, 'artisan', 'optimize'], 'Optimasi aplikasi', $steps);
+        $this->runProcess([PHP_BINARY, 'artisan', 'migrate', '--force'], 'Migrasi database', $steps, $onLog);
+        $this->runProcess([PHP_BINARY, 'artisan', 'optimize:clear'], 'Bersihkan cache', $steps, $onLog);
+        $this->runProcess([PHP_BINARY, 'artisan', 'optimize'], 'Optimasi aplikasi', $steps, $onLog);
 
         if ($isProduction) {
-            $this->runProcess([PHP_BINARY, 'artisan', 'config:cache'], 'Cache konfigurasi', $steps);
-            $this->runProcess([PHP_BINARY, 'artisan', 'route:cache'], 'Cache route', $steps);
-            $this->runProcess([PHP_BINARY, 'artisan', 'view:cache'], 'Cache view', $steps);
+            $this->runProcess([PHP_BINARY, 'artisan', 'config:cache'], 'Cache konfigurasi', $steps, $onLog);
+            $this->runProcess([PHP_BINARY, 'artisan', 'route:cache'], 'Cache route', $steps, $onLog);
+            $this->runProcess([PHP_BINARY, 'artisan', 'view:cache'], 'Cache view', $steps, $onLog);
         }
 
         $newStatus = $this->getStatus();
         $version = $newStatus['local']['commit_short'] ?? 'terbaru';
+        $message = "Pembaruan berhasil. Versi lokal sekarang {$version}. Refresh halaman jika UI belum berubah.";
+
+        $onLog?->__invoke($message, 'success');
 
         return [
-            'message' => "Pembaruan berhasil. Versi lokal sekarang {$version}. Refresh halaman jika UI belum berubah.",
+            'message' => $message,
             'steps' => $steps,
         ];
     }
@@ -362,20 +368,37 @@ class AppUpdateService
     /**
      * @param array<int, string> $args
      */
-    private function runGit(array $args, ?string $label = null, ?array &$steps = null): Process
+    private function runGit(array $args, ?string $label = null, ?array &$steps = null, ?callable $onLog = null): Process
     {
-        return $this->runProcess(array_merge(['git'], $args), $label ?? 'Git', $steps);
+        return $this->runProcess(array_merge(['git'], $args), $label ?? 'Git', $steps, $onLog);
     }
 
     /**
      * @param array<int, string> $command
      * @param array<int, string>|null $steps
+     * @param callable(string, string): void|null $onLog
      */
-    private function runProcess(array $command, string $label, ?array &$steps = null): Process
+    private function runProcess(array $command, string $label, ?array &$steps = null, ?callable $onLog = null): Process
     {
+        $onLog?->__invoke('$ ' . $this->formatCommand($command), 'cmd');
+        $onLog?->__invoke('→ ' . $label, 'info');
+
         $process = new Process($command, base_path());
         $process->setTimeout((int) config('update.timeout', 600));
-        $process->run();
+        $process->run(function ($type, $buffer) use ($onLog) {
+            if (!$onLog) {
+                return;
+            }
+
+            foreach (preg_split('/\r?\n/', $buffer) ?: [] as $line) {
+                $line = rtrim($line, "\r");
+                if ($line === '') {
+                    continue;
+                }
+
+                $onLog($line, $type === Process::ERR ? 'stderr' : 'stdout');
+            }
+        });
 
         if ($steps !== null) {
             $steps[] = $label . ($process->isSuccessful() ? ' ✓' : ' ✗');
@@ -383,9 +406,30 @@ class AppUpdateService
 
         if (!$process->isSuccessful()) {
             $error = trim($process->getErrorOutput() ?: $process->getOutput());
+            $onLog?->__invoke('✗ ' . $label . ': ' . ($error ?: 'Proses gagal.'), 'error');
             throw new \RuntimeException("Gagal pada langkah \"{$label}\": " . ($error ?: 'Proses gagal.'));
         }
 
+        $onLog?->__invoke('✓ ' . $label, 'success');
+
         return $process;
+    }
+
+    /**
+     * @param array<int, string> $command
+     */
+    private function formatCommand(array $command): string
+    {
+        return implode(' ', array_map(function (string $part): string {
+            if ($part === '') {
+                return "''";
+            }
+
+            if (preg_match('/^[A-Za-z0-9_@%+=:,.\/-]+$/', $part)) {
+                return $part;
+            }
+
+            return escapeshellarg($part);
+        }, $command));
     }
 }

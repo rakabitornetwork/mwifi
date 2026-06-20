@@ -47,6 +47,50 @@ class AppUpdateController extends Controller
         }
     }
 
+    public function runUpdateStream(Request $request)
+    {
+        $this->ensureAdmin($request);
+
+        return response()->stream(function () {
+            if (function_exists('set_time_limit')) {
+                @set_time_limit(0);
+            }
+
+            $emit = function (string $event, array $data): void {
+                echo "event: {$event}\n";
+                echo 'data: ' . json_encode($data, JSON_UNESCAPED_UNICODE) . "\n\n";
+
+                if (ob_get_level() > 0) {
+                    ob_flush();
+                }
+
+                flush();
+            };
+
+            try {
+                $result = $this->updateService->runUpdate(function (string $line, string $type) use ($emit) {
+                    $emit('log', ['line' => $line, 'type' => $type]);
+                });
+
+                $emit('done', [
+                    'success' => true,
+                    'message' => $result['message'],
+                ]);
+            } catch (\Throwable $e) {
+                $emit('log', ['line' => $e->getMessage(), 'type' => 'error']);
+                $emit('done', [
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache',
+            'Connection' => 'keep-alive',
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
     private function ensureAdmin(Request $request): void
     {
         if ($request->user()?->customer) {

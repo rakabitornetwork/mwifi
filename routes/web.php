@@ -166,6 +166,7 @@ Route::middleware('auth')->group(function () {
     // Application update from GitHub
     Route::post('admin/update/check', [\App\Http\Controllers\Admin\AppUpdateController::class, 'checkUpdates']);
     Route::post('admin/update/run', [\App\Http\Controllers\Admin\AppUpdateController::class, 'runUpdate']);
+    Route::post('admin/update/run-stream', [\App\Http\Controllers\Admin\AppUpdateController::class, 'runUpdateStream']);
 
     // Admin Hotspot Actions
     Route::post('admin/hotspot/sync-profiles', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncHotspotProfiles']);

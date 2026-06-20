@@ -621,6 +621,9 @@ export default function Dashboard({
     const [isResettingDatabase, setIsResettingDatabase] = useState(false);
     const [resetConfirmText, setResetConfirmText] = useState('');
     const [isRunningUpdate, setIsRunningUpdate] = useState(false);
+    const [updateTerminalLines, setUpdateTerminalLines] = useState([]);
+    const [updateTerminalStatus, setUpdateTerminalStatus] = useState('idle');
+    const updateTerminalRef = useRef(null);
     const voucherPageSize = 10;
     const salesPageSize = 10;
 
@@ -1346,7 +1349,7 @@ export default function Dashboard({
         });
     };
 
-    const handleRunUpdate = () => {
+    const handleRunUpdate = async () => {
         if (!appUpdateInfo.update_available || !appUpdateInfo.available || appUpdateInfo.enabled === false) {
             return;
         }
@@ -1357,16 +1360,115 @@ export default function Dashboard({
         )) return;
 
         setIsRunningUpdate(true);
-        router.post('/admin/update/run', {}, {
-            preserveScroll: true,
-            onFinish: () => setIsRunningUpdate(false),
-            onSuccess: () => router.reload(),
-            onError: (errors) => {
-                const messages = Object.values(errors).flat().filter(Boolean);
-                showToast(messages[0] || 'Gagal memperbarui aplikasi.', 'error');
-            },
-        });
+        setUpdateTerminalStatus('running');
+        setUpdateTerminalLines([
+            { text: 'Menghubungkan ke server update...', type: 'info' },
+        ]);
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        const appendLine = (line, type = 'stdout') => {
+            setUpdateTerminalLines((prev) => [...prev, { text: line, type }]);
+        };
+
+        const parseSseChunk = (chunk, onEvent) => {
+            const blocks = chunk.split('\n\n');
+            blocks.forEach((block) => {
+                if (!block.trim()) return;
+
+                let eventName = 'message';
+                let dataStr = '';
+
+                block.split('\n').forEach((line) => {
+                    if (line.startsWith('event:')) {
+                        eventName = line.slice(6).trim();
+                    } else if (line.startsWith('data:')) {
+                        dataStr += line.slice(5).trim();
+                    }
+                });
+
+                if (dataStr) {
+                    try {
+                        onEvent(eventName, JSON.parse(dataStr));
+                    } catch {
+                        // ignore malformed chunks
+                    }
+                }
+            });
+        };
+
+        try {
+            const response = await fetch('/admin/update/run-stream', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'text/event-stream',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Server merespons ${response.status}.`);
+            }
+
+            if (!response.body) {
+                throw new Error('Stream update tidak tersedia di browser ini.');
+            }
+
+            appendLine('Terhubung. Menjalankan perintah shell...', 'info');
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const parts = buffer.split('\n\n');
+                buffer = parts.pop() || '';
+
+                parts.forEach((part) => {
+                    parseSseChunk(part + '\n\n', (eventName, data) => {
+                        if (eventName === 'log' && data?.line) {
+                            appendLine(data.line, data.type || 'stdout');
+                        } else if (eventName === 'done') {
+                            setUpdateTerminalStatus(data?.success ? 'success' : 'error');
+                            if (data?.success) {
+                                showToast(data.message || 'Pembaruan berhasil.', 'success');
+                                setTimeout(() => router.reload(), 1800);
+                            } else {
+                                showToast(data?.message || 'Gagal memperbarui aplikasi.', 'error');
+                            }
+                        }
+                    });
+                });
+            }
+
+            if (buffer.trim()) {
+                parseSseChunk(buffer + '\n\n', (eventName, data) => {
+                    if (eventName === 'log' && data?.line) {
+                        appendLine(data.line, data.type || 'stdout');
+                    } else if (eventName === 'done') {
+                        setUpdateTerminalStatus(data?.success ? 'success' : 'error');
+                    }
+                });
+            }
+        } catch (error) {
+            const message = error?.message || 'Gagal memperbarui aplikasi.';
+            appendLine(message, 'error');
+            setUpdateTerminalStatus('error');
+            showToast(message, 'error');
+        } finally {
+            setIsRunningUpdate(false);
+        }
     };
+
+    useEffect(() => {
+        if (updateTerminalRef.current) {
+            updateTerminalRef.current.scrollTop = updateTerminalRef.current.scrollHeight;
+        }
+    }, [updateTerminalLines, updateTerminalStatus]);
 
     const canRunAppUpdate = Boolean(
         appUpdateInfo.update_available
@@ -4041,6 +4143,59 @@ export default function Dashboard({
                                         </div>
                                     </div>
                                 </div>
+
+                                {updateTerminalStatus !== 'idle' && (
+                                    <div className="rounded-2xl overflow-hidden border border-zinc-800/80 shadow-2xl shadow-black/30">
+                                        <div className="flex items-center gap-2 px-3 py-2 bg-zinc-900 border-b border-zinc-800">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-red-500/90" />
+                                            <span className="w-2.5 h-2.5 rounded-full bg-amber-400/90" />
+                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/90" />
+                                            <span className="ml-2 text-[10px] font-mono text-zinc-500 truncate">
+                                                mwifi-update — bash
+                                                {updateTerminalStatus === 'running' && (
+                                                    <span className="ml-2 text-violet-400 animate-pulse">running</span>
+                                                )}
+                                                {updateTerminalStatus === 'success' && (
+                                                    <span className="ml-2 text-emerald-400">done</span>
+                                                )}
+                                                {updateTerminalStatus === 'error' && (
+                                                    <span className="ml-2 text-red-400">failed</span>
+                                                )}
+                                            </span>
+                                        </div>
+                                        <div
+                                            ref={updateTerminalRef}
+                                            className="bg-[#0b0f14] p-3 sm:p-4 max-h-72 overflow-y-auto font-mono text-[11px] leading-relaxed scroll-smooth"
+                                        >
+                                            {updateTerminalLines.map((entry, index) => (
+                                                <div
+                                                    key={`${index}-${entry.text.slice(0, 24)}`}
+                                                    className={`whitespace-pre-wrap break-all ${
+                                                        entry.type === 'cmd'
+                                                            ? 'text-emerald-400'
+                                                            : entry.type === 'info'
+                                                                ? 'text-sky-400/90'
+                                                                : entry.type === 'stderr'
+                                                                    ? 'text-amber-300/85'
+                                                                    : entry.type === 'success'
+                                                                        ? 'text-emerald-300 font-semibold'
+                                                                        : entry.type === 'error'
+                                                                            ? 'text-red-400 font-semibold'
+                                                                            : 'text-zinc-300/90'
+                                                    }`}
+                                                >
+                                                    {entry.text}
+                                                </div>
+                                            ))}
+                                            {updateTerminalStatus === 'running' && (
+                                                <div className="flex items-center gap-1 mt-1 text-emerald-400">
+                                                    <span className="text-zinc-500">$</span>
+                                                    <span className="inline-block w-2 h-3.5 bg-emerald-400/90 animate-pulse" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
 

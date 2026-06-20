@@ -73,6 +73,31 @@ class AppUpdateTest extends TestCase
         $response->assertSessionHasNoErrors();
     }
 
+    public function test_admin_can_stream_update_logs(): void
+    {
+        $this->mock(AppUpdateService::class, function ($mock) {
+            $mock->shouldReceive('runUpdate')
+                ->once()
+                ->andReturnUsing(function (?callable $onLog = null) {
+                    $onLog?->__invoke('$ git fetch origin main', 'cmd');
+                    $onLog?->__invoke('✓ Fetch dari GitHub', 'success');
+
+                    return ['message' => 'Aplikasi berhasil diperbarui.'];
+                });
+        });
+
+        $response = $this->actingAs($this->adminUser())
+            ->post('/admin/update/run-stream');
+
+        $response->assertOk();
+        $this->assertStringContainsString('text/event-stream', (string) $response->headers->get('Content-Type'));
+
+        $content = $response->streamedContent();
+        $this->assertStringContainsString('event: log', $content);
+        $this->assertStringContainsString('event: done', $content);
+        $this->assertStringContainsString('Aplikasi berhasil diperbarui.', $content);
+    }
+
     public function test_customer_cannot_check_updates(): void
     {
         $user = User::factory()->create();
