@@ -498,6 +498,38 @@ Baru setelah itu:
 php artisan key:generate
 ```
 
+### Logo / favicon tidak muncul di VPS
+
+Penyebab umum:
+
+1. **File logo belum ada di server** — path tersimpan di database, tapi file tidak ikut ter-upload. Solusi: upload ulang logo dari menu **Pengaturan**, atau salin folder `storage/app/public/branding/` dari komputer lokal ke VPS.
+
+2. **Symlink storage belum dibuat** — jalankan:
+   ```bash
+   php artisan storage:link
+   ls -la public/storage
+   ```
+   Aplikasi sekarang juga menyajikan logo lewat route `/branding/logo` dan `/branding/favicon` (tidak wajib bergantung symlink).
+
+3. **`APP_URL` salah** — harus match domain HTTPS production, mis. `https://mwifi.domainanda.com`. Lalu:
+   ```bash
+   php artisan optimize:clear
+   php artisan config:cache
+   ```
+
+4. **Permission** — pastikan web server bisa baca file:
+   ```bash
+   chmod -R 775 storage/app/public
+   chown -R www-data:www-data storage/app/public
+   ```
+
+5. **Cache branding lama** — setelah upload logo:
+   ```bash
+   php artisan cache:clear
+   ```
+
+Uji langsung di browser: `https://domain-anda.com/branding/logo` — jika tampil, logo sudah benar.
+
 ### Halaman blank / error 500
 
 ```bash

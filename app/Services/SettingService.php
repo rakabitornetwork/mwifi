@@ -104,8 +104,8 @@ class SettingService
             'system_seo_description' => 'system.seo_description',
             'system_seo_keywords' => 'system.seo_keywords',
             'system_seo_robots' => 'system.seo_robots',
-            'system_logo' => null,
-            'system_favicon' => null,
+            'system_logo' => 'system.logo',
+            'system_favicon' => 'system.favicon',
         ];
 
         foreach ($map as $legacyKey => $canonicalKey) {

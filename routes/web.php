@@ -14,9 +14,10 @@ Route::get('/', function () {
 });
 
 Route::get('favicon.ico', function () {
-    $path = SettingService::get('system.favicon') ?: SettingService::get('system.logo');
+    $path = \App\Services\BrandingService::resolveAssetPath('favicon')
+        ?: \App\Services\BrandingService::resolveAssetPath('logo');
 
-    if (!$path || !Storage::disk('public')->exists($path)) {
+    if (!$path) {
         abort(404);
     }
 
@@ -36,6 +37,10 @@ Route::get('favicon.ico', function () {
         'Cache-Control' => 'public, max-age=86400',
     ]);
 })->name('favicon');
+
+Route::get('branding/{type}', [\App\Http\Controllers\BrandingAssetController::class, 'show'])
+    ->whereIn('type', ['logo', 'favicon'])
+    ->name('branding.asset');
 
 Route::get('admin', function () {
     return auth()->check()
