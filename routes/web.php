@@ -6,6 +6,7 @@ use Inertia\Inertia;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Services\SettingService;
 use App\Services\BillingService;
+use App\Services\DatabaseBackupService;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
@@ -48,6 +49,8 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     $renderDashboard = function ($tab) {
+        $backupService = app(DatabaseBackupService::class);
+
         return Inertia::render('Dashboard', [
             'activeTabProp' => $tab,
             'odps' => \App\Models\Odp::all(),
@@ -61,6 +64,8 @@ Route::middleware('auth')->group(function () {
             'settings' => \App\Models\Setting::all(),
             'hotspotVouchers' => \App\Models\HotspotVoucher::with('router')->orderBy('created_at', 'desc')->get(),
             'hotspotSales' => \App\Models\HotspotSale::with('router')->orderBy('created_at', 'desc')->get(),
+            'databaseInfo' => $backupService->getDatabaseInfo(),
+            'databaseBackups' => $backupService->listBackups(),
         ]);
     };
 
@@ -90,6 +95,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('settings', function () use ($renderDashboard) {
         return $renderDashboard('settings');
+    });
+
+    Route::get('database', function () use ($renderDashboard) {
+        return $renderDashboard('database');
     });
 
     Route::get('profile', function () use ($renderDashboard) {
@@ -129,6 +138,13 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/settings/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveSettings']);
     Route::post('admin/profile/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveAdminProfile']);
     Route::get('admin/server/resources', [\App\Http\Controllers\Admin\AdminActionController::class, 'getServerResources']);
+
+    // Database backup & restore
+    Route::post('admin/database/backup', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'createBackup']);
+    Route::get('admin/database/backups/{filename}/download', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'downloadBackup']);
+    Route::post('admin/database/backups/delete', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'deleteBackup']);
+    Route::post('admin/database/restore', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'restoreBackup']);
+    Route::post('admin/database/reset', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'resetApplicationData']);
 
     // Admin Hotspot Actions
     Route::post('admin/hotspot/sync-profiles', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncHotspotProfiles']);

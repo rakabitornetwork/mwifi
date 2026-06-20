@@ -1,0 +1,744 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Http\UploadedFile;
+use App\Models\User;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\Process\Process;
+
+class DatabaseBackupService
+{
+    public const DISK = 'local';
+
+    public const BACKUP_PATH = 'backups/database';
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getDatabaseInfo(): array
+    {
+        $connection = $this->connectionName();
+        $config = Config::get("database.connections.{$connection}", []);
+        $driver = $config['driver'] ?? 'unknown';
+
+        return [
+            'connection' => $connection,
+            'driver' => $driver,
+            'driver_label' => match ($driver) {
+                'mysql' => 'MySQL',
+                'mariadb' => 'MariaDB',
+                'sqlite' => 'SQLite',
+                default => strtoupper((string) $driver),
+            },
+            'database' => $this->databaseName($config),
+            'host' => $config['host'] ?? null,
+            'port' => $config['port'] ?? null,
+            'backup_directory' => storage_path('app/' . self::BACKUP_PATH),
+            'mysqldump_available' => in_array($driver, ['mysql', 'mariadb'], true)
+                && $this->findMysqlBinary('mysqldump') !== null,
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function listBackups(): array
+    {
+        $this->ensureBackupDirectory();
+
+        $files = Storage::disk(self::DISK)->files(self::BACKUP_PATH);
+
+        $backups = [];
+        foreach ($files as $file) {
+            $filename = basename($file);
+            if (!$this->isAllowedBackupFilename($filename)) {
+                continue;
+            }
+
+            $backups[] = [
+                'filename' => $filename,
+                'size' => Storage::disk(self::DISK)->size($file),
+                'size_human' => $this->formatBytes(Storage::disk(self::DISK)->size($file)),
+                'created_at' => date('Y-m-d H:i:s', Storage::disk(self::DISK)->lastModified($file)),
+                'created_at_timestamp' => Storage::disk(self::DISK)->lastModified($file),
+            ];
+        }
+
+        usort($backups, fn (array $a, array $b) => $b['created_at_timestamp'] <=> $a['created_at_timestamp']);
+
+        return $backups;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function createBackup(): array
+    {
+        $this->ensureBackupDirectory();
+
+        $info = $this->getDatabaseInfo();
+        $driver = $info['driver'];
+        $timestamp = now()->format('Y-m-d_His');
+        $appSlug = preg_replace('/[^a-z0-9\-_]+/i', '-', (string) config('app.name', 'mwifi')) ?: 'mwifi';
+
+        if ($driver === 'sqlite') {
+            $filename = "{$appSlug}_sqlite_{$timestamp}.sqlite";
+            $filename = $this->createSqliteBackup($filename);
+        } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $filename = "{$appSlug}_mysql_{$timestamp}.sql";
+            $this->createMysqlBackup($filename, $info);
+        } else {
+            throw new \RuntimeException("Driver database \"{$driver}\" belum didukung untuk backup.");
+        }
+
+        $path = self::BACKUP_PATH . '/' . $filename;
+
+        return [
+            'filename' => $filename,
+            'size' => Storage::disk(self::DISK)->size($path),
+            'size_human' => $this->formatBytes(Storage::disk(self::DISK)->size($path)),
+            'created_at' => now()->toDateTimeString(),
+        ];
+    }
+
+    public function resolveBackupPath(string $filename): string
+    {
+        $safeName = $this->sanitizeFilename($filename);
+        $relative = self::BACKUP_PATH . '/' . $safeName;
+        $absolute = Storage::disk(self::DISK)->path($relative);
+
+        if (!File::exists($absolute)) {
+            throw new \RuntimeException('File backup tidak ditemukan.');
+        }
+
+        return $absolute;
+    }
+
+    public function deleteBackup(string $filename): void
+    {
+        $safeName = $this->sanitizeFilename($filename);
+        $relative = self::BACKUP_PATH . '/' . $safeName;
+
+        if (!Storage::disk(self::DISK)->exists($relative)) {
+            throw new \RuntimeException('File backup tidak ditemukan.');
+        }
+
+        Storage::disk(self::DISK)->delete($relative);
+    }
+
+    /**
+     * Wipe operational data while preserving administrator accounts and app settings.
+     *
+     * @return array<string, mixed>
+     */
+    public function resetApplicationData(User $actingAdmin, ?string $currentSessionId = null): array
+    {
+        if ($actingAdmin->customer()->exists()) {
+            throw new \RuntimeException('Hanya administrator yang dapat mereset database.');
+        }
+
+        $preservedAdminIds = User::query()
+            ->whereDoesntHave('customer')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if (!in_array((int) $actingAdmin->id, $preservedAdminIds, true)) {
+            throw new \RuntimeException('Akun administrator tidak valid untuk reset database.');
+        }
+
+        $customerUserIds = User::query()
+            ->whereHas('customer')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $connection = $this->connectionName();
+        $driver = DB::connection($connection)->getDriverName();
+        $deleted = [];
+
+        $disableForeignKeys = function () use ($connection, $driver): void {
+            if (in_array($driver, ['mysql', 'mariadb'], true)) {
+                DB::connection($connection)->statement('SET FOREIGN_KEY_CHECKS=0');
+            } elseif ($driver === 'sqlite') {
+                DB::connection($connection)->getPdo()->exec('PRAGMA foreign_keys = OFF');
+            }
+        };
+
+        $enableForeignKeys = function () use ($connection, $driver): void {
+            if (in_array($driver, ['mysql', 'mariadb'], true)) {
+                DB::connection($connection)->statement('SET FOREIGN_KEY_CHECKS=1');
+            } elseif ($driver === 'sqlite') {
+                DB::connection($connection)->getPdo()->exec('PRAGMA foreign_keys = ON');
+            }
+        };
+
+        DB::connection($connection)->transaction(function () use (
+            $connection,
+            $currentSessionId,
+            $customerUserIds,
+            $preservedAdminIds,
+            &$deleted,
+            $disableForeignKeys,
+            $enableForeignKeys
+        ): void {
+            $disableForeignKeys();
+
+            try {
+                $deleted['payments'] = $this->deleteAllFromTable('payments');
+                $deleted['invoices'] = $this->deleteAllFromTable('invoices');
+                $deleted['hotspot_sales'] = $this->deleteAllFromTable('hotspot_sales');
+                $deleted['hotspot_vouchers'] = $this->deleteAllFromTable('hotspot_vouchers');
+                $deleted['billing_activity_logs'] = $this->deleteAllFromTable('billing_activity_logs');
+                $deleted['customers'] = $this->deleteAllFromTable('customers');
+
+                $deleted['customer_users'] = 0;
+                if ($customerUserIds !== []) {
+                    $deleted['customer_users'] = User::query()
+                        ->whereIn('id', $customerUserIds)
+                        ->whereNotIn('id', $preservedAdminIds)
+                        ->count();
+                    User::query()
+                        ->whereIn('id', $customerUserIds)
+                        ->whereNotIn('id', $preservedAdminIds)
+                        ->delete();
+                }
+
+                $deleted['odps'] = $this->deleteAllFromTable('odps');
+                $deleted['packages'] = $this->deleteAllFromTable('packages');
+                $deleted['routers'] = $this->deleteAllFromTable('routers');
+                $deleted['jobs'] = $this->deleteAllFromTable('jobs');
+                $deleted['failed_jobs'] = $this->deleteAllFromTable('failed_jobs');
+                $deleted['job_batches'] = $this->deleteAllFromTable('job_batches');
+                $deleted['password_reset_tokens'] = $this->deleteAllFromTable('password_reset_tokens');
+
+                if ($this->tableExists('sessions')) {
+                    $sessionQuery = DB::connection($connection)->table('sessions');
+                    if ($currentSessionId) {
+                        $deleted['sessions'] = (clone $sessionQuery)
+                            ->where('id', '!=', $currentSessionId)
+                            ->count();
+                        (clone $sessionQuery)
+                            ->where('id', '!=', $currentSessionId)
+                            ->delete();
+                    } else {
+                        $deleted['sessions'] = $this->deleteAllFromTable('sessions');
+                    }
+                }
+            } finally {
+                $enableForeignKeys();
+            }
+        });
+
+        $preservedAdmins = User::query()
+            ->whereIn('id', $preservedAdminIds)
+            ->get(['id', 'name', 'email']);
+
+        return [
+            'preserved_admin_count' => $preservedAdmins->count(),
+            'preserved_admins' => $preservedAdmins
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ])
+                ->values()
+                ->all(),
+            'deleted' => $deleted,
+        ];
+    }
+
+    private function deleteAllFromTable(string $table): int
+    {
+        if (!$this->tableExists($table)) {
+            return 0;
+        }
+
+        $count = DB::connection($this->connectionName())->table($table)->count();
+        DB::connection($this->connectionName())->table($table)->delete();
+
+        return $count;
+    }
+
+    private function tableExists(string $table): bool
+    {
+        return DB::connection($this->connectionName())->getSchemaBuilder()->hasTable($table);
+    }
+
+    public function restoreFromExistingBackup(string $filename): void
+    {
+        $path = $this->resolveBackupPath($filename);
+        $this->restoreFromPath($path);
+    }
+
+    public function restoreFromUpload(UploadedFile $file): void
+    {
+        $extension = strtolower($file->getClientOriginalExtension() ?: '');
+        if (!in_array($extension, ['sql', 'sqlite'], true)) {
+            throw new \RuntimeException('Format file tidak didukung. Gunakan .sql atau .sqlite');
+        }
+
+        $tempName = 'restore_' . uniqid('', true) . '.' . $extension;
+        $tempPath = Storage::disk(self::DISK)->path('backups/temp/' . $tempName);
+
+        File::ensureDirectoryExists(dirname($tempPath));
+        $file->move(dirname($tempPath), basename($tempPath));
+
+        try {
+            $this->restoreFromPath($tempPath);
+        } finally {
+            if (File::exists($tempPath)) {
+                File::delete($tempPath);
+            }
+        }
+    }
+
+    private function restoreFromPath(string $absolutePath): void
+    {
+        $extension = strtolower(pathinfo($absolutePath, PATHINFO_EXTENSION));
+        $driver = $this->getDatabaseInfo()['driver'];
+
+        if ($extension === 'sqlite') {
+            if ($driver !== 'sqlite') {
+                throw new \RuntimeException('File .sqlite hanya dapat dipulihkan ke database SQLite.');
+            }
+            $this->restoreSqliteFile($absolutePath);
+
+            return;
+        }
+
+        if ($extension === 'sql') {
+            if (!in_array($driver, ['mysql', 'mariadb', 'sqlite'], true)) {
+                throw new \RuntimeException('File .sql tidak dapat dipulihkan ke driver database saat ini.');
+            }
+
+            if ($driver === 'sqlite') {
+                $this->restoreSqlDumpToSqlite($absolutePath);
+
+                return;
+            }
+
+            $this->restoreMysqlDump($absolutePath);
+
+            return;
+        }
+
+        throw new \RuntimeException('Format backup tidak dikenali.');
+    }
+
+    private function createSqliteBackup(string $filename): string
+    {
+        $config = Config::get('database.connections.' . $this->connectionName(), []);
+        $databasePath = $config['database'] ?? '';
+
+        if ($databasePath !== ':memory:' && is_string($databasePath) && File::exists($databasePath)) {
+            Storage::disk(self::DISK)->put(
+                self::BACKUP_PATH . '/' . $filename,
+                File::get($databasePath)
+            );
+
+            return $filename;
+        }
+
+        $sqlFilename = preg_replace('/\.sqlite$/', '.sql', $filename) ?: ($filename . '.sql');
+        $this->createPhpSqlDump($sqlFilename);
+
+        return $sqlFilename;
+    }
+
+    private function createMysqlBackup(string $filename, array $info): void
+    {
+        $mysqldump = $this->findMysqlBinary('mysqldump');
+
+        if ($mysqldump !== null) {
+            $this->createMysqlBackupViaCli($filename, $mysqldump, $info);
+
+            return;
+        }
+
+        $this->createPhpSqlDump($filename);
+    }
+
+    /**
+     * @param array<string, mixed> $info
+     */
+    private function createMysqlBackupViaCli(string $filename, string $mysqldump, array $info): void
+    {
+        $connection = $this->connectionName();
+        $config = Config::get("database.connections.{$connection}", []);
+        $target = Storage::disk(self::DISK)->path(self::BACKUP_PATH . '/' . $filename);
+
+        $command = [
+            $mysqldump,
+            '--single-transaction',
+            '--quick',
+            '--lock-tables=false',
+            '--default-character-set=utf8mb4',
+            '--host=' . ($config['host'] ?? '127.0.0.1'),
+            '--port=' . ($config['port'] ?? '3306'),
+            '--user=' . ($config['username'] ?? 'root'),
+            (string) ($config['database'] ?? ''),
+        ];
+
+        $env = $_ENV;
+        if (!empty($config['password'])) {
+            $env['MYSQL_PWD'] = (string) $config['password'];
+        }
+
+        $process = new Process($command, null, $env);
+        $process->setTimeout(600);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            throw new \RuntimeException('Gagal membuat backup MySQL: ' . trim($process->getErrorOutput() ?: $process->getOutput()));
+        }
+
+        File::put($target, $process->getOutput());
+    }
+
+    private function createPhpSqlDump(string $filename): void
+    {
+        $sql = $this->buildPhpSqlDump();
+        Storage::disk(self::DISK)->put(self::BACKUP_PATH . '/' . $filename, $sql);
+    }
+
+    private function buildPhpSqlDump(): string
+    {
+        $driver = DB::connection($this->connectionName())->getDriverName();
+        $lines = [
+            '-- mWiFi database backup',
+            '-- Generated at: ' . now()->toDateTimeString(),
+            '-- Driver: ' . $driver,
+            '',
+        ];
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $lines[] = 'SET FOREIGN_KEY_CHECKS=0;';
+            $lines[] = '';
+        }
+
+        if ($driver === 'sqlite') {
+            $tables = DB::connection($this->connectionName())
+                ->select("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+        } else {
+            $tables = DB::connection($this->connectionName())
+                ->select('SHOW FULL TABLES WHERE Table_type = "BASE TABLE"');
+        }
+
+        foreach ($tables as $tableRow) {
+            $tableName = $this->extractTableName($tableRow, $driver);
+            if (!$tableName || $tableName === 'migrations') {
+                continue;
+            }
+
+            $lines = array_merge($lines, $this->dumpTable($tableName, $driver));
+        }
+
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            $lines[] = 'SET FOREIGN_KEY_CHECKS=1;';
+        }
+
+        return implode(PHP_EOL, $lines) . PHP_EOL;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function dumpTable(string $tableName, string $driver): array
+    {
+        $connection = $this->connectionName();
+        $lines = [
+            '',
+            '-- Table: ' . $tableName,
+        ];
+
+        if ($driver === 'sqlite') {
+            $lines[] = 'DROP TABLE IF EXISTS "' . $tableName . '";';
+        } else {
+            $lines[] = 'DROP TABLE IF EXISTS `' . $tableName . '`;';
+        }
+
+        if ($driver === 'sqlite') {
+            $create = DB::connection($connection)->selectOne(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name = ?",
+                [$tableName]
+            );
+            if ($create && !empty($create->sql)) {
+                $lines[] = $create->sql . ';';
+            }
+        } else {
+            $create = DB::connection($connection)->selectOne('SHOW CREATE TABLE `' . $tableName . '`');
+            $createSql = $create->{'Create Table'} ?? $create->{'Create View'} ?? null;
+            if ($createSql) {
+                $lines[] = $createSql . ';';
+            }
+        }
+
+        $rows = DB::connection($connection)->table($tableName)->get();
+        foreach ($rows as $row) {
+            $columns = [];
+            $values = [];
+
+            foreach ((array) $row as $column => $value) {
+                $columns[] = $driver === 'sqlite' ? '"' . $column . '"' : '`' . $column . '`';
+                $values[] = $this->quoteValue($value);
+            }
+
+            if ($columns === []) {
+                continue;
+            }
+
+            $columnList = implode(', ', $columns);
+            $valueList = implode(', ', $values);
+            $tableRef = $driver === 'sqlite' ? '"' . $tableName . '"' : '`' . $tableName . '`';
+            $lines[] = "INSERT INTO {$tableRef} ({$columnList}) VALUES ({$valueList});";
+        }
+
+        return $lines;
+    }
+
+    private function quoteValue(mixed $value): string
+    {
+        if ($value === null) {
+            return 'NULL';
+        }
+
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        return DB::connection($this->connectionName())->getPdo()->quote((string) $value);
+    }
+
+    private function restoreMysqlDump(string $absolutePath): void
+    {
+        $mysql = $this->findMysqlBinary('mysql');
+
+        if ($mysql !== null) {
+            $this->restoreMysqlViaCli($absolutePath, $mysql);
+
+            return;
+        }
+
+        $this->restoreSqlViaPhp($absolutePath);
+    }
+
+    private function restoreMysqlViaCli(string $absolutePath, string $mysql): void
+    {
+        $connection = $this->connectionName();
+        $config = Config::get("database.connections.{$connection}", []);
+
+        $command = [
+            $mysql,
+            '--default-character-set=utf8mb4',
+            '--host=' . ($config['host'] ?? '127.0.0.1'),
+            '--port=' . ($config['port'] ?? '3306'),
+            '--user=' . ($config['username'] ?? 'root'),
+            (string) ($config['database'] ?? ''),
+        ];
+
+        $env = $_ENV;
+        if (!empty($config['password'])) {
+            $env['MYSQL_PWD'] = (string) $config['password'];
+        }
+
+        $process = new Process($command, null, $env);
+        $process->setInput(File::get($absolutePath));
+        $process->setTimeout(600);
+        $process->run();
+
+        if (!$process->isSuccessful()) {
+            throw new \RuntimeException('Gagal restore MySQL: ' . trim($process->getErrorOutput() ?: $process->getOutput()));
+        }
+    }
+
+    private function restoreSqlViaPhp(string $absolutePath): void
+    {
+        $connection = $this->connectionName();
+        $driver = DB::connection($connection)->getDriverName();
+        $pdo = DB::connection($connection)->getPdo();
+        $sql = File::get($absolutePath);
+        $statements = preg_split('/;\s*[\r\n]+/', $sql) ?: [];
+
+        if ($driver === 'sqlite') {
+            $pdo->exec('PRAGMA foreign_keys = OFF');
+        } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+            DB::connection($connection)->statement('SET FOREIGN_KEY_CHECKS=0');
+        }
+
+        try {
+            foreach ($statements as $statement) {
+                $statement = trim($statement);
+                if ($statement === '' || str_starts_with($statement, '--')) {
+                    continue;
+                }
+
+                $pdo->exec($statement);
+            }
+        } finally {
+            if ($driver === 'sqlite') {
+                $pdo->exec('PRAGMA foreign_keys = ON');
+            } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
+                DB::connection($connection)->statement('SET FOREIGN_KEY_CHECKS=1');
+            }
+        }
+    }
+
+    private function restoreSqliteFile(string $absolutePath): void
+    {
+        $config = Config::get('database.connections.' . $this->connectionName(), []);
+        $databasePath = $config['database'] ?? '';
+
+        if (!is_string($databasePath) || $databasePath === ':memory:') {
+            throw new \RuntimeException('Restore SQLite tidak tersedia untuk database in-memory.');
+        }
+
+        DB::purge($this->connectionName());
+        DB::disconnect($this->connectionName());
+
+        File::ensureDirectoryExists(dirname($databasePath));
+        File::copy($absolutePath, $databasePath, true);
+    }
+
+    private function restoreSqlDumpToSqlite(string $absolutePath): void
+    {
+        $connection = $this->connectionName();
+        $pdo = DB::connection($connection)->getPdo();
+        $pdo->exec('PRAGMA foreign_keys = OFF');
+
+        $tables = DB::connection($connection)->select(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name DESC"
+        );
+
+        foreach ($tables as $table) {
+            $name = $table->name ?? null;
+            if ($name) {
+                $pdo->exec('DROP TABLE IF EXISTS "' . str_replace('"', '""', $name) . '"');
+            }
+        }
+
+        try {
+            $this->restoreSqlViaPhp($absolutePath);
+        } finally {
+            $pdo->exec('PRAGMA foreign_keys = ON');
+        }
+    }
+
+    private function extractTableName(object $row, string $driver): ?string
+    {
+        if ($driver === 'sqlite') {
+            return $row->name ?? null;
+        }
+
+        $values = array_values((array) $row);
+
+        return $values[0] ?? null;
+    }
+
+    private function connectionName(): string
+    {
+        return (string) Config::get('database.default', 'sqlite');
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function databaseName(array $config): string
+    {
+        $database = $config['database'] ?? '';
+
+        if (($config['driver'] ?? '') === 'sqlite' && $database === ':memory:') {
+            return ':memory:';
+        }
+
+        return (string) $database;
+    }
+
+    private function ensureBackupDirectory(): void
+    {
+        Storage::disk(self::DISK)->makeDirectory(self::BACKUP_PATH);
+    }
+
+    private function sanitizeFilename(string $filename): string
+    {
+        $basename = basename($filename);
+
+        if (!$this->isAllowedBackupFilename($basename)) {
+            throw new \RuntimeException('Nama file backup tidak valid.');
+        }
+
+        return $basename;
+    }
+
+    private function isAllowedBackupFilename(string $filename): bool
+    {
+        return (bool) preg_match('/^[a-zA-Z0-9][a-zA-Z0-9._-]+\.(sql|sqlite)$/', $filename);
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes >= 1073741824) {
+            return number_format($bytes / 1073741824, 2) . ' GB';
+        }
+
+        if ($bytes >= 1048576) {
+            return number_format($bytes / 1048576, 2) . ' MB';
+        }
+
+        if ($bytes >= 1024) {
+            return number_format($bytes / 1024, 2) . ' KB';
+        }
+
+        return $bytes . ' B';
+    }
+
+    private function findMysqlBinary(string $binary): ?string
+    {
+        $binaryFile = PHP_OS_FAMILY === 'Windows' ? $binary . '.exe' : $binary;
+
+        $paths = [];
+
+        if ($custom = env('MYSQL_BIN_PATH')) {
+            $paths[] = rtrim($custom, '\\/') . DIRECTORY_SEPARATOR . $binaryFile;
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $laragonRoot = env('LARAGON_ROOT', 'C:\\laragon');
+            foreach (glob($laragonRoot . '\\bin\\mysql\\mysql-*\\bin\\' . $binaryFile) ?: [] as $match) {
+                $paths[] = $match;
+            }
+            foreach (glob($laragonRoot . '\\bin\\mariadb\\mariadb-*\\bin\\' . $binaryFile) ?: [] as $match) {
+                $paths[] = $match;
+            }
+        }
+
+        $which = PHP_OS_FAMILY === 'Windows'
+            ? shell_exec('where ' . escapeshellarg($binary) . ' 2>nul')
+            : shell_exec('which ' . escapeshellarg($binary) . ' 2>/dev/null');
+
+        if (is_string($which) && trim($which) !== '') {
+            foreach (preg_split('/\R/', trim($which)) ?: [] as $line) {
+                $line = trim($line);
+                if ($line !== '') {
+                    $paths[] = $line;
+                }
+            }
+        }
+
+        foreach ($paths as $path) {
+            if (is_string($path) && File::exists($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+}

@@ -33,6 +33,11 @@
 .noc-sidebar-footer {
     background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.16) 100%);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+}
+
+.noc-main-footer {
+    flex-shrink: 0;
 }
 
 .noc-navbar {
