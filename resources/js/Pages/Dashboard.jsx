@@ -129,7 +129,7 @@ function SidebarPanel({
         { tab: 'network-map', icon: Map, label: 'Peta Jaringan' },
         { tab: 'packages', icon: Layers, label: 'Paket Internet' },
         { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
-        { tab: 'hotspot', icon: Radio, label: 'Hotspot Manajemen' },
+        { tab: 'hotspot', icon: Radio, label: 'Manajemen Hotspot' },
         { tab: 'database', icon: Database, label: 'Database' },
         { tab: 'update', icon: GitBranch, label: 'Update' },
         { tab: 'settings', icon: Settings, label: 'Pengaturan' },
