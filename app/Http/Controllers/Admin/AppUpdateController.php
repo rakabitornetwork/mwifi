@@ -38,12 +38,6 @@ class AppUpdateController extends Controller
     {
         $this->ensureAdmin($request);
 
-        $request->validate([
-            'confirm' => 'required|in:UPDATE',
-        ], [
-            'confirm.in' => 'Ketik UPDATE untuk mengonfirmasi pembaruan aplikasi.',
-        ]);
-
         try {
             $result = $this->updateService->runUpdate();
 

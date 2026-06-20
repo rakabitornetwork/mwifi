@@ -73,7 +73,9 @@ Route::middleware('auth')->group(function () {
             'hotspotSales' => \App\Models\HotspotSale::with('router')->orderBy('created_at', 'desc')->get(),
             'databaseInfo' => $backupService->getDatabaseInfo(),
             'databaseBackups' => $backupService->listBackups(),
-            'appUpdateInfo' => $updateService->getStatus(),
+            'appUpdateInfo' => $tab === 'update'
+                ? $updateService->checkForUpdates(true)
+                : $updateService->getStatus(),
         ]);
     };
 

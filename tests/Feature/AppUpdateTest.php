@@ -57,14 +57,20 @@ class AppUpdateTest extends TestCase
         );
     }
 
-    public function test_run_update_requires_confirm_keyword(): void
+    public function test_run_update_does_not_require_confirm_keyword(): void
     {
-        $response = $this->actingAs($this->adminUser())
-            ->post('/admin/update/run', [
-                'confirm' => 'WRONG',
-            ]);
+        $this->mock(AppUpdateService::class, function ($mock) {
+            $mock->shouldReceive('runUpdate')
+                ->once()
+                ->andReturn(['message' => 'Aplikasi berhasil diperbarui.']);
+        });
 
-        $response->assertSessionHasErrors('confirm');
+        $response = $this->actingAs($this->adminUser())
+            ->post('/admin/update/run');
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success', 'Aplikasi berhasil diperbarui.');
+        $response->assertSessionHasNoErrors();
     }
 
     public function test_customer_cannot_check_updates(): void
