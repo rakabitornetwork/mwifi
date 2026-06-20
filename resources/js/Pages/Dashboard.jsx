@@ -4091,7 +4091,7 @@ export default function Dashboard({
                                                 <div className="min-w-0">
                                                     <h2 className={`text-sm font-bold tracking-tight ${themeTextTitle}`}>Pembaruan Aplikasi</h2>
                                                     <p className={`text-[11px] leading-relaxed mt-0.5 ${themeTextSub}`}>
-                                                        Status dicek otomatis dari GitHub saat halaman dibuka.
+                                                        Status dicek otomatis via <span className="font-semibold">git fetch</span> saat halaman dibuka (branch: {appUpdateInfo.repository?.branch || 'main'}).
                                                     </p>
                                                 </div>
                                             </div>
@@ -4113,9 +4113,14 @@ export default function Dashboard({
                                                 <p className={`text-[10px] mt-1 line-clamp-2 ${themeTextSub}`}>{appUpdateInfo.local?.commit_message || '—'}</p>
                                             </div>
                                             <div className={`rounded-xl border p-3 ${appUpdateInfo.update_available ? (isDarkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/50') : (isDarkMode ? 'border-zinc-800 bg-zinc-900/30' : 'border-zinc-200 bg-zinc-50/80')}`}>
-                                                <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Versi GitHub</p>
+                                                <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>
+                                                    Versi GitHub
+                                                    {appUpdateInfo.remote?.source === 'git' && (
+                                                        <span className={`ml-1 font-normal normal-case ${themeTextDesc}`}>(origin/{appUpdateInfo.repository?.branch || 'main'})</span>
+                                                    )}
+                                                </p>
                                                 <p className={`text-base font-black font-mono mt-1 ${themeTextTitle}`}>{appUpdateInfo.remote?.commit_short || '—'}</p>
-                                                <p className={`text-[10px] mt-1 line-clamp-2 ${themeTextSub}`}>{appUpdateInfo.remote?.commit_message || '—'}</p>
+                                                <p className={`text-[10px] mt-1 line-clamp-2 ${themeTextSub}`}>{appUpdateInfo.remote?.commit_message || appUpdateInfo.remote?.error || 'Belum dapat memuat versi remote.'}</p>
                                             </div>
                                         </div>
 

@@ -27,7 +27,13 @@ class AppUpdateService
             ? $this->getLocalGitInfo($branch)
             : $this->emptyLocalInfo();
 
-        $remote = $this->getRemoteGitHubCommit($owner, $repo, $branch);
+        $resolvedBranch = $this->resolveBranch(
+            (string) ($local['branch'] ?? ''),
+            $branch,
+            $isRepo && $git['ok']
+        );
+
+        $remote = $this->getRemoteInfo($resolvedBranch, $isRepo && $git['ok'], $owner, $repo);
 
         $updateAvailable = false;
         $behindCount = 0;
@@ -36,7 +42,7 @@ class AppUpdateService
             if ($local['commit'] !== $remote['commit']) {
                 $updateAvailable = true;
                 if ($isRepo && $git['ok']) {
-                    $behindCount = $this->countCommitsBehind($branch);
+                    $behindCount = $this->countCommitsBehind($resolvedBranch);
                 } else {
                     $behindCount = 1;
                 }
@@ -78,7 +84,7 @@ class AppUpdateService
             'repository' => [
                 'url' => $local['remote_url'] ?: $configuredRepo,
                 'configured_url' => $configuredRepo,
-                'branch' => $local['branch'] ?: $branch,
+                'branch' => $resolvedBranch,
                 'github_url' => "https://github.com/{$owner}/{$repo}",
             ],
             'local' => $local,
@@ -97,6 +103,7 @@ class AppUpdateService
         $branch = (string) ($status['repository']['branch'] ?: config('update.branch', 'main'));
 
         if ($fetch && ($status['requirements']['git']['ok'] ?? false) && ($status['requirements']['is_git_repo']['ok'] ?? false)) {
+            $branch = (string) ($status['repository']['branch'] ?: config('update.branch', 'main'));
             $this->runGit(['fetch', 'origin', $branch], 'Memuat info pembaruan dari GitHub');
             $status = $this->getStatus();
         }
@@ -221,18 +228,83 @@ class AppUpdateService
     /**
      * @return array<string, mixed>
      */
+    private function getRemoteInfo(string $branch, bool $canUseGit, string $owner, string $repo): array
+    {
+        if ($canUseGit) {
+            $fromGit = $this->getRemoteFromGit($branch);
+            if ($fromGit !== null) {
+                return $fromGit;
+            }
+        }
+
+        return $this->getRemoteGitHubCommit($owner, $repo, $branch);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function getRemoteFromGit(string $branch): ?array
+    {
+        $ref = "origin/{$branch}";
+        $verify = $this->runGit(['rev-parse', '--verify', $ref]);
+        if (!$verify->isSuccessful()) {
+            return null;
+        }
+
+        $commit = $this->parseCommitLog($ref);
+        if ($commit === null) {
+            return null;
+        }
+
+        return [
+            'commit' => $commit['commit'],
+            'commit_short' => $commit['commit_short'],
+            'commit_date' => $commit['commit_date'],
+            'commit_message' => $commit['commit_message'],
+            'author' => null,
+            'source' => 'git',
+            'error' => null,
+        ];
+    }
+
+    private function resolveBranch(string $localBranch, string $configuredBranch, bool $canUseGit): string
+    {
+        if ($canUseGit && $localBranch !== '') {
+            $verify = $this->runGit(['rev-parse', '--verify', "origin/{$localBranch}"]);
+            if ($verify->isSuccessful()) {
+                return $localBranch;
+            }
+        }
+
+        return $configuredBranch;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     private function getRemoteGitHubCommit(string $owner, string $repo, string $branch): array
     {
         try {
-            $response = Http::timeout(15)
+            $request = Http::timeout(15)
                 ->withHeaders([
                     'Accept' => 'application/vnd.github+json',
                     'User-Agent' => 'mWiFi-Update-Checker',
-                ])
-                ->get("https://api.github.com/repos/{$owner}/{$repo}/commits/{$branch}");
+                ]);
+
+            $token = config('update.github_token');
+            if (is_string($token) && $token !== '') {
+                $request = $request->withToken($token);
+            }
+
+            $response = $request->get("https://api.github.com/repos/{$owner}/{$repo}/commits/{$branch}");
 
             if (!$response->successful()) {
-                return $this->emptyRemoteInfo();
+                $message = $response->json('message') ?? 'Gagal memuat commit dari GitHub API.';
+
+                return array_merge($this->emptyRemoteInfo(), [
+                    'source' => 'github_api',
+                    'error' => $message,
+                ]);
             }
 
             $data = $response->json();
@@ -244,9 +316,14 @@ class AppUpdateService
                 'commit_date' => $commit['committer']['date'] ?? null,
                 'commit_message' => isset($commit['message']) ? strtok((string) $commit['message'], "\n") : null,
                 'author' => $commit['author']['name'] ?? null,
+                'source' => 'github_api',
+                'error' => null,
             ];
-        } catch (\Throwable) {
-            return $this->emptyRemoteInfo();
+        } catch (\Throwable $e) {
+            return array_merge($this->emptyRemoteInfo(), [
+                'source' => 'github_api',
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -261,6 +338,8 @@ class AppUpdateService
             'commit_date' => null,
             'commit_message' => null,
             'author' => null,
+            'source' => null,
+            'error' => null,
         ];
     }
 

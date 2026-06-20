@@ -22,6 +22,13 @@ return [
 
     'github_repo' => 'mwifi',
 
+    /*
+    | Token GitHub opsional (Personal Access Token, scope: public_repo).
+    | Dipakai hanya jika git fetch gagal dan fallback ke GitHub API.
+    | Kosongkan jika tidak diperlukan.
+    */
+    'github_token' => null,
+
     'timeout' => 600,
 
     'allow_dirty_tree' => false,
