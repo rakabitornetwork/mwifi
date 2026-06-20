@@ -1355,7 +1355,8 @@ export default function Dashboard({
         }
 
         if (!confirm(
-            'Pembaruan akan menarik kode terbaru dari GitHub, menjalankan Composer & NPM, migrasi database, dan rebuild frontend.\n\n' +
+            'Pembaruan akan menarik kode terbaru dari GitHub, lalu migrasi database dan optimasi cache.\n\n' +
+            'Composer & NPM tidak dijalankan di server — pastikan vendor/public/build sudah di-commit dari lokal.\n\n' +
             'Disarankan buat backup database dulu. Proses bisa memakan beberapa menit.\n\nLanjutkan?'
         )) return;
 

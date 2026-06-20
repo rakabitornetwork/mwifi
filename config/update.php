@@ -31,6 +31,18 @@ return [
 
     'timeout' => 600,
 
+    /*
+    | Jalankan composer install saat update dari menu.
+    | false = vendor sudah di-commit atau composer dijalankan manual di server.
+    */
+    'run_composer_on_update' => false,
+
+    /*
+    | Jalankan npm install & npm run build saat update dari menu.
+    | false = build dilakukan di lokal (Laragon), public/build di-commit ke Git.
+    */
+    'run_npm_on_update' => false,
+
     'allow_dirty_tree' => false,
 
 ];

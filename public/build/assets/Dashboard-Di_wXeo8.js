@@ -127,7 +127,9 @@ Yang TETAP AMAN:
 • Pengaturan aplikasi (branding, payment, WA, dll)
 • File backup di server
 
-Disarankan buat backup dulu. Lanjutkan reset?`)&&(en(!0),t.post(`/admin/database/reset`,{confirm:tn},{preserveScroll:!0,onFinish:()=>en(!1),onSuccess:()=>{nn(``),t.reload()},onError:e=>{I(Object.values(e).flat().filter(Boolean)[0]||`Gagal reset database.`,`error`)}}))},ji=async()=>{if(!Mi||!confirm(`Pembaruan akan menarik kode terbaru dari GitHub, menjalankan Composer & NPM, migrasi database, dan rebuild frontend.
+Disarankan buat backup dulu. Lanjutkan reset?`)&&(en(!0),t.post(`/admin/database/reset`,{confirm:tn},{preserveScroll:!0,onFinish:()=>en(!1),onSuccess:()=>{nn(``),t.reload()},onError:e=>{I(Object.values(e).flat().filter(Boolean)[0]||`Gagal reset database.`,`error`)}}))},ji=async()=>{if(!Mi||!confirm(`Pembaruan akan menarik kode terbaru dari GitHub, lalu migrasi database dan optimasi cache.
+
+Composer & NPM tidak dijalankan di server — pastikan vendor/public/build sudah di-commit dari lokal.
 
 Disarankan buat backup database dulu. Proses bisa memakan beberapa menit.
 

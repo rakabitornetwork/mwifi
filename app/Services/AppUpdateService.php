@@ -67,8 +67,8 @@ class AppUpdateService
 
         $canUpdate = (bool) config('update.enabled', true)
             && $git['ok']
-            && $composer['ok']
-            && $npm['ok']
+            && (!config('update.run_composer_on_update', false) || $composer['ok'])
+            && (!config('update.run_npm_on_update', false) || $npm['ok'])
             && $isRepo
             && $writable
             && ($requirements['is_git_repo']['ok'] ?? false);
@@ -156,19 +156,30 @@ class AppUpdateService
         $this->runGit(['pull', 'origin', $branch, '--ff-only'], 'Pull kode terbaru', $steps, $onLog);
 
         $isProduction = app()->environment('production');
-        $composerArgs = ['install', '--no-interaction', '--prefer-dist', '--optimize-autoloader'];
-        if ($isProduction) {
-            $composerArgs[] = '--no-dev';
-        }
-        $this->runProcess(array_merge(['composer'], $composerArgs), 'Composer install', $steps, $onLog);
 
-        if (file_exists(base_path('package-lock.json'))) {
-            $this->runProcess(['npm', 'ci', '--ignore-scripts'], 'NPM ci', $steps, $onLog);
+        if (config('update.run_composer_on_update', false)) {
+            $composerArgs = ['install', '--no-interaction', '--prefer-dist', '--optimize-autoloader'];
+            if ($isProduction) {
+                $composerArgs[] = '--no-dev';
+            }
+            $this->runProcess(array_merge(['composer'], $composerArgs), 'Composer install', $steps, $onLog);
         } else {
-            $this->runProcess(['npm', 'install', '--ignore-scripts'], 'NPM install', $steps, $onLog);
+            $onLog?->__invoke('Lewati Composer — jalankan composer install manual jika ada dependency PHP baru.', 'info');
+            $steps[] = 'Composer install dilewati ✓';
         }
 
-        $this->runProcess(['npm', 'run', 'build'], 'Build frontend (Vite)', $steps, $onLog);
+        if (config('update.run_npm_on_update', false)) {
+            if (file_exists(base_path('package-lock.json'))) {
+                $this->runProcess(['npm', 'ci', '--ignore-scripts'], 'NPM ci', $steps, $onLog);
+            } else {
+                $this->runProcess(['npm', 'install', '--ignore-scripts'], 'NPM install', $steps, $onLog);
+            }
+
+            $this->runProcess(['npm', 'run', 'build'], 'Build frontend (Vite)', $steps, $onLog);
+        } else {
+            $onLog?->__invoke('Lewati NPM — public/build sudah dibuild di lokal dan di-commit ke Git.', 'info');
+            $steps[] = 'NPM build dilewati ✓';
+        }
 
         $this->runProcess([PHP_BINARY, 'artisan', 'migrate', '--force'], 'Migrasi database', $steps, $onLog);
         $this->runProcess([PHP_BINARY, 'artisan', 'optimize:clear'], 'Bersihkan cache', $steps, $onLog);
