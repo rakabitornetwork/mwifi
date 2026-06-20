@@ -26,8 +26,7 @@ class AppUpdateTest extends TestCase
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
-            ->component('Dashboard')
-            ->where('activeTabProp', 'update')
+            ->component('Admin/Update/Index')
             ->has('appUpdateInfo')
         );
     }

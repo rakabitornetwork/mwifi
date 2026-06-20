@@ -1,0 +1,45 @@
+import { createContext, useContext, useMemo, useState } from 'react';
+
+const AdminThemeContext = createContext(null);
+
+export function AdminThemeProvider({ children }) {
+    const [isDarkMode, setIsDarkMode] = useState(false);
+
+    const theme = useMemo(() => {
+        const toggleTheme = () => setIsDarkMode((prev) => !prev);
+
+        return {
+            isDarkMode,
+            toggleTheme,
+            themeBg: isDarkMode ? 'bg-zinc-950 text-zinc-100' : 'bg-zinc-50 text-zinc-800',
+            themeSidebar: isDarkMode ? 'noc-sidebar noc-sidebar-dark' : 'noc-sidebar noc-sidebar-light',
+            themeSidebarBottom: 'noc-sidebar-footer',
+            sidebarTextTitle: 'text-white',
+            sidebarTextSub: 'text-blue-100/80',
+            sidebarTextDesc: 'text-blue-200/60',
+            sidebarBorder: 'border-white/10',
+            themeCard: isDarkMode ? 'bg-zinc-900/50 border-zinc-800/80 backdrop-blur-md' : 'bg-white border-zinc-200/80 shadow-xs',
+            themeTextTitle: isDarkMode ? 'text-white' : 'text-zinc-900',
+            themeTextSub: isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
+            themeTextDesc: isDarkMode ? 'text-zinc-500' : 'text-zinc-400',
+            themeHeader: isDarkMode ? 'noc-navbar noc-navbar-dark' : 'noc-navbar noc-navbar-light',
+            themeMainPanel: isDarkMode ? 'bg-zinc-950' : 'bg-zinc-50',
+            themeFooterBar: isDarkMode ? 'bg-zinc-950 border-zinc-800/80' : 'bg-zinc-50 border-zinc-200',
+            themeHeaderBorder: isDarkMode ? 'border-transparent' : 'border-transparent',
+        };
+    }, [isDarkMode]);
+
+    return (
+        <AdminThemeContext.Provider value={theme}>
+            {children}
+        </AdminThemeContext.Provider>
+    );
+}
+
+export function useAdminTheme() {
+    const context = useContext(AdminThemeContext);
+    if (!context) {
+        throw new Error('useAdminTheme must be used within AdminThemeProvider');
+    }
+    return context;
+}

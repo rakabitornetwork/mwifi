@@ -4,10 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
-use App\Services\SettingService;
-use App\Services\BillingService;
-use App\Services\DatabaseBackupService;
-use App\Services\AppUpdateService;
+use App\Http\Controllers\Admin\AdminPageController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
@@ -54,77 +51,20 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    $renderDashboard = function ($tab) {
-        $backupService = app(DatabaseBackupService::class);
-        $updateService = app(AppUpdateService::class);
-
-        return Inertia::render('Dashboard', [
-            'activeTabProp' => $tab,
-            'odps' => \App\Models\Odp::all(),
-            'customers' => \App\Models\Customer::with(['odp', 'package', 'router'])->get(),
-            'routers' => \App\Models\Router::all(),
-            'packages' => \App\Models\Package::all(),
-            'invoices' => BillingService::appendNextBillingToInvoices(
-                \App\Models\Invoice::with(['customer.package', 'payments'])->orderBy('created_at', 'desc')->get()
-            ),
-            'billingActivityLogs' => \App\Models\BillingActivityLog::orderBy('created_at', 'desc')->limit(50)->get(),
-            'settings' => \App\Models\Setting::all(),
-            'hotspotVouchers' => \App\Models\HotspotVoucher::with('router')->orderBy('created_at', 'desc')->get(),
-            'hotspotSales' => \App\Models\HotspotSale::with('router')->orderBy('created_at', 'desc')->get(),
-            'databaseInfo' => $backupService->getDatabaseInfo(),
-            'databaseBackups' => $backupService->listBackups(),
-            'appUpdateInfo' => $tab === 'update'
-                ? $updateService->checkForUpdates(true)
-                : $updateService->getStatus(),
-        ]);
-    };
-
-    Route::get('dashboard', function () use ($renderDashboard) {
-        return $renderDashboard('dashboard');
-    })->name('dashboard');
-
-    Route::get('routers', function () use ($renderDashboard) {
-        return $renderDashboard('routers');
-    });
-
-    Route::get('customers', function () use ($renderDashboard) {
-        return $renderDashboard('customers');
-    });
-
-    Route::get('packages', function () use ($renderDashboard) {
-        return $renderDashboard('packages');
-    });
-
-    Route::get('invoices', function () use ($renderDashboard) {
-        return $renderDashboard('invoices');
-    });
-
-    Route::get('hotspot', function () use ($renderDashboard) {
-        return $renderDashboard('hotspot');
-    });
-
-    Route::get('settings', function () use ($renderDashboard) {
-        return $renderDashboard('settings');
-    });
-
-    Route::get('database', function () use ($renderDashboard) {
-        return $renderDashboard('database');
-    });
-
-    Route::get('update', function () use ($renderDashboard) {
-        return $renderDashboard('update');
-    });
-
-    Route::get('profile', function () use ($renderDashboard) {
-        return $renderDashboard('profile');
-    });
+    Route::get('dashboard', [AdminPageController::class, 'dashboard'])->name('dashboard');
+    Route::get('routers', [AdminPageController::class, 'routers']);
+    Route::get('customers', [AdminPageController::class, 'customers']);
+    Route::get('packages', [AdminPageController::class, 'packages']);
+    Route::get('invoices', [AdminPageController::class, 'invoices']);
+    Route::get('hotspot', [AdminPageController::class, 'hotspot']);
+    Route::get('settings', [AdminPageController::class, 'settings']);
+    Route::get('database', [AdminPageController::class, 'database']);
+    Route::get('update', [AdminPageController::class, 'update']);
+    Route::get('profile', [AdminPageController::class, 'profile']);
+    Route::get('network-map', [AdminPageController::class, 'networkMap']);
 
     Route::get('profile/avatar', [\App\Http\Controllers\ProfileAvatarController::class, 'show'])
         ->name('profile.avatar');
-
-    Route::get('network-map', function () use ($renderDashboard) {
-        return $renderDashboard('network-map');
-    });
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 

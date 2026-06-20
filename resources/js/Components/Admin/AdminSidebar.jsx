@@ -1,0 +1,145 @@
+import { Link, router } from '@inertiajs/react';
+import {
+    Activity,
+    CreditCard,
+    Database,
+    GitBranch,
+    Layers,
+    LogOut,
+    Map,
+    Radio,
+    Settings,
+    Users,
+    Wifi,
+    X,
+} from 'lucide-react';
+
+export const adminNavItems = [
+    { tab: 'dashboard', icon: Activity, label: 'Dashboard' },
+    { tab: 'routers', icon: Wifi, label: 'Router Mikrotik' },
+    { tab: 'customers', icon: Users, label: 'Manajemen PPPoE' },
+    { tab: 'network-map', icon: Map, label: 'Peta Jaringan' },
+    { tab: 'packages', icon: Layers, label: 'Paket Internet' },
+    { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
+    { tab: 'hotspot', icon: Radio, label: 'Manajemen Hotspot' },
+    { tab: 'database', icon: Database, label: 'Database' },
+    { tab: 'update', icon: GitBranch, label: 'Update' },
+    { tab: 'settings', icon: Settings, label: 'Pengaturan' },
+];
+
+export function getAdminNavLinkClass(tabName, activeTab) {
+    const isActive = activeTab === tabName;
+    if (isActive) {
+        return 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all duration-150 border bg-white/16 text-white border-white/22 shadow-sm backdrop-blur-sm cursor-pointer';
+    }
+    return 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-medium text-xs transition-all duration-150 border border-transparent text-blue-50/85 hover:bg-white/12 hover:text-white hover:border-white/14 cursor-pointer';
+}
+
+export default function AdminSidebar({
+    branding,
+    auth,
+    activeTab,
+    sidebarBorder,
+    sidebarTextTitle,
+    sidebarTextSub,
+    sidebarTextDesc,
+    themeSidebarBottom,
+    isDarkMode,
+    onNavClick,
+    showCloseButton = false,
+    onClose,
+}) {
+    return (
+        <div className="flex flex-col h-full min-h-0 w-full">
+            <div className="flex-1 min-h-0 overflow-y-auto">
+                <div
+                    className={`h-14 px-4 border-b ${sidebarBorder} flex items-center shrink-0 ${showCloseButton ? 'justify-between gap-2' : 'space-x-2.5'}`}
+                    key={`sidebar-brand-${branding.version}`}
+                >
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                        {branding.logo_url ? (
+                            <img
+                                src={branding.logo_url}
+                                alt={branding.company_name || branding.app_name || 'Logo'}
+                                className="w-9 h-9 object-contain shrink-0"
+                            />
+                        ) : (
+                            <div className="w-7 h-7 rounded-lg noc-sidebar-logo flex items-center justify-center">
+                                <Wifi className="w-4 h-4 text-white" />
+                            </div>
+                        )}
+                        <div className="min-w-0">
+                            <span className={`text-xs font-black tracking-wider ${sidebarTextTitle} block leading-none truncate`}>
+                                {branding.company_name || branding.app_name || ''}
+                            </span>
+                            {branding.company_tagline && (
+                                <span className={`text-[8px] font-bold ${sidebarTextDesc} tracking-widest uppercase mt-0.5 block truncate`}>
+                                    {branding.company_tagline.toUpperCase()}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    {showCloseButton && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="p-1.5 rounded-lg border border-white/20 text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                            aria-label="Tutup menu"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+
+                <nav className="p-2.5 space-y-0.5">
+                    {adminNavItems.map(({ tab, icon: Icon, label }) => (
+                        <Link
+                            key={tab}
+                            href={`/${tab}`}
+                            onClick={onNavClick}
+                            className={getAdminNavLinkClass(tab, activeTab)}
+                        >
+                            <Icon className="w-4 h-4" />
+                            <span>{label}</span>
+                        </Link>
+                    ))}
+                </nav>
+            </div>
+
+            <div className={`shrink-0 p-3 ${themeSidebarBottom} transition-colors duration-200`}>
+                <div className="flex items-center space-x-2.5 mb-2.5 px-1.5">
+                    {auth.user.avatar_url ? (
+                        <img
+                            src={auth.user.avatar_url}
+                            alt={auth.user.name}
+                            className="w-7 h-7 rounded-md object-cover shrink-0 border border-white/18"
+                        />
+                    ) : (
+                        <div className="w-7 h-7 rounded-md bg-white/12 text-white border border-white/18 flex items-center justify-center font-bold text-xs shrink-0">
+                            {auth.user.initials || '?'}
+                        </div>
+                    )}
+                    <div className="truncate min-w-0">
+                        <p className={`text-xs font-semibold ${sidebarTextTitle} truncate leading-none mb-0.5`}>{auth.user.name}</p>
+                        <Link
+                            href="/profile"
+                            onClick={onNavClick}
+                            className={`text-[10px] ${sidebarTextSub} font-medium tracking-wide uppercase text-left hover:underline cursor-pointer transition-colors ${isDarkMode ? 'hover:text-white' : 'hover:text-indigo-900'}`}
+                            title="Buka pengaturan profil"
+                        >
+                            {auth.user.profile_title || 'Super Admin'}
+                        </Link>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => router.post('/logout')}
+                    className="w-full flex items-center justify-center space-x-2 px-2.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-all duration-150 cursor-pointer shadow-sm"
+                >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Keluar</span>
+                </button>
+            </div>
+        </div>
+    );
+}
