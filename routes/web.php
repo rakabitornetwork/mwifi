@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Services\SettingService;
 use App\Services\BillingService;
 use App\Services\DatabaseBackupService;
+use App\Services\AppUpdateService;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
@@ -50,6 +51,7 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     $renderDashboard = function ($tab) {
         $backupService = app(DatabaseBackupService::class);
+        $updateService = app(AppUpdateService::class);
 
         return Inertia::render('Dashboard', [
             'activeTabProp' => $tab,
@@ -66,6 +68,7 @@ Route::middleware('auth')->group(function () {
             'hotspotSales' => \App\Models\HotspotSale::with('router')->orderBy('created_at', 'desc')->get(),
             'databaseInfo' => $backupService->getDatabaseInfo(),
             'databaseBackups' => $backupService->listBackups(),
+            'appUpdateInfo' => $updateService->getStatus(),
         ]);
     };
 
@@ -99,6 +102,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('database', function () use ($renderDashboard) {
         return $renderDashboard('database');
+    });
+
+    Route::get('update', function () use ($renderDashboard) {
+        return $renderDashboard('update');
     });
 
     Route::get('profile', function () use ($renderDashboard) {
@@ -145,6 +152,10 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/database/backups/delete', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'deleteBackup']);
     Route::post('admin/database/restore', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'restoreBackup']);
     Route::post('admin/database/reset', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'resetApplicationData']);
+
+    // Application update from GitHub
+    Route::post('admin/update/check', [\App\Http\Controllers\Admin\AppUpdateController::class, 'checkUpdates']);
+    Route::post('admin/update/run', [\App\Http\Controllers\Admin\AppUpdateController::class, 'runUpdate']);
 
     // Admin Hotspot Actions
     Route::post('admin/hotspot/sync-profiles', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncHotspotProfiles']);

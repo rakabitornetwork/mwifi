@@ -63,7 +63,10 @@ import {
     ShieldOff,
     Database,
     Download,
-    RotateCcw
+    RotateCcw,
+    GitBranch,
+    ArrowUpCircle,
+    ExternalLink
 } from 'lucide-react';
 
 function BrandingFileUpload({ name, accept, buttonLabel, hint, isDarkMode }) {
@@ -128,6 +131,7 @@ function SidebarPanel({
         { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
         { tab: 'hotspot', icon: Radio, label: 'Hotspot' },
         { tab: 'database', icon: Database, label: 'Database' },
+        { tab: 'update', icon: GitBranch, label: 'Update App' },
         { tab: 'settings', icon: Settings, label: 'Pengaturan' },
     ];
 
@@ -573,6 +577,7 @@ export default function Dashboard({
     hotspotSales = [],
     databaseInfo = {},
     databaseBackups = [],
+    appUpdateInfo = {},
     activeTabProp = 'dashboard'
 }) {
     const isHotspotCustomer = (cust) => cust?.service_type === 'hotspot';
@@ -615,6 +620,9 @@ export default function Dashboard({
     const [restoreUploadName, setRestoreUploadName] = useState('');
     const [isResettingDatabase, setIsResettingDatabase] = useState(false);
     const [resetConfirmText, setResetConfirmText] = useState('');
+    const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+    const [isRunningUpdate, setIsRunningUpdate] = useState(false);
+    const [updateConfirmText, setUpdateConfirmText] = useState('');
     const voucherPageSize = 10;
     const salesPageSize = 10;
 
@@ -947,7 +955,7 @@ export default function Dashboard({
     useEffect(() => {
         const handlePopState = () => {
             const path = window.location.pathname.replace(/^\//, ''); // removes leading slash
-            const validTabs = ['dashboard', 'routers', 'customers', 'packages', 'invoices', 'hotspot', 'database', 'settings', 'profile', 'network-map'];
+            const validTabs = ['dashboard', 'routers', 'customers', 'packages', 'invoices', 'hotspot', 'database', 'update', 'settings', 'profile', 'network-map'];
             if (path && validTabs.includes(path)) {
                 setActiveTab(path);
             } else {
@@ -1336,6 +1344,47 @@ export default function Dashboard({
             onError: (errors) => {
                 const messages = Object.values(errors).flat().filter(Boolean);
                 showToast(messages[0] || 'Gagal reset database.', 'error');
+            },
+        });
+    };
+
+    const handleCheckUpdate = () => {
+        setIsCheckingUpdate(true);
+        router.post('/admin/update/check', {}, {
+            preserveScroll: true,
+            onFinish: () => setIsCheckingUpdate(false),
+            onSuccess: () => router.reload(),
+            onError: (errors) => {
+                const messages = Object.values(errors).flat().filter(Boolean);
+                showToast(messages[0] || 'Gagal memeriksa pembaruan.', 'error');
+            },
+        });
+    };
+
+    const handleRunUpdate = (e) => {
+        e.preventDefault();
+
+        if (updateConfirmText !== 'UPDATE') {
+            showToast('Ketik UPDATE untuk mengonfirmasi pembaruan aplikasi.', 'warning');
+            return;
+        }
+
+        if (!confirm(
+            'Pembaruan akan menarik kode terbaru dari GitHub, menjalankan Composer & NPM, migrasi database, dan rebuild frontend.\n\n' +
+            'Disarankan buat backup database dulu. Proses bisa memakan beberapa menit.\n\nLanjutkan?'
+        )) return;
+
+        setIsRunningUpdate(true);
+        router.post('/admin/update/run', { confirm: updateConfirmText }, {
+            preserveScroll: true,
+            onFinish: () => setIsRunningUpdate(false),
+            onSuccess: () => {
+                setUpdateConfirmText('');
+                router.reload();
+            },
+            onError: (errors) => {
+                const messages = Object.values(errors).flat().filter(Boolean);
+                showToast(messages[0] || 'Gagal memperbarui aplikasi.', 'error');
             },
         });
     };
@@ -3939,6 +3988,214 @@ export default function Dashboard({
                                         </div>
                                     </form>
                                 </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'update' && (
+                            <div className="max-w-3xl mx-auto space-y-4 pb-2">
+                                <div className={`${themeCard} border rounded-2xl overflow-hidden`}>
+                                    <div className={`h-0.5 ${isDarkMode ? 'bg-gradient-to-r from-violet-500/70 via-indigo-400/50 to-violet-500/70' : 'bg-gradient-to-r from-violet-400 via-indigo-300 to-violet-400'}`} />
+                                    <div className="p-4 sm:p-5 space-y-4">
+                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                            <div className="flex items-start gap-3 min-w-0">
+                                                <div className={`p-2 rounded-xl shrink-0 ${isDarkMode ? 'bg-violet-500/10 border border-violet-500/20' : 'bg-violet-50 border border-violet-100'}`}>
+                                                    <GitBranch className="w-5 h-5 text-violet-500" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h2 className={`text-sm font-bold tracking-tight ${themeTextTitle}`}>Pembaruan dari GitHub</h2>
+                                                    <p className={`text-[11px] leading-relaxed mt-0.5 ${themeTextSub}`}>
+                                                        Tarik versi terbaru dari repositori resmi mWiFi, lalu build otomatis di server.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col sm:items-end gap-2 shrink-0 w-full sm:w-auto">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleCheckUpdate}
+                                                    disabled={isCheckingUpdate}
+                                                    className="w-full sm:w-auto px-4 py-2 bg-violet-600/90 hover:bg-violet-600 disabled:opacity-60 text-white rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-colors"
+                                                >
+                                                    {isCheckingUpdate ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                                                    <span>{isCheckingUpdate ? 'Memeriksa...' : 'Cek Pembaruan'}</span>
+                                                </button>
+                                                {appUpdateInfo.repository?.github_url && (
+                                                    <a
+                                                        href={appUpdateInfo.repository.github_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className={`text-[10px] font-semibold inline-flex items-center gap-1 hover:underline ${isDarkMode ? 'text-violet-300' : 'text-violet-700'}`}
+                                                    >
+                                                        Lihat di GitHub
+                                                        <ExternalLink className="w-3 h-3" />
+                                                    </a>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {[
+                                                { label: appUpdateInfo.repository?.branch || 'main', tone: 'neutral' },
+                                                { label: appUpdateInfo.repository?.url || appUpdateInfo.repository?.configured_url || 'GitHub', tone: 'neutral' },
+                                                {
+                                                    label: appUpdateInfo.update_available ? 'Pembaruan tersedia' : 'Sudah terbaru',
+                                                    tone: appUpdateInfo.update_available ? 'warn' : 'ok',
+                                                },
+                                                {
+                                                    label: appUpdateInfo.enabled === false ? 'Dinonaktifkan' : 'Aktif',
+                                                    tone: appUpdateInfo.enabled === false ? 'warn' : 'ok',
+                                                },
+                                            ].map(({ label, tone }) => (
+                                                <span
+                                                    key={label}
+                                                    className={`inline-flex max-w-full truncate px-2 py-0.5 rounded-md text-[10px] font-semibold border ${
+                                                        tone === 'ok'
+                                                            ? (isDarkMode ? 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10' : 'border-emerald-200 text-emerald-700 bg-emerald-50')
+                                                            : tone === 'warn'
+                                                                ? (isDarkMode ? 'border-amber-500/30 text-amber-400 bg-amber-500/10' : 'border-amber-200 text-amber-700 bg-amber-50')
+                                                                : (isDarkMode ? 'border-zinc-700/80 text-zinc-400 bg-zinc-900/50' : 'border-zinc-200 text-zinc-600 bg-zinc-50')
+                                                    }`}
+                                                    title={label}
+                                                >
+                                                    {label}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <div className={`${themeCard} border rounded-2xl p-4 sm:p-5 space-y-2`}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Server className="w-4 h-4 text-indigo-500" />
+                                            <h3 className={`text-xs font-bold uppercase tracking-wide ${themeTextTitle}`}>Versi Lokal</h3>
+                                        </div>
+                                        <p className={`text-lg font-black font-mono tracking-tight ${themeTextTitle}`}>
+                                            {appUpdateInfo.local?.commit_short || '—'}
+                                        </p>
+                                        <p className={`text-[11px] leading-relaxed ${themeTextSub}`}>
+                                            {appUpdateInfo.local?.commit_message || 'Commit lokal tidak terdeteksi.'}
+                                        </p>
+                                        <p className={`text-[10px] ${themeTextDesc}`}>
+                                            {appUpdateInfo.local?.commit_date ? `Diperbarui: ${appUpdateInfo.local.commit_date}` : '—'}
+                                            {appUpdateInfo.local?.dirty ? ` · ${appUpdateInfo.local.dirty_files_count} file belum di-commit` : ''}
+                                        </p>
+                                    </div>
+
+                                    <div className={`${themeCard} border rounded-2xl p-4 sm:p-5 space-y-2 ${appUpdateInfo.update_available ? (isDarkMode ? 'border-violet-500/20' : 'border-violet-200') : ''}`}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Globe className="w-4 h-4 text-violet-500" />
+                                            <h3 className={`text-xs font-bold uppercase tracking-wide ${themeTextTitle}`}>Versi GitHub</h3>
+                                        </div>
+                                        <p className={`text-lg font-black font-mono tracking-tight ${themeTextTitle}`}>
+                                            {appUpdateInfo.remote?.commit_short || '—'}
+                                        </p>
+                                        <p className={`text-[11px] leading-relaxed ${themeTextSub}`}>
+                                            {appUpdateInfo.remote?.commit_message || 'Belum dapat memuat info dari GitHub.'}
+                                        </p>
+                                        <p className={`text-[10px] ${themeTextDesc}`}>
+                                            {appUpdateInfo.remote?.commit_date ? `Terbit: ${appUpdateInfo.remote.commit_date}` : '—'}
+                                            {appUpdateInfo.behind_count > 0 ? ` · ${appUpdateInfo.behind_count} commit di belakang` : ''}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className={`${themeCard} border rounded-2xl p-4 sm:p-5`}>
+                                    <div className="flex items-center justify-between gap-2 mb-3">
+                                        <h3 className={`text-xs font-bold uppercase tracking-wide ${themeTextTitle}`}>Syarat Server</h3>
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                            appUpdateInfo.available
+                                                ? (isDarkMode ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
+                                                : (isDarkMode ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-50 text-amber-700')
+                                        }`}>
+                                            {appUpdateInfo.available ? 'Siap update' : 'Perlu perbaikan'}
+                                        </span>
+                                    </div>
+                                    <div className={`rounded-xl border divide-y ${isDarkMode ? 'border-zinc-800 divide-zinc-800/80' : 'border-zinc-200 divide-zinc-100'}`}>
+                                        {Object.entries(appUpdateInfo.requirements || {}).map(([key, req]) => (
+                                            <div key={key} className="flex items-start gap-2.5 p-2.5 sm:p-3">
+                                                {req?.ok
+                                                    ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                                                    : <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />}
+                                                <div className="min-w-0 flex-1">
+                                                    <p className={`text-xs font-semibold capitalize ${themeTextTitle}`}>{key.replace(/_/g, ' ')}</p>
+                                                    <p className={`text-[10px] mt-0.5 ${themeTextSub}`}>{req?.message}</p>
+                                                    {req?.version && (
+                                                        <p className={`text-[10px] font-mono mt-0.5 truncate ${themeTextDesc}`}>{req.version}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <form
+                                    onSubmit={handleRunUpdate}
+                                    className={`rounded-2xl overflow-hidden border shadow-md transition-colors ${
+                                        isDarkMode
+                                            ? 'border-violet-500/10 bg-gradient-to-br from-slate-800 via-violet-950/40 to-indigo-950/35 shadow-black/15'
+                                            : 'border-violet-200/60 bg-gradient-to-br from-violet-50/90 via-indigo-50/70 to-slate-50 shadow-violet-900/5'
+                                    }`}
+                                >
+                                    <div className="p-4 sm:p-5 space-y-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`p-1.5 rounded-lg border ${
+                                                isDarkMode
+                                                    ? 'bg-white/8 border-white/12'
+                                                    : 'bg-violet-500/8 border-violet-200/80'
+                                            }`}>
+                                                <ArrowUpCircle className={`w-4 h-4 ${isDarkMode ? 'text-violet-200' : 'text-violet-600'}`} />
+                                            </div>
+                                            <div>
+                                                <h3 className={`text-xs font-bold ${isDarkMode ? 'text-violet-50' : 'text-violet-900'}`}>Jalankan Pembaruan</h3>
+                                                <p className={`text-[10px] ${isDarkMode ? 'text-violet-200/75' : 'text-violet-700/70'}`}>
+                                                    Git pull → Composer → NPM build → migrasi → optimasi cache.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <p className={`text-[10px] leading-relaxed rounded-lg px-2.5 py-2 border ${
+                                            isDarkMode
+                                                ? 'bg-black/12 border-white/8 text-violet-100/85'
+                                                : 'bg-white/45 border-violet-200/50 text-violet-800/75'
+                                        }`}>
+                                            Backup database dulu via menu <span className="font-semibold">Database</span>.
+                                            Jangan tutup browser selama proses berjalan.
+                                        </p>
+
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={updateConfirmText}
+                                                onChange={(e) => setUpdateConfirmText(e.target.value)}
+                                                placeholder="Ketik UPDATE"
+                                                className={`flex-1 min-w-0 p-2 border rounded-lg text-xs font-mono focus:outline-none focus:ring-2 ${
+                                                    isDarkMode
+                                                        ? 'border-white/12 bg-slate-900/40 text-violet-50 placeholder:text-violet-200/40 focus:ring-violet-400/25'
+                                                        : 'border-violet-200/80 bg-white/90 text-slate-800 placeholder:text-slate-400 focus:ring-violet-300/40'
+                                                }`}
+                                                autoComplete="off"
+                                            />
+                                            <button
+                                                type="submit"
+                                                disabled={
+                                                    isRunningUpdate
+                                                    || updateConfirmText !== 'UPDATE'
+                                                    || !appUpdateInfo.available
+                                                    || !appUpdateInfo.update_available
+                                                    || appUpdateInfo.enabled === false
+                                                }
+                                                className={`shrink-0 px-3 py-2 disabled:opacity-45 rounded-lg text-[10px] font-bold inline-flex items-center gap-1.5 cursor-pointer transition-all duration-200 shadow-sm ${
+                                                    isDarkMode
+                                                        ? 'bg-violet-500/30 hover:bg-violet-500/40 text-violet-50 ring-1 ring-white/10'
+                                                        : 'bg-violet-600/85 hover:bg-violet-600 text-white'
+                                                }`}
+                                            >
+                                                {isRunningUpdate ? <RefreshCw className="w-3 h-3 animate-spin" /> : <ArrowUpCircle className="w-3 h-3" />}
+                                                Update
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
                             </div>
                         )}
 
