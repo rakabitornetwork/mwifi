@@ -9,9 +9,15 @@ use App\Models\Package;
 use App\Models\Invoice;
 use App\Models\User;
 use App\Services\BillingService;
+use App\Services\BrandingService;
+use App\Services\HotspotVoucherService;
 use App\Services\SettingService;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use App\Models\HotspotVoucher;
 use App\Models\HotspotSale;
@@ -67,6 +73,7 @@ class AdminActionController extends Controller
             'longitude' => 'nullable|numeric',
             'status' => 'required|in:active,isolated,inactive,suspended',
             'billing_date' => 'required|integer|min:1|max:31',
+            'service_start_date' => 'nullable|date',
         ]);
 
         $id = $data['id'] ?? null;
@@ -77,12 +84,84 @@ class AdminActionController extends Controller
         
         $customer = null;
         $userId = null;
+        $oldUsername = null;
+        $oldServiceType = null;
+        $oldRouterId = null;
 
         if ($id) {
             $customer = Customer::findOrFail($id);
             $userId = $customer->user_id;
+            $oldUsername = $customer->username;
+            $oldServiceType = $customer->service_type;
+            $oldRouterId = $customer->router_id;
         }
 
+        // 1. Sync to Mikrotik for PPPoE secrets
+        if ($data['service_type'] === 'pppoe') {
+            $router = Router::findOrFail($data['router_id']);
+            $package = Package::findOrFail($data['package_id']);
+
+            $mkData = [
+                'name' => $data['username'],
+                'password' => $data['password'],
+                'profile' => $package->mikrotik_profile,
+                'service' => 'pppoe',
+                'comment' => $data['name'],
+                'disabled' => ($data['status'] !== 'active') ? 'yes' : 'no'
+            ];
+
+            try {
+                $connector = \App\Services\Router\RouterService::getConnector($router);
+
+                // If router changed, delete from old router first
+                if ($oldRouterId && $oldRouterId != $data['router_id']) {
+                    try {
+                        $oldRouter = Router::find($oldRouterId);
+                        if ($oldRouter) {
+                            $oldConnector = \App\Services\Router\RouterService::getConnector($oldRouter);
+                            $oldConnector->deleteSecret($oldUsername ?: $data['username']);
+                        }
+                    } catch (\Exception $e) {
+                        // ignore and log
+                    }
+                }
+
+                // If username changed, delete old secret
+                if ($oldUsername && $oldUsername !== $data['username']) {
+                    try {
+                        $connector->deleteSecret($oldUsername);
+                    } catch (\Exception $e) {
+                        // ignore
+                    }
+                }
+
+                // Try to update secret, if not found then add
+                $updated = $connector->updateSecret($data['username'], $mkData);
+                if (!$updated) {
+                    $added = $connector->addSecret($mkData);
+                    if (!$added) {
+                        throw new \Exception("Gagal menambahkan secret PPP baru di Mikrotik.");
+                    }
+                }
+            } catch (\Exception $e) {
+                return redirect()->back()->with('error', "Gagal menyinkronkan data ke Mikrotik: " . $e->getMessage());
+            }
+        } else {
+            // If service type changed from pppoe to hotspot, remove old pppoe secret
+            if ($oldServiceType === 'pppoe') {
+                try {
+                    $router = Router::find($oldRouterId ?: $data['router_id']);
+                    if ($router) {
+                        $connector = \App\Services\Router\RouterService::getConnector($router);
+                        $connector->deleteSecret($oldUsername ?: $data['username']);
+                    }
+                } catch (\Exception $e) {
+                    // ignore
+                }
+            }
+        }
+
+        // 2. Save User and Customer local models
         $user = User::updateOrCreate(
             ['id' => $userId],
             [
@@ -93,6 +172,10 @@ class AdminActionController extends Controller
         );
 
         $data['user_id'] = $user->id;
+
+        if (!$id && empty($data['service_start_date'])) {
+            $data['service_start_date'] = now()->toDateString();
+        }
 
         Customer::updateOrCreate(['id' => $id], $data);
 
@@ -208,6 +291,10 @@ class AdminActionController extends Controller
      */
     public function savePackage(Request $request)
     {
+        $request->merge([
+            'mikrotik_profile' => $request->input('name')
+        ]);
+
         $data = $request->validate([
             'id' => 'nullable|integer',
             'name' => 'required|string|max:100',
@@ -223,14 +310,122 @@ class AdminActionController extends Controller
             'queue_type_rx' => 'nullable|string|max:100',
             'queue_type_tx' => 'nullable|string|max:100',
             'description' => 'nullable|string',
+            'use_validation_script' => 'nullable|boolean',
+            'lock_mac' => 'nullable|boolean',
         ]);
+
+        $data['use_validation_script'] = isset($data['use_validation_script']) ? (bool)$data['use_validation_script'] : false;
+        $data['lock_mac'] = isset($data['lock_mac']) ? (bool)$data['lock_mac'] : false;
 
         $id = $data['id'] ?? null;
         unset($data['id']);
 
+        $oldPackage = null;
+        if ($id) {
+            $oldPackage = Package::find($id);
+        }
+
+        // Sync profile to all active routers
+        $routers = Router::where('status', 1)->get();
+        $errors = [];
+
+        foreach ($routers as $router) {
+            try {
+                $connector = \App\Services\Router\RouterService::getConnector($router);
+
+                if (($data['type'] ?? 'pppoe') === 'hotspot') {
+                    $mkData = [
+                        'name' => $data['mikrotik_profile'],
+                        'rate-limit' => $data['bandwidth_limit'] ?? null,
+                        'parent-queue' => $data['parent_queue'] ?? null,
+                        'queue-type' => $data['queue_type_rx'] ?? null,
+                        'address-pool' => $data['remote_address'] ?? null,
+                    ];
+
+                    if ($data['use_validation_script']) {
+                        $price = isset($data['price']) ? intval($data['price']) : 0;
+                        $validity = $data['validity'] ?? '1d';
+                        $profileName = $data['mikrotik_profile'];
+                        $lockMac = $data['lock_mac'];
+                        
+                        $lockMacCode = $lockMac 
+                            ? '[:local mac $"mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]]' 
+                            : '';
+                            
+                        $lockMacStatus = $lockMac ? 'Enable' : 'Disable';
+
+                        $script = ':put (",remc,' . $price . ',' . $validity . ',' . $price . ',,' . $lockMacStatus . ',"); {:local date [ /system clock get date ];:local year [ :pick $date 0 4 ];:local month [ :pick $date 5 7 ]; :local comment [ /ip hotspot user get [/ip hotspot user find where name="$user"] comment]; :local ucode [:pic $comment 0 2]; :if ($ucode = "vc" or $ucode = "up" or $comment = "") do={ /sys sch add name="$user" disable=no start-date=$date interval="' . $validity . '"; :delay 2s; :local exp [ /sys sch get [ /sys sch find where name="$user" ] next-run]; :local getxp [len $exp]; :if ($getxp = 15) do={ :local d [:pic $exp 0 6]; :local t [:pic $exp 7 16]; :local s ("/"); :local exp ("$d$s$year $t"); /ip hotspot user set comment=$exp [find where name="$user"];}; :if ($getxp = 8) do={ /ip hotspot user set comment="$date $exp" [find where name="$user"];}; :if ($getxp > 15) do={ /ip hotspot user set comment=$exp [find where name="$user"];}; /sys sch set [find where name="$user"] interval=0s on-event="/ip hotspot user remove [find where name=\\\"$user\\\"]; /system scheduler remove [find where name=\\\"$user\\\"]"; :local mac $"mac-address"; :local time [/system clock get time ]; /system script add name="$date-|-$time-|-$user-|-' . $price . '-|-$address-|-$mac-|-' . $validity . '-|-' . $profileName . '-|-$comment" owner="$month$year" source=$date comment=mikhmon; ' . $lockMacCode . '}}';
+
+                        $mkData['on-login'] = $script;
+                    } else {
+                        $mkData['on-login'] = '';
+                    }
+
+                    // Filter out null and empty string values to prevent RouterOS REST API 400 Bad Request
+                    // Keep empty string '' for on-login to allow clearing it on the router.
+                    $mkData = array_filter($mkData, function ($val, $key) {
+                        if ($key === 'on-login') {
+                            return $val !== null;
+                        }
+                        return $val !== null && $val !== '';
+                    }, ARRAY_FILTER_USE_BOTH);
+
+                    $oldProfileName = $oldPackage ? $oldPackage->mikrotik_profile : $data['mikrotik_profile'];
+                    $updated = $connector->updateHotspotProfile($oldProfileName, $mkData);
+                    if (!$updated) {
+                        $updatedNew = $connector->updateHotspotProfile($data['mikrotik_profile'], $mkData);
+                        if (!$updatedNew) {
+                            $added = $connector->addHotspotProfile($mkData);
+                            if (!$added) {
+                                throw new \Exception("Gagal menambahkan profil hotspot di Mikrotik.");
+                            }
+                        }
+                    }
+                } else {
+                    $mkData = [
+                        'name' => $data['mikrotik_profile'],
+                        'rate-limit' => $data['bandwidth_limit'] ?? null,
+                        'local-address' => $data['local_address'] ?? null,
+                        'remote-address' => $data['remote_address'] ?? null,
+                        'dns-server' => $data['dns_server'] ?? null,
+                        'parent-queue' => $data['parent_queue'] ?? null,
+                        'queue-type' => $data['queue_type_rx'] ?? null,
+                    ];
+
+                    // Filter out null and empty string values to prevent RouterOS REST API 400 Bad Request
+                    $mkData = array_filter($mkData, function ($val) {
+                        return $val !== null && $val !== '';
+                    });
+
+                    $oldProfileName = $oldPackage ? $oldPackage->mikrotik_profile : $data['mikrotik_profile'];
+                    $updated = $connector->updatePppProfile($oldProfileName, $mkData);
+                    if (!$updated) {
+                        $updatedNew = $connector->updatePppProfile($data['mikrotik_profile'], $mkData);
+                        if (!$updatedNew) {
+                            $added = $connector->addPppProfile($mkData);
+                            if (!$added) {
+                                throw new \Exception("Gagal menambahkan profil PPP di Mikrotik.");
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                $errors[] = "{$router->name} (" . $e->getMessage() . ")";
+            }
+        }
+
+        // Set queue_type_tx same as queue_type_rx for database consistency
+        if (isset($data['queue_type_rx'])) {
+            $data['queue_type_tx'] = $data['queue_type_rx'];
+        }
+
         Package::updateOrCreate(['id' => $id], $data);
 
-        return redirect()->back()->with('success', 'Paket internet berhasil disimpan.');
+        if (!empty($errors)) {
+            return redirect()->back()->with('warning', 'Paket disimpan secara lokal, namun gagal sinkronisasi profil ke router: ' . implode(', ', $errors));
+        }
+
+        return redirect()->back()->with('success', 'Paket internet berhasil disimpan dan disinkronkan ke semua router.');
     }
 
     /**
@@ -274,10 +469,33 @@ class AdminActionController extends Controller
         );
 
         if ($success) {
-            return redirect()->back()->with('success', 'Tagihan berhasil dibayar secara manual.');
+            return redirect()->back()->with([
+                'success' => 'Tagihan berhasil dibayar secara manual.',
+                'print_invoice_id' => $invoice->id,
+            ]);
         }
 
         return redirect()->back()->with('error', 'Gagal memproses pembayaran manual.');
+    }
+
+    /**
+     * Cancel / reverse an accidental manual cash payment.
+     */
+    public function voidInvoicePayment(Request $request)
+    {
+        $request->validate([
+            'invoice_id' => 'required|exists:invoices,id',
+        ]);
+
+        $invoice = Invoice::with(['payments', 'customer'])->findOrFail($request->input('invoice_id'));
+
+        try {
+            BillingService::reverseManualPayment($invoice);
+
+            return redirect()->back()->with('success', "Pembayaran invoice {$invoice->invoice_number} berhasil dibatalkan. Status kembali menjadi belum bayar.");
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
     }
 
     /**
@@ -457,7 +675,8 @@ class AdminActionController extends Controller
                         'phone_number' => '081234567890', // Default placeholder
                         'address' => 'Imported from Mikrotik', // Default placeholder
                         'status' => $status,
-                        'billing_date' => 20, // default billing date
+                        'billing_date' => 20,
+                        'service_start_date' => now()->toDateString(),
                     ]);
                     $importedCustomersCount++;
                 }
@@ -481,24 +700,203 @@ class AdminActionController extends Controller
      */
     public function saveSettings(Request $request)
     {
-        $settings = $request->all();
+        $request->validate([
+            'system.app_name' => 'nullable|string|max:100',
+            'system.company_name' => 'nullable|string|max:150',
+            'system.company_tagline' => 'nullable|string|max:150',
+            'system.company_email' => 'nullable|email|max:150',
+            'system.company_phone' => 'nullable|string|max:30',
+            'system.company_address' => 'nullable|string|max:500',
+            'system.company_website' => 'nullable|string|max:200',
+            'system.footer_copyright' => 'nullable|string|max:500',
+            'system.seo_title' => 'nullable|string|max:150',
+            'system.seo_description' => 'nullable|string|max:320',
+            'system.seo_keywords' => 'nullable|string|max:500',
+            'system.seo_robots' => 'nullable|string|max:50',
+            'system.tax_enabled' => 'nullable|in:0,1',
+            'system.tax_rate_percent' => 'nullable|numeric|min:0|max:100',
+            'system.billing_prorata_enabled' => 'nullable|in:0,1',
+            'system.billing_generate_days_before' => 'nullable|integer|min:1|max:30',
+            'system.billing_notify_admin' => 'nullable|in:0,1',
+            'system.billing_admin_phone' => 'nullable|string|max:30',
+            'mikrotik.isolir_profile' => 'nullable|string|max:64',
+            'mikrotik.isolir_source_router_id' => 'nullable|exists:routers,id',
+            'system.logo' => ['nullable', 'file', 'max:2048', $this->brandingImageRule('Logo', ['jpg', 'jpeg', 'png', 'webp', 'svg'])],
+            'system.favicon' => ['nullable', 'file', 'max:512', $this->brandingImageRule('Favicon', ['jpg', 'jpeg', 'png', 'webp', 'ico'])],
+        ]);
 
-        // List of keys to encrypt
+        $logoUploaded = $this->storeBrandingUpload($request, 'system.logo');
+        $faviconUploaded = $this->storeBrandingUpload($request, 'system.favicon');
+
+        $taxEnabled = in_array($request->input('system.tax_enabled'), ['1', 1, true], true);
+        $taxPercent = max(0, min(100, (float) $request->input('system.tax_rate_percent', 0)));
+        SettingService::set('system.tax_rate_percent', (string) $taxPercent, 'system', false);
+        SettingService::set(
+            'system.tax_rate',
+            ($taxEnabled && $taxPercent > 0) ? (string) ($taxPercent / 100) : '0',
+            'system',
+            false
+        );
+
         $encryptedKeys = [
             'payment.tripay.api_key',
             'payment.tripay.private_key',
             'payment.midtrans.server_key',
-            'whatsapp.api_key'
+            'whatsapp.api_key',
         ];
 
-        foreach ($settings as $key => $value) {
-            if ($value === null) continue;
+        $flatSettings = Arr::dot($request->except(['_token']));
+        $skipKeys = ['system.logo', 'system.favicon', 'system.tax_enabled', 'system.tax_rate_percent'];
 
-            $isEncrypted = in_array($key, $encryptedKeys);
+        foreach ($flatSettings as $key => $value) {
+            if (in_array($key, $skipKeys, true)) {
+                continue;
+            }
+
+            if ($value instanceof UploadedFile) {
+                continue;
+            }
+
+            if ($value === null) {
+                continue;
+            }
+
+            if ($value === '' && in_array($key, $encryptedKeys, true)) {
+                continue;
+            }
+
+            if (SettingService::isBrokenUploadPath($value)) {
+                continue;
+            }
+
+            $isEncrypted = in_array($key, $encryptedKeys, true);
             SettingService::set($key, $value, null, $isEncrypted);
         }
 
-        return redirect()->back()->with('success', 'Pengaturan berhasil diperbarui.');
+        SettingService::cleanupLegacyDuplicateKeys();
+        BrandingService::bumpVersion();
+
+        $message = 'Pengaturan berhasil diperbarui.';
+        if ($logoUploaded) {
+            $message .= ' Logo berhasil diunggah.';
+        }
+        if ($faviconUploaded) {
+            $message .= ' Favicon berhasil diunggah.';
+        }
+
+        return redirect()->back()->with('success', $message);
+    }
+
+    public function saveAdminProfile(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->customer) {
+            abort(403, 'Hanya administrator yang dapat mengubah profil ini.');
+        }
+
+        $request->validate([
+            'name' => 'required|string|max:150',
+            'email' => ['required', 'email', 'max:150', Rule::unique('users')->ignore($user->id)],
+            'profile_title' => 'nullable|string|max:100',
+            'password' => 'nullable|string|min:8|confirmed',
+            'avatar' => ['nullable', 'file', 'max:2048', $this->brandingImageRule('Avatar', ['jpg', 'jpeg', 'png', 'webp'])],
+        ]);
+
+        $user->name = $request->input('name');
+        $user->email = $request->input('email');
+        $user->profile_title = $request->input('profile_title') ?: null;
+
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->input('password'));
+        }
+
+        $avatarUploaded = $this->storeAvatarUpload($request, $user);
+        $user->save();
+
+        $message = 'Profil administrator berhasil diperbarui.';
+        if ($avatarUploaded) {
+            $message .= ' Avatar berhasil diunggah.';
+        }
+
+        return redirect()->back()->with('success', $message);
+    }
+
+    private function storeAvatarUpload(Request $request, User $user): bool
+    {
+        $file = $this->resolveUploadedFile($request, 'avatar');
+
+        if (!$file instanceof UploadedFile || !$file->isValid()) {
+            return false;
+        }
+
+        if ($user->avatar) {
+            Storage::disk('public')->delete($user->avatar);
+        }
+
+        $user->avatar = $file->store('avatars', 'public');
+
+        return true;
+    }
+
+    private function brandingImageRule(string $label, array $extensions): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($label, $extensions) {
+            if (!$value instanceof UploadedFile) {
+                return;
+            }
+
+            if (!$value->isValid()) {
+                $fail("{$label} gagal diunggah. Coba pilih file lain atau periksa ukuran file.");
+                return;
+            }
+
+            $extension = strtolower($value->getClientOriginalExtension());
+            if (!in_array($extension, $extensions, true)) {
+                $fail("{$label} harus berformat: " . strtoupper(implode(', ', $extensions)) . '.');
+            }
+        };
+    }
+
+    private function storeBrandingUpload(Request $request, string $settingKey): bool
+    {
+        $file = $this->resolveUploadedFile($request, $settingKey);
+
+        if (!$file instanceof UploadedFile || !$file->isValid()) {
+            return false;
+        }
+
+        $oldPath = SettingService::get($settingKey);
+        if ($oldPath && !SettingService::isBrokenUploadPath($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        $path = $file->store('branding', 'public');
+        SettingService::set($settingKey, $path);
+
+        return true;
+    }
+
+    private function resolveUploadedFile(Request $request, string $dotKey): ?UploadedFile
+    {
+        if ($request->hasFile($dotKey)) {
+            $file = $request->file($dotKey);
+            if ($file instanceof UploadedFile) {
+                return $file;
+            }
+        }
+
+        $underscoreKey = str_replace('.', '_', $dotKey);
+        if ($underscoreKey !== $dotKey && $request->hasFile($underscoreKey)) {
+            $file = $request->file($underscoreKey);
+            if ($file instanceof UploadedFile) {
+                return $file;
+            }
+        }
+
+        $nested = data_get($request->allFiles(), $dotKey);
+
+        return $nested instanceof UploadedFile ? $nested : null;
     }
 
     /**
@@ -616,8 +1014,9 @@ class AdminActionController extends Controller
 
         try {
             $connector = \App\Services\Router\RouterService::getConnector($router);
+            
+            // 1. Sync User Profiles
             $profiles = $connector->getHotspotProfiles();
-
             $importedCount = 0;
             foreach ($profiles as $prof) {
                 $profileName = $prof['name'] ?? null;
@@ -650,10 +1049,209 @@ class AdminActionController extends Controller
                 $importedCount++;
             }
 
-            return redirect()->back()->with('success', "Berhasil mensinkronisasi {$importedCount} profil hotspot dari Mikrotik.");
+            // 2. Sync Hotspot Users (Vouchers)
+            $users = $connector->getHotspotUsers();
+            
+            // Voucher terjual yang sudah tidak ada di MikroTik — hapus dari DB (laporan tetap aman).
+            $activeUsernames = collect($users)->pluck('name')->filter()->toArray();
+            $orphanedVouchers = HotspotVoucher::where('router_id', $router->id)
+                ->whereNotIn('username', $activeUsernames)
+                ->get();
+
+            $removedCount = 0;
+            foreach ($orphanedVouchers as $orphanedVoucher) {
+                if (in_array($orphanedVoucher->status, ['sold', 'expired'], true)) {
+                    HotspotVoucherService::ensureSaleRecorded($orphanedVoucher);
+                }
+
+                $orphanedVoucher->delete();
+                $removedCount++;
+            }
+
+            HotspotVoucherService::purgeExpiredSoldVouchers($router, $connector);
+
+            $importedVouchersCount = 0;
+            foreach ($users as $user) {
+                $username = $user['name'] ?? null;
+                if (!$username || $username === 'default-trial') {
+                    continue;
+                }
+
+                // Skip if already in DB
+                $exists = HotspotVoucher::where('router_id', $router->id)
+                    ->where('username', $username)
+                    ->exists();
+                if ($exists) {
+                    continue;
+                }
+
+                $profile = $user['profile'] ?? 'default';
+
+                // Find matching local package to get price and validity
+                $package = Package::where('type', 'hotspot')
+                    ->where('mikrotik_profile', $profile)
+                    ->first();
+
+                $price = $package ? $package->price : 5000;
+                $validity = $package ? $package->validity : ($user['limit-uptime'] ?? $user['limit_uptime'] ?? '1d');
+
+                $uptime = $user['uptime'] ?? $user['uptime-limit'] ?? '';
+                $macAddress = $this->extractMacAddress($user);
+                $isUsed = false;
+                if (!empty($uptime) && $uptime !== '0s' && $uptime !== '00:00:00') {
+                    $isUsed = true;
+                }
+                if ($macAddress) {
+                    $isUsed = true;
+                }
+
+                $voucher = HotspotVoucher::create([
+                    'router_id' => $router->id,
+                    'username' => $username,
+                    'password' => $user['password'] ?? $username,
+                    'mikrotik_profile' => $profile,
+                    'price' => $price,
+                    'validity' => $validity,
+                    'status' => $isUsed ? 'sold' : 'unused',
+                    'sold_at' => $isUsed ? \Carbon\Carbon::now() : null,
+                    'mac_address' => $macAddress,
+                ]);
+
+                if ($macAddress && $isUsed) {
+                    $this->recordAutoMacHotspotSale($voucher);
+                }
+
+                $importedVouchersCount++;
+            }
+
+            $this->syncHotspotMacAddressesForRouter($router);
+
+            return redirect()->back()->with('success', "Berhasil mensinkronisasi {$importedCount} profil hotspot dan {$importedVouchersCount} voucher dari Mikrotik. Dihapus dari DB: {$removedCount}.");
         } catch (\Exception $e) {
             return redirect()->back()->with('error', "Gagal singkronisasi hotspot: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Sync MAC addresses for hotspot vouchers from MikroTik user/active sessions.
+     */
+    public function syncHotspotMacAddresses()
+    {
+        $updated = 0;
+        $soldCount = 0;
+        $purgedCount = 0;
+
+        foreach (Router::all() as $router) {
+            try {
+                $result = $this->syncHotspotMacAddressesForRouter($router);
+                $updated += $result['updated'];
+                $soldCount += $result['sold'];
+                $purgedCount += $result['purged'];
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+
+        $macAddresses = HotspotVoucher::pluck('mac_address', 'id')
+            ->map(fn ($mac) => $mac ?: null)
+            ->toArray();
+
+        return response()->json([
+            'success' => true,
+            'updated' => $updated,
+            'sold_count' => $soldCount,
+            'purged_count' => $purgedCount,
+            'mac_addresses' => $macAddresses,
+        ]);
+    }
+
+    private function syncHotspotMacAddressesForRouter(Router $router): array
+    {
+        $connector = \App\Services\Router\RouterService::getConnector($router);
+        $updated = 0;
+        $sold = 0;
+
+        $process = function (?string $username, ?string $mac) use ($router, &$updated, &$sold) {
+            if (!$username || !$mac) {
+                return;
+            }
+
+            $voucher = HotspotVoucher::where('router_id', $router->id)
+                ->where('username', $username)
+                ->first();
+
+            if (!$voucher) {
+                return;
+            }
+
+            $result = $this->applyMacDetectionToVoucher($voucher, $mac);
+            if ($result['updated']) {
+                $updated++;
+            }
+            if ($result['sold']) {
+                $sold++;
+            }
+        };
+
+        foreach ($connector->getHotspotUsers() as $user) {
+            $process($user['name'] ?? null, $this->extractMacAddress($user));
+        }
+
+        foreach ($connector->getHotspotActive() as $active) {
+            $process($active['user'] ?? null, $this->extractMacAddress($active));
+        }
+
+        $purged = HotspotVoucherService::purgeExpiredSoldVouchers($router, $connector);
+
+        return ['updated' => $updated, 'sold' => $sold, 'purged' => $purged];
+    }
+
+    private function applyMacDetectionToVoucher(HotspotVoucher $voucher, string $mac): array
+    {
+        $updates = [];
+        $wasUnused = $voucher->status === 'unused';
+
+        if ($voucher->mac_address !== $mac) {
+            $updates['mac_address'] = $mac;
+        }
+
+        if ($wasUnused) {
+            $updates['status'] = 'sold';
+            $updates['sold_at'] = Carbon::now();
+        }
+
+        if (empty($updates)) {
+            return ['updated' => false, 'sold' => false];
+        }
+
+        $voucher->update($updates);
+
+        if ($wasUnused) {
+            $this->recordAutoMacHotspotSale($voucher);
+        }
+
+        return ['updated' => true, 'sold' => $wasUnused];
+    }
+
+    private function recordAutoMacHotspotSale(HotspotVoucher $voucher): void
+    {
+        HotspotVoucherService::ensureSaleRecorded($voucher, 'Otomatis (MAC Terdeteksi)');
+    }
+
+    private function ensureHotspotSaleRecorded(HotspotVoucher $voucher, ?string $paymentMethod = null): void
+    {
+        HotspotVoucherService::ensureSaleRecorded($voucher, $paymentMethod);
+    }
+
+    private function extractMacAddress(array $record): ?string
+    {
+        $mac = $record['mac-address'] ?? $record['mac_address'] ?? null;
+        if (!is_string($mac)) {
+            return null;
+        }
+
+        $mac = strtoupper(trim($mac));
+        return $mac !== '' ? $mac : null;
     }
 
     /**
@@ -667,6 +1265,11 @@ class AdminActionController extends Controller
             'qty' => 'required|integer|min:1|max:500',
             'code_length' => 'required|integer|min:4|max:12',
             'prefix' => 'nullable|string|max:10',
+            'comment' => 'nullable|string|max:100',
+            'code_format' => 'required|in:12345,ABCDE,abcde,123ABC,123abc,1A2B3C,1a2b3c',
+            'server' => 'required|string|max:50',
+            'login_type' => 'required|in:same,different',
+            'wifi_name' => 'nullable|string|max:50',
         ]);
 
         $router = Router::findOrFail($data['router_id']);
@@ -675,21 +1278,59 @@ class AdminActionController extends Controller
         try {
             $connector = \App\Services\Router\RouterService::getConnector($router);
 
+            $numChars = '23456789';
+            $upperChars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+            $lowerChars = 'abcdefghijkmnopqrstuvwxyz';
+
+            $generateCode = function($format, $length, $prefix) use ($numChars, $upperChars, $lowerChars) {
+                $code = $prefix;
+                for ($j = 0; $j < $length; $j++) {
+                    if ($format === '12345') {
+                        $code .= $numChars[rand(0, strlen($numChars) - 1)];
+                    } elseif ($format === 'ABCDE') {
+                        $code .= $upperChars[rand(0, strlen($upperChars) - 1)];
+                    } elseif ($format === 'abcde') {
+                        $code .= $lowerChars[rand(0, strlen($lowerChars) - 1)];
+                    } elseif ($format === '123ABC') {
+                        $pool = $numChars . $upperChars;
+                        $code .= $pool[rand(0, strlen($pool) - 1)];
+                    } elseif ($format === '123abc') {
+                        $pool = $numChars . $lowerChars;
+                        $code .= $pool[rand(0, strlen($pool) - 1)];
+                    } elseif ($format === '1A2B3C') {
+                        if ($j % 2 === 0) {
+                            $code .= $numChars[rand(0, strlen($numChars) - 1)];
+                        } else {
+                            $code .= $upperChars[rand(0, strlen($upperChars) - 1)];
+                        }
+                    } elseif ($format === '1a2b3c') {
+                        if ($j % 2 === 0) {
+                            $code .= $numChars[rand(0, strlen($numChars) - 1)];
+                        } else {
+                            $code .= $lowerChars[rand(0, strlen($lowerChars) - 1)];
+                        }
+                    }
+                }
+                return $code;
+            };
+
             $successCount = 0;
             for ($i = 0; $i < $data['qty']; $i++) {
-                // Generate a random legibe code
-                $chars = 'abcdefghkmnpqrstuvwxyz23456789';
-                $code = $data['prefix'] ?? '';
-                for ($j = 0; $j < $data['code_length']; $j++) {
-                    $code .= $chars[rand(0, strlen($chars) - 1)];
+                $username = $generateCode($data['code_format'], $data['code_length'], $data['prefix'] ?? '');
+                
+                if ($data['login_type'] === 'different') {
+                    $password = $generateCode($data['code_format'], $data['code_length'], '');
+                } else {
+                    $password = $username;
                 }
 
                 // Add to MikroTik
                 $mkData = [
-                    'name' => $code,
-                    'password' => $code,
+                    'name' => $username,
+                    'password' => $password,
                     'profile' => $package->mikrotik_profile,
-                    'comment' => 'mWiFi Generated',
+                    'server' => $data['server'],
+                    'comment' => $data['comment'] ?? (BrandingService::appName() . ' Generated'),
                 ];
 
                 if (!empty($package->validity)) {
@@ -701,12 +1342,15 @@ class AdminActionController extends Controller
                 if ($added) {
                     HotspotVoucher::create([
                         'router_id' => $router->id,
-                        'username' => $code,
-                        'password' => $code,
+                        'username' => $username,
+                        'password' => $password,
                         'mikrotik_profile' => $package->mikrotik_profile,
+                        'server' => $data['server'],
+                        'wifi_name' => $data['wifi_name'] ?? null,
                         'price' => $package->price,
                         'validity' => $package->validity,
                         'status' => 'unused',
+                        'comment' => $data['comment'] ?? null,
                     ]);
                     $successCount++;
                 }
@@ -773,11 +1417,308 @@ class AdminActionController extends Controller
                 }
             }
 
+            $this->ensureHotspotSaleRecorded($voucher);
+
             $voucher->delete();
 
             return redirect()->back()->with('success', "Voucher hotspot berhasil dihapus.");
         } catch (\Exception $e) {
             return redirect()->back()->with('error', "Gagal menghapus voucher: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Delete Hotspot Vouchers in bulk by comment.
+     */
+    public function bulkDeleteVouchersByComment(Request $request)
+    {
+        $request->validate([
+            'comment' => 'required|string',
+            'router_id' => 'required|exists:routers,id',
+        ]);
+
+        $comment = $request->input('comment');
+        $routerId = $request->input('router_id');
+
+        $vouchers = HotspotVoucher::where('comment', $comment)
+            ->where('router_id', $routerId)
+            ->get();
+
+        if ($vouchers->isEmpty()) {
+            return redirect()->back()->with('error', "Tidak ada voucher dengan informasi tambahan '{$comment}' pada router yang dipilih.");
+        }
+
+        $router = Router::find($routerId);
+        $deletedCount = 0;
+
+        try {
+            $connector = null;
+            if ($router) {
+                try {
+                    $connector = \App\Services\Router\RouterService::getConnector($router);
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::warning("Gagal koneksi ke Mikrotik untuk hapus massal: " . $e->getMessage());
+                }
+            }
+
+            foreach ($vouchers as $voucher) {
+                if ($connector) {
+                    try {
+                        $connector->deleteHotspotUser($voucher->username);
+                        $connector->kickHotspotActive($voucher->username);
+                    } catch (\Exception $me) {
+                        \Illuminate\Support\Facades\Log::warning("Gagal menghapus user hotspot {$voucher->username} di Mikrotik: " . $me->getMessage());
+                    }
+                }
+
+                $this->ensureHotspotSaleRecorded($voucher);
+
+                $voucher->delete();
+                $deletedCount++;
+            }
+
+            return redirect()->back()->with('success', "Berhasil menghapus {$deletedCount} voucher dengan informasi tambahan '{$comment}' secara massal.");
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', "Gagal melakukan hapus massal: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Fetch all profiles (PPPoE or Hotspot) from MikroTik for dropdown selection.
+     */
+    public function getRouterProfiles(Request $request)
+    {
+        $request->validate([
+            'router_id' => 'required|exists:routers,id',
+            'type' => 'required|in:pppoe,hotspot',
+        ]);
+
+        $router = Router::findOrFail($request->input('router_id'));
+
+        try {
+            $connector = \App\Services\Router\RouterService::getConnector($router);
+            
+            if ($request->input('type') === 'hotspot') {
+                $rawProfiles = $connector->getHotspotProfiles();
+            } else {
+                $rawProfiles = $connector->getProfiles();
+            }
+
+            $profiles = [];
+            foreach ($rawProfiles as $p) {
+                if (isset($p['name'])) {
+                    $profiles[] = $p['name'];
+                }
+            }
+
+            $rawPools = $connector->getIpPools();
+            $pools = [];
+            foreach ($rawPools as $pl) {
+                if (isset($pl['name'])) {
+                    $pools[] = $pl['name'];
+                }
+            }
+
+            $rawQueues = $connector->getSimpleQueues();
+            $parentQueues = [];
+            foreach ($rawQueues as $q) {
+                if (isset($q['name'])) {
+                    $parentQueues[] = $q['name'];
+                }
+            }
+
+            $rawQTypes = $connector->getQueueTypes();
+            $queueTypes = [];
+            foreach ($rawQTypes as $qt) {
+                if (isset($qt['name'])) {
+                    $queueTypes[] = $qt['name'];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'profiles' => $profiles,
+                'pools' => $pools,
+                'parentQueues' => $parentQueues,
+                'queueTypes' => $queueTypes,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Fetch all Hotspot servers from MikroTik for dropdown selection.
+     */
+    public function getRouterHotspotServers(Request $request)
+    {
+        $request->validate([
+            'router_id' => 'required|exists:routers,id',
+        ]);
+
+        $router = Router::findOrFail($request->input('router_id'));
+
+        try {
+            $connector = \App\Services\Router\RouterService::getConnector($router);
+            $rawServers = $connector->getHotspotServers();
+            
+            $rawProfiles = [];
+            try {
+                $rawProfiles = $connector->getHotspotServerProfiles();
+            } catch (\Exception $pe) {
+                \Illuminate\Support\Facades\Log::warning("Gagal mengambil server profile hotspot: " . $pe->getMessage());
+            }
+
+            $profilesMap = [];
+            foreach ($rawProfiles as $p) {
+                if (isset($p['name'])) {
+                    $profilesMap[$p['name']] = $p;
+                }
+            }
+
+            $servers = [];
+            foreach ($rawServers as $s) {
+                if (isset($s['name'])) {
+                    $profileName = $s['profile'] ?? '';
+                    $dnsName = '';
+                    if ($profileName && isset($profilesMap[$profileName])) {
+                        $dnsName = $profilesMap[$profileName]['dns-name'] ?? '';
+                    }
+
+                    $servers[] = [
+                        'name' => $s['name'],
+                        'profile' => $profileName,
+                        'dns_name' => $dnsName,
+                    ];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'servers' => $servers,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Print vouchers in bulk using A4 paper layout (7x8 grid).
+     */
+    public function printVouchers(Request $request)
+    {
+        $request->validate([
+            'router_id' => 'required|exists:routers,id',
+            'comment' => 'required|string',
+            'login_url' => 'nullable|string',
+            'color_palette' => 'nullable|string',
+        ]);
+
+        $router = Router::findOrFail($request->input('router_id'));
+        $comment = $request->input('comment');
+        $loginUrl = $request->input('login_url', 'http://10.0.0.1');
+        $colorPalette = $request->input('color_palette', 'price_based');
+
+        $vouchers = \App\Models\HotspotVoucher::where('router_id', $router->id)
+            ->where('comment', $comment)
+            ->get();
+
+        if ($vouchers->isEmpty()) {
+            abort(404, "Voucher tidak ditemukan untuk Informasi Tambahan: {$comment}");
+        }
+
+        return view('admin.hotspot.print', [
+            'router' => $router,
+            'comment' => $comment,
+            'loginUrl' => $loginUrl,
+            'vouchers' => $vouchers,
+            'colorPalette' => $colorPalette,
+            'branding' => BrandingService::get(),
+        ]);
+    }
+
+    /**
+     * Print invoice on half A4 sheet (top or bottom position).
+     */
+    public function printInvoice(Request $request, Invoice $invoice)
+    {
+        $request->validate([
+            'position' => 'nullable|in:top,bottom',
+        ]);
+
+        $invoice->load(['customer.package']);
+        $position = $request->query('position', 'top');
+        $nextBilling = $invoice->status === 'paid'
+            ? BillingService::resolveNextBillingPreview($invoice)
+            : null;
+
+        return view('admin.invoices.print', [
+            'invoice' => $invoice,
+            'customer' => $invoice->customer,
+            'package' => $invoice->customer?->package,
+            'nextBilling' => $nextBilling,
+            'position' => $position,
+            'branding' => BrandingService::get(),
+        ]);
+    }
+
+    /**
+     * Save or update ODP information.
+     */
+    public function saveOdp(Request $request)
+    {
+        $id = $request->input('id');
+
+        $request->validate([
+            'id' => 'nullable|exists:odps,id',
+            'name' => 'required|string|max:100|unique:odps,name,' . $id,
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+            'total_ports' => 'required|integer|min:1',
+            'description' => 'nullable|string',
+        ]);
+
+        $data = $request->only(['name', 'latitude', 'longitude', 'total_ports', 'description']);
+
+        if ($id) {
+            $odp = \App\Models\Odp::findOrFail($id);
+            $odp->update($data);
+            $message = 'Informasi ODP berhasil diperbarui.';
+        } else {
+            \App\Models\Odp::create($data);
+            $message = 'ODP baru berhasil ditambahkan.';
+        }
+
+        return redirect()->back()->with('success', $message);
+    }
+
+    /**
+     * Delete ODP if no customers are connected.
+     */
+    public function deleteOdp(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:odps,id',
+        ]);
+
+        $id = $request->input('id');
+        
+        // Check if there are any connected customers
+        $connectedCustomers = Customer::where('odp_id', $id)->get();
+        if ($connectedCustomers->count() > 0) {
+            $names = $connectedCustomers->pluck('name')->join(', ');
+            return redirect()->back()->with('error', "Gagal menghapus ODP. Masih ada {$connectedCustomers->count()} pelanggan yang terhubung ke ODP ini: {$names}. Hubungkan mereka ke ODP lain atau kosongkan ODP mereka terlebih dahulu!");
+        }
+
+        $odp = \App\Models\Odp::findOrFail($id);
+        $odp->delete();
+
+        return redirect()->back()->with('success', 'ODP berhasil dihapus dari sistem.');
     }
 }

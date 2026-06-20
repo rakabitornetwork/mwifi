@@ -63,10 +63,11 @@ class RestApiRouterConnector implements RouterConnectorInterface
     {
         try {
             // RouterOS REST API uses PUT to create new resources
+            $filtered = $this->filterData($data);
             $response = Http::withBasicAuth($this->username, $this->password)
                 ->withoutVerifying()
                 ->timeout(5)
-                ->put("{$this->baseUrl}/ppp/secret", $data);
+                ->put("{$this->baseUrl}/ppp/secret", $filtered);
 
             return $response->successful() || $response->status() === 201;
         } catch (Exception $e) {
@@ -98,10 +99,11 @@ class RestApiRouterConnector implements RouterConnectorInterface
             }
 
             // RouterOS REST API uses PATCH to update resources
+            $filtered = $this->filterData($data);
             $responseUpdate = Http::withBasicAuth($this->username, $this->password)
                 ->withoutVerifying()
                 ->timeout(5)
-                ->patch("{$this->baseUrl}/ppp/secret/{$id}", $data);
+                ->patch("{$this->baseUrl}/ppp/secret/{$id}", $filtered);
 
             return $responseUpdate->successful();
         } catch (Exception $e) {
@@ -211,17 +213,109 @@ class RestApiRouterConnector implements RouterConnectorInterface
         }
     }
 
+    public function addPppProfile(array $data): bool
+    {
+        try {
+            $filtered = $this->filterData($data);
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->put("{$this->baseUrl}/ppp/profile", $filtered);
+
+            return $response->successful() || $response->status() === 201;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function updatePppProfile(string $name, array $data): bool
+    {
+        try {
+            $responseFind = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ppp/profile", ['name' => $name]);
+
+            if (!$responseFind->successful() || empty($responseFind->json())) {
+                return false;
+            }
+
+            $profiles = $responseFind->json();
+            $id = $profiles[0]['.id'] ?? null;
+
+            if (!$id) {
+                return false;
+            }
+
+            $filtered = $this->filterData($data);
+            $responseUpdate = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->patch("{$this->baseUrl}/ppp/profile/{$id}", $filtered);
+
+            return $responseUpdate->successful();
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
     public function getHotspotProfiles(): array
     {
         try {
             $response = Http::withBasicAuth($this->username, $this->password)
                 ->withoutVerifying()
                 ->timeout(5)
-                ->get("{$this->baseUrl}/ip/hotspot/user-profile");
+                ->get("{$this->baseUrl}/ip/hotspot/user/profile");
 
             return $response->successful() ? $response->json() : [];
         } catch (Exception $e) {
             return [];
+        }
+    }
+
+    public function addHotspotProfile(array $data): bool
+    {
+        try {
+            $filtered = $this->filterData($data);
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->put("{$this->baseUrl}/ip/hotspot/user/profile", $filtered);
+
+            return $response->successful() || $response->status() === 201;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function updateHotspotProfile(string $name, array $data): bool
+    {
+        try {
+            $responseFind = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ip/hotspot/user/profile", ['name' => $name]);
+
+            if (!$responseFind->successful() || empty($responseFind->json())) {
+                return false;
+            }
+
+            $profiles = $responseFind->json();
+            $id = $profiles[0]['.id'] ?? null;
+
+            if (!$id) {
+                return false;
+            }
+
+            $filtered = $this->filterData($data);
+            $responseUpdate = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->patch("{$this->baseUrl}/ip/hotspot/user/profile/{$id}", $filtered);
+
+            return $responseUpdate->successful();
+        } catch (Exception $e) {
+            return false;
         }
     }
 
@@ -233,19 +327,24 @@ class RestApiRouterConnector implements RouterConnectorInterface
                 ->timeout(5)
                 ->get("{$this->baseUrl}/ip/hotspot/user");
 
-            return $response->successful() ? $response->json() : [];
+            if (!$response->successful()) {
+                throw new Exception("REST API HTTP Error " . $response->status() . ": " . $response->body());
+            }
+
+            return $response->json();
         } catch (Exception $e) {
-            return [];
+            throw new Exception("Gagal mengambil daftar user hotspot: " . $e->getMessage());
         }
     }
 
     public function addHotspotUser(array $data): bool
     {
         try {
+            $filtered = $this->filterData($data);
             $response = Http::withBasicAuth($this->username, $this->password)
                 ->withoutVerifying()
                 ->timeout(5)
-                ->put("{$this->baseUrl}/ip/hotspot/user", $data);
+                ->put("{$this->baseUrl}/ip/hotspot/user", $filtered);
 
             return $response->successful() || $response->status() === 201;
         } catch (Exception $e) {
@@ -325,5 +424,183 @@ class RestApiRouterConnector implements RouterConnectorInterface
         } catch (Exception $e) {
             return false;
         }
+    }
+
+    public function getIpPools(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ip/pool");
+
+            return $response->successful() ? $response->json() : [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getSimpleQueues(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/queue/simple");
+
+            return $response->successful() ? $response->json() : [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getQueueTypes(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/queue/type");
+
+            return $response->successful() ? $response->json() : [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getHotspotServers(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ip/hotspot");
+
+            return $response->successful() ? $response->json() : [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getHotspotServerProfiles(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ip/hotspot/profile");
+
+            return $response->successful() ? $response->json() : [];
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getInterfaceTrafficStats(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(8)
+                ->get("{$this->baseUrl}/interface");
+
+            if (!$response->successful()) {
+                return [];
+            }
+
+            $map = [];
+            foreach ($response->json() as $iface) {
+                if (!is_array($iface)) {
+                    continue;
+                }
+
+                $name = $iface['name'] ?? '';
+                if ($name === '') {
+                    continue;
+                }
+
+                $stats = [
+                    'rx_bps' => MikrotikTrafficService::normalizeRate($iface['rx-bits-per-second'] ?? $iface['rx-rate'] ?? 0) ?? 0,
+                    'tx_bps' => MikrotikTrafficService::normalizeRate($iface['tx-bits-per-second'] ?? $iface['tx-rate'] ?? 0) ?? 0,
+                ];
+
+                $map[$name] = $stats;
+                $map[strtolower($name)] = $stats;
+            }
+
+            return $map;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getSimpleQueueTrafficStats(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(8)
+                ->get("{$this->baseUrl}/queue/simple");
+
+            if (!$response->successful()) {
+                return [];
+            }
+
+            $map = [];
+            foreach ($response->json() as $queue) {
+                if (!is_array($queue)) {
+                    continue;
+                }
+
+                $rates = $this->parseQueueRates($queue);
+                if ($rates === null) {
+                    continue;
+                }
+
+                foreach (array_filter([$queue['target'] ?? '', $queue['name'] ?? '']) as $key) {
+                    $map[$key] = $rates;
+                    $map[strtolower($key)] = $rates;
+                }
+            }
+
+            return $map;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    private function parseQueueRates(array $queue): ?array
+    {
+        $download = MikrotikTrafficService::normalizeRate($queue['rate-down'] ?? $queue['rx-rate'] ?? null);
+        $upload = MikrotikTrafficService::normalizeRate($queue['rate-up'] ?? $queue['tx-rate'] ?? null);
+
+        if ($download !== null || $upload !== null) {
+            return [
+                'download_bps' => $download ?? 0,
+                'upload_bps' => $upload ?? 0,
+            ];
+        }
+
+        $rate = (string) ($queue['rate'] ?? '');
+        if (!str_contains($rate, '/')) {
+            return null;
+        }
+
+        [$first, $second] = array_pad(explode('/', $rate, 2), 2, '0');
+
+        return [
+            'download_bps' => MikrotikTrafficService::normalizeRate($second) ?? 0,
+            'upload_bps' => MikrotikTrafficService::normalizeRate($first) ?? 0,
+        ];
+    }
+
+    /**
+     * Filter out null and empty string values to prevent RouterOS REST API Bad Request errors.
+     */
+    private function filterData(array $data): array
+    {
+        return array_filter($data, function ($val) {
+            return $val !== null && $val !== '';
+        });
     }
 }

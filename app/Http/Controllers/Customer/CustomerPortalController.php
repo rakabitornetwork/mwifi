@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
+use App\Services\BillingService;
 use App\Services\Payment\PaymentService;
+use App\Services\BrandingService;
 use App\Services\SettingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -28,8 +30,39 @@ class CustomerPortalController extends Controller
 
         return Inertia::render('Customer/Dashboard', [
             'customer' => $customer,
-            'invoices' => $invoices,
+            'invoices' => BillingService::appendNextBillingToInvoices($invoices),
             'activeGateway' => SettingService::get('payment.active_gateway', 'tripay'),
+        ]);
+    }
+
+    /**
+     * Print invoice (half A4) for the authenticated customer.
+     */
+    public function printInvoice(Request $request, Invoice $invoice)
+    {
+        $request->validate([
+            'position' => 'nullable|in:top,bottom',
+        ]);
+
+        $customer = Auth::user()->customer;
+
+        if (!$customer || $invoice->customer_id !== $customer->id) {
+            abort(403);
+        }
+
+        $invoice->load(['customer.package']);
+        $position = $request->query('position', 'top');
+        $nextBilling = $invoice->status === 'paid'
+            ? BillingService::resolveNextBillingPreview($invoice)
+            : null;
+
+        return view('admin.invoices.print', [
+            'invoice' => $invoice,
+            'customer' => $invoice->customer,
+            'package' => $invoice->customer?->package,
+            'nextBilling' => $nextBilling,
+            'position' => $position,
+            'branding' => BrandingService::get(),
         ]);
     }
 

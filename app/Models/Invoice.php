@@ -16,6 +16,8 @@ class Invoice extends Model
         'total_amount' => 'decimal:2',
         'due_date' => 'date',
         'paid_at' => 'datetime',
+        'is_prorated' => 'boolean',
+        'days_billed' => 'integer',
     ];
 
     public function customer(): BelongsTo

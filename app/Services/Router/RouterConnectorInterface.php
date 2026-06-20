@@ -61,6 +61,10 @@ interface RouterConnectorInterface
      */
     public function getProfiles(): array;
 
+    public function addPppProfile(array $data): bool;
+
+    public function updatePppProfile(string $name, array $data): bool;
+
     /**
      * Forcefully disconnect an active session (useful for applying changes or isolating immediately).
      *
@@ -75,6 +79,10 @@ interface RouterConnectorInterface
      * @return array
      */
     public function getHotspotProfiles(): array;
+
+    public function addHotspotProfile(array $data): bool;
+
+    public function updateHotspotProfile(string $name, array $data): bool;
 
     /**
      * Get all Hotspot Users.
@@ -113,4 +121,53 @@ interface RouterConnectorInterface
      * @return bool
      */
     public function kickHotspotActive(string $username): bool;
+
+    /**
+     * Get all IP Pools.
+     *
+     * @return array
+     */
+    public function getIpPools(): array;
+
+    /**
+     * Get all Simple Queues (useful for parent queues).
+     *
+     * @return array
+     */
+    public function getSimpleQueues(): array;
+
+    /**
+     * Get all Queue Types.
+     *
+     * @return array
+     */
+    public function getQueueTypes(): array;
+
+    /**
+     * Live interface throughput keyed by interface name (router perspective rx/tx bps).
+     *
+     * @return array<string, array{rx_bps:int, tx_bps:int}>
+     */
+    public function getInterfaceTrafficStats(): array;
+
+    /**
+     * Live simple-queue throughput keyed by queue target/name (customer perspective).
+     *
+     * @return array<string, array{download_bps:int, upload_bps:int}>
+     */
+    public function getSimpleQueueTrafficStats(): array;
+
+    /**
+     * Get all Hotspot Servers.
+     *
+     * @return array
+     */
+    public function getHotspotServers(): array;
+
+    /**
+     * Get all Hotspot Server Profiles.
+     *
+     * @return array
+     */
+    public function getHotspotServerProfiles(): array;
 }

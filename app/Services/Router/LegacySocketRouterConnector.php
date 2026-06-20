@@ -203,6 +203,54 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
         }
     }
 
+    public function addPppProfile(array $data): bool
+    {
+        if (!$this->client) {
+            return false;
+        }
+
+        try {
+            $query = new Query('/ppp/profile/add');
+            foreach ($data as $key => $value) {
+                $query->equal($key, $value);
+            }
+            $this->client->query($query)->read();
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function updatePppProfile(string $name, array $data): bool
+    {
+        if (!$this->client) {
+            return false;
+        }
+
+        try {
+            $queryFind = (new Query('/ppp/profile/print'))
+                ->where('name', $name);
+            $profiles = $this->client->query($queryFind)->read();
+
+            if (empty($profiles) || !isset($profiles[0]['.id'])) {
+                return false;
+            }
+
+            $id = $profiles[0]['.id'];
+
+            $queryUpdate = new Query('/ppp/profile/set');
+            $queryUpdate->equal('.id', $id);
+            foreach ($data as $key => $value) {
+                $queryUpdate->equal($key, $value);
+            }
+            
+            $this->client->query($queryUpdate)->read();
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
     public function getHotspotProfiles(): array
     {
         if (!$this->client) {
@@ -217,17 +265,65 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
         }
     }
 
+    public function addHotspotProfile(array $data): bool
+    {
+        if (!$this->client) {
+            return false;
+        }
+
+        try {
+            $query = new Query('/ip/hotspot/user-profile/add');
+            foreach ($data as $key => $value) {
+                $query->equal($key, $value);
+            }
+            $this->client->query($query)->read();
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function updateHotspotProfile(string $name, array $data): bool
+    {
+        if (!$this->client) {
+            return false;
+        }
+
+        try {
+            $queryFind = (new Query('/ip/hotspot/user-profile/print'))
+                ->where('name', $name);
+            $profiles = $this->client->query($queryFind)->read();
+
+            if (empty($profiles) || !isset($profiles[0]['.id'])) {
+                return false;
+            }
+
+            $id = $profiles[0]['.id'];
+
+            $queryUpdate = new Query('/ip/hotspot/user-profile/set');
+            $queryUpdate->equal('.id', $id);
+            foreach ($data as $key => $value) {
+                $queryUpdate->equal($key, $value);
+            }
+            
+            $this->client->query($queryUpdate)->read();
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
     public function getHotspotUsers(): array
     {
         if (!$this->client) {
-            return [];
+            throw new Exception("Socket client tidak terhubung.");
         }
 
         try {
             $query = new Query('/ip/hotspot/user/print');
             return $this->client->query($query)->read();
         } catch (Exception $e) {
-            return [];
+            throw new Exception("Gagal mengambil daftar user hotspot: " . $e->getMessage());
         }
     }
 
@@ -315,5 +411,163 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
         } catch (Exception $e) {
             return false;
         }
+    }
+
+    public function getIpPools(): array
+    {
+        if (!$this->client) {
+            return [];
+        }
+
+        try {
+            $query = new Query('/ip/pool/print');
+            return $this->client->query($query)->read();
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getSimpleQueues(): array
+    {
+        if (!$this->client) {
+            return [];
+        }
+
+        try {
+            $query = new Query('/queue/simple/print');
+            return $this->client->query($query)->read();
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getQueueTypes(): array
+    {
+        if (!$this->client) {
+            return [];
+        }
+
+        try {
+            $query = new Query('/queue/type/print');
+            return $this->client->query($query)->read();
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getHotspotServers(): array
+    {
+        if (!$this->client) {
+            return [];
+        }
+
+        try {
+            $query = new Query('/ip/hotspot/print');
+            return $this->client->query($query)->read();
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getHotspotServerProfiles(): array
+    {
+        if (!$this->client) {
+            return [];
+        }
+
+        try {
+            $query = new Query('/ip/hotspot/profile/print');
+            return $this->client->query($query)->read();
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getInterfaceTrafficStats(): array
+    {
+        if (!$this->client) {
+            return [];
+        }
+
+        try {
+            $query = (new Query('/interface/print'))
+                ->equal('.proplist', 'name,rx-bits-per-second,tx-bits-per-second,rx-rate,tx-rate,type,running')
+                ->equal('stats', '');
+
+            $map = [];
+            foreach ($this->client->query($query)->read() as $iface) {
+                $name = $iface['name'] ?? '';
+                if ($name === '') {
+                    continue;
+                }
+
+                $stats = [
+                    'rx_bps' => MikrotikTrafficService::normalizeRate($iface['rx-bits-per-second'] ?? $iface['rx-rate'] ?? 0) ?? 0,
+                    'tx_bps' => MikrotikTrafficService::normalizeRate($iface['tx-bits-per-second'] ?? $iface['tx-rate'] ?? 0) ?? 0,
+                ];
+
+                $map[$name] = $stats;
+                $map[strtolower($name)] = $stats;
+            }
+
+            return $map;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    public function getSimpleQueueTrafficStats(): array
+    {
+        if (!$this->client) {
+            return [];
+        }
+
+        try {
+            $query = (new Query('/queue/simple/print'))
+                ->equal('.proplist', 'name,target,rate,rate-down,rate-up,tx-rate,rx-rate')
+                ->equal('stats', '');
+
+            $map = [];
+            foreach ($this->client->query($query)->read() as $queue) {
+                $rates = $this->parseQueueRates($queue);
+                if ($rates === null) {
+                    continue;
+                }
+
+                foreach (array_filter([$queue['target'] ?? '', $queue['name'] ?? '']) as $key) {
+                    $map[$key] = $rates;
+                    $map[strtolower($key)] = $rates;
+                }
+            }
+
+            return $map;
+        } catch (Exception $e) {
+            return [];
+        }
+    }
+
+    private function parseQueueRates(array $queue): ?array
+    {
+        $download = MikrotikTrafficService::normalizeRate($queue['rate-down'] ?? $queue['rx-rate'] ?? null);
+        $upload = MikrotikTrafficService::normalizeRate($queue['rate-up'] ?? $queue['tx-rate'] ?? null);
+
+        if ($download !== null || $upload !== null) {
+            return [
+                'download_bps' => $download ?? 0,
+                'upload_bps' => $upload ?? 0,
+            ];
+        }
+
+        $rate = (string) ($queue['rate'] ?? '');
+        if (!str_contains($rate, '/')) {
+            return null;
+        }
+
+        [$first, $second] = array_pad(explode('/', $rate, 2), 2, '0');
+
+        return [
+            'download_bps' => MikrotikTrafficService::normalizeRate($second) ?? 0,
+            'upload_bps' => MikrotikTrafficService::normalizeRate($first) ?? 0,
+        ];
     }
 }

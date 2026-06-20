@@ -19,6 +19,13 @@ class SettingService
     {
         return Cache::remember("setting.{$key}", 3600, function () use ($key, $default) {
             $setting = Setting::where('key', $key)->first();
+
+            if (!$setting) {
+                $legacyKey = str_replace('.', '_', $key);
+                if ($legacyKey !== $key) {
+                    $setting = Setting::where('key', $legacyKey)->first();
+                }
+            }
             
             if (!$setting) {
                 return $default;
@@ -26,6 +33,10 @@ class SettingService
 
             if ($setting->value === null || $setting->value === '') {
                 return $setting->value;
+            }
+
+            if (self::isBrokenUploadPath($setting->value)) {
+                return $default;
             }
 
             if ($setting->is_encrypted) {
@@ -73,6 +84,66 @@ class SettingService
         Cache::forget("settings.all");
 
         return $setting;
+    }
+
+    /**
+     * Merge legacy underscore keys (system_company_name) into canonical dot keys and remove invalid rows.
+     */
+    public static function cleanupLegacyDuplicateKeys(): void
+    {
+        $map = [
+            'system_app_name' => 'system.app_name',
+            'system_company_name' => 'system.company_name',
+            'system_company_tagline' => 'system.company_tagline',
+            'system_company_email' => 'system.company_email',
+            'system_company_phone' => 'system.company_phone',
+            'system_company_address' => 'system.company_address',
+            'system_company_website' => 'system.company_website',
+            'system_footer_copyright' => 'system.footer_copyright',
+            'system_seo_title' => 'system.seo_title',
+            'system_seo_description' => 'system.seo_description',
+            'system_seo_keywords' => 'system.seo_keywords',
+            'system_seo_robots' => 'system.seo_robots',
+            'system_logo' => null,
+            'system_favicon' => null,
+        ];
+
+        foreach ($map as $legacyKey => $canonicalKey) {
+            $legacy = Setting::where('key', $legacyKey)->first();
+            if (!$legacy) {
+                continue;
+            }
+
+            if ($canonicalKey === null || self::isBrokenUploadPath($legacy->value)) {
+                $legacy->delete();
+                Cache::forget("setting.{$legacyKey}");
+                continue;
+            }
+
+            $canonical = Setting::where('key', $canonicalKey)->first();
+            $shouldMigrate = !$canonical
+                || $canonical->value === null
+                || $canonical->value === ''
+                || $legacy->updated_at >= $canonical->updated_at;
+
+            if ($shouldMigrate && $legacy->value !== null && $legacy->value !== '') {
+                self::set($canonicalKey, $legacy->value, null, (bool) $legacy->is_encrypted);
+            }
+
+            $legacy->delete();
+            Cache::forget("setting.{$legacyKey}");
+        }
+    }
+
+    public static function isBrokenUploadPath(mixed $value): bool
+    {
+        if (!is_string($value)) {
+            return false;
+        }
+
+        return str_contains($value, '\Temp\\')
+            || str_contains($value, '/tmp/php')
+            || str_contains($value, 'AppData\\Local\\Temp');
     }
 
     /**

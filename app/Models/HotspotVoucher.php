@@ -11,9 +11,13 @@ class HotspotVoucher extends Model
         'username',
         'password',
         'mikrotik_profile',
+        'server',
+        'wifi_name',
         'price',
         'validity',
         'status',
+        'comment',
+        'mac_address',
         'sold_at',
     ];
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\BrandingService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -23,7 +24,7 @@ class HandleInertiaRequests extends Middleware
      */
     public function version(Request $request): ?string
     {
-        return parent::version($request);
+        return \App\Services\SettingService::get('system.branding_version', parent::version($request));
     }
 
     /**
@@ -45,6 +46,10 @@ class HandleInertiaRequests extends Middleware
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'profile_title' => $user->profile_title ?: 'Super Admin',
+                    'avatar_url' => $user->avatarUrl(),
+                    'initials' => $user->initials(),
+                    'updated_at' => $user->updated_at?->timestamp,
                     'customer' => $customer ? [
                         'id' => $customer->id,
                         'username' => $customer->username,
@@ -57,7 +62,9 @@ class HandleInertiaRequests extends Middleware
                 'error' => $request->session()->get('error'),
                 'warning' => $request->session()->get('warning'),
                 'info' => $request->session()->get('info'),
+                'print_invoice_id' => $request->session()->get('print_invoice_id'),
             ],
+            'branding' => BrandingService::get(),
         ];
     }
 }

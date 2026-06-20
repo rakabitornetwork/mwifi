@@ -19,105 +19,25 @@ class GenieAcsService
         $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
 
         try {
-            // Projection query to request only required nodes for performance
-            $projectionFields = [
-                '_id',
-                '_lastInform',
-                'InternetGatewayDevice.DeviceInfo.ModelName',
-                'Device.DeviceInfo.ModelName',
-                'InternetGatewayDevice.DeviceInfo.ProductClass',
-                'Device.DeviceInfo.ProductClass',
-                'InternetGatewayDevice.DeviceInfo.SerialNumber',
-                'Device.DeviceInfo.SerialNumber',
-                'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username',
-                'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1.Username',
-                'Device.PPP.Interface.1.Username',
-                'InternetGatewayDevice.X_ZTE-COM_ONU.OpticalInfo.RxPower',
-                'InternetGatewayDevice.X_ASB_COM_ONU.OpticalInfo.RxPower',
-                'InternetGatewayDevice.X_HW_ONU_OpticalInfo.RxPower',
-                'InternetGatewayDevice.X_HW_GponOpticalInfo.RxPower',
-                'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.RXPower',
-                'Device.Optical.Interface.1.RxPower',
-                'VirtualParameters.RXPower'
-            ];
+            $rawDevices = self::fetchRawDevices($apiUrl);
+            $devices = [];
 
-            $response = Http::timeout(4)
-                ->get("{$apiUrl}/devices", [
-                    'projection' => implode(',', $projectionFields)
-                ]);
-
-            if ($response->successful()) {
-                $rawDevices = $response->json();
-                $devices = [];
-
-                foreach ($rawDevices as $rawDev) {
-                    $deviceId = $rawDev['_id'] ?? '';
-                    if (!$deviceId) continue;
-
-                    // Extract Serial Number
-                    $sn = self::getNestedValue($rawDev, [
-                        'InternetGatewayDevice.DeviceInfo.SerialNumber',
-                        'Device.DeviceInfo.SerialNumber'
-                    ]) ?? $deviceId;
-
-                    // Extract Username
-                    $username = self::getNestedValue($rawDev, [
-                        'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username',
-                        'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1.Username',
-                        'Device.PPP.Interface.1.Username'
-                    ]) ?? 'unknown_ont';
-
-                    // Extract Model Name
-                    $model = self::getNestedValue($rawDev, [
-                        'InternetGatewayDevice.DeviceInfo.ModelName',
-                        'Device.DeviceInfo.ModelName',
-                        'InternetGatewayDevice.DeviceInfo.ProductClass',
-                        'Device.DeviceInfo.ProductClass'
-                    ]) ?? 'Generic ONT';
-
-                    // Check last inform to determine online/offline status
-                    $lastInformStr = $rawDev['_lastInform'] ?? null;
-                    $isOnline = false;
-                    if ($lastInformStr) {
-                        $lastInform = strtotime($lastInformStr);
-                        if ($lastInform && (time() - $lastInform < 300)) {
-                            $isOnline = true;
-                        }
-                    }
-
-                    if ($isOnline) {
-                        // Extract Rx Power
-                        $rxRaw = self::getNestedValue($rawDev, [
-                            'InternetGatewayDevice.X_ZTE-COM_ONU.OpticalInfo.RxPower',
-                            'InternetGatewayDevice.X_ASB_COM_ONU.OpticalInfo.RxPower',
-                            'InternetGatewayDevice.X_HW_ONU_OpticalInfo.RxPower',
-                            'InternetGatewayDevice.X_HW_GponOpticalInfo.RxPower',
-                            'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.RXPower',
-                            'Device.Optical.Interface.1.RxPower',
-                            'VirtualParameters.RXPower'
-                        ]);
-                        $rxVal = self::parseRxPower($rxRaw);
-                        $rxText = $rxVal . ' dBm';
-                        $status = self::determineStatus($rxVal);
-                    } else {
-                        $rxText = 'Offline';
-                        $status = 'offline';
-                    }
-
-                    $devices[] = [
-                        'id' => $deviceId,
-                        'sn' => $sn,
-                        'username' => $username,
-                        'model' => $model,
-                        'rx' => $rxText,
-                        'status' => $status
-                    ];
+            foreach ($rawDevices as $rawDev) {
+                if (!is_array($rawDev)) {
+                    continue;
                 }
 
+                $parsed = self::parseRawDevice($rawDev);
+                if ($parsed !== null) {
+                    $devices[] = $parsed;
+                }
+            }
+
+            if ($devices !== []) {
                 return $devices;
             }
 
-            throw new Exception("GenieACS NBI API returned status: " . $response->status());
+            throw new Exception('GenieACS returned no parseable ONT devices.');
         } catch (Exception $e) {
             // Log warning but return beautiful fallback mock data matching default seeded customers
             Log::warning("GenieACS API is offline. Returning simulated mock ONT data. Detail: " . $e->getMessage());
@@ -127,33 +47,53 @@ class GenieAcsService
                     'id' => 'ZTEGC7A19B32_budi',
                     'sn' => 'ZTEGC7A19B32',
                     'username' => 'budi_pppoe',
-                    'model' => 'F660 v8',
+                    'model' => 'F477V2',
+                    'product_class' => 'F477V2',
                     'rx' => '-19.4 dBm',
-                    'status' => 'good'
+                    'status' => 'good',
+                    'temperature' => '43°C',
+                    'wifi_ssid' => 'BUDI-WiFi',
+                    'wifi_password' => 'budi1234',
+                    'connected_devices' => 4,
                 ],
                 [
                     'id' => 'HWTC83C210D3_dewi',
                     'sn' => 'HWTC83C210D3',
                     'username' => 'dewi_pppoe',
-                    'model' => 'HG8245H5',
+                    'model' => 'HG8245H',
+                    'product_class' => 'HG8245H',
                     'rx' => '-23.8 dBm',
-                    'status' => 'good'
+                    'status' => 'good',
+                    'temperature' => '41°C',
+                    'wifi_ssid' => 'DEWI-HOME',
+                    'wifi_password' => 'dewi5678',
+                    'connected_devices' => 2,
                 ],
                 [
                     'id' => 'ZTEGC8B220C4_ahmad',
                     'sn' => 'ZTEGC8B220C4',
                     'username' => 'ahmad_pppoe',
-                    'model' => 'F609 v3',
+                    'model' => 'ZXHN F477',
+                    'product_class' => 'ZXHN F477',
                     'rx' => '-27.6 dBm',
-                    'status' => 'warning'
+                    'status' => 'warning',
+                    'temperature' => '48°C',
+                    'wifi_ssid' => 'AHMAD-NET',
+                    'wifi_password' => 'ahmad999',
+                    'connected_devices' => 6,
                 ],
                 [
                     'id' => 'FHGAC91277F1_joko',
                     'sn' => 'FHGAC91277F1',
                     'username' => 'joko_pppoe',
-                    'model' => 'F670L',
+                    'model' => 'GM220-S',
+                    'product_class' => 'GM220-S',
                     'rx' => 'Offline',
-                    'status' => 'offline'
+                    'status' => 'offline',
+                    'temperature' => null,
+                    'wifi_ssid' => null,
+                    'wifi_password' => null,
+                    'connected_devices' => null,
                 ]
             ];
         }
@@ -193,6 +133,197 @@ class GenieAcsService
             Log::error("GenieACS reboot task connection error: " . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Fetch device documents from GenieACS with projection, then fallback without projection.
+     */
+    private static function fetchRawDevices(string $apiUrl): array
+    {
+        $projectionFields = [
+            '_id',
+            '_lastInform',
+            'InternetGatewayDevice.DeviceInfo.ProductClass',
+            'InternetGatewayDevice.DeviceInfo.ModelName',
+            'InternetGatewayDevice.DeviceInfo.SerialNumber',
+            'Device.DeviceInfo.ProductClass',
+            'Device.DeviceInfo.ModelName',
+            'Device.DeviceInfo.SerialNumber',
+            'VirtualParameters.productClass',
+            'VirtualParameters.ProductClass',
+            'VirtualParameters.getProductClass',
+            'VirtualParameters.RXPower',
+            'VirtualParameters.temperature',
+            'VirtualParameters.Temperature',
+            'VirtualParameters.gettemp',
+            'VirtualParameters.getTemp',
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username',
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1.Username',
+            'Device.PPP.Interface.1.Username',
+            'InternetGatewayDevice.X_ZTE-COM_ONU.OpticalInfo.RxPower',
+            'InternetGatewayDevice.X_ASB_COM_ONU.OpticalInfo.RxPower',
+            'InternetGatewayDevice.X_HW_ONU_OpticalInfo.RxPower',
+            'InternetGatewayDevice.X_HW_GponOpticalInfo.RxPower',
+            'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.RXPower',
+            'Device.Optical.Interface.1.RxPower',
+            'InternetGatewayDevice.X_HW_GponOpticalInfo.TransceiverTemperature',
+            'InternetGatewayDevice.X_HW_ONU_OpticalInfo.TransceiverTemperature',
+            'InternetGatewayDevice.X_HW_ONU_OpticalInfo.Temperature',
+            'InternetGatewayDevice.X_ZTE-COM_ONU.OpticalInfo.Temperature',
+            'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TransceiverTemperature',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.PreSharedKey',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations',
+            'InternetGatewayDevice.LANDevice.1.Hosts.HostNumberOfEntries',
+            'Device.WiFi.SSID.1.SSID',
+            'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
+        ];
+
+        $response = Http::timeout(10)
+            ->get("{$apiUrl}/devices", [
+                'projection' => implode(',', $projectionFields),
+            ]);
+
+        if ($response->successful()) {
+            $data = $response->json();
+            if (is_array($data) && $data !== []) {
+                return $data;
+            }
+        }
+
+        $fallback = Http::timeout(15)->get("{$apiUrl}/devices");
+        if ($fallback->successful()) {
+            $data = $fallback->json();
+            return is_array($data) ? $data : [];
+        }
+
+        throw new Exception('GenieACS NBI API unreachable or returned invalid data.');
+    }
+
+    private static function parseRawDevice(array $rawDev): ?array
+    {
+        $deviceId = $rawDev['_id'] ?? '';
+        if (!$deviceId) {
+            return null;
+        }
+
+        $sn = self::getNestedValue($rawDev, [
+            'InternetGatewayDevice.DeviceInfo.SerialNumber',
+            'Device.DeviceInfo.SerialNumber',
+        ]) ?? $deviceId;
+
+        $username = self::extractUsername($rawDev);
+        $productClass = self::extractProductClass($rawDev, $deviceId);
+        $temperature = self::extractTemperature($rawDev);
+
+        $wifiSsid = self::extractWifiSsid($rawDev);
+
+        $wifiPassword = self::getNestedValue($rawDev, [
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.PreSharedKey',
+            'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
+        ]);
+
+        $connectedDevices = self::parseConnectedDevices(self::getNestedValue($rawDev, [
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations',
+            'InternetGatewayDevice.LANDevice.1.Hosts.HostNumberOfEntries',
+            'Device.WiFi.AccessPoint.1.AssociatedDeviceNumberOfEntries',
+        ]));
+
+        $isOnline = self::isDeviceOnline($rawDev);
+        $rxRaw = self::extractRxRaw($rawDev);
+
+        if ($isOnline && $rxRaw !== null) {
+            $rxVal = self::parseRxPower($rxRaw);
+            $rxText = $rxVal . ' dBm';
+            $status = self::determineStatus($rxVal);
+        } elseif ($rxRaw !== null) {
+            $rxVal = self::parseRxPower($rxRaw);
+            $rxText = $rxVal . ' dBm';
+            $status = 'offline';
+        } else {
+            $rxText = 'Offline';
+            $status = 'offline';
+        }
+
+        return [
+            'id' => $deviceId,
+            'sn' => $sn,
+            'username' => $username,
+            'model' => $productClass,
+            'product_class' => $productClass,
+            'rx' => $rxText,
+            'status' => $status,
+            'temperature' => $temperature,
+            'wifi_ssid' => $wifiSsid,
+            'wifi_password' => $wifiPassword,
+            'connected_devices' => $connectedDevices,
+        ];
+    }
+
+    private static function isDeviceOnline(array $rawDev): bool
+    {
+        $lastInformStr = $rawDev['_lastInform'] ?? null;
+        if (!$lastInformStr) {
+            return false;
+        }
+
+        $lastInform = strtotime($lastInformStr);
+
+        return $lastInform && (time() - $lastInform < 300);
+    }
+
+    private static function extractRxRaw(array $rawDev): mixed
+    {
+        $rxRaw = self::getNestedValue($rawDev, [
+            'InternetGatewayDevice.X_ZTE-COM_ONU.OpticalInfo.RxPower',
+            'InternetGatewayDevice.X_ASB_COM_ONU.OpticalInfo.RxPower',
+            'InternetGatewayDevice.X_HW_ONU_OpticalInfo.RxPower',
+            'InternetGatewayDevice.X_HW_GponOpticalInfo.RxPower',
+            'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.RXPower',
+            'Device.Optical.Interface.1.RxPower',
+            'VirtualParameters.RXPower',
+        ]);
+
+        if ($rxRaw !== null) {
+            return $rxRaw;
+        }
+
+        return self::findParameterBySuffix($rawDev, 'RxPower')
+            ?? self::findParameterBySuffix($rawDev, 'RXPower');
+    }
+
+    private static function extractUsername(array $rawDev): string
+    {
+        $value = self::getNestedValue($rawDev, [
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username',
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1.Username',
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.2.Username',
+            'Device.PPP.Interface.1.Username',
+            'VirtualParameters.pppUsername',
+            'VirtualParameters.pppoeUsername',
+        ]);
+
+        if ($value !== null && $value !== '') {
+            return trim((string) $value);
+        }
+
+        foreach ($rawDev as $key => $val) {
+            if (!is_string($key) || !str_contains($key, 'WANPPPConnection') || !str_ends_with($key, '.Username')) {
+                continue;
+            }
+
+            $extracted = is_array($val) && array_key_exists('_value', $val)
+                ? $val['_value']
+                : (!is_array($val) ? $val : null);
+
+            if ($extracted !== null && $extracted !== '') {
+                return trim((string) $extracted);
+            }
+        }
+
+        return 'unknown_ont';
     }
 
     /**
@@ -275,5 +406,228 @@ class GenieAcsService
             return 'warning';
         }
         return 'critical';
+    }
+
+    private static function extractWifiSsid(array $rawDev): ?string
+    {
+        $value = self::getNestedValue($rawDev, [
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
+            'Device.WiFi.SSID.1.SSID',
+        ]);
+
+        if ($value !== null && $value !== '') {
+            return trim((string) $value);
+        }
+
+        foreach ($rawDev as $key => $val) {
+            if (!is_string($key) || !str_contains($key, 'WLANConfiguration') || !str_ends_with($key, '.SSID')) {
+                continue;
+            }
+
+            $extracted = is_array($val) && array_key_exists('_value', $val)
+                ? $val['_value']
+                : (!is_array($val) ? $val : null);
+
+            if ($extracted !== null && $extracted !== '') {
+                return trim((string) $extracted);
+            }
+        }
+
+        return null;
+    }
+
+    private static function extractProductClass(array $rawDev, string $deviceId = ''): ?string
+    {
+        $value = self::getNestedValue($rawDev, [
+            'InternetGatewayDevice.DeviceInfo.ProductClass',
+            'Device.DeviceInfo.ProductClass',
+            'VirtualParameters.productClass',
+            'VirtualParameters.ProductClass',
+            'VirtualParameters.getProductClass',
+        ]);
+
+        if ($value === null || $value === '') {
+            $value = self::findParameterBySuffix($rawDev, 'ProductClass');
+        }
+
+        if ($value === null || $value === '') {
+            foreach ($rawDev as $key => $val) {
+                if (!is_string($key) || stripos($key, 'ProductClass') === false) {
+                    continue;
+                }
+
+                $extracted = is_array($val) && array_key_exists('_value', $val)
+                    ? $val['_value']
+                    : (!is_array($val) ? $val : null);
+
+                if ($extracted !== null && $extracted !== '') {
+                    $value = $extracted;
+                    break;
+                }
+            }
+        }
+
+        if ($value === null || $value === '') {
+            $value = self::parseProductClassFromDeviceId($deviceId ?: ($rawDev['_id'] ?? ''));
+        }
+
+        return self::normalizeProductClass($value);
+    }
+
+    /**
+     * GenieACS device IDs use the format: OUI-ProductClass-SerialNumber
+     * Example: 00259E-F477V2-4857544312345678 or 00259E-GM220-S-ZTEGC7A19B32
+     */
+    private static function parseProductClassFromDeviceId(string $deviceId): ?string
+    {
+        $deviceId = trim(urldecode($deviceId));
+        if ($deviceId === '') {
+            return null;
+        }
+
+        $parts = explode('-', $deviceId);
+        if (count($parts) < 3) {
+            return null;
+        }
+
+        array_pop($parts); // Serial number (last segment)
+        array_shift($parts); // OUI (first segment)
+
+        $productClass = trim(implode('-', $parts));
+
+        if ($productClass === '' || preg_match('/^[0-9A-Fa-f]{6}$/', $productClass)) {
+            return null;
+        }
+
+        return $productClass;
+    }
+
+    private static function normalizeProductClass(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $text = trim((string) $value);
+
+        if ($text === '' || strcasecmp($text, 'Generic ONT') === 0) {
+            return null;
+        }
+
+        return $text;
+    }
+
+    private static function extractTemperature(array $rawDev): ?string
+    {
+        $tempRaw = self::getNestedValue($rawDev, [
+            'VirtualParameters.temperature',
+            'VirtualParameters.Temperature',
+            'VirtualParameters.gettemp',
+            'VirtualParameters.getTemp',
+            'InternetGatewayDevice.X_HW_GponOpticalInfo.TransceiverTemperature',
+            'InternetGatewayDevice.X_HW_ONU_OpticalInfo.TransceiverTemperature',
+            'InternetGatewayDevice.X_HW_ONU_OpticalInfo.Temperature',
+            'InternetGatewayDevice.X_ZTE-COM_ONU.OpticalInfo.Temperature',
+            'InternetGatewayDevice.X_ASB_COM_ONU.OpticalInfo.Temperature',
+            'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TransceiverTemperature',
+            'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.Temperature',
+            'InternetGatewayDevice.WANDevice.1.X_CT-COM_GponInterfaceConfig.TransceiverTemperature',
+            'Device.TemperatureStatus.Temperature',
+            'Device.DeviceInfo.TemperatureStatus.Temperature',
+            'InternetGatewayDevice.DeviceInfo.TemperatureStatus.Temperature',
+        ]);
+
+        if ($tempRaw === null) {
+            $tempRaw = self::findParameterBySuffix($rawDev, 'TransceiverTemperature')
+                ?? self::findParameterBySuffix($rawDev, 'Temperature');
+        }
+
+        return self::formatTemperature($tempRaw);
+    }
+
+    private static function findParameterBySuffix(array $data, string $suffix): mixed
+    {
+        $candidates = [];
+
+        foreach ($data as $key => $val) {
+            if (!is_string($key)) {
+                continue;
+            }
+
+            $leaf = str_contains($key, '.') ? substr($key, strrpos($key, '.') + 1) : $key;
+            if (strcasecmp($leaf, $suffix) !== 0) {
+                continue;
+            }
+
+            $extracted = null;
+            if (is_array($val) && array_key_exists('_value', $val)) {
+                $extracted = $val['_value'];
+            } elseif (!is_array($val) && $val !== '') {
+                $extracted = $val;
+            }
+
+            if ($extracted !== null && $extracted !== '') {
+                $candidates[$key] = $extracted;
+            }
+        }
+
+        if ($candidates === []) {
+            return null;
+        }
+
+        $preferredPrefixes = [
+            'InternetGatewayDevice.DeviceInfo.',
+            'Device.DeviceInfo.',
+            'VirtualParameters.',
+        ];
+
+        foreach ($preferredPrefixes as $prefix) {
+            foreach ($candidates as $key => $val) {
+                if (str_starts_with($key, $prefix)) {
+                    return $val;
+                }
+            }
+        }
+
+        return reset($candidates);
+    }
+
+    private static function parseTemperature($raw): ?float
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $val = (float) $raw;
+
+        // ZTE/Huawei often report temperature scaled (e.g. 4300 = 43.0°C)
+        if (abs($val) > 200 && abs($val) < 10000) {
+            $val = $val / 100;
+        } elseif (abs($val) >= 10000) {
+            $val = $val / 256;
+        }
+
+        if ($val < -20 || $val > 120) {
+            return null;
+        }
+
+        return round($val, 1);
+    }
+
+    private static function formatTemperature($raw): ?string
+    {
+        $val = self::parseTemperature($raw);
+
+        return $val !== null ? $val . '°C' : null;
+    }
+
+    private static function parseConnectedDevices($raw): ?int
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        $count = (int) $raw;
+        return $count >= 0 ? $count : null;
     }
 }

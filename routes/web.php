@@ -1,12 +1,45 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Services\SettingService;
+use App\Services\BillingService;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
 });
+
+Route::get('favicon.ico', function () {
+    $path = SettingService::get('system.favicon') ?: SettingService::get('system.logo');
+
+    if (!$path || !Storage::disk('public')->exists($path)) {
+        abort(404);
+    }
+
+    $absolute = Storage::disk('public')->path($path);
+    $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    $mime = match ($extension) {
+        'svg' => 'image/svg+xml',
+        'png' => 'image/png',
+        'jpg', 'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        'ico' => 'image/x-icon',
+        default => @mime_content_type($absolute) ?: 'application/octet-stream',
+    };
+
+    return response()->file($absolute, [
+        'Content-Type' => $mime,
+        'Cache-Control' => 'public, max-age=86400',
+    ]);
+})->name('favicon');
+
+Route::get('admin', function () {
+    return auth()->check()
+        ? redirect()->route('dashboard')
+        : redirect()->route('login');
+})->name('admin');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
@@ -21,7 +54,10 @@ Route::middleware('auth')->group(function () {
             'customers' => \App\Models\Customer::with(['odp', 'package', 'router'])->get(),
             'routers' => \App\Models\Router::all(),
             'packages' => \App\Models\Package::all(),
-            'invoices' => \App\Models\Invoice::with('customer')->orderBy('created_at', 'desc')->get(),
+            'invoices' => BillingService::appendNextBillingToInvoices(
+                \App\Models\Invoice::with(['customer.package', 'payments'])->orderBy('created_at', 'desc')->get()
+            ),
+            'billingActivityLogs' => \App\Models\BillingActivityLog::orderBy('created_at', 'desc')->limit(50)->get(),
             'settings' => \App\Models\Setting::all(),
             'hotspotVouchers' => \App\Models\HotspotVoucher::with('router')->orderBy('created_at', 'desc')->get(),
             'hotspotSales' => \App\Models\HotspotSale::with('router')->orderBy('created_at', 'desc')->get(),
@@ -56,24 +92,42 @@ Route::middleware('auth')->group(function () {
         return $renderDashboard('settings');
     });
 
+    Route::get('profile', function () use ($renderDashboard) {
+        return $renderDashboard('profile');
+    });
+
+    Route::get('network-map', function () use ($renderDashboard) {
+        return $renderDashboard('network-map');
+    });
+
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
     // GenieACS (TR-069) Routes
     Route::get('admin/gpon/status', [\App\Http\Controllers\Admin\GenieAcsController::class, 'status']);
     Route::post('admin/gpon/reboot', [\App\Http\Controllers\Admin\GenieAcsController::class, 'reboot']);
+    Route::get('admin/network-map/metrics', [\App\Http\Controllers\Admin\NetworkMapController::class, 'metrics']);
 
     // Admin CRUD Actions
     Route::post('admin/routers/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveRouter']);
     Route::post('admin/routers/test-connection', [\App\Http\Controllers\Admin\AdminActionController::class, 'testConnection']);
     Route::post('admin/routers/sync', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncRouter']);
+    Route::post('admin/routers/get-profiles', [\App\Http\Controllers\Admin\AdminActionController::class, 'getRouterProfiles']);
     Route::post('admin/customers/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveCustomer']);
     Route::post('admin/customers/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteCustomer']);
     Route::post('admin/customers/bulk-delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'bulkDeleteCustomer']);
     Route::post('admin/packages/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'savePackage']);
     Route::post('admin/packages/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deletePackage']);
+
+    // Admin ODP Actions
+    Route::post('admin/odps/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveOdp']);
+    Route::post('admin/odps/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteOdp']);
+
     Route::post('admin/invoices/pay-manual', [\App\Http\Controllers\Admin\AdminActionController::class, 'payInvoiceManual']);
+    Route::post('admin/invoices/void-payment', [\App\Http\Controllers\Admin\AdminActionController::class, 'voidInvoicePayment']);
     Route::post('admin/invoices/generate', [\App\Http\Controllers\Admin\AdminActionController::class, 'generateInvoices']);
+    Route::get('admin/invoices/{invoice}/print', [\App\Http\Controllers\Admin\AdminActionController::class, 'printInvoice']);
     Route::post('admin/settings/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveSettings']);
+    Route::post('admin/profile/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveAdminProfile']);
     Route::get('admin/server/resources', [\App\Http\Controllers\Admin\AdminActionController::class, 'getServerResources']);
 
     // Admin Hotspot Actions
@@ -81,9 +135,14 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/hotspot/generate-vouchers', [\App\Http\Controllers\Admin\AdminActionController::class, 'generateHotspotVouchers']);
     Route::post('admin/hotspot/sell-voucher', [\App\Http\Controllers\Admin\AdminActionController::class, 'sellHotspotVoucher']);
     Route::post('admin/hotspot/delete-voucher', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteHotspotVoucher']);
+    Route::post('admin/hotspot/bulk-delete-vouchers', [\App\Http\Controllers\Admin\AdminActionController::class, 'bulkDeleteVouchersByComment']);
+    Route::get('admin/hotspot/get-servers', [\App\Http\Controllers\Admin\AdminActionController::class, 'getRouterHotspotServers']);
+    Route::get('admin/hotspot/voucher-mac-addresses', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncHotspotMacAddresses']);
+    Route::get('admin/hotspot/print-vouchers', [\App\Http\Controllers\Admin\AdminActionController::class, 'printVouchers']);
 
     // Customer Portal Routes
     Route::get('customer/dashboard', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'index']);
+    Route::get('customer/invoice/{invoice}/print', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'printInvoice']);
     Route::post('customer/invoice/{invoice}/pay', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'payInvoice']);
 });
 

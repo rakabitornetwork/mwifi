@@ -2,20 +2,507 @@
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
+@source '../js/**/*.{js,jsx}';
+@source '../views/**/*.blade.php';
 
 @theme {
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-/* Efek garis putus-putus berjalan ke arah pelanggan */
-@keyframes optical-flow {
-    to {
-        stroke-dashoffset: -20;
-    }
+/* NOC shell — solid sidebar + smooth navbar */
+.noc-sidebar {
+    color: #eff6ff;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
 }
 
+.noc-sidebar-light {
+    background: linear-gradient(168deg, #1877F2 0%, #146CE0 26%, #0F5FD0 54%, #0A4DA8 100%);
+}
+
+.noc-sidebar-dark {
+    background: linear-gradient(168deg, #0A4DA8 0%, #084298 30%, #063A7A 58%, #031A3A 100%);
+}
+
+.noc-sidebar-logo {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.noc-sidebar-footer {
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, rgba(0, 0, 0, 0.16) 100%);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.noc-navbar {
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.noc-navbar-light {
+    background: linear-gradient(
+        118deg,
+        #c7d2fe 0%,
+        #bfdbfe 16%,
+        #ddd6fe 38%,
+        #e0e7ff 58%,
+        #ede9fe 76%,
+        #f5f3ff 100%
+    );
+    border-bottom: 1px solid rgba(212, 212, 216, 0.95);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+}
+
+.noc-navbar-dark {
+    background: linear-gradient(112deg, #0f172a 0%, rgba(49, 46, 129, 0.32) 38%, #1e293b 72%, #111827 100%);
+    border-bottom: 1px solid rgba(99, 102, 241, 0.22);
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.05) inset,
+        0 10px 28px -20px rgba(15, 23, 42, 0.85);
+}
+
+/* Efek garis putus-putus berjalan ke arah pelanggan (offset diatur via rAF di Dashboard) */
 .optical-cable-flow {
-    stroke-dasharray: 8, 8;
-    animation: optical-flow 1.2s linear infinite;
+    stroke-dasharray: 12 8;
+    stroke-linecap: round;
+    will-change: stroke-dashoffset;
+}
+
+/* Popup detail pelanggan — premium card on network map */
+.leaflet-popup.customer-detail-popup {
+    margin-bottom: 12px;
+}
+
+.leaflet-popup.customer-detail-popup .leaflet-popup-content-wrapper {
+    padding: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow:
+        0 4px 6px -1px rgba(15, 23, 42, 0.06),
+        0 20px 40px -12px rgba(15, 23, 42, 0.18);
+    background: #ffffff;
+}
+
+.leaflet-popup.customer-detail-popup .leaflet-popup-content {
+    margin: 0;
+    width: 360px !important;
+    line-height: 1.45;
+    max-height: min(48vh, 380px);
+    overflow: hidden;
+}
+
+.leaflet-popup.customer-detail-popup .leaflet-popup-tip {
+    border-top-color: #ffffff;
+    filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.06));
+}
+
+.leaflet-popup.customer-detail-popup a.leaflet-popup-close-button {
+    top: 10px;
+    right: 10px;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.06);
+    color: #64748b;
+    font-size: 18px;
+    line-height: 26px;
+    text-align: center;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.leaflet-popup.customer-detail-popup a.leaflet-popup-close-button:hover {
+    background: rgba(15, 23, 42, 0.1);
+    color: #0f172a;
+}
+
+.map-popup-customer {
+    font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+    color: #0f172a;
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    max-height: min(48vh, 380px);
+}
+
+.map-popup-hero {
+    position: relative;
+    padding: 18px 18px 14px;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 45%, #ccfbf1 100%);
+    color: #0f172a;
+    overflow: hidden;
+    border-bottom: 1px solid #a7f3d0;
+    flex-shrink: 0;
+    z-index: 2;
+}
+
+.map-popup-hero-glow {
+    position: absolute;
+    inset: -40% -20% auto auto;
+    width: 180px;
+    height: 180px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.35) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.map-popup-hero-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.map-popup-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    font-weight: 800;
+    color: #047857;
+    background: linear-gradient(145deg, #ffffff, #ecfdf5);
+    border: 1px solid #a7f3d0;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12);
+    flex-shrink: 0;
+}
+
+.map-popup-hero-text {
+    min-width: 0;
+    flex: 1;
+}
+
+.map-popup-name {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #0f172a;
+    line-height: 1.25;
+}
+
+.map-popup-sub {
+    margin: 4px 0 0;
+    font-size: 10px;
+    color: #64748b;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.map-popup-badges {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.map-popup-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+}
+
+.map-popup-badge--success {
+    color: #047857;
+    background: #ffffff;
+    border-color: #a7f3d0;
+}
+
+.map-popup-badge--warning {
+    color: #b45309;
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.map-popup-badge--danger {
+    color: #b91c1c;
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.map-popup-badge--neutral {
+    color: #475569;
+    background: #ffffff;
+    border-color: #e2e8f0;
+}
+
+.map-popup-badge--online {
+    color: #0e7490;
+    background: #ecfeff;
+    border-color: #a5f3fc;
+}
+
+.map-popup-badge--offline {
+    color: #64748b;
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.map-popup-body {
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #a7f3d0 transparent;
+}
+
+.map-popup-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.map-popup-body::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 4px 0;
+}
+
+.map-popup-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+}
+
+.map-popup-body::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.map-popup-card {
+    background: #ffffff;
+    border: 1px solid #eef2f7;
+    border-radius: 14px;
+    padding: 11px 12px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.map-popup-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.map-popup-card-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #059669;
+    background: linear-gradient(145deg, #ecfdf5, #f0fdf4);
+    border: 1px solid #d1fae5;
+    flex-shrink: 0;
+}
+
+.map-popup-card-icon svg {
+    width: 13px;
+    height: 13px;
+}
+
+.map-popup-card-title {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.map-popup-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 10px;
+}
+
+.map-popup-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    padding: 7px 8px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+}
+
+.map-popup-stat-label {
+    font-size: 9px;
+    font-weight: 600;
+    color: #94a3b8;
+    letter-spacing: 0.02em;
+}
+
+.map-popup-stat-value {
+    font-size: 10px;
+    font-weight: 700;
+    color: #0f172a;
+    word-break: break-word;
+    line-height: 1.35;
+}
+
+.map-popup-stat-value--accent {
+    color: #047857;
+}
+
+.map-popup-stat-value--good {
+    color: #059669;
+}
+
+.map-popup-stat-value--warn {
+    color: #d97706;
+}
+
+.map-popup-stat-value--bad {
+    color: #dc2626;
+}
+
+.map-popup-credential-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.map-popup-credential {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px dashed #dbeafe;
+}
+
+.map-popup-credential-value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #1e293b;
+    word-break: break-all;
+}
+
+.map-speedometer-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.map-speedometer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 8px 6px 6px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    border: 1px solid #eef2f7;
+}
+
+.map-speedometer-shell {
+    width: 100%;
+    padding: 0 2px;
+}
+
+.map-speedometer-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.map-speedometer-arc {
+    transition: stroke-dasharray 0.45s ease;
+    filter: drop-shadow(0 1px 2px rgba(5, 150, 105, 0.15));
+}
+
+.map-speedometer--up .map-speedometer-arc {
+    filter: drop-shadow(0 1px 2px rgba(37, 99, 235, 0.15));
+}
+
+.map-speedometer-label {
+    margin-top: 4px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.map-speedometer-value {
+    margin-top: 2px;
+    font-size: 11px;
+    font-weight: 800;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: -0.02em;
+}
+
+.map-speedometer--down .map-speedometer-value {
+    color: #059669;
+}
+
+.map-speedometer--up .map-speedometer-value {
+    color: #2563eb;
+}
+
+.map-popup-footer {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 1px solid #eef2f7;
+    color: #475569;
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.map-popup-footer svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: #94a3b8;
+}
+
+@media (max-width: 639px) {
+    .leaflet-popup.customer-detail-popup .leaflet-popup-content {
+        width: min(292px, calc(100vw - 40px)) !important;
+    }
+
+    .map-popup-hero {
+        padding: 14px 12px 12px;
+    }
+
+    .map-popup-body {
+        padding: 10px 11px 12px;
+    }
+
+    .map-popup-card {
+        padding: 9px 10px;
+    }
+
+    .map-popup-stats-grid {
+        gap: 6px 8px;
+    }
+
+    .map-popup-stat {
+        padding: 6px 7px;
+    }
 }

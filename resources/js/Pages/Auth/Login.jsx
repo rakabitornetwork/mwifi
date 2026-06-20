@@ -1,8 +1,11 @@
 import React from 'react';
-import { useForm, Head } from '@inertiajs/react';
-import { Mail, Lock, LogIn, ShieldAlert } from 'lucide-react';
+import { useForm, usePage } from '@inertiajs/react';
+import { Mail, Lock, LogIn, ShieldAlert, Wifi } from 'lucide-react';
+import SeoHead from '../../Components/SeoHead';
+import AppFooter from '../../Components/AppFooter';
 
 export default function Login() {
+    const { branding = {} } = usePage().props;
     const { data, setData, post, processing, errors } = useForm({
         email: '',
         password: '',
@@ -16,17 +19,25 @@ export default function Login() {
 
     return (
         <>
-            <Head title="Login Admin" />
-            <div className="min-h-screen flex items-center justify-center bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-950/20 via-slate-950 to-slate-950 p-6 font-sans">
+            <SeoHead title="Login Admin" branding={branding} />
+            <div className="min-h-screen flex flex-col bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-950/20 via-slate-950 to-slate-950 font-sans">
+                <div className="flex-1 flex items-center justify-center p-6">
                 <div className="w-full max-w-md bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-8 shadow-2xl space-y-6">
                     <div className="text-center space-y-2">
-                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-7 h-7">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h3a2.25 2.25 0 0 1 2.25 2.25V9M1.5 13.5h21m-21 0a2.25 2.25 0 0 0-2.25 2.25v5.25a2.25 2.25 0 0 0 2.25 2.25h21a2.25 2.25 0 0 0 2.25-2.25v-5.25a2.25 2.25 0 0 0-2.25-2.25m-21 0V9a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 9v4.5m-2.25 0a2.25 2.25 0 0 1-2.25 2.25h-12a2.25 2.25 0 0 1-2.25-2.25" />
-                            </svg>
+                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-2 overflow-hidden">
+                            {branding.logo_url ? (
+                                <img src={branding.logo_url} alt={branding.company_name} className="w-full h-full object-contain p-2" />
+                            ) : (
+                                <Wifi className="w-7 h-7" />
+                            )}
                         </div>
                         <h2 className="text-2xl font-bold tracking-tight text-white">Selamat Datang</h2>
-                        <p className="text-slate-400 text-sm">Masuk ke Panel Kontrol RT RW NET mWiFi</p>
+                        <p className="text-slate-400 text-sm">
+                            Masuk ke Panel Kontrol {branding.company_name || branding.app_name || 'mWiFi'}
+                        </p>
+                        {branding.company_tagline && (
+                            <p className="text-slate-500 text-[11px]">{branding.company_tagline}</p>
+                        )}
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -93,6 +104,12 @@ export default function Login() {
                         </button>
                     </form>
                 </div>
+                </div>
+                <AppFooter
+                    branding={branding}
+                    className="py-4 px-6 border-t border-slate-800/80 text-center"
+                    textClassName="text-[11px] text-slate-500"
+                />
             </div>
         </>
     );

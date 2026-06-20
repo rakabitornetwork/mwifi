@@ -1,0 +1,132 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Customer;
+use App\Models\Invoice;
+use App\Models\Package;
+use App\Models\Router;
+use App\Models\Setting;
+use App\Models\User;
+use App\Services\BillingService;
+use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class BillingNextInvoiceTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Setting::create([
+            'group' => 'system',
+            'key' => 'system.billing_prorata_enabled',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+    }
+
+    private function makePaidInvoice(string $period = '2026-06'): Invoice
+    {
+        $user = User::factory()->create();
+        $router = Router::create([
+            'name' => 'Router Test',
+            'host' => '127.0.0.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'protocol_type' => 'legacy_socket',
+            'status' => false,
+        ]);
+        $package = Package::create([
+            'name' => 'Paket 120K',
+            'type' => 'pppoe',
+            'price' => 120000,
+            'bandwidth_limit' => '20M/20M',
+            'mikrotik_profile' => '20M',
+        ]);
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'router_id' => $router->id,
+            'package_id' => $package->id,
+            'service_type' => 'pppoe',
+            'username' => 'cust_' . uniqid(),
+            'password' => 'pass',
+            'name' => 'Pelanggan Test',
+            'phone_number' => '6281234567890',
+            'address' => 'Alamat test',
+            'status' => 'active',
+            'billing_date' => 25,
+            'service_start_date' => '2026-06-15',
+        ]);
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-TEST-PAID',
+            'billing_period' => $period,
+            'amount' => 44000,
+            'days_billed' => 11,
+            'is_prorated' => true,
+            'tax' => 0,
+            'total_amount' => 44000,
+            'due_date' => Carbon::create(2026, 6, 25),
+            'status' => 'paid',
+            'paid_at' => Carbon::create(2026, 6, 20),
+        ]);
+
+        return $invoice->load('customer.package');
+    }
+
+    public function test_resolve_next_billing_preview_for_paid_invoice(): void
+    {
+        $invoice = $this->makePaidInvoice();
+
+        $preview = BillingService::resolveNextBillingPreview($invoice);
+
+        $this->assertNotNull($preview);
+        $this->assertSame('2026-07', $preview['period']);
+        $this->assertSame('2026-07-25', $preview['due_date']);
+        $this->assertFalse($preview['already_generated']);
+        $this->assertSame('preview', $preview['status']);
+        $this->assertSame(120000.0, $preview['total_amount']);
+    }
+
+    public function test_returns_existing_next_invoice_when_already_generated(): void
+    {
+        $invoice = $this->makePaidInvoice();
+
+        Invoice::create([
+            'customer_id' => $invoice->customer_id,
+            'invoice_number' => 'INV-NEXT',
+            'billing_period' => '2026-07',
+            'amount' => 120000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 120000,
+            'due_date' => Carbon::create(2026, 7, 25),
+            'status' => 'unpaid',
+        ]);
+
+        $preview = BillingService::resolveNextBillingPreview($invoice);
+
+        $this->assertTrue($preview['already_generated']);
+        $this->assertSame('INV-NEXT', $preview['invoice_number']);
+        $this->assertSame('unpaid', $preview['status']);
+    }
+
+    public function test_admin_can_open_invoice_print_page(): void
+    {
+        $admin = User::factory()->create();
+        $invoice = $this->makePaidInvoice();
+
+        $response = $this->actingAs($admin)->get("/admin/invoices/{$invoice->id}/print?position=top");
+
+        $response->assertOk();
+        $response->assertSee($invoice->invoice_number);
+        $response->assertSee('Tagihan Selanjutnya');
+    }
+}

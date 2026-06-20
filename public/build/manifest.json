@@ -1,7 +1,20 @@
 {
+  "_AppFooter-BZml7Jif.js": {
+    "file": "assets/AppFooter-BZml7Jif.js",
+    "name": "AppFooter",
+    "imports": [
+      "_rolldown-runtime-QTnfLwEv.js",
+      "_vendor-mZPdPWDN.js",
+      "_vendor-core-BX_S_quF.js"
+    ]
+  },
   "_fonts-DkuEHybc.css": {
     "file": "assets/fonts-DkuEHybc.css",
     "src": "_fonts-DkuEHybc.css"
+  },
+  "_formatRupiah-BPNt29Go.js": {
+    "file": "assets/formatRupiah-BPNt29Go.js",
+    "name": "formatRupiah"
   },
   "_instrument-sans-400-normal-D1W7dsQl.woff": {
     "file": "assets/instrument-sans-400-normal-D1W7dsQl.woff",
@@ -59,8 +72,8 @@
     "file": "assets/vendor-1DTFk8zz.css",
     "src": "_vendor-1DTFk8zz.css"
   },
-  "_vendor-core-DaqSjhhi.js": {
-    "file": "assets/vendor-core-DaqSjhhi.js",
+  "_vendor-core-BX_S_quF.js": {
+    "file": "assets/vendor-core-BX_S_quF.js",
     "name": "vendor-core",
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
@@ -95,7 +108,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-hrb23_j1.css",
+    "file": "assets/app-D5BCV24t.css",
     "name": "app",
     "names": [
       "app.css"
@@ -104,57 +117,63 @@
     "isEntry": true
   },
   "resources/js/Pages/Auth/Login.jsx": {
-    "file": "assets/Login-B8Q_bZ0i.js",
+    "file": "assets/Login-aObOAuMJ.js",
     "name": "Login",
     "src": "resources/js/Pages/Auth/Login.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
       "_vendor-mZPdPWDN.js",
-      "_vendor-core-DaqSjhhi.js"
+      "_vendor-core-BX_S_quF.js",
+      "_AppFooter-BZml7Jif.js"
     ]
   },
   "resources/js/Pages/Customer/Dashboard.jsx": {
-    "file": "assets/Dashboard-HWD6XnP3.js",
+    "file": "assets/Dashboard-zjO3iOpC.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Customer/Dashboard.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
       "_vendor-mZPdPWDN.js",
-      "_vendor-core-DaqSjhhi.js"
+      "_vendor-core-BX_S_quF.js",
+      "_AppFooter-BZml7Jif.js",
+      "_formatRupiah-BPNt29Go.js"
     ]
   },
   "resources/js/Pages/Dashboard.jsx": {
-    "file": "assets/Dashboard-C27lPMuc.js",
+    "file": "assets/Dashboard-CUrwfnp1.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Dashboard.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
       "_vendor-mZPdPWDN.js",
-      "_vendor-core-DaqSjhhi.js"
+      "_vendor-core-BX_S_quF.js",
+      "_AppFooter-BZml7Jif.js",
+      "_formatRupiah-BPNt29Go.js"
     ]
   },
   "resources/js/Pages/Welcome.jsx": {
-    "file": "assets/Welcome-Ce2oQ3AP.js",
+    "file": "assets/Welcome-CZrQNJN1.js",
     "name": "Welcome",
     "src": "resources/js/Pages/Welcome.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
       "_vendor-mZPdPWDN.js",
-      "_vendor-core-DaqSjhhi.js"
+      "_vendor-core-BX_S_quF.js",
+      "_AppFooter-BZml7Jif.js"
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-DJwGoi9A.js",
+    "file": "assets/app-BmUGXbiB.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
     "imports": [
       "_vendor-mZPdPWDN.js",
-      "_vendor-core-DaqSjhhi.js"
+      "_vendor-core-BX_S_quF.js"
     ],
     "dynamicImports": [
       "resources/js/Pages/Auth/Login.jsx",

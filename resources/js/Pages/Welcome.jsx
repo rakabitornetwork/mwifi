@@ -1,25 +1,56 @@
 import React from 'react';
+import { usePage } from '@inertiajs/react';
+import { Wifi } from 'lucide-react';
+import SeoHead from '../Components/SeoHead';
+import AppFooter from '../Components/AppFooter';
 
 export default function Welcome() {
+    const { branding = {} } = usePage().props;
+
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-100 font-sans p-6">
-            <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center space-y-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    {/* Placeholder custom logo */}
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-8 h-8">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 9V5.25A2.25 2.25 0 0 1 10.5 3h3a2.25 2.25 0 0 1 2.25 2.25V9M1.5 13.5h21m-21 0a2.25 2.25 0 0 0-2.25 2.25v5.25a2.25 2.25 0 0 0 2.25 2.25h21a2.25 2.25 0 0 0 2.25-2.25v-5.25a2.25 2.25 0 0 0-2.25-2.25m-21 0V9a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 9v4.5m-2.25 0a2.25 2.25 0 0 1-2.25 2.25h-12a2.25 2.25 0 0 1-2.25-2.25" />
-                    </svg>
+        <>
+            <SeoHead title="Selamat Datang" branding={branding} />
+            <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
+                <div className="flex-1 flex flex-col items-center justify-center p-6">
+                    <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center space-y-6">
+                        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 overflow-hidden">
+                            {branding.logo_url ? (
+                                <img src={branding.logo_url} alt={branding.company_name} className="w-full h-full object-contain p-2" />
+                            ) : (
+                                <Wifi className="w-8 h-8" />
+                            )}
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-extrabold tracking-tight text-emerald-400">
+                                {branding.company_name || 'mWiFi RT RW NET'}
+                            </h1>
+                            <p className="text-slate-400 mt-2 font-medium">
+                                {branding.company_tagline || 'Aplikasi Manajemen Pelanggan & Billing Terintegrasi'}
+                            </p>
+                        </div>
+                        {(branding.company_phone || branding.company_email || branding.company_address) && (
+                            <div className="text-left text-xs text-slate-400 space-y-1 border-t border-slate-800 pt-4">
+                                {branding.company_phone && <p>Telepon: {branding.company_phone}</p>}
+                                {branding.company_email && <p>Email: {branding.company_email}</p>}
+                                {branding.company_address && <p>Alamat: {branding.company_address}</p>}
+                                {branding.company_website && (
+                                    <p>
+                                        Web:{' '}
+                                        <a href={branding.company_website} className="text-emerald-400 hover:underline" target="_blank" rel="noreferrer">
+                                            {branding.company_website}
+                                        </a>
+                                    </p>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </div>
-                <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-emerald-400">mWiFi RT RW NET</h1>
-                    <p className="text-slate-400 mt-2 font-medium">Aplikasi Manajemen Pelanggan & Billing Terintegrasi</p>
-                </div>
-                <div className="border-t border-slate-800 pt-6">
-                    <p className="text-sm text-slate-500">
-                        Pilar arsitektur Laravel 13 + Inertia + React + Tailwind CSS v4
-                    </p>
-                </div>
+                <AppFooter
+                    branding={branding}
+                    className="py-4 px-6 border-t border-slate-800 text-center"
+                    textClassName="text-xs text-slate-500"
+                />
             </div>
-        </div>
+        </>
     );
 }

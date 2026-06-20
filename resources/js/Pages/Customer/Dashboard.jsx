@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
+import SeoHead from '../../Components/SeoHead';
+import AppFooter from '../../Components/AppFooter';
+import { formatRupiah } from '../../utils/formatRupiah';
 import { 
     LogOut, 
     Sun, 
@@ -15,10 +18,12 @@ import {
     FileText, 
     Phone, 
     MapPin,
+    Mail,
     ShieldAlert
 } from 'lucide-react';
 
 export default function CustomerDashboard({ auth, customer, invoices = [], activeGateway }) {
+    const { branding = {} } = usePage().props;
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('qris');
     const [isPaying, setIsPaying] = useState(null); // stores invoice ID currently processing
@@ -100,7 +105,7 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
 
     return (
         <>
-            <Head title="Portal Pelanggan mWiFi" />
+            <SeoHead title={`Portal Pelanggan${branding.company_name ? ` — ${branding.company_name}` : ''}`} branding={branding} />
             <div className={`min-h-screen font-sans antialiased transition-colors duration-250 ${themeBg}`}>
                 
                 {/* Navbar */}
@@ -108,10 +113,21 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex justify-between items-center h-14">
                             <div className="flex items-center space-x-2">
-                                <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                                    <Wifi className="w-4 h-4 text-white" />
+                                {branding.logo_url ? (
+                                    <img src={branding.logo_url} alt={branding.company_name} className="w-8 h-8 object-contain shrink-0" />
+                                ) : (
+                                    <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                        <Wifi className="w-4 h-4 text-white" />
+                                    </div>
+                                )}
+                                <div>
+                                    <span className={`text-sm font-bold tracking-wider ${themeTextTitle} block leading-none`}>
+                                        {branding.company_name || 'Portal Pelanggan'}
+                                    </span>
+                                    {branding.company_tagline && (
+                                        <span className={`text-[9px] ${themeTextSub} block mt-0.5`}>{branding.company_tagline}</span>
+                                    )}
                                 </div>
-                                <span className={`text-sm font-bold tracking-wider ${themeTextTitle}`}>Portal Pelanggan mWiFi</span>
                             </div>
 
                             <div className="flex items-center space-x-3">
@@ -209,7 +225,7 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                                         <div>
                                             <p className={themeTextDesc}>Biaya Bulanan</p>
                                             <p className="font-extrabold text-base text-emerald-500 mt-0.5">
-                                                Rp {number_format(customer.package.price, 0, ',', '.')} <span className="text-[10px] font-medium text-zinc-500">/ Bulan (excl. pajak)</span>
+                                                {formatRupiah(customer.package.price)} <span className="text-[10px] font-medium text-zinc-500">/ Bulan (excl. pajak)</span>
                                             </p>
                                         </div>
                                     </div>
@@ -251,6 +267,9 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                                                         <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20">Belum Bayar</span>
                                                     </div>
                                                     <p className={`text-[10px] ${themeTextSub}`}>Periode Billing: {inv.billing_period}</p>
+                                                    {inv.is_prorated ? (
+                                                        <p className="text-[10px] text-amber-500 font-bold">Prorata {inv.days_billed}/30 hari · Subtotal {formatRupiah(inv.amount)}</p>
+                                                    ) : null}
                                                     <div className="flex items-center space-x-2 text-[10px] text-zinc-500 mt-1">
                                                         <Clock className="w-3.5 h-3.5 text-amber-500" />
                                                         <span>Jatuh Tempo: <b className="text-rose-500">{formatDate(inv.due_date)}</b></span>
@@ -276,7 +295,7 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                                                     {/* Total and Checkout */}
                                                     <div className="flex flex-col text-right justify-center pr-2">
                                                         <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold leading-none">Total Tagihan</span>
-                                                        <span className={`text-sm font-extrabold ${themeTextTitle}`}>Rp {number_format(inv.total_amount, 0, ',', '.')}</span>
+                                                        <span className={`text-sm font-extrabold ${themeTextTitle}`}>{formatRupiah(inv.total_amount)}</span>
                                                     </div>
 
                                                     <button
@@ -312,7 +331,8 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                                                     <th className="py-2.5 font-bold">Periode</th>
                                                     <th className="py-2.5 font-bold">Jumlah</th>
                                                     <th className="py-2.5 font-bold">Tgl Lunas</th>
-                                                    <th className="py-2.5 font-bold text-right">Status</th>
+                                                    <th className="py-2.5 font-bold">Tagihan Selanjutnya</th>
+                                                    <th className="py-2.5 font-bold text-right">Aksi</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-zinc-800/20 text-xs">
@@ -320,8 +340,21 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                                                     <tr key={inv.id} className={`${themeTextSub}`}>
                                                         <td className="py-2.5 font-mono font-bold">{inv.invoice_number}</td>
                                                         <td className="py-2.5 font-medium">{inv.billing_period}</td>
-                                                        <td className="py-2.5 font-extrabold text-emerald-500">Rp {number_format(inv.total_amount, 0, ',', '.')}</td>
+                                                        <td className="py-2.5 font-extrabold text-emerald-500">{formatRupiah(inv.total_amount)}</td>
                                                         <td className="py-2.5 font-medium">{formatDate(inv.paid_at)}</td>
+                                                        <td className="py-2.5">
+                                                            {inv.next_billing ? (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="font-mono font-bold">{inv.next_billing.period}</span>
+                                                                    <span className="font-bold text-cyan-500">{formatRupiah(inv.next_billing.total_amount)}</span>
+                                                                    <span className={`text-[10px] ${themeTextDesc}`}>
+                                                                        Jatuh tempo {inv.next_billing.due_date?.substring?.(0, 10) || '-'}
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className={themeTextDesc}>-</span>
+                                                            )}
+                                                        </td>
                                                         <td className="py-2.5 text-right">
                                                             <span className="px-1.5 py-0.2 rounded text-[8px] font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Lunas</span>
                                                         </td>
@@ -338,30 +371,45 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                     </div>
 
                 </main>
+
+                {(branding.company_name || branding.company_phone || branding.company_email || branding.company_address) && (
+                    <footer className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-4 border-t ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 text-xs">
+                            <div>
+                                <p className={`font-bold ${themeTextTitle}`}>{branding.company_name || branding.app_name}</p>
+                                {branding.company_tagline && (
+                                    <p className={`${themeTextSub} mt-0.5`}>{branding.company_tagline}</p>
+                                )}
+                            </div>
+                            <div className={`space-y-1.5 ${themeTextSub}`}>
+                                {branding.company_phone && (
+                                    <p className="flex items-center gap-1.5">
+                                        <Phone className="w-3 h-3 shrink-0" />
+                                        {branding.company_phone}
+                                    </p>
+                                )}
+                                {branding.company_email && (
+                                    <p className="flex items-center gap-1.5">
+                                        <Mail className="w-3 h-3 shrink-0" />
+                                        {branding.company_email}
+                                    </p>
+                                )}
+                                {branding.company_address && (
+                                    <p className="flex items-start gap-1.5">
+                                        <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
+                                        {branding.company_address}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <AppFooter
+                            branding={branding}
+                            className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'} text-center`}
+                            textClassName={`text-[10px] ${themeTextDesc}`}
+                        />
+                    </footer>
+                )}
             </div>
         </>
     );
-}
-
-// Global number formatter helper for React view
-function number_format(number, decimals, decPoint, thousandsSep) {
-    number = (number + '').replace(/[^0-9+\-Ee.]/g, '');
-    var n = !isFinite(+number) ? 0 : +number;
-    var prec = !isFinite(+decimals) ? 0 : Math.abs(decimals);
-    var sep = (typeof thousandsSep === 'undefined') ? '.' : thousandsSep;
-    var dec = (typeof decPoint === 'undefined') ? ',' : decPoint;
-    var s = '';
-    var toFixedFix = function (n, prec) {
-        var k = Math.pow(10, prec);
-        return '' + (Math.round(n * k) / k).toFixed(prec);
-    };
-    s = (prec ? toFixedFix(n, prec) : '' + Math.round(n)).split('.');
-    if (s[0].length > 3) {
-        s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, sep);
-    }
-    if ((s[1] || '').length < prec) {
-        s[1] = s[1] || '';
-        s[1] += new Array(prec - s[1].length + 1).join('0');
-    }
-    return s.join(dec);
 }

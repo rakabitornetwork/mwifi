@@ -12,14 +12,14 @@ class BillingGenerateCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'billing:generate {period? : Format YYYY-MM}';
+    protected $signature = 'billing:generate {period? : Format YYYY-MM — jika diisi, generate semua pelanggan untuk periode tersebut}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Membuat invoice tagihan bulanan otomatis untuk semua pelanggan aktif';
+    protected $description = 'Generate invoice otomatis H-N sebelum jatuh tempo (default H-5), atau bulk per periode jika period diberikan';
 
     /**
      * Execute the console command.
@@ -27,10 +27,17 @@ class BillingGenerateCommand extends Command
     public function handle(): int
     {
         $period = $this->argument('period');
-        $this->info("Memulai pembuatan invoice tagihan...");
-        
+
         try {
-            $count = BillingService::generateInvoices($period);
+            if ($period) {
+                $this->info("Membuat invoice tagihan untuk periode {$period}...");
+                $count = BillingService::generateInvoices($period);
+            } else {
+                $daysBefore = BillingService::getGenerateDaysBeforeDue();
+                $this->info("Memeriksa jadwal generate invoice (H-{$daysBefore} jatuh tempo)...");
+                $count = BillingService::generateScheduledInvoices();
+            }
+
             $this->info("Sukses membuat {$count} invoice tagihan baru.");
             return Command::SUCCESS;
         } catch (\Exception $e) {

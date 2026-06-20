@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\BillingActivityLog;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Services\Router\RouterService;
+use App\Services\BrandingService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -13,8 +15,436 @@ use Exception;
 
 class BillingService
 {
+    public const PRORATA_BASE_DAYS = 30;
+    public const DEFAULT_GENERATE_DAYS_BEFORE_DUE = 5;
+
     /**
-     * Generate invoices for all active/isolated customers for a given period.
+     * Resolve the date customer service begins for billing purposes.
+     */
+    public static function resolveServiceStartDate(Customer $customer): Carbon
+    {
+        if ($customer->service_start_date) {
+            return Carbon::parse($customer->service_start_date)->startOfDay();
+        }
+
+        if ($customer->created_at) {
+            return Carbon::parse($customer->created_at)->startOfDay();
+        }
+
+        return Carbon::today()->startOfDay();
+    }
+
+    /**
+     * Whether prorata billing is enabled in system settings.
+     */
+    public static function isProrataEnabled(): bool
+    {
+        return filter_var(
+            SettingService::get('system.billing_prorata_enabled', '1'),
+            FILTER_VALIDATE_BOOLEAN
+        );
+    }
+
+    /**
+     * Days before due date when scheduled invoice generation runs.
+     */
+    public static function getGenerateDaysBeforeDue(): int
+    {
+        $days = (int) SettingService::get(
+            'system.billing_generate_days_before',
+            (string) self::DEFAULT_GENERATE_DAYS_BEFORE_DUE
+        );
+
+        return max(1, min(30, $days));
+    }
+
+    public static function isAdminNotifyEnabled(): bool
+    {
+        return filter_var(
+            SettingService::get('system.billing_notify_admin', '1'),
+            FILTER_VALIDATE_BOOLEAN
+        );
+    }
+
+    /**
+     * Phone number for admin billing notifications (falls back to company phone).
+     */
+    public static function getAdminNotifyPhone(): ?string
+    {
+        $phone = trim((string) SettingService::get('system.billing_admin_phone', ''));
+        if ($phone === '') {
+            $phone = trim((string) SettingService::get('system.company_phone', ''));
+        }
+
+        return $phone !== '' ? $phone : null;
+    }
+
+    /**
+     * Due date for a customer in a billing period (YYYY-MM).
+     */
+    public static function resolveDueDateForPeriod(Customer $customer, string $period): Carbon
+    {
+        return Carbon::createFromFormat('Y-m', $period)
+            ->setUnitNoOverflow('day', $customer->billing_date, 'month')
+            ->startOfDay();
+    }
+
+    /**
+     * Determine if an invoice should be generated today for a customer.
+     *
+     * @return array{period: string, due_date: Carbon}|null
+     */
+    public static function resolveInvoiceSchedule(Customer $customer, ?Carbon $today = null, ?int $daysBeforeDue = null): ?array
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+        $daysBeforeDue = $daysBeforeDue ?? self::getGenerateDaysBeforeDue();
+
+        $monthCandidates = [
+            $today->copy()->startOfMonth(),
+            $today->copy()->addMonth()->startOfMonth(),
+        ];
+
+        foreach ($monthCandidates as $monthStart) {
+            $period = $monthStart->format('Y-m');
+            $dueDate = self::resolveDueDateForPeriod($customer, $period);
+            $generateOn = $dueDate->copy()->subDays($daysBeforeDue);
+
+            if ($today->equalTo($generateOn)) {
+                return [
+                    'period' => $period,
+                    'due_date' => $dueDate,
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Generate invoices for customers whose billing schedule falls on today's run (H-N before due date).
+     */
+    public static function generateScheduledInvoices(?Carbon $today = null): int
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+        $daysBeforeDue = self::getGenerateDaysBeforeDue();
+        $count = 0;
+        $createdInvoices = [];
+
+        $customers = Customer::whereIn('status', ['active', 'isolated'])
+            ->where('service_type', 'pppoe')
+            ->with('package')
+            ->get();
+
+        foreach ($customers as $customer) {
+            if (!$customer->package) {
+                continue;
+            }
+
+            $schedule = self::resolveInvoiceSchedule($customer, $today, $daysBeforeDue);
+            if ($schedule === null) {
+                continue;
+            }
+
+            if (Invoice::where('customer_id', $customer->id)
+                ->where('billing_period', $schedule['period'])
+                ->exists()) {
+                continue;
+            }
+
+            $created = self::createInvoiceForCustomer($customer, $schedule['period'], $schedule['due_date']);
+            if ($created !== null) {
+                $count++;
+                $createdInvoices[] = $created;
+            }
+        }
+
+        self::recordScheduledInvoiceRun($today, $daysBeforeDue, $count, $createdInvoices);
+
+        return $count;
+    }
+
+    /**
+     * Persist activity log and optionally notify admin via WhatsApp.
+     *
+     * @param array<int, array<string, mixed>> $createdInvoices
+     */
+    public static function recordScheduledInvoiceRun(Carbon $runDate, int $daysBeforeDue, int $count, array $createdInvoices): BillingActivityLog
+    {
+        $totalAmount = array_sum(array_column($createdInvoices, 'total_amount'));
+        $brandName = BrandingService::companyName();
+        $dateLabel = $runDate->format('d-m-Y');
+
+        if ($count === 0) {
+            $message = "Generate tagihan otomatis (H-{$daysBeforeDue}) pada {$dateLabel}: tidak ada invoice baru.";
+        } else {
+            $message = "Generate tagihan otomatis (H-{$daysBeforeDue}) pada {$dateLabel}: {$count} invoice baru, total Rp " . number_format($totalAmount, 0, ',', '.') . '.';
+        }
+
+        $adminNotified = false;
+        $adminPhone = null;
+
+        if ($count > 0 && self::isAdminNotifyEnabled()) {
+            $adminPhone = self::getAdminNotifyPhone();
+            if ($adminPhone) {
+                $waMessage = self::buildAdminScheduledInvoiceMessage($brandName, $runDate, $daysBeforeDue, $createdInvoices, $totalAmount);
+                try {
+                    if (class_exists(\App\Services\WhatsAppService::class)) {
+                        $adminNotified = \App\Services\WhatsAppService::sendText($adminPhone, $waMessage);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to send admin billing notification: ' . $e->getMessage());
+                }
+            }
+        }
+
+        Log::info('Billing scheduled invoice run completed.', [
+            'run_date' => $runDate->toDateString(),
+            'days_before_due' => $daysBeforeDue,
+            'invoice_count' => $count,
+            'total_amount' => $totalAmount,
+            'admin_notified' => $adminNotified,
+        ]);
+
+        return BillingActivityLog::create([
+            'event_type' => 'scheduled_invoice',
+            'message' => $message,
+            'meta' => [
+                'days_before_due' => $daysBeforeDue,
+                'invoice_count' => $count,
+                'total_amount' => $totalAmount,
+                'invoices' => $createdInvoices,
+                'admin_notified' => $adminNotified,
+                'admin_phone' => $adminPhone,
+            ],
+            'run_date' => $runDate->toDateString(),
+        ]);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $createdInvoices
+     */
+    public static function buildAdminScheduledInvoiceMessage(
+        string $brandName,
+        Carbon $runDate,
+        int $daysBeforeDue,
+        array $createdInvoices,
+        float $totalAmount
+    ): string {
+        $lines = [
+            "*[{$brandName}] Generate Tagihan Otomatis*",
+            '',
+            'Tanggal: *' . $runDate->format('d-m-Y') . '*',
+            'Jadwal: *H-' . $daysBeforeDue . ' sebelum jatuh tempo*',
+            'Invoice baru: *' . count($createdInvoices) . '*',
+            '',
+        ];
+
+        foreach (array_slice($createdInvoices, 0, 10) as $invoice) {
+            $lines[] = '- *' . $invoice['invoice_number'] . '* — ' . $invoice['customer_name']
+                . ' (' . $invoice['billing_period'] . ') Rp '
+                . number_format((float) $invoice['total_amount'], 0, ',', '.');
+        }
+
+        if (count($createdInvoices) > 10) {
+            $lines[] = '- ... dan ' . (count($createdInvoices) - 10) . ' invoice lainnya';
+        }
+
+        $lines[] = '';
+        $lines[] = 'Total: *Rp ' . number_format($totalAmount, 0, ',', '.') . '*';
+        $lines[] = '';
+        $lines[] = 'Detail lengkap tersedia di panel admin tab Invoice.';
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * Create a single invoice for a customer.
+     *
+     * @return array{invoice_number: string, customer_name: string, total_amount: float, billing_period: string, due_date: string}|null
+     */
+    public static function createInvoiceForCustomer(Customer $customer, string $period, Carbon $dueDate): ?array
+    {
+        if (!$customer->package) {
+            return null;
+        }
+
+        $billing = self::calculateInvoiceAmount($customer, $period, (float) $customer->package->price);
+        if ($billing === null) {
+            return null;
+        }
+
+        $result = null;
+
+        DB::transaction(function () use ($customer, $period, $dueDate, $billing, &$result) {
+            $amount = $billing['amount'];
+            $taxRate = (float) SettingService::get('system.tax_rate', 0);
+            $tax = round($amount * $taxRate, 2);
+            $total = round($amount + $tax, 2);
+
+            $invNumber = 'INV-' . str_replace('-', '', $period) . '-' . str_pad($customer->id, 4, '0', STR_PAD_LEFT) . '-' . strtoupper(bin2hex(random_bytes(2)));
+
+            Invoice::create([
+                'customer_id' => $customer->id,
+                'invoice_number' => $invNumber,
+                'billing_period' => $period,
+                'amount' => $amount,
+                'days_billed' => $billing['days_billed'],
+                'is_prorated' => $billing['is_prorated'],
+                'tax' => $tax,
+                'total_amount' => $total,
+                'due_date' => $dueDate,
+                'status' => 'unpaid',
+            ]);
+
+            try {
+                $dueDateFormatted = $dueDate->format('d-m-Y');
+                $brandName = BrandingService::companyName();
+                $prorataLine = $billing['is_prorated']
+                    ? "\n- Prorata: *{$billing['days_billed']} hari* / " . self::PRORATA_BASE_DAYS . " hari"
+                    : '';
+                $message = "Yth. Bapak/Ibu {$customer->name},\n\nTagihan internet {$brandName} Anda untuk periode *{$period}* telah terbit.\n\n*Detail Tagihan*:\n- No. Invoice: *{$invNumber}*\n- Layanan: " . strtoupper($customer->service_type) . " ({$customer->username})\n- Subtotal: *Rp " . number_format($amount, 0, ',', '.') . "*{$prorataLine}\n- Total Tagihan: *Rp " . number_format($total, 0, ',', '.') . "*\n- Jatuh Tempo: *{$dueDateFormatted}*\n\nSilakan melakukan pembayaran melalui Portal Pelanggan sebelum jatuh tempo untuk menghindari isolir otomatis. Terima kasih.";
+
+                if (class_exists(\App\Services\WhatsAppService::class)) {
+                    \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
+                }
+            } catch (\Exception $waEx) {
+                Log::error("Failed to send WhatsApp billing notification for {$customer->username}: " . $waEx->getMessage());
+            }
+
+            $result = [
+                'invoice_number' => $invNumber,
+                'customer_name' => $customer->name,
+                'total_amount' => $total,
+                'billing_period' => $period,
+                'due_date' => $dueDate->toDateString(),
+            ];
+        });
+
+        return $result;
+    }
+
+    /**
+     * Calculate invoice subtotal for a customer and billing period.
+     *
+     * Prorata (bulan pertama): hari ditagih = tgl mulai layanan s/d tgl jatuh tempo (billing_date) periode tersebut.
+     *
+     * @return array{amount: float, days_billed: int, is_prorated: bool}|null Null when customer is not billable in period.
+     */
+    public static function calculateInvoiceAmount(Customer $customer, string $period, float $monthlyPrice): ?array
+    {
+        $periodStart = Carbon::createFromFormat('Y-m', $period)->startOfMonth()->startOfDay();
+        $periodEnd = Carbon::createFromFormat('Y-m', $period)->endOfMonth()->startOfDay();
+        $serviceStart = self::resolveServiceStartDate($customer);
+
+        if ($serviceStart->gt($periodEnd)) {
+            return null;
+        }
+
+        if (!self::isProrataEnabled() || $serviceStart->lte($periodStart)) {
+            return [
+                'amount' => round($monthlyPrice, 2),
+                'days_billed' => self::PRORATA_BASE_DAYS,
+                'is_prorated' => false,
+            ];
+        }
+
+        $dueDate = self::resolveDueDateForPeriod($customer, $period);
+        $activeStart = $serviceStart->greaterThan($periodStart) ? $serviceStart : $periodStart;
+        $activeEnd = $dueDate->greaterThanOrEqualTo($activeStart) ? $dueDate : $periodEnd;
+
+        $daysActive = $activeStart->diffInDays($activeEnd) + 1;
+        $daysActive = (int) min(max($daysActive, 1), self::PRORATA_BASE_DAYS);
+
+        $amount = round(($monthlyPrice / self::PRORATA_BASE_DAYS) * $daysActive, 2);
+
+        return [
+            'amount' => $amount,
+            'days_billed' => $daysActive,
+            'is_prorated' => true,
+        ];
+    }
+
+    /**
+     * Preview the next billing cycle after a paid invoice.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function resolveNextBillingPreview(Invoice $invoice): ?array
+    {
+        $customer = $invoice->customer;
+        if (!$customer || !$customer->package || $invoice->status !== 'paid') {
+            return null;
+        }
+
+        if (empty($invoice->billing_period)) {
+            return null;
+        }
+
+        $nextPeriod = Carbon::createFromFormat('Y-m', $invoice->billing_period)
+            ->addMonth()
+            ->format('Y-m');
+
+        $existingNext = Invoice::where('customer_id', $customer->id)
+            ->where('billing_period', $nextPeriod)
+            ->first();
+
+        if ($existingNext) {
+            return [
+                'period' => $nextPeriod,
+                'due_date' => $existingNext->due_date?->format('Y-m-d'),
+                'amount' => (float) $existingNext->amount,
+                'tax' => (float) $existingNext->tax,
+                'total_amount' => (float) $existingNext->total_amount,
+                'is_prorated' => (bool) $existingNext->is_prorated,
+                'days_billed' => (int) $existingNext->days_billed,
+                'already_generated' => true,
+                'invoice_number' => $existingNext->invoice_number,
+                'status' => $existingNext->status,
+            ];
+        }
+
+        $billing = self::calculateInvoiceAmount($customer, $nextPeriod, (float) $customer->package->price);
+        if ($billing === null) {
+            return null;
+        }
+
+        $dueDate = self::resolveDueDateForPeriod($customer, $nextPeriod);
+        $taxRate = (float) SettingService::get('system.tax_rate', 0);
+        $tax = round($billing['amount'] * $taxRate, 2);
+        $total = round($billing['amount'] + $tax, 2);
+
+        return [
+            'period' => $nextPeriod,
+            'due_date' => $dueDate->format('Y-m-d'),
+            'amount' => $billing['amount'],
+            'tax' => $tax,
+            'total_amount' => $total,
+            'is_prorated' => $billing['is_prorated'],
+            'days_billed' => $billing['days_billed'],
+            'already_generated' => false,
+            'invoice_number' => null,
+            'status' => 'preview',
+        ];
+    }
+
+    /**
+     * @param \Illuminate\Support\Collection<int, Invoice>|\Illuminate\Database\Eloquent\Collection<int, Invoice> $invoices
+     * @return array<int, array<string, mixed>>
+     */
+    public static function appendNextBillingToInvoices($invoices): array
+    {
+        return $invoices->map(function (Invoice $invoice) {
+            $data = $invoice->toArray();
+            if ($invoice->status === 'paid') {
+                $data['next_billing'] = self::resolveNextBillingPreview($invoice);
+            }
+
+            return $data;
+        })->all();
+    }
+
+    /**
+     * Generate invoices for all eligible PPPoE customers in a billing period (manual / CLI).
      *
      * @param string|null $period Format YYYY-MM (e.g., "2026-06"). Defaults to current month.
      * @return int Number of generated invoices.
@@ -24,71 +454,30 @@ class BillingService
         $period = $period ?? Carbon::now()->format('Y-m');
         $count = 0;
 
-        // Fetch all customers that should be billed (active or isolated)
         $customers = Customer::whereIn('status', ['active', 'isolated'])
+            ->where('service_type', 'pppoe')
             ->with('package')
             ->get();
 
         foreach ($customers as $customer) {
-            // Check if package is assigned
             if (!$customer->package) {
                 continue;
             }
 
-            // Check if invoice for this customer and period already exists
-            $exists = Invoice::where('customer_id', $customer->id)
+            if (Invoice::where('customer_id', $customer->id)
                 ->where('billing_period', $period)
-                ->exists();
-
-            if ($exists) {
+                ->exists()) {
                 continue;
             }
 
-            // Start transaction
-            DB::transaction(function () use ($customer, $period, &$count) {
-                $amount = $customer->package->price;
-                $taxRate = (float) SettingService::get('system.tax_rate', 0); // e.g., 0.11 for 11% PPN
-                $tax = $amount * $taxRate;
-                $total = $amount + $tax;
+            $dueDate = self::resolveDueDateForPeriod($customer, $period);
+            if ($dueDate->isPast() || $dueDate->isToday()) {
+                $dueDate = Carbon::now()->addDays(7)->startOfDay();
+            }
 
-                // Create invoice number: INV-YYYYMM-CUSTID-RAND
-                $invNumber = 'INV-' . str_replace('-', '', $period) . '-' . str_pad($customer->id, 4, '0', STR_PAD_LEFT) . '-' . strtoupper(bin2hex(random_bytes(2)));
-
-                // Due date is usually billing_date of the current billing month
-                $dueDate = Carbon::createFromFormat('Y-m', $period)
-                    ->setUnitNoOverflow('day', $customer->billing_date, 'month');
-
-                // If due date falls in the past or today when generating, set it to 7 days from now
-                if ($dueDate->isPast() || $dueDate->isToday()) {
-                    $dueDate = Carbon::now()->addDays(7);
-                }
-
-                $invoice = Invoice::create([
-                    'customer_id' => $customer->id,
-                    'invoice_number' => $invNumber,
-                    'billing_period' => $period,
-                    'amount' => $amount,
-                    'tax' => $tax,
-                    'total_amount' => $total,
-                    'due_date' => $dueDate,
-                    'status' => 'unpaid',
-                ]);
-
-                // Send invoice notification via WhatsApp
-                try {
-                    $dueDateFormatted = $dueDate->format('d-m-Y');
-                    $totalFormatted = number_format($total, 0, ',', '.');
-                    $message = "Yth. Bapak/Ibu {$customer->name},\n\nTagihan internet mWiFi Anda untuk periode *{$period}* telah terbit.\n\n*Detail Tagihan*:\n- No. Invoice: *{$invNumber}*\n- Layanan: " . strtoupper($customer->service_type) . " ({$customer->username})\n- Total Tagihan: *Rp {$totalFormatted}*\n- Jatuh Tempo: *{$dueDateFormatted}*\n\nSilakan melakukan pembayaran melalui Portal Pelanggan sebelum jatuh tempo untuk menghindari isolir otomatis. Terima kasih.";
-                    
-                    if (class_exists(\App\Services\WhatsAppService::class)) {
-                        \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
-                    }
-                } catch (\Exception $waEx) {
-                    Log::error("Failed to send WhatsApp billing notification for {$customer->username}: " . $waEx->getMessage());
-                }
-
+            if (self::createInvoiceForCustomer($customer, $period, $dueDate) !== null) {
                 $count++;
-            });
+            }
         }
 
         return $count;
@@ -104,7 +493,6 @@ class BillingService
         $count = 0;
         $today = Carbon::today();
 
-        // Get all unpaid invoices past their due date, where customer is still active
         $invoices = Invoice::where('status', 'unpaid')
             ->where('due_date', '<', $today)
             ->whereHas('customer', function ($query) {
@@ -115,26 +503,22 @@ class BillingService
 
         foreach ($invoices as $invoice) {
             $customer = $invoice->customer;
-            
+
             DB::beginTransaction();
             try {
-                // 1. Update customer status in database
                 $customer->update(['status' => 'isolated']);
 
-                // 2. Synchronize to Mikrotik router
                 $router = $customer->router;
                 $isolirProfile = SettingService::get('mikrotik.isolir_profile', 'ISOLIR');
 
                 if ($router && $router->status) {
                     $connector = RouterService::getConnector($router);
-                    
-                    // Update PPPoE profile to ISOLIR
+
                     $success = $connector->updateSecret($customer->username, [
                         'profile' => $isolirProfile
                     ]);
 
                     if ($success) {
-                        // Kick active session to force redial immediately under isolated profile
                         $connector->kickActiveConnection($customer->username);
                         Log::info("Customer {$customer->username} successfully isolated on router {$router->name}");
                     } else {
@@ -142,10 +526,9 @@ class BillingService
                     }
                 }
 
-                // 3. Queue WhatsApp Alert (Failure here won't rollback transaction)
                 try {
-                    $message = "Yth. Bapak/Ibu {$customer->name},\n\nLayanan internet mWiFi Anda dengan username *{$customer->username}* telah di-isolir otomatis karena tagihan {$invoice->invoice_number} sebesar Rp " . number_format($invoice->total_amount, 0, ',', '.') . " melewati jatuh tempo (" . $invoice->due_date->format('d-m-Y') . ").\n\nSilakan lakukan pembayaran segera melalui Portal Pelanggan agar internet otomatis aktif kembali.";
-                    // We will call the WhatsAppService dynamically
+                    $brandName = BrandingService::companyName();
+                    $message = "Yth. Bapak/Ibu {$customer->name},\n\nLayanan internet {$brandName} Anda dengan username *{$customer->username}* telah di-isolir otomatis karena tagihan {$invoice->invoice_number} sebesar Rp " . number_format($invoice->total_amount, 0, ',', '.') . " melewati jatuh tempo (" . $invoice->due_date->format('d-m-Y') . ").\n\nSilakan lakukan pembayaran segera melalui Portal Pelanggan agar internet otomatis aktif kembali.";
                     if (class_exists(\App\Services\WhatsAppService::class)) {
                         \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
                     }
@@ -166,24 +549,15 @@ class BillingService
 
     /**
      * Process invoice payment, mark it paid, and reactivate the customer if isolated.
-     *
-     * @param Invoice $invoice
-     * @param string $gateway Name of the payment gateway (e.g. 'tripay', 'midtrans')
-     * @param string $reference Transaction reference from the gateway
-     * @param float $amountPaid Total amount paid
-     * @param float $fee Payment fee charged by gateway
-     * @param array|null $payload Full callback webhook payload
-     * @return bool
      */
     public static function processPaidInvoice(Invoice $invoice, string $gateway, string $reference, float $amountPaid, float $fee = 0, ?array $payload = null): bool
     {
         if ($invoice->status === 'paid') {
-            return true; // Already paid
+            return true;
         }
 
         DB::beginTransaction();
         try {
-            // 1. Create payment record
             Payment::create([
                 'invoice_id' => $invoice->id,
                 'gateway_name' => $gateway,
@@ -194,31 +568,26 @@ class BillingService
                 'payload_response' => $payload,
             ]);
 
-            // 2. Update Invoice status
             $invoice->update([
                 'status' => 'paid',
                 'paid_at' => Carbon::now(),
             ]);
 
-            // 3. Reactivate customer if isolated or suspended
             $customer = $invoice->customer;
             if ($customer && in_array($customer->status, ['isolated', 'inactive'])) {
                 $customer->update(['status' => 'active']);
 
-                // Synchronize profile back to Mikrotik
                 $router = $customer->router;
                 $package = $customer->package;
 
                 if ($router && $router->status && $package) {
                     $connector = RouterService::getConnector($router);
-                    
-                    // Restore original PPPoE profile
+
                     $success = $connector->updateSecret($customer->username, [
                         'profile' => $package->mikrotik_profile
                     ]);
 
                     if ($success) {
-                        // Kick active connection so they re-dial and get active internet instantly
                         $connector->kickActiveConnection($customer->username);
                         Log::info("Customer {$customer->username} successfully reactivated on router {$router->name}");
                     } else {
@@ -227,9 +596,9 @@ class BillingService
                 }
             }
 
-            // 4. Send payment receipt WhatsApp notification
             try {
-                $message = "Terima Kasih!\n\nPembayaran tagihan mWiFi Anda telah berhasil diterima.\n\n*Detail Pembayaran*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Pelanggan: *{$customer->name}* ({$customer->username})\n- Metode Bayar: " . ($payload['payment_method'] ?? ucfirst($gateway)) . "\n- Jumlah Bayar: *Rp " . number_format($amountPaid, 0, ',', '.') . "*\n- Tanggal Bayar: " . Carbon::now()->format('d-m-Y H:i') . "\n\nLayanan internet Anda otomatis aktif kembali secara instan. Terima kasih atas kepercayaan Anda.";
+                $brandName = BrandingService::companyName();
+                $message = "Terima Kasih!\n\nPembayaran tagihan {$brandName} Anda telah berhasil diterima.\n\n*Detail Pembayaran*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Pelanggan: *{$customer->name}* ({$customer->username})\n- Metode Bayar: " . ($payload['payment_method'] ?? ucfirst($gateway)) . "\n- Jumlah Bayar: *Rp " . number_format($amountPaid, 0, ',', '.') . "*\n- Tanggal Bayar: " . Carbon::now()->format('d-m-Y H:i') . "\n\nLayanan internet Anda otomatis aktif kembali secara instan. Terima kasih atas kepercayaan Anda.";
                 if (class_exists(\App\Services\WhatsAppService::class)) {
                     \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
                 }
@@ -243,6 +612,62 @@ class BillingService
             DB::rollBack();
             Log::error("Failed to process payment for invoice {$invoice->invoice_number}: " . $e->getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Reverse an admin manual payment (undo accidental Bayar Manual).
+     *
+     * @throws Exception When invoice is not eligible for reversal.
+     */
+    public static function reverseManualPayment(Invoice $invoice): bool
+    {
+        if ($invoice->status !== 'paid') {
+            throw new Exception('Invoice belum lunas, tidak ada pembayaran yang perlu dibatalkan.');
+        }
+
+        $invoice->load(['customer.package', 'customer.router', 'payments']);
+
+        if (!$invoice->payments()->where('gateway_name', 'manual')->exists()) {
+            throw new Exception('Hanya pembayaran manual admin yang dapat dibatalkan. Pembayaran gateway harus direfund melalui provider.');
+        }
+
+        DB::beginTransaction();
+        try {
+            $invoice->payments()->delete();
+            $invoice->update([
+                'status' => 'unpaid',
+                'paid_at' => null,
+            ]);
+
+            $customer = $invoice->customer;
+            $dueDate = $invoice->due_date ? Carbon::parse($invoice->due_date)->startOfDay() : null;
+
+            if ($customer && $dueDate && $dueDate->lt(Carbon::today()) && $customer->status === 'active') {
+                $customer->update(['status' => 'isolated']);
+
+                $router = $customer->router;
+                $isolirProfile = SettingService::get('mikrotik.isolir_profile', 'ISOLIR');
+
+                if ($router && $router->status) {
+                    $connector = RouterService::getConnector($router);
+                    $success = $connector->updateSecret($customer->username, [
+                        'profile' => $isolirProfile,
+                    ]);
+
+                    if ($success) {
+                        $connector->kickActiveConnection($customer->username);
+                    }
+                }
+            }
+
+            DB::commit();
+            Log::info("Manual payment reversed for invoice {$invoice->invoice_number}");
+
+            return true;
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
         }
     }
 }

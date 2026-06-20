@@ -26,9 +26,23 @@ class DatabaseSeeder extends Seeder
 
         // Seeding default settings
         $defaultSettings = [
+            ['group' => 'system', 'key' => 'system.app_name', 'value' => 'mWiFi', 'is_encrypted' => false],
             ['group' => 'system', 'key' => 'system.company_name', 'value' => 'mWiFi RT RW NET', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.company_tagline', 'value' => 'Network Operations Console', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.company_email', 'value' => 'admin@mwifi.test', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.company_phone', 'value' => '6281234567890', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.company_address', 'value' => 'Malang, Jawa Timur', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.company_website', 'value' => '', 'is_encrypted' => false],
             ['group' => 'system', 'key' => 'system.currency', 'value' => 'IDR', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.tax_rate', 'value' => '0', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.tax_rate_percent', 'value' => '11', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.billing_prorata_enabled', 'value' => '1', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.billing_generate_days_before', 'value' => '5', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.billing_notify_admin', 'value' => '1', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.billing_admin_phone', 'value' => '', 'is_encrypted' => false],
             ['group' => 'mikrotik', 'key' => 'mikrotik.active_router_id', 'value' => '', 'is_encrypted' => false],
+            ['group' => 'mikrotik', 'key' => 'mikrotik.isolir_profile', 'value' => 'ISOLIR', 'is_encrypted' => false],
+            ['group' => 'mikrotik', 'key' => 'mikrotik.isolir_source_router_id', 'value' => '', 'is_encrypted' => false],
             ['group' => 'payment', 'key' => 'payment.active_gateway', 'value' => 'tripay', 'is_encrypted' => false],
             ['group' => 'payment', 'key' => 'payment.midtrans.client_key', 'value' => '', 'is_encrypted' => false],
             ['group' => 'payment', 'key' => 'payment.midtrans.server_key', 'value' => '', 'is_encrypted' => true],

@@ -12,6 +12,7 @@ class Customer extends Model
 
     protected $casts = [
         'billing_date' => 'integer',
+        'service_start_date' => 'date',
     ];
 
     public function user(): BelongsTo
