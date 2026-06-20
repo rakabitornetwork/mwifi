@@ -43,6 +43,13 @@ return [
     */
     'run_npm_on_update' => false,
 
+    /*
+    | Strategi tarik kode dari GitHub:
+    | - hard_reset: fetch + reset --hard origin/{branch} (cocok VPS; abaikan perubahan lokal file Git)
+    | - ff_only: git pull --ff-only (gagal jika ada perubahan lokal belum di-commit)
+    */
+    'pull_strategy' => 'hard_reset',
+
     'allow_dirty_tree' => false,
 
 ];

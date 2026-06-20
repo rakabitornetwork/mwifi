@@ -152,8 +152,7 @@ class AppUpdateService
 
         $onLog?->__invoke('Memulai pembaruan mWiFi dari GitHub...', 'info');
 
-        $this->runGit(['fetch', 'origin', $branch], 'Fetch dari GitHub', $steps, $onLog);
-        $this->runGit(['pull', 'origin', $branch, '--ff-only'], 'Pull kode terbaru', $steps, $onLog);
+        $this->syncGitFromRemote($branch, $steps, $onLog);
 
         $isProduction = app()->environment('production');
 
@@ -201,6 +200,27 @@ class AppUpdateService
             'message' => $message,
             'steps' => $steps,
         ];
+    }
+
+    /**
+     * @param array<int, string>|null $steps
+     * @param callable(string, string): void|null $onLog
+     */
+    private function syncGitFromRemote(string $branch, ?array &$steps = null, ?callable $onLog = null): void
+    {
+        $this->runGit(['fetch', 'origin', $branch], 'Fetch dari GitHub', $steps, $onLog);
+
+        if (config('update.pull_strategy', 'hard_reset') === 'ff_only') {
+            $this->runGit(['pull', 'origin', $branch, '--ff-only'], 'Pull kode terbaru', $steps, $onLog);
+
+            return;
+        }
+
+        $onLog?->__invoke(
+            'Menyesuaikan file lokal ke versi GitHub (perubahan lokal pada file Git akan diganti).',
+            'info'
+        );
+        $this->runGit(['reset', '--hard', "origin/{$branch}"], 'Sinkronkan ke versi GitHub', $steps, $onLog);
     }
 
     /**
