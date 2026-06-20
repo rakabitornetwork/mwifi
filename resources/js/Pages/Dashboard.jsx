@@ -3188,16 +3188,16 @@ export default function Dashboard({
                                                 Voucher Hotspot
                                             </button>
                                             <button
-                                                onClick={() => setHotspotSubTab('sales')}
-                                                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'sales' ? 'bg-emerald-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
-                                            >
-                                                Laporan Penjualan
-                                            </button>
-                                            <button
                                                 onClick={() => setHotspotSubTab('members')}
                                                 className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'members' ? 'bg-emerald-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
                                             >
                                                 Member Hotspot
+                                            </button>
+                                            <button
+                                                onClick={() => setHotspotSubTab('sales')}
+                                                className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'sales' ? 'bg-emerald-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
+                                            >
+                                                Laporan Penjualan
                                             </button>
                                         </div>
                                     </div>
