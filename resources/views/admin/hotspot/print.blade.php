@@ -221,11 +221,12 @@ function getVoucherTheme($price, $colorPalette) {
             background: #fff;
             width: 210mm;
             height: 297mm;
-            padding: 7mm 5.5mm;
+            padding: 5.5mm 1.2mm;
             display: grid;
             grid-template-columns: repeat(7, 1fr);
             grid-template-rows: repeat(8, 1fr);
-            gap: 1.4mm;
+            column-gap: 0.25mm;
+            row-gap: 0.45mm;
             margin-bottom: 18px;
             box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
             border: 1px solid #e2e8f0;
@@ -236,8 +237,11 @@ function getVoucherTheme($price, $colorPalette) {
         .voucher-card {
             display: flex;
             align-items: stretch;
-            justify-content: center;
+            justify-content: stretch;
             overflow: hidden;
+            padding: 0;
+            min-width: 0;
+            min-height: 0;
         }
 
         .voucher-svg {
@@ -287,7 +291,7 @@ function getVoucherTheme($price, $colorPalette) {
                 <h1>Cetak Voucher Premium — {{ $brandName }}</h1>
                 <p>
                     Router: <strong>{{ $router->name }}</strong> · Batch: <strong>{{ $comment }}</strong> · Total: <strong>{{ $vouchers->count() }}</strong> voucher
-                    <br>Layout vertikal high-density · 56 voucher / halaman A4
+                    <br>Grid 7×8 · gap minimal · QR besar · masa aktif menonjol
                 </p>
             </div>
         </div>
@@ -307,13 +311,14 @@ function getVoucherTheme($price, $colorPalette) {
                     $isDualCredential = $v->password && $v->password !== $v->username;
                     $qrVal = $loginUrl . '?username=' . urlencode($v->username) . '&password=' . urlencode($v->password ?: $v->username);
                     $validityLabel = $v->validity ?: 'Unlimited';
-                    $loginHost = \Illuminate\Support\Str::limit($loginDisplay, 18, '…');
+                    $validityDisplay = strtoupper($validityLabel);
+                    $loginHost = \Illuminate\Support\Str::limit($loginDisplay, 14, '…');
                 @endphp
                 <div class="voucher-card">
                     <svg class="voucher-svg" data-qr-value="{{ $qrVal }}" viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg">
                         <defs>
                             <filter id="shadow-{{ $v->id }}" x="-10%" y="-10%" width="120%" height="120%">
-                                <feDropShadow dx="0" dy="1" stdDeviation="1.2" flood-color="#0f172a" flood-opacity="0.08"/>
+                                <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#0f172a" flood-opacity="0.07"/>
                             </filter>
                             <linearGradient id="bg-{{ $v->id }}" x1="0%" y1="0%" x2="0%" y2="100%">
                                 <stop offset="0%" stop-color="{{ $theme['bg_start'] }}"/>
@@ -323,139 +328,50 @@ function getVoucherTheme($price, $colorPalette) {
                                 <stop offset="0%" stop-color="{{ $theme['header_start'] }}"/>
                                 <stop offset="100%" stop-color="{{ $theme['header_end'] }}"/>
                             </linearGradient>
-                            <linearGradient id="badge-{{ $v->id }}" x1="0%" y1="0%" x2="100%" y2="0%">
-                                <stop offset="0%" stop-color="{{ $theme['badge_start'] }}"/>
-                                <stop offset="100%" stop-color="{{ $theme['badge_end'] }}"/>
-                            </linearGradient>
-                            <pattern id="ocean-swell-{{ $v->id }}" width="48" height="24" patternUnits="userSpaceOnUse">
-                                <path d="M-6 16 C4 10 12 10 20 16 S36 22 54 16" fill="{{ $theme['accent'] }}" opacity="0.1"/>
-                                <path d="M-6 12 C6 6 14 6 22 12 S38 18 54 12" fill="none" stroke="{{ $theme['primary'] }}" stroke-width="0.75" opacity="0.13"/>
-                                <path d="M-6 20 C8 14 16 14 24 20 S40 26 54 20" fill="none" stroke="{{ $theme['primary'] }}" stroke-width="0.55" opacity="0.09"/>
-                            </pattern>
-                            <pattern id="ocean-ripple-{{ $v->id }}" width="32" height="16" patternUnits="userSpaceOnUse">
-                                <path d="M0 10 Q8 4 16 10 T32 10" fill="none" stroke="{{ $theme['primary'] }}" stroke-width="0.65" opacity="0.11"/>
-                                <path d="M0 13 Q8 7 16 13 T32 13" fill="none" stroke="{{ $theme['accent'] }}" stroke-width="0.5" opacity="0.09"/>
-                                <path d="M0 7 Q8 2 16 7 T32 7" fill="none" stroke="{{ $theme['primary'] }}" stroke-width="0.4" opacity="0.07"/>
-                            </pattern>
-                            <pattern id="ocean-foam-{{ $v->id }}" width="14" height="14" patternUnits="userSpaceOnUse">
-                                <circle cx="3.5" cy="4" r="0.9" fill="#ffffff" opacity="0.22"/>
-                                <circle cx="10" cy="7" r="0.6" fill="{{ $theme['accent'] }}" opacity="0.16"/>
-                                <circle cx="6" cy="11" r="0.5" fill="{{ $theme['primary'] }}" opacity="0.12"/>
-                                <circle cx="12" cy="12" r="0.35" fill="#ffffff" opacity="0.15"/>
-                            </pattern>
-                            <pattern id="ocean-current-{{ $v->id }}" width="60" height="30" patternUnits="userSpaceOnUse" patternTransform="rotate(-8)">
-                                <path d="M0 22 C15 14 25 14 30 22 S45 30 60 22" fill="none" stroke="{{ $theme['primary'] }}" stroke-width="1" opacity="0.08"/>
-                                <path d="M0 26 C18 18 28 18 30 26 S42 34 60 26" fill="{{ $theme['accent'] }}" opacity="0.05"/>
-                            </pattern>
-                            <radialGradient id="ocean-surface-{{ $v->id }}" cx="50%" cy="0%" r="80%">
-                                <stop offset="0%" stop-color="{{ $theme['accent'] }}" stop-opacity="0.3"/>
-                                <stop offset="100%" stop-color="{{ $theme['accent'] }}" stop-opacity="0"/>
-                            </radialGradient>
-                            <radialGradient id="ocean-depth-{{ $v->id }}" cx="50%" cy="100%" r="85%">
-                                <stop offset="0%" stop-color="{{ $theme['primary'] }}" stop-opacity="0.22"/>
-                                <stop offset="100%" stop-color="{{ $theme['primary'] }}" stop-opacity="0"/>
-                            </radialGradient>
-                            <linearGradient id="ocean-tide-{{ $v->id }}" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stop-color="{{ $theme['accent'] }}" stop-opacity="0.06"/>
-                                <stop offset="45%" stop-color="{{ $theme['primary'] }}" stop-opacity="0.04"/>
-                                <stop offset="100%" stop-color="{{ $theme['dark'] }}" stop-opacity="0.1"/>
-                            </linearGradient>
                             <clipPath id="clip-{{ $v->id }}">
-                                <rect x="1" y="1" width="198" height="258" rx="9"/>
+                                <rect x="0.5" y="0.5" width="199" height="259" rx="7"/>
                             </clipPath>
                         </defs>
 
-                        <!-- Ticket body -->
-                        <rect x="1" y="1" width="198" height="258" rx="9" fill="url(#bg-{{ $v->id }})" stroke="{{ $theme['primary'] }}" stroke-width="1.2"/>
-                        <rect x="4" y="4" width="192" height="252" rx="7" fill="none" stroke="{{ $theme['accent'] }}" stroke-width="0.6" opacity="0.55"/>
+                        <rect x="0.5" y="0.5" width="199" height="259" rx="7" fill="url(#bg-{{ $v->id }})" stroke="{{ $theme['primary'] }}" stroke-width="0.9"/>
 
                         <g clip-path="url(#clip-{{ $v->id }})">
-                            <!-- Ocean wave background — full card -->
-                            <rect x="1" y="1" width="198" height="258" fill="url(#ocean-tide-{{ $v->id }})"/>
-                            <rect x="1" y="1" width="198" height="258" fill="url(#ocean-current-{{ $v->id }})"/>
-                            <rect x="1" y="1" width="198" height="258" fill="url(#ocean-swell-{{ $v->id }})"/>
-                            <rect x="1" y="1" width="198" height="258" fill="url(#ocean-ripple-{{ $v->id }})"/>
-                            <rect x="1" y="1" width="198" height="258" fill="url(#ocean-foam-{{ $v->id }})"/>
-                            <rect x="1" y="1" width="198" height="258" fill="url(#ocean-surface-{{ $v->id }})"/>
-                            <rect x="1" y="1" width="198" height="258" fill="url(#ocean-depth-{{ $v->id }})"/>
+                            <!-- Header -->
+                            <rect x="0.5" y="0.5" width="199" height="24" fill="url(#hdr-{{ $v->id }})"/>
+                            <text x="8" y="11" font-family="'Plus Jakarta Sans', sans-serif" font-size="4.8" font-weight="700" fill="#ffffff" opacity="0.82" letter-spacing="0.8">VOUCHER</text>
+                            <text x="8" y="20" font-family="'Plus Jakarta Sans', sans-serif" font-size="7.5" font-weight="800" fill="#ffffff">{{ strtoupper($wifiShort) }}</text>
+                            <text x="192" y="17" text-anchor="end" font-family="'Plus Jakarta Sans', sans-serif" font-size="7.5" font-weight="800" fill="#ffffff">Rp {{ number_format($v->price, 0, ',', '.') }}</text>
 
-                            <!-- Large ocean wave silhouettes -->
-                            <g fill="none" stroke="{{ $theme['primary'] }}" opacity="0.1">
-                                <path d="M-5 55 C30 40 60 40 90 55 S150 70 205 55" stroke-width="1.4"/>
-                                <path d="M-5 63 C35 48 65 48 95 63 S155 78 205 63" stroke-width="1.1"/>
-                                <path d="M-5 71 C40 56 70 56 100 71 S160 86 205 71" stroke-width="0.9"/>
-                                <path d="M-5 195 C25 180 55 180 85 195 S145 210 205 195" stroke-width="1.3"/>
-                                <path d="M-5 203 C30 188 60 188 90 203 S150 218 205 203" stroke-width="1"/>
-                                <path d="M-5 211 C35 196 65 196 95 211 S155 226 205 211" stroke-width="0.8"/>
-                            </g>
+                            <!-- QR (besar) -->
+                            <rect x="46" y="28" width="108" height="108" rx="6" fill="#ffffff" stroke="#e2e8f0" stroke-width="0.7" filter="url(#shadow-{{ $v->id }})"/>
+                            <image class="qr-image" x="49" y="31" width="102" height="102"/>
 
-                            <!-- Foam bubbles accent -->
-                            <g fill="#ffffff" opacity="0.14">
-                                <circle cx="18" cy="42" r="1.2"/>
-                                <circle cx="175" cy="88" r="0.9"/>
-                                <circle cx="32" cy="155" r="1"/>
-                                <circle cx="168" cy="175" r="1.1"/>
-                                <circle cx="95" cy="230" r="0.8"/>
-                                <circle cx="145" cy="48" r="0.7"/>
-                                <circle cx="55" cy="210" r="0.9"/>
-                            </g>
-
-                            <!-- Header band -->
-                            <rect x="1" y="1" width="198" height="36" fill="url(#hdr-{{ $v->id }})" opacity="0.94"/>
-                            <text x="12" y="14" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.5" font-weight="700" fill="#ffffff" opacity="0.85" letter-spacing="1.2">VOUCHER WIFI</text>
-                            <text x="12" y="27" font-family="'Plus Jakarta Sans', sans-serif" font-size="9.5" font-weight="800" fill="#ffffff" letter-spacing="0.3">{{ strtoupper($wifiShort) }}</text>
-
-                            <!-- Price pill -->
-                            <rect x="126" y="10" width="66" height="18" rx="9" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.35)" stroke-width="0.6"/>
-                            <text x="159" y="22" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="8" font-weight="800" fill="#ffffff">Rp {{ number_format($v->price, 0, ',', '.') }}</text>
-
-                            <!-- QR block -->
-                            <rect x="66" y="44" width="68" height="68" rx="7" fill="#ffffff" stroke="#e2e8f0" stroke-width="0.8" filter="url(#shadow-{{ $v->id }})"/>
-                            <image class="qr-image" x="69" y="47" width="62" height="62"/>
-
-                            <text x="100" y="121" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.5" font-weight="700" fill="{{ $theme['muted'] }}" letter-spacing="1">SCAN UNTUK LOGIN OTOMATIS</text>
-
-                            <!-- Credential panel -->
-                            <rect x="10" y="126" width="180" height="{{ $isDualCredential ? 40 : 34 }}" rx="6" fill="#ffffff" stroke="#e2e8f0" stroke-width="0.8" filter="url(#shadow-{{ $v->id }})"/>
+                            <!-- Kode voucher tanpa label -->
+                            <rect x="8" y="140" width="184" height="{{ $isDualCredential ? '34' : '26' }}" rx="5" fill="#ffffff" stroke="#e2e8f0" stroke-width="0.7"/>
 
                             @if ($isDualCredential)
-                                <text x="16" y="138" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.5" font-weight="700" fill="#94a3b8" letter-spacing="0.8">USER</text>
-                                <text x="42" y="139" font-family="'IBM Plex Mono', monospace" font-size="10" font-weight="700" fill="{{ $theme['ink'] }}">{{ $v->username }}</text>
-                                <line x1="14" y1="144" x2="186" y2="144" stroke="#f1f5f9" stroke-width="0.8"/>
-                                <text x="16" y="156" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.5" font-weight="700" fill="#94a3b8" letter-spacing="0.8">PASS</text>
-                                <text x="42" y="157" font-family="'IBM Plex Mono', monospace" font-size="10" font-weight="700" fill="{{ $theme['ink'] }}">{{ $v->password }}</text>
+                                <text x="100" y="154" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="10.5" font-weight="700" fill="{{ $theme['ink'] }}">{{ $v->username }}</text>
+                                <line x1="14" y1="158" x2="186" y2="158" stroke="#f1f5f9" stroke-width="0.7"/>
+                                <text x="100" y="169" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="10.5" font-weight="700" fill="{{ $theme['ink'] }}">{{ $v->password }}</text>
                             @else
-                                <text x="100" y="138" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.5" font-weight="800" fill="#94a3b8" letter-spacing="1.1">KODE VOUCHER</text>
-                                <text x="100" y="154" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="13" font-weight="700" fill="{{ $theme['ink'] }}" letter-spacing="0.6">{{ $v->username }}</text>
+                                <text x="100" y="158" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="12.5" font-weight="700" fill="{{ $theme['ink'] }}" letter-spacing="0.5">{{ $v->username }}</text>
                             @endif
 
-                            <!-- Validity chip -->
-                            <rect x="10" y="{{ $isDualCredential ? 170 : 164 }}" width="180" height="14" rx="7" fill="{{ $theme['accent'] }}" opacity="0.42"/>
-                            <text x="100" y="{{ $isDualCredential ? 180 : 174 }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="6.5" font-weight="700" fill="{{ $theme['dark'] }}">Masa aktif: {{ $validityLabel }}</text>
+                            <!-- Masa aktif — menonjol -->
+                            <rect x="8" y="{{ $isDualCredential ? '178' : '170' }}" width="184" height="24" rx="6" fill="{{ $theme['header_end'] }}"/>
+                            <text x="100" y="{{ $isDualCredential ? '188' : '180' }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.5" font-weight="700" fill="#ffffff" opacity="0.85" letter-spacing="0.6">MASA AKTIF</text>
+                            <text x="100" y="{{ $isDualCredential ? '198' : '190' }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="800" fill="#ffffff" letter-spacing="0.4">{{ $validityDisplay }}</text>
 
-                            <!-- Tear line -->
-                            <line x1="10" y1="{{ $isDualCredential ? 190 : 184 }}" x2="190" y2="{{ $isDualCredential ? 190 : 184 }}" stroke="{{ $theme['primary'] }}" stroke-width="0.8" stroke-dasharray="2.5,2.5" opacity="0.45"/>
-
-                            <!-- Login guide -->
-                            <rect x="10" y="{{ $isDualCredential ? 194 : 188 }}" width="180" height="52" rx="6" fill="#ffffff" stroke="#e2e8f0" stroke-width="0.7"/>
-                            <text x="16" y="{{ $isDualCredential ? 204 : 198 }}" font-family="'Plus Jakarta Sans', sans-serif" font-size="6.5" font-weight="800" fill="{{ $theme['dark'] }}" letter-spacing="0.6">CARA LOGIN</text>
-
-                            <text x="16" y="{{ $isDualCredential ? 214 : 208 }}" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.8" font-weight="600" fill="{{ $theme['ink'] }}">1. Hubungkan WiFi <tspan font-weight="800">{{ $wifiShort }}</tspan></text>
-                            <text x="16" y="{{ $isDualCredential ? 223 : 217 }}" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.8" font-weight="600" fill="{{ $theme['ink'] }}">2. Buka browser, ketik <tspan font-family="'IBM Plex Mono', monospace" font-weight="700">{{ $loginHost }}</tspan></text>
-                            @if ($isDualCredential)
-                                <text x="16" y="232" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.8" font-weight="600" fill="{{ $theme['ink'] }}">3. Isi Username &amp; Password seperti di atas</text>
-                                <text x="16" y="241" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.8" font-weight="600" fill="{{ $theme['ink'] }}">4. Klik <tspan font-weight="800">Login</tspan> / <tspan font-weight="800">Masuk</tspan> untuk internet</text>
-                            @else
-                                <text x="16" y="{{ $isDualCredential ? 232 : 226 }}" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.8" font-weight="600" fill="{{ $theme['ink'] }}">3. Isi <tspan font-weight="800">Username</tspan> &amp; <tspan font-weight="800">Password</tspan> dengan kode di atas</text>
-                                <text x="16" y="{{ $isDualCredential ? 241 : 235 }}" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.8" font-weight="600" fill="{{ $theme['ink'] }}">4. Klik <tspan font-weight="800">Login</tspan> / <tspan font-weight="800">Masuk</tspan> untuk internet</text>
-                            @endif
+                            <!-- Petunjuk singkat -->
+                            <text x="100" y="{{ $isDualCredential ? '214' : '206' }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.8" font-weight="700" fill="{{ $theme['dark'] }}">Scan QR · {{ $loginHost }}</text>
+                            <text x="100" y="{{ $isDualCredential ? '223' : '215' }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.2" font-weight="600" fill="{{ $theme['muted'] }}">WiFi {{ $wifiShort }}</text>
 
                             <!-- Footer -->
-                            <rect x="1" y="246" width="198" height="13" fill="{{ $theme['dark'] }}" opacity="0.88"/>
+                            <rect x="0.5" y="246" width="199" height="13" fill="{{ $theme['dark'] }}" opacity="0.9"/>
                             @if (!empty($branding['company_phone']))
-                                <text x="100" y="255" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.5" font-weight="700" fill="#ffffff">Bantuan: {{ $branding['company_phone'] }}</text>
+                                <text x="100" y="255" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff">{{ $branding['company_phone'] }}</text>
                             @else
-                                <text x="100" y="255" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.5" font-weight="700" fill="#ffffff">Masa aktif {{ $validityLabel }}</text>
+                                <text x="100" y="255" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff">{{ $brandName }}</text>
                             @endif
                         </g>
                     </svg>
@@ -473,7 +389,7 @@ function getVoucherTheme($price, $colorPalette) {
             new QRious({
                 element: tempCanvas,
                 value: qrValue,
-                size: 180,
+                size: 280,
                 level: 'M'
             });
 
