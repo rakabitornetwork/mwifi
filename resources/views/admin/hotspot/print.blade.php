@@ -336,42 +336,43 @@ function getVoucherTheme($price, $colorPalette) {
                         <rect x="0.5" y="0.5" width="199" height="259" rx="7" fill="url(#bg-{{ $v->id }})" stroke="{{ $theme['primary'] }}" stroke-width="0.9"/>
 
                         <g clip-path="url(#clip-{{ $v->id }})">
-                            <!-- Header -->
-                            <rect x="0.5" y="0.5" width="199" height="24" fill="url(#hdr-{{ $v->id }})"/>
-                            <text x="8" y="11" font-family="'Plus Jakarta Sans', sans-serif" font-size="4.8" font-weight="700" fill="#ffffff" opacity="0.82" letter-spacing="0.8">VOUCHER</text>
-                            <text x="8" y="20" font-family="'Plus Jakarta Sans', sans-serif" font-size="7.5" font-weight="800" fill="#ffffff">{{ strtoupper($wifiShort) }}</text>
-                            <text x="192" y="17" text-anchor="end" font-family="'Plus Jakarta Sans', sans-serif" font-size="7.5" font-weight="800" fill="#ffffff">Rp {{ number_format($v->price, 0, ',', '.') }}</text>
+                            <!-- Header — judul & harga sejajar satu baris -->
+                            <rect x="0.5" y="0.5" width="199" height="40" fill="url(#hdr-{{ $v->id }})"/>
+                            <text x="8" y="14" font-family="'Plus Jakarta Sans', sans-serif" font-size="6.2" font-weight="700" fill="#ffffff" opacity="0.9" letter-spacing="1">VOUCHER</text>
+                            <text x="8" y="33" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="800" fill="#ffffff" letter-spacing="0.15">{{ strtoupper($wifiShort) }}</text>
+                            <text x="192" y="33" text-anchor="end" font-family="'Plus Jakarta Sans', sans-serif" font-size="11.5" font-weight="800" fill="#ffffff">Rp {{ number_format($v->price, 0, ',', '.') }}</text>
 
-                            <!-- QR (besar) -->
-                            <rect x="46" y="28" width="108" height="108" rx="6" fill="#ffffff" stroke="#e2e8f0" stroke-width="0.7" filter="url(#shadow-{{ $v->id }})"/>
-                            <image class="qr-image" x="49" y="31" width="102" height="102"/>
+                            <!-- QR -->
+                            <rect x="50" y="44" width="100" height="100" rx="6" fill="#ffffff" stroke="#e2e8f0" stroke-width="0.7" filter="url(#shadow-{{ $v->id }})"/>
+                            <image class="qr-image" x="53" y="47" width="94" height="94"/>
 
                             <!-- Kode voucher tanpa label -->
-                            <rect x="8" y="140" width="184" height="{{ $isDualCredential ? '34' : '26' }}" rx="5" fill="#ffffff" stroke="#e2e8f0" stroke-width="0.7"/>
+                            <rect x="6" y="147" width="188" height="{{ $isDualCredential ? '36' : '28' }}" rx="5" fill="#ffffff" stroke="#e2e8f0" stroke-width="0.7"/>
 
                             @if ($isDualCredential)
-                                <text x="100" y="154" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="10.5" font-weight="700" fill="{{ $theme['ink'] }}">{{ $v->username }}</text>
-                                <line x1="14" y1="158" x2="186" y2="158" stroke="#f1f5f9" stroke-width="0.7"/>
-                                <text x="100" y="169" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="10.5" font-weight="700" fill="{{ $theme['ink'] }}">{{ $v->password }}</text>
+                                <text x="100" y="161" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="12.5" font-weight="700" fill="{{ $theme['ink'] }}">{{ $v->username }}</text>
+                                <line x1="12" y1="166" x2="188" y2="166" stroke="#f1f5f9" stroke-width="0.7"/>
+                                <text x="100" y="178" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="12.5" font-weight="700" fill="{{ $theme['ink'] }}">{{ $v->password }}</text>
                             @else
-                                <text x="100" y="158" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="12.5" font-weight="700" fill="{{ $theme['ink'] }}" letter-spacing="0.5">{{ $v->username }}</text>
+                                <text x="100" y="166" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="16" font-weight="700" fill="{{ $theme['ink'] }}" letter-spacing="0.6">{{ $v->username }}</text>
                             @endif
 
-                            <!-- Masa aktif — menonjol -->
-                            <rect x="8" y="{{ $isDualCredential ? '178' : '170' }}" width="184" height="24" rx="6" fill="{{ $theme['header_end'] }}"/>
-                            <text x="100" y="{{ $isDualCredential ? '188' : '180' }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.5" font-weight="700" fill="#ffffff" opacity="0.85" letter-spacing="0.6">MASA AKTIF</text>
-                            <text x="100" y="{{ $isDualCredential ? '198' : '190' }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="800" fill="#ffffff" letter-spacing="0.4">{{ $validityDisplay }}</text>
+                            <!-- Masa aktif — satu baris sejajar -->
+                            <rect x="6" y="{{ $isDualCredential ? '185' : '178' }}" width="188" height="22" rx="6" fill="{{ $theme['header_end'] }}"/>
+                            <text x="100" y="{{ $isDualCredential ? '197' : '190' }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="9.5" font-weight="700" fill="#ffffff" letter-spacing="0.4" dominant-baseline="middle">
+                                MASA AKTIF · <tspan font-size="11" font-weight="800" letter-spacing="0.2">{{ $validityDisplay }}</tspan>
+                            </text>
 
-                            <!-- Petunjuk singkat -->
-                            <text x="100" y="{{ $isDualCredential ? '214' : '206' }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.8" font-weight="700" fill="{{ $theme['dark'] }}">Scan QR · {{ $loginHost }}</text>
-                            <text x="100" y="{{ $isDualCredential ? '223' : '215' }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.2" font-weight="600" fill="{{ $theme['muted'] }}">WiFi {{ $wifiShort }}</text>
+                            <!-- Petunjuk singkat — extra besar -->
+                            <text x="100" y="{{ $isDualCredential ? '218' : '210' }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="10.5" font-weight="800" fill="{{ $theme['dark'] }}">Scan QR · {{ $loginHost }}</text>
+                            <text x="100" y="{{ $isDualCredential ? '230' : '222' }}" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="10" font-weight="800" fill="{{ $theme['muted'] }}">WiFi {{ strtoupper($wifiShort) }}</text>
 
-                            <!-- Footer -->
-                            <rect x="0.5" y="246" width="199" height="13" fill="{{ $theme['dark'] }}" opacity="0.9"/>
+                            <!-- Footer — nomor kontak extra besar -->
+                            <rect x="0.5" y="236" width="199" height="23" fill="{{ $theme['dark'] }}" opacity="0.92"/>
                             @if (!empty($branding['company_phone']))
-                                <text x="100" y="255" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff">{{ $branding['company_phone'] }}</text>
+                                <text x="100" y="251" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="11" font-weight="800" fill="#ffffff" letter-spacing="0.4">{{ $branding['company_phone'] }}</text>
                             @else
-                                <text x="100" y="255" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="5.2" font-weight="700" fill="#ffffff">{{ $brandName }}</text>
+                                <text x="100" y="251" text-anchor="middle" font-family="'Plus Jakarta Sans', sans-serif" font-size="9.5" font-weight="700" fill="#ffffff">{{ $brandName }}</text>
                             @endif
                         </g>
                     </svg>
