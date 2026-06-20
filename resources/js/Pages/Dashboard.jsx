@@ -125,11 +125,11 @@ function SidebarPanel({
     const navItems = [
         { tab: 'dashboard', icon: Activity, label: 'Dashboard' },
         { tab: 'routers', icon: Wifi, label: 'Router Mikrotik' },
-        { tab: 'customers', icon: Users, label: 'Pelanggan PPPoE' },
+        { tab: 'customers', icon: Users, label: 'Manajemen PPPoE' },
         { tab: 'network-map', icon: Map, label: 'Peta Jaringan' },
         { tab: 'packages', icon: Layers, label: 'Paket Internet' },
         { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
-        { tab: 'hotspot', icon: Radio, label: 'Hotspot' },
+        { tab: 'hotspot', icon: Radio, label: 'Hotspot Manajemen' },
         { tab: 'database', icon: Database, label: 'Database' },
         { tab: 'update', icon: GitBranch, label: 'Update App' },
         { tab: 'settings', icon: Settings, label: 'Pengaturan' },
