@@ -479,6 +479,25 @@ class AdminActionController extends Controller
     }
 
     /**
+     * Kirim notifikasi invoice ke pelanggan via WhatsApp (belum bayar / lunas).
+     */
+    public function sendInvoiceWhatsApp(Request $request)
+    {
+        $request->validate([
+            'invoice_id' => 'required|exists:invoices,id',
+        ]);
+
+        $invoice = Invoice::with(['customer', 'payments'])->findOrFail($request->input('invoice_id'));
+        $result = BillingService::sendInvoiceWhatsAppNotification($invoice);
+
+        if ($result['ok']) {
+            return redirect()->back()->with('success', $result['message']);
+        }
+
+        return redirect()->back()->with('error', $result['message']);
+    }
+
+    /**
      * Accept manual cash payment for multiple unpaid invoices (no auto-print).
      */
     public function payInvoicesManualBulk(Request $request)

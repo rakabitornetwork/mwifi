@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Activity, CalendarClock, CreditCard, PauseCircle, RefreshCw, RotateCcw, Search, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
+import { Activity, CalendarClock, CreditCard, MessageSquare, PauseCircle, RefreshCw, RotateCcw, Search, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
@@ -83,6 +83,7 @@ function InvoicesPageContent({
     const [isSubmittingDefer, setIsSubmittingDefer] = useState(false);
     const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
     const [isSubmittingBulkPay, setIsSubmittingBulkPay] = useState(false);
+    const [sendingWaInvoiceId, setSendingWaInvoiceId] = useState(null);
 
     const themeInnerWidget = theme.isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeInput = theme.isDarkMode
@@ -199,6 +200,23 @@ function InvoicesPageContent({
     };
 
     const canDeleteInvoice = (inv) => inv.status !== 'paid';
+
+    const canSendInvoiceWhatsApp = (inv) => inv.status === 'unpaid' || inv.status === 'paid';
+
+    const handleSendInvoiceWhatsApp = (inv) => {
+        const label = inv.status === 'paid' ? 'konfirmasi pembayaran' : 'tagihan';
+        const customerName = inv.customer?.name || 'pelanggan';
+
+        if (!confirm(`Kirim notifikasi ${label} ${inv.invoice_number} ke ${customerName} via WhatsApp?`)) {
+            return;
+        }
+
+        setSendingWaInvoiceId(inv.id);
+        router.post('/admin/invoices/send-whatsapp', { invoice_id: inv.id }, {
+            preserveScroll: true,
+            onFinish: () => setSendingWaInvoiceId(null),
+        });
+    };
 
     const handleGenerateInvoices = () => {
         if (!confirm('Generate tagihan bulanan otomatis untuk periode bulan ini sekarang?')) return;
@@ -577,6 +595,17 @@ function InvoicesPageContent({
                                         )}
                                     </td>
                                     <td className="py-3 px-2 text-right space-x-1">
+                                            {canSendInvoiceWhatsApp(inv) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleSendInvoiceWhatsApp(inv)}
+                                                    disabled={sendingWaInvoiceId === inv.id}
+                                                    title={inv.status === 'paid' ? 'Kirim konfirmasi WA' : 'Kirim tagihan WA'}
+                                                    className="inline-block p-1 text-sky-500 hover:text-sky-400 disabled:opacity-40 cursor-pointer transition-colors"
+                                                >
+                                                    <MessageSquare className={`w-4 h-4 ${sendingWaInvoiceId === inv.id ? 'animate-pulse' : ''}`} />
+                                                </button>
+                                            )}
                                             {inv.status === 'unpaid' ? (
                                                 <button
                                                     type="button"

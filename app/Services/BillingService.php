@@ -1581,4 +1581,93 @@ class BillingService
             ];
         })->all();
     }
+
+    public static function buildUnpaidInvoiceWhatsAppMessage(Invoice $invoice): ?string
+    {
+        $invoice->loadMissing('customer');
+        $customer = $invoice->customer;
+
+        if (!$customer) {
+            return null;
+        }
+
+        $brandName = BrandingService::companyName();
+        $dueDateFormatted = $invoice->due_date?->format('d-m-Y') ?? '-';
+        $period = $invoice->billing_period ?? '-';
+
+        if ($invoice->is_accumulated) {
+            $periods = $invoice->accumulated_periods;
+            $periodLabel = is_array($periods) && $periods !== []
+                ? implode(' + ', $periods)
+                : $period;
+
+            return "Yth. Bapak/Ibu {$customer->name},\n\nTagihan internet {$brandName} *akumulasi* periode *{$periodLabel}*.\n\n*Detail Tagihan*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Layanan: " . strtoupper($customer->service_type) . " ({$customer->username})\n- Subtotal: *Rp " . number_format((float) $invoice->amount, 0, ',', '.') . "*\n- Total Tagihan: *Rp " . number_format((float) $invoice->total_amount, 0, ',', '.') . "*\n- Jatuh Tempo: *{$dueDateFormatted}*\n\nSilakan lakukan pembayaran sebelum jatuh tempo melalui Portal Pelanggan. Terima kasih.";
+        }
+
+        $prorataLine = $invoice->is_prorated
+            ? "\n- Prorata: *{$invoice->days_billed} hari* / " . self::PRORATA_BASE_DAYS . ' hari'
+            : '';
+
+        return "Yth. Bapak/Ibu {$customer->name},\n\nTagihan internet {$brandName} Anda untuk periode *{$period}*.\n\n*Detail Tagihan*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Layanan: " . strtoupper($customer->service_type) . " ({$customer->username})\n- Subtotal: *Rp " . number_format((float) $invoice->amount, 0, ',', '.') . "*{$prorataLine}\n- Total Tagihan: *Rp " . number_format((float) $invoice->total_amount, 0, ',', '.') . "*\n- Jatuh Tempo: *{$dueDateFormatted}*\n\nSilakan melakukan pembayaran melalui Portal Pelanggan sebelum jatuh tempo untuk menghindari isolir otomatis. Terima kasih.";
+    }
+
+    public static function buildPaidInvoiceWhatsAppMessage(Invoice $invoice): ?string
+    {
+        $invoice->loadMissing(['customer', 'payments']);
+        $customer = $invoice->customer;
+
+        if (!$customer) {
+            return null;
+        }
+
+        $payment = $invoice->payments->sortByDesc('created_at')->first();
+        $brandName = BrandingService::companyName();
+        $amountPaid = $payment ? (float) $payment->amount_paid : (float) $invoice->total_amount;
+        $gateway = $payment?->gateway_name ?? 'manual';
+        $method = $payment?->payment_method ?? ($gateway === 'manual' ? 'Cash / Tunai' : ucfirst($gateway));
+        $paidAt = $invoice->paid_at?->format('d-m-Y H:i')
+            ?? ($payment?->created_at?->format('d-m-Y H:i') ?? Carbon::now()->format('d-m-Y H:i'));
+
+        return "Terima Kasih!\n\nPembayaran tagihan {$brandName} Anda telah berhasil diterima.\n\n*Detail Pembayaran*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Pelanggan: *{$customer->name}* ({$customer->username})\n- Periode: *{$invoice->billing_period}*\n- Metode Bayar: {$method}\n- Jumlah Bayar: *Rp " . number_format($amountPaid, 0, ',', '.') . "*\n- Tanggal Bayar: {$paidAt}\n\nTerima kasih atas kepercayaan Anda.";
+    }
+
+    /**
+     * @return array{ok: bool, message: string}
+     */
+    public static function sendInvoiceWhatsAppNotification(Invoice $invoice): array
+    {
+        $invoice->loadMissing(['customer', 'payments']);
+        $customer = $invoice->customer;
+
+        if (!$customer) {
+            return ['ok' => false, 'message' => 'Pelanggan tidak ditemukan untuk invoice ini.'];
+        }
+
+        if (empty(trim((string) $customer->phone_number))) {
+            return ['ok' => false, 'message' => 'Nomor WhatsApp pelanggan belum diisi.'];
+        }
+
+        if (!in_array($invoice->status, ['unpaid', 'paid'], true)) {
+            return ['ok' => false, 'message' => 'Notifikasi WhatsApp hanya tersedia untuk invoice belum bayar atau lunas.'];
+        }
+
+        $message = $invoice->status === 'paid'
+            ? self::buildPaidInvoiceWhatsAppMessage($invoice)
+            : self::buildUnpaidInvoiceWhatsAppMessage($invoice);
+
+        if (!$message) {
+            return ['ok' => false, 'message' => 'Gagal menyusun pesan WhatsApp.'];
+        }
+
+        if (!WhatsAppService::sendText($customer->phone_number, $message)) {
+            return ['ok' => false, 'message' => 'Gagal mengirim WhatsApp. Pastikan gateway aktif dan sesi terhubung.'];
+        }
+
+        $label = $invoice->status === 'paid' ? 'konfirmasi pembayaran' : 'tagihan';
+
+        return [
+            'ok' => true,
+            'message' => "Notifikasi {$label} untuk {$customer->name} berhasil dikirim via WhatsApp.",
+        ];
+    }
 }
