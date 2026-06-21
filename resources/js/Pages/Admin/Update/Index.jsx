@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
-import { ArrowUpCircle, GitBranch, RefreshCw } from 'lucide-react';
+import { ArrowUpCircle, GitBranch, RefreshCw, Tag } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
@@ -214,6 +214,27 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
 
     const hasUpdate = Boolean(updateInfo.update_available) && !isCheckingRemote;
 
+    const release = updateInfo.release ?? {};
+    const releaseVersion = release.version || '—';
+
+    const releaseBadgeLabel = isCheckingRemote
+        ? 'Memeriksa...'
+        : hasUpdate
+            ? (release.remote_version ? `v${release.remote_version}` : 'Pembaruan tersedia')
+            : 'Latest';
+
+    const releaseBadgeClass = isCheckingRemote
+        ? (theme.isDarkMode
+            ? 'border-zinc-600 text-zinc-400'
+            : 'border-zinc-300 text-zinc-500')
+        : hasUpdate
+            ? (theme.isDarkMode
+                ? 'border-amber-500/60 text-amber-400'
+                : 'border-amber-500 text-amber-600')
+            : (theme.isDarkMode
+                ? 'border-emerald-500/60 text-emerald-400'
+                : 'border-emerald-500 text-emerald-600');
+
     const statusLabelClass = isCheckingRemote
         ? 'bg-gradient-to-r from-violet-600 to-indigo-500 text-white border-0 shadow-sm shadow-violet-500/25'
         : hasUpdate
@@ -254,7 +275,19 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                             </div>
                             <div className="min-w-0">
                                 <h2 className={`text-sm font-bold tracking-tight ${theme.themeTextTitle}`}>Pembaruan Aplikasi</h2>
-                                <p className={`text-[11px] leading-relaxed mt-0.5 ${theme.themeTextSub}`}>
+                                <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                                    <Tag className="w-4 h-4 text-emerald-500 shrink-0" aria-hidden="true" />
+                                    <span className={`text-sm font-bold ${theme.isDarkMode ? 'text-white' : 'text-zinc-900'}`}>
+                                        {releaseVersion}
+                                    </span>
+                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-transparent ${releaseBadgeClass} ${isCheckingRemote ? 'opacity-70' : ''}`}>
+                                        {isCheckingRemote && (
+                                            <RefreshCw className="inline w-2.5 h-2.5 mr-1 -mt-px animate-spin" aria-hidden="true" />
+                                        )}
+                                        {releaseBadgeLabel}
+                                    </span>
+                                </div>
+                                <p className={`text-[11px] leading-relaxed mt-1 ${theme.themeTextSub}`}>
                                     Halaman dibuka instan; versi GitHub diperbarui di background (branch: {updateInfo.repository?.branch || 'main'}).
                                 </p>
                             </div>

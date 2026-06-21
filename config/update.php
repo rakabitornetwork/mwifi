@@ -14,6 +14,12 @@ return [
 
     'enabled' => true,
 
+    /*
+    | Versi rilis semantik aplikasi (ditampilkan di halaman Update).
+    | Naikkan saat merilis versi baru ke GitHub.
+    */
+    'app_version' => '1.1',
+
     'repository' => 'https://github.com/rakabitornetwork/mwifi.git',
 
     'branch' => 'main',

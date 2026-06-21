@@ -88,6 +88,8 @@ class AppUpdateService
             && ($requirements['php_cli']['ok'] ?? false)
             && $isRepo;
 
+        $remoteVersion = $this->getLatestGitHubReleaseVersion($owner, $repo);
+
         return [
             'enabled' => (bool) config('update.enabled', true),
             'available' => $canUpdate,
@@ -103,6 +105,11 @@ class AppUpdateService
             'remote' => $remote,
             'update_available' => $updateAvailable,
             'behind_count' => $behindCount,
+            'release' => [
+                'version' => (string) config('update.app_version', '1.0'),
+                'is_latest' => $remoteReadable ? !$updateAvailable : null,
+                'remote_version' => $remoteVersion,
+            ],
         ];
     }
 
@@ -446,6 +453,37 @@ class AppUpdateService
         }
 
         return $configuredBranch;
+    }
+
+    private function getLatestGitHubReleaseVersion(string $owner, string $repo): ?string
+    {
+        try {
+            $request = Http::timeout(8)
+                ->withHeaders([
+                    'Accept' => 'application/vnd.github+json',
+                    'User-Agent' => 'mWiFi-Update-Checker',
+                ]);
+
+            $token = config('update.github_token');
+            if (is_string($token) && $token !== '') {
+                $request = $request->withToken($token);
+            }
+
+            $response = $request->get("https://api.github.com/repos/{$owner}/{$repo}/releases/latest");
+
+            if (!$response->successful()) {
+                return null;
+            }
+
+            $tagName = $response->json('tag_name');
+            if (!is_string($tagName) || $tagName === '') {
+                return null;
+            }
+
+            return ltrim($tagName, 'vV');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

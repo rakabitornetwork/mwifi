@@ -46,6 +46,11 @@ class AppUpdateTest extends TestCase
         $this->assertArrayHasKey('local', $status);
         $this->assertArrayHasKey('remote', $status);
         $this->assertArrayHasKey('update_available', $status);
+        $this->assertArrayHasKey('release', $status);
+        $this->assertArrayHasKey('version', $status['release']);
+        $this->assertArrayHasKey('is_latest', $status['release']);
+        $this->assertArrayHasKey('remote_version', $status['release']);
+        $this->assertSame('1.1', $status['release']['version']);
         $this->assertSame('https://github.com/rakabitornetwork/mwifi', $status['repository']['github_url']);
     }
 
@@ -113,6 +118,11 @@ class AppUpdateTest extends TestCase
             'can_run_update',
             'local',
             'remote',
+            'release' => [
+                'version',
+                'is_latest',
+                'remote_version',
+            ],
         ]);
     }
 
