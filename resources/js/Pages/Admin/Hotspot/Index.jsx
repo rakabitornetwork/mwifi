@@ -505,8 +505,8 @@ function HotspotPageContent({
                             </div>
                         </div>
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
+                        <div className="admin-table-scroll">
+                            <table>
                                 <thead>
                                     <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
                                         <th className="py-3 px-2">Router</th>
@@ -555,8 +555,8 @@ function HotspotPageContent({
                                             <td className="py-3 px-2 font-mono text-[11px]">{resolveVoucherMacAddress(v)}</td>
                                             <td className="py-3 px-2 font-mono">{v.sold_at ? new Date(v.sold_at).toLocaleString('id-ID') : '-'}</td>
                                             <td className="py-3 px-2 font-mono text-zinc-500">{v.comment || '-'}</td>
-                                            <td className="py-3 px-2 text-right w-[1%] whitespace-nowrap">
-                                                <div className="inline-flex flex-wrap gap-0.5 justify-end">
+                                            <td className="py-3 px-2 text-right">
+                                                <div className="admin-table-actions">
                                                     {v.status === 'unused' && (
                                                         <button
                                                             type="button"
@@ -694,8 +694,8 @@ function HotspotPageContent({
 
                         <div className="space-y-3">
                             <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Riwayat Transaksi Penjualan</h3>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
+                            <div className="admin-table-scroll">
+                                <table>
                                     <thead>
                                         <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
                                             <th className="py-3 px-2">Router</th>
@@ -790,8 +790,8 @@ function HotspotPageContent({
                             </button>
                         </div>
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse">
+                        <div className="admin-table-scroll">
+                            <table>
                                 <thead>
                                     <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
                                         <th className="py-3 px-2">Nama</th>
@@ -828,8 +828,8 @@ function HotspotPageContent({
                                                     {cust.status.toUpperCase()}
                                                 </span>
                                             </td>
-                                            <td className="py-3 px-2 text-right w-[1%] whitespace-nowrap">
-                                                <div className="inline-flex flex-wrap gap-0.5 justify-end">
+                                            <td className="py-3 px-2 text-right">
+                                                <div className="admin-table-actions">
                                                 <button
                                                     type="button"
                                                     onClick={() => openMemberModal(cust)}

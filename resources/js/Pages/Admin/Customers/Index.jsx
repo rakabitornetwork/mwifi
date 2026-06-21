@@ -421,8 +421,8 @@ function CustomersPageContent({
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                <div className="admin-table-scroll">
+                    <table>
                         <thead>
                             <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
                                 <th className="py-3 px-2 w-8" />
@@ -435,14 +435,14 @@ function CustomersPageContent({
                                     />
                                 </th>
                                 <th className="py-3 px-2">Nama</th>
-                                <th className="py-3 px-2 hidden sm:table-cell">Username</th>
-                                <th className="py-3 px-2 hidden lg:table-cell">Telepon</th>
-                                <th className="py-3 px-2 hidden md:table-cell">Router</th>
+                                <th className="py-3 px-2">Username</th>
+                                <th className="py-3 px-2">Telepon</th>
+                                <th className="py-3 px-2">Router</th>
                                 <th className="py-3 px-2">Paket</th>
-                                <th className="py-3 px-2 hidden xl:table-cell">ODP</th>
-                                <th className="py-3 px-2 hidden lg:table-cell">Tgl Tagih</th>
+                                <th className="py-3 px-2">ODP</th>
+                                <th className="py-3 px-2">Tgl Tagih</th>
                                 <th className="py-3 px-2">Status</th>
-                                <th className="py-3 px-2 text-right w-[1%] whitespace-nowrap">Aksi</th>
+                                <th className="py-3 px-2 text-right">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-800/20 text-xs">
@@ -485,20 +485,17 @@ function CustomersPageContent({
                                             <button
                                                 type="button"
                                                 onClick={() => toggleCustomerDetail(cust.id)}
-                                                className="text-left hover:underline cursor-pointer max-w-[120px] sm:max-w-none truncate block"
+                                                className="text-left hover:underline cursor-pointer"
                                             >
                                                 {cust.name}
                                             </button>
-                                            <span className={`sm:hidden block text-[10px] font-mono font-normal ${themeTextDesc} truncate`}>
-                                                {cust.username}
-                                            </span>
                                         </td>
-                                        <td className="py-3 px-2 font-mono hidden sm:table-cell">{cust.username}</td>
-                                        <td className="py-3 px-2 font-mono text-[10px] hidden lg:table-cell">{cust.phone_number || '—'}</td>
-                                        <td className="py-3 px-2 hidden md:table-cell">{cust.router ? cust.router.name : '—'}</td>
-                                        <td className="py-3 px-2 max-w-[100px] truncate">{cust.package ? cust.package.name : '—'}</td>
-                                        <td className="py-3 px-2 font-mono text-[10px] hidden xl:table-cell">{cust.odp ? cust.odp.name : '—'}</td>
-                                        <td className="py-3 px-2 hidden lg:table-cell">Tgl {cust.billing_date}</td>
+                                        <td className="py-3 px-2 font-mono">{cust.username}</td>
+                                        <td className="py-3 px-2 font-mono text-[10px]">{cust.phone_number || '—'}</td>
+                                        <td className="py-3 px-2">{cust.router ? cust.router.name : '—'}</td>
+                                        <td className="py-3 px-2">{cust.package ? cust.package.name : '—'}</td>
+                                        <td className="py-3 px-2 font-mono text-[10px]">{cust.odp ? cust.odp.name : '—'}</td>
+                                        <td className="py-3 px-2">Tgl {cust.billing_date}</td>
                                         <td className="py-3 px-2">
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                                 cust.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
@@ -508,8 +505,8 @@ function CustomersPageContent({
                                                 {cust.status.toUpperCase()}
                                             </span>
                                         </td>
-                                        <td className="py-3 px-2 text-right w-[1%] whitespace-nowrap">
-                                            <div className="inline-flex flex-wrap gap-0.5 justify-end max-w-[72px] sm:max-w-none">
+                                        <td className="py-3 px-2 text-right">
+                                            <div className="admin-table-actions">
                                             <button
                                                 type="button"
                                                 onClick={() => toggleCustomerDetail(cust.id)}

@@ -488,8 +488,8 @@ function InvoicesPageContent({
                     </div>
                 )}
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                <div className="admin-table-scroll">
+                    <table>
                         <thead>
                             <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${theme.themeTextSub}`}>
                                 <th className="py-3 px-2 w-8">
@@ -602,8 +602,8 @@ function InvoicesPageContent({
                                             <span className={theme.themeTextDesc}>-</span>
                                         )}
                                     </td>
-                                    <td className="py-3 px-2 text-right w-[1%] whitespace-nowrap">
-                                        <div className="inline-flex flex-wrap gap-0.5 justify-end max-w-[96px] sm:max-w-none">
+                                    <td className="py-3 px-2 text-right">
+                                        <div className="admin-table-actions">
                                             {canPrintInvoice(inv) && (
                                                 <>
                                                     <button

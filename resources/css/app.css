@@ -527,3 +527,31 @@
         padding: 6px 7px;
     }
 }
+
+/* Admin data tables — satu baris horizontal per record, geser jika layar sempit */
+.admin-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.admin-table-scroll table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.admin-table-scroll th,
+.admin-table-scroll td {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.admin-table-scroll .admin-table-actions {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.125rem;
+}
