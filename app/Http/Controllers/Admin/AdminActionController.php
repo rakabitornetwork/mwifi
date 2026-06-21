@@ -999,7 +999,7 @@ class AdminActionController extends Controller
             return redirect()->back()->with('error', $health['message']);
         }
 
-        $message = $request->input('message') ?: 'Tes notifikasi WhatsApp dari panel Pengaturan mwifi.';
+        $message = $request->input('message') ?: \App\Services\WhatsAppService::defaultTestMessage();
         $sent = \App\Services\WhatsAppService::sendText($request->input('phone'), $message);
 
         if (!$sent) {

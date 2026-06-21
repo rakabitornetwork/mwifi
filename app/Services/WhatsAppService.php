@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Log;
 
 class WhatsAppService
 {
+    public static function defaultTestMessage(): string
+    {
+        return 'Tes notifikasi WhatsApp dari panel Pengaturan ' . BrandingService::appName() . '.';
+    }
     /**
      * Konfigurasi WhatsApp dari tabel settings (panel Pengaturan), bukan .env.
      *

@@ -55,6 +55,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
     const billingNotifyAdminDefault = settingsMap['system.billing_notify_admin'] !== '0';
     const billingAdminPhoneDefault = settingsMap['system.billing_admin_phone'] || '';
     const whatsappEnabledDefault = settingsMap['whatsapp.enabled'] !== '0';
+    const appName = branding.app_name || settingsMap['system.app_name'] || 'mWiFi';
 
     const [waTestPhone, setWaTestPhone] = useState(billingAdminPhoneDefault);
     const [isTestingWa, setIsTestingWa] = useState(false);
@@ -254,7 +255,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
         setIsTestingWa(true);
         router.post('/admin/settings/whatsapp-test', {
             phone: waTestPhone,
-            message: 'Tes notifikasi WhatsApp dari panel Pengaturan mwifi.',
+            message: `Tes notifikasi WhatsApp dari panel Pengaturan ${appName}.`,
         }, {
             preserveScroll: true,
             onFinish: () => setIsTestingWa(false),

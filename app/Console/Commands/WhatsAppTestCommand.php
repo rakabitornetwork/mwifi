@@ -16,7 +16,7 @@ class WhatsAppTestCommand extends Command
     public function handle(): int
     {
         $phone = (string) $this->argument('phone');
-        $message = (string) ($this->argument('message') ?: 'Tes notifikasi WhatsApp dari mwifi.');
+        $message = (string) ($this->argument('message') ?: WhatsAppService::defaultTestMessage());
 
         $config = WhatsAppService::configuration();
 
