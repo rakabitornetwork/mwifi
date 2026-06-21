@@ -9,6 +9,7 @@ use App\Models\Payment;
 use App\Models\Router;
 use App\Models\Setting;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -136,5 +137,15 @@ class InvoiceWhatsAppTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHas('success');
         Http::assertSent(fn ($request) => str_contains($request['text'], 'Terima Kasih'));
+    }
+
+    public function test_paid_invoice_whatsapp_uses_app_timezone_for_payment_date(): void
+    {
+        config(['app.timezone' => 'Asia/Jakarta']);
+
+        $paidAtUtc = Carbon::create(2026, 6, 21, 18, 4, 0, 'UTC');
+        $formatted = \App\Services\BillingService::formatDisplayDateTime($paidAtUtc);
+
+        $this->assertSame('22-06-2026 01:04', $formatted);
     }
 }

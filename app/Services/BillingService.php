@@ -763,9 +763,8 @@ class BillingService
             }
 
             try {
-                $brandName = BrandingService::companyName();
-                $message = "Terima Kasih!\n\nPembayaran tagihan {$brandName} Anda telah berhasil diterima.\n\n*Detail Pembayaran*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Pelanggan: *{$customer->name}* ({$customer->username})\n- Metode Bayar: " . ($payload['payment_method'] ?? ucfirst($gateway)) . "\n- Jumlah Bayar: *Rp " . number_format($amountPaid, 0, ',', '.') . "*\n- Tanggal Bayar: " . Carbon::now()->format('d-m-Y H:i') . "\n\nLayanan internet Anda otomatis aktif kembali secara instan. Terima kasih atas kepercayaan Anda.";
-                if (class_exists(\App\Services\WhatsAppService::class)) {
+                $message = self::buildPaidInvoiceWhatsAppMessage($invoice, includeReactivationNote: true);
+                if ($message && class_exists(\App\Services\WhatsAppService::class)) {
                     \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
                 }
             } catch (Exception $waEx) {
@@ -1611,7 +1610,7 @@ class BillingService
         return "Yth. Bapak/Ibu {$customer->name},\n\nTagihan internet {$brandName} Anda untuk periode *{$period}*.\n\n*Detail Tagihan*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Layanan: " . strtoupper($customer->service_type) . " ({$customer->username})\n- Subtotal: *Rp " . number_format((float) $invoice->amount, 0, ',', '.') . "*{$prorataLine}\n- Total Tagihan: *Rp " . number_format((float) $invoice->total_amount, 0, ',', '.') . "*\n- Jatuh Tempo: *{$dueDateFormatted}*\n\nSilakan melakukan pembayaran melalui Portal Pelanggan sebelum jatuh tempo untuk menghindari isolir otomatis. Terima kasih.";
     }
 
-    public static function buildPaidInvoiceWhatsAppMessage(Invoice $invoice): ?string
+    public static function buildPaidInvoiceWhatsAppMessage(Invoice $invoice, bool $includeReactivationNote = false): ?string
     {
         $invoice->loadMissing(['customer', 'payments']);
         $customer = $invoice->customer;
@@ -1625,10 +1624,24 @@ class BillingService
         $amountPaid = $payment ? (float) $payment->amount_paid : (float) $invoice->total_amount;
         $gateway = $payment?->gateway_name ?? 'manual';
         $method = $payment?->payment_method ?? ($gateway === 'manual' ? 'Cash / Tunai' : ucfirst($gateway));
-        $paidAt = $invoice->paid_at?->format('d-m-Y H:i')
-            ?? ($payment?->created_at?->format('d-m-Y H:i') ?? Carbon::now()->format('d-m-Y H:i'));
+        $paidAt = self::formatDisplayDateTime($invoice->paid_at ?? $payment?->created_at);
 
-        return "Terima Kasih!\n\nPembayaran tagihan {$brandName} Anda telah berhasil diterima.\n\n*Detail Pembayaran*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Pelanggan: *{$customer->name}* ({$customer->username})\n- Periode: *{$invoice->billing_period}*\n- Metode Bayar: {$method}\n- Jumlah Bayar: *Rp " . number_format($amountPaid, 0, ',', '.') . "*\n- Tanggal Bayar: {$paidAt}\n\nTerima kasih atas kepercayaan Anda.";
+        $footer = $includeReactivationNote
+            ? "\n\nLayanan internet Anda otomatis aktif kembali secara instan. Terima kasih atas kepercayaan Anda."
+            : "\n\nTerima kasih atas kepercayaan Anda.";
+
+        return "Terima Kasih!\n\nPembayaran tagihan {$brandName} Anda telah berhasil diterima.\n\n*Detail Pembayaran*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Pelanggan: *{$customer->name}* ({$customer->username})\n- Periode: *{$invoice->billing_period}*\n- Metode Bayar: {$method}\n- Jumlah Bayar: *Rp " . number_format($amountPaid, 0, ',', '.') . "*\n- Tanggal Bayar: {$paidAt}{$footer}";
+    }
+
+    public static function formatDisplayDateTime(mixed $value = null): string
+    {
+        $timezone = config('app.timezone', 'Asia/Jakarta');
+
+        if ($value === null) {
+            return Carbon::now($timezone)->format('d-m-Y H:i');
+        }
+
+        return Carbon::parse($value)->timezone($timezone)->format('d-m-Y H:i');
     }
 
     /**
