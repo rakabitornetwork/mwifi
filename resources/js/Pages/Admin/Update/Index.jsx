@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
-import { ArrowUpCircle, RefreshCw, Tag } from 'lucide-react';
+import { ArrowUpCircle, RefreshCw } from 'lucide-react';
 import GitHubBrandIcon from '../../../Components/Icons/GitHubBrandIcon';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
@@ -233,32 +233,6 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
         unknown: 'Status build tidak dapat ditentukan sepenuhnya.',
     };
 
-    const releaseBadgeLabel = isCheckingRemote
-        ? 'Memeriksa...'
-        : hasUpdate
-            ? (updateInfo.behind_count > 0 ? `${updateInfo.behind_count} commit baru` : 'Pembaruan tersedia')
-            : buildStatus === 'ahead_of_release'
-                ? 'Belum ditag rilis'
-                : buildStatus === 'on_release'
-                    ? 'Sesuai rilis'
-                    : 'Sinkron';
-
-    const releaseBadgeClass = isCheckingRemote
-        ? (theme.isDarkMode
-            ? 'border-zinc-600 text-zinc-400'
-            : 'border-zinc-300 text-zinc-500')
-        : hasUpdate
-            ? (theme.isDarkMode
-                ? 'border-amber-500/60 text-amber-400'
-                : 'border-amber-500 text-amber-600')
-            : buildStatus === 'ahead_of_release'
-                ? (theme.isDarkMode
-                    ? 'border-sky-500/60 text-sky-400'
-                    : 'border-sky-500 text-sky-600')
-                : (theme.isDarkMode
-                    ? 'border-emerald-500/60 text-emerald-400'
-                    : 'border-emerald-500 text-emerald-600');
-
     const statusLabelClass = isCheckingRemote
         ? 'bg-gradient-to-r from-violet-600 to-indigo-500 text-white border-0 shadow-sm shadow-violet-500/25'
         : hasUpdate
@@ -299,32 +273,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                             </div>
                             <div className="min-w-0">
                                 <h2 className={`text-sm font-bold tracking-tight ${theme.themeTextTitle}`}>Pembaruan Aplikasi</h2>
-                                <div className="mt-2 space-y-1.5">
-                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.themeTextDesc}`}>
-                                            Rilis terakhir GitHub
-                                        </span>
-                                        <span className={`text-sm font-bold font-mono ${theme.isDarkMode ? 'text-violet-200' : 'text-violet-800'}`}>
-                                            {isCheckingRemote && !latestReleaseVersion ? '...' : formatVersion(latestReleaseVersion)}
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                        <Tag className="w-3.5 h-3.5 text-emerald-500 shrink-0" aria-hidden="true" />
-                                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${theme.themeTextDesc}`}>
-                                            Build saat ini
-                                        </span>
-                                        <span className={`text-sm font-bold font-mono ${theme.isDarkMode ? 'text-white' : 'text-zinc-900'}`}>
-                                            {buildLabel === '—' ? '—' : (buildLabel.startsWith('v') ? buildLabel : `v${buildLabel}`)}
-                                        </span>
-                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-transparent ${releaseBadgeClass} ${isCheckingRemote ? 'opacity-70' : ''}`}>
-                                            {isCheckingRemote && (
-                                                <RefreshCw className="inline w-2.5 h-2.5 mr-1 -mt-px animate-spin" aria-hidden="true" />
-                                            )}
-                                            {releaseBadgeLabel}
-                                        </span>
-                                    </div>
-                                </div>
-                                <p className={`text-[11px] leading-relaxed mt-2 ${theme.themeTextSub}`}>
+                                <p className={`text-[11px] leading-relaxed mt-1.5 ${theme.themeTextSub}`}>
                                     {buildStatusMessages[buildStatus] || buildStatusMessages.unknown}
                                     {' '}Branch: {updateInfo.repository?.branch || 'main'}.
                                 </p>
