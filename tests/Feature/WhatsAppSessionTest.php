@@ -27,6 +27,7 @@ class WhatsAppSessionTest extends TestCase
                 'has_qr' => true,
                 'qr_data_url' => 'data:image/png;base64,abc',
                 'last_error' => null,
+                'profile' => null,
             ], 200),
         ]);
 

@@ -1000,7 +1000,7 @@ class AdminActionController extends Controller
         }
 
         $message = $request->input('message') ?: \App\Services\WhatsAppService::defaultTestMessage();
-        $sent = \App\Services\WhatsAppService::sendText($request->input('phone'), $message);
+        $sent = \App\Services\WhatsAppService::sendText($request->input('phone'), $message, skipBulkDelay: true);
 
         if (!$sent) {
             return redirect()->back()->with('error', 'Gagal mengirim pesan uji. Pastikan sesi WhatsApp gateway sudah terhubung (scan QR) dan cek log aplikasi.');
@@ -1048,6 +1048,7 @@ class AdminActionController extends Controller
             'has_qr' => $status['has_qr'] ?? false,
             'qr_data_url' => $status['qr_data_url'] ?? null,
             'last_error' => $status['last_error'] ?? null,
+            'profile' => $status['profile'] ?? null,
         ]));
     }
 

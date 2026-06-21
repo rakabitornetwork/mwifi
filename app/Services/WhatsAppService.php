@@ -8,14 +8,23 @@ use Illuminate\Support\Facades\Log;
 
 class WhatsAppService
 {
+    private static ?float $lastBulkSentAt = null;
+
     public static function defaultTestMessage(): string
     {
         return 'Tes notifikasi WhatsApp dari panel Pengaturan ' . BrandingService::appName() . '.';
     }
+
     /**
-     * Konfigurasi WhatsApp dari tabel settings (panel Pengaturan), bukan .env.
-     *
-     * @return array{api_url: string, api_key: ?string, session_id: string, enabled: bool}
+     * @return array{
+     *     api_url: string,
+     *     api_key: ?string,
+     *     session_id: string,
+     *     enabled: bool,
+     *     bulk_delay_enabled: bool,
+     *     bulk_delay_seconds: int,
+     *     bulk_delay_jitter_seconds: int
+     * }
      */
     public static function configuration(): array
     {
@@ -26,6 +35,9 @@ class WhatsAppService
             'api_key' => setting('whatsapp.api_key') ?: null,
             'session_id' => (string) (setting('whatsapp.session_id') ?: 'mwifi_session'),
             'enabled' => setting('whatsapp.enabled', '1') !== '0',
+            'bulk_delay_enabled' => setting('whatsapp.bulk_delay_enabled', '1') !== '0',
+            'bulk_delay_seconds' => max(1, min(120, (int) (setting('whatsapp.bulk_delay_seconds') ?: 4))),
+            'bulk_delay_jitter_seconds' => max(0, min(60, (int) (setting('whatsapp.bulk_delay_jitter_seconds') ?: 3))),
         ];
     }
 
@@ -34,9 +46,9 @@ class WhatsAppService
      *
      * @param string $to Recipient phone number (e.g. "0812345678" or "62812345678")
      * @param string $message The message body
-     * @return bool
+     * @param bool $skipBulkDelay Lewati jeda antar pesan (untuk uji coba tunggal)
      */
-    public static function sendText(string $to, string $message): bool
+    public static function sendText(string $to, string $message, bool $skipBulkDelay = false): bool
     {
         $config = self::configuration();
 
@@ -50,6 +62,10 @@ class WhatsAppService
             Log::warning('WhatsApp notification skipped: Gateway URL belum diisi di Pengaturan.');
 
             return false;
+        }
+
+        if (!$skipBulkDelay) {
+            self::waitForBulkDelay($config);
         }
 
         $apiUrl = $config['api_url'];
@@ -78,6 +94,7 @@ class WhatsAppService
 
             if ($response->successful()) {
                 Log::info("WhatsApp message sent successfully to {$to}.");
+                self::$lastBulkSentAt = microtime(true);
 
                 return true;
             }
@@ -135,7 +152,8 @@ class WhatsAppService
      *     status?: string,
      *     has_qr?: bool,
      *     qr_data_url?: string|null,
-     *     last_error?: string|null
+     *     last_error?: string|null,
+     *     profile?: array{id?: string, name?: string|null, picture_data_url?: string|null}|null
      * }
      */
     public static function getSessionStatus(): array
@@ -172,6 +190,7 @@ class WhatsAppService
                 'has_qr' => (bool) ($data['has_qr'] ?? false),
                 'qr_data_url' => $data['qr_data_url'] ?? null,
                 'last_error' => $data['last_error'] ?? null,
+                'profile' => $data['profile'] ?? null,
             ];
         } catch (\Exception $e) {
             return [
@@ -239,5 +258,37 @@ class WhatsAppService
         }
 
         return $client;
+    }
+
+    /**
+     * @param array{bulk_delay_enabled: bool, bulk_delay_seconds: int, bulk_delay_jitter_seconds: int} $config
+     */
+    private static function waitForBulkDelay(array $config): void
+    {
+        if (!($config['bulk_delay_enabled'] ?? false)) {
+            return;
+        }
+
+        $baseSeconds = (int) ($config['bulk_delay_seconds'] ?? 4);
+        $jitterSeconds = (int) ($config['bulk_delay_jitter_seconds'] ?? 0);
+        $requiredGap = $baseSeconds + ($jitterSeconds > 0 ? random_int(0, $jitterSeconds) : 0);
+
+        if (self::$lastBulkSentAt !== null) {
+            $elapsed = microtime(true) - self::$lastBulkSentAt;
+            $waitSeconds = $requiredGap - $elapsed;
+
+            if ($waitSeconds > 0) {
+                Log::debug(sprintf('WhatsApp bulk delay: waiting %.1f seconds before next message.', $waitSeconds));
+                usleep((int) round($waitSeconds * 1_000_000));
+            }
+        }
+    }
+
+    /**
+     * Reset penanda jeda massal (berguna untuk pengujian).
+     */
+    public static function resetBulkDelayState(): void
+    {
+        self::$lastBulkSentAt = null;
     }
 }

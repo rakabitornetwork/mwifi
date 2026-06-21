@@ -40,7 +40,7 @@ class WhatsAppTestCommand extends Command
 
         $this->line('Health      : OK');
 
-        $sent = WhatsAppService::sendText($phone, $message);
+        $sent = WhatsAppService::sendText($phone, $message, skipBulkDelay: true);
 
         if (!$sent) {
             $this->error('Gagal mengirim pesan. Cek storage/logs/laravel.log dan pastikan sesi WhatsApp sudah ter-scan (QR).');

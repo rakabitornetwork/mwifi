@@ -55,6 +55,9 @@ function SettingsPageContent({ settings = [], routers = [] }) {
     const billingNotifyAdminDefault = settingsMap['system.billing_notify_admin'] !== '0';
     const billingAdminPhoneDefault = settingsMap['system.billing_admin_phone'] || '';
     const whatsappEnabledDefault = settingsMap['whatsapp.enabled'] !== '0';
+    const whatsappBulkDelayEnabledDefault = settingsMap['whatsapp.bulk_delay_enabled'] !== '0';
+    const whatsappBulkDelaySecondsDefault = Math.min(120, Math.max(1, parseInt(settingsMap['whatsapp.bulk_delay_seconds'] || '4', 10) || 4));
+    const whatsappBulkDelayJitterDefault = Math.min(60, Math.max(0, parseInt(settingsMap['whatsapp.bulk_delay_jitter_seconds'] || '3', 10) || 3));
     const appName = branding.app_name || settingsMap['system.app_name'] || 'mWiFi';
 
     const [waTestPhone, setWaTestPhone] = useState(billingAdminPhoneDefault);
@@ -65,6 +68,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
         qr_data_url: null,
         last_error: null,
         session: settingsMap['whatsapp.session_id'] || 'mwifi_session',
+        profile: null,
     });
     const [isLoadingWaSession, setIsLoadingWaSession] = useState(false);
     const [isPollingWaSession, setIsPollingWaSession] = useState(false);
@@ -110,6 +114,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                 qr_data_url: data.qr_data_url || null,
                 last_error: data.last_error || null,
                 session: data.session || prev.session,
+                profile: data.profile || null,
             }));
 
             return data.status === 'open';
@@ -152,6 +157,10 @@ function SettingsPageContent({ settings = [], routers = [] }) {
 
     useEffect(() => () => stopWaSessionPolling(), [stopWaSessionPolling]);
 
+    useEffect(() => {
+        fetchWaSessionStatus();
+    }, [fetchWaSessionStatus]);
+
     const handleRefreshWaSession = async () => {
         setIsLoadingWaSession(true);
         await fetchWaSessionStatus();
@@ -187,6 +196,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                 qr_data_url: data.qr_data_url || null,
                 last_error: data.last_error || null,
                 session: data.session || waSession.session,
+                profile: data.profile || null,
             });
 
             if (data.status === 'open') {
@@ -234,6 +244,9 @@ function SettingsPageContent({ settings = [], routers = [] }) {
 
         const whatsappEnabledCheckbox = form.querySelector('input[name="whatsapp_enabled_ui"]');
         formData.set('whatsapp[enabled]', whatsappEnabledCheckbox?.checked ? '1' : '0');
+
+        const whatsappBulkDelayCheckbox = form.querySelector('input[name="whatsapp_bulk_delay_enabled_ui"]');
+        formData.set('whatsapp[bulk_delay_enabled]', whatsappBulkDelayCheckbox?.checked ? '1' : '0');
 
         router.post('/admin/settings/save', formData, {
             forceFormData: true,
@@ -699,6 +712,45 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                             <label className={`font-bold ${themeLabel}`}>API Key / Token (Opsional)</label>
                             <input name="whatsapp[api_key]" type="password" placeholder="Tetap kosong jika tidak diubah" className={`p-2 border rounded-lg ${themeInput}`} />
                         </div>
+                        <div className={`rounded-xl border p-3 space-y-3 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Jeda pengiriman massal</p>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    name="whatsapp_bulk_delay_enabled_ui"
+                                    defaultChecked={whatsappBulkDelayEnabledDefault}
+                                    className={`rounded text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}
+                                />
+                                <span className={`font-bold ${themeTextTitle}`}>Aktifkan jeda antar pesan</span>
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="flex flex-col gap-1">
+                                    <label className={`font-bold ${themeLabel}`}>Jeda minimum (detik)</label>
+                                    <input
+                                        name="whatsapp[bulk_delay_seconds]"
+                                        type="number"
+                                        min={1}
+                                        max={120}
+                                        defaultValue={whatsappBulkDelaySecondsDefault}
+                                        className={`p-2 border rounded-lg ${themeInput}`}
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className={`font-bold ${themeLabel}`}>Acak tambahan (0–N detik)</label>
+                                    <input
+                                        name="whatsapp[bulk_delay_jitter_seconds]"
+                                        type="number"
+                                        min={0}
+                                        max={60}
+                                        defaultValue={whatsappBulkDelayJitterDefault}
+                                        className={`p-2 border rounded-lg ${themeInput}`}
+                                    />
+                                </div>
+                            </div>
+                            <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
+                                Dipakai saat generate tagihan massal, isolir otomatis, dan notifikasi beruntun. Contoh: jeda 4 detik + acak 0–3 detik → tiap pesan berjarak ±4–7 detik. Uji kirim tunggal tidak dijeda.
+                            </p>
+                        </div>
                         <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
                             Semua pengaturan WhatsApp disimpan di database aplikasi (menu ini). Gateway Baileys disarankan di <span className="font-mono">http://127.0.0.1:3003</span>.
                         </p>
@@ -756,9 +808,37 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                                 </div>
                             )}
                             {waSession.status === 'open' && (
-                                <p className={`text-[10px] ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
-                                    Sesi <span className="font-mono">{waSession.session}</span> aktif. Notifikasi siap dikirim.
-                                </p>
+                                <div className="space-y-2">
+                                    <div className={`flex items-center gap-3 rounded-xl border p-3 ${isDarkMode ? 'border-emerald-500/25 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/80'}`}>
+                                        {waSession.profile?.picture_data_url ? (
+                                            <img
+                                                src={waSession.profile.picture_data_url}
+                                                alt="Foto profil WhatsApp"
+                                                className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm shrink-0"
+                                            />
+                                        ) : (
+                                            <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-white text-zinc-500 border border-zinc-200'}`}>
+                                                <MessageSquare className="w-6 h-6" />
+                                            </div>
+                                        )}
+                                        <div className="min-w-0">
+                                            <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-emerald-100' : 'text-emerald-950'}`}>
+                                                {waSession.profile?.name || 'Perangkat tertaut'}
+                                            </p>
+                                            {waSession.profile?.id && (
+                                                <p className={`text-[10px] font-mono truncate ${isDarkMode ? 'text-emerald-300/80' : 'text-emerald-800/70'}`}>
+                                                    +{waSession.profile.id}
+                                                </p>
+                                            )}
+                                            <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                                                Sesi <span className="font-mono">{waSession.session}</span> aktif
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <p className={`text-[10px] ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                                        Notifikasi siap dikirim.
+                                    </p>
+                                </div>
                             )}
                             {waSession.last_error && waSession.status !== 'open' && (
                                 <p className={`text-[10px] ${isDarkMode ? 'text-rose-300' : 'text-rose-700'}`}>
