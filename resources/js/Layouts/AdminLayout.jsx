@@ -81,6 +81,7 @@ function AdminLayoutShell({ title, children }) {
                         sidebarTextSub={theme.sidebarTextSub}
                         sidebarTextDesc={theme.sidebarTextDesc}
                         themeSidebarBottom={theme.themeSidebarBottom}
+                        themeBrandBar={theme.themeBrandBar}
                         isDarkMode={theme.isDarkMode}
                         onNavClick={handleSidebarNavClick}
                     />
@@ -115,6 +116,7 @@ function AdminLayoutShell({ title, children }) {
                             sidebarTextSub={theme.sidebarTextSub}
                             sidebarTextDesc={theme.sidebarTextDesc}
                             themeSidebarBottom={theme.themeSidebarBottom}
+                            themeBrandBar={theme.themeBrandBar}
                             isDarkMode={theme.isDarkMode}
                             onNavClick={handleSidebarNavClick}
                             showCloseButton

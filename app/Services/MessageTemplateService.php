@@ -16,6 +16,7 @@ class MessageTemplateService
                 'placeholders' => [
                     'customer_name', 'brand_name', 'period', 'invoice_number', 'service_type',
                     'username', 'subtotal', 'prorata_line', 'total', 'due_date',
+                    'bank_info', 'whatsapp_contact', 'payment_instructions',
                 ],
             ],
             'whatsapp.template.invoice_unpaid' => [
@@ -24,6 +25,7 @@ class MessageTemplateService
                 'placeholders' => [
                     'customer_name', 'brand_name', 'period', 'invoice_number', 'service_type',
                     'username', 'subtotal', 'prorata_line', 'total', 'due_date',
+                    'bank_info', 'whatsapp_contact', 'payment_instructions',
                 ],
             ],
             'whatsapp.template.invoice_accumulated' => [
@@ -32,6 +34,7 @@ class MessageTemplateService
                 'placeholders' => [
                     'customer_name', 'brand_name', 'period_label', 'invoice_number', 'service_type',
                     'username', 'subtotal', 'total', 'due_date',
+                    'bank_info', 'whatsapp_contact', 'payment_instructions',
                 ],
             ],
             'whatsapp.template.invoice_accumulated_new' => [
@@ -40,6 +43,7 @@ class MessageTemplateService
                 'placeholders' => [
                     'customer_name', 'brand_name', 'period_label', 'invoice_number',
                     'username', 'subtotal', 'total', 'due_date',
+                    'bank_info', 'whatsapp_contact', 'payment_instructions',
                 ],
             ],
             'whatsapp.template.payment_received' => [
@@ -59,10 +63,11 @@ class MessageTemplateService
                 ],
             ],
             'whatsapp.template.isolation' => [
-                'label' => 'Isolir otomatis',
-                'description' => 'Dikirim saat pelanggan di-isolir karena melewati jatuh tempo.',
+                'label' => 'Informasi layanan dinonaktifkan',
+                'description' => 'Dikirim saat layanan sementara dinonaktifkan karena tagihan melewati jatuh tempo.',
                 'placeholders' => [
                     'customer_name', 'brand_name', 'username', 'invoice_number', 'total', 'due_date',
+                    'bank_info', 'whatsapp_contact', 'payment_instructions',
                 ],
             ],
             'whatsapp.template.admin_scheduler' => [
@@ -81,21 +86,162 @@ class MessageTemplateService
     public static function defaults(): array
     {
         return [
-            'whatsapp.template.invoice_new' => "Yth. Bapak/Ibu {customer_name},\n\nTagihan internet {brand_name} Anda untuk periode *{period}* telah terbit.\n\n*Detail Tagihan*:\n- No. Invoice: *{invoice_number}*\n- Layanan: {service_type} ({username})\n- Subtotal: *{subtotal}*{prorata_line}\n- Total Tagihan: *{total}*\n- Jatuh Tempo: *{due_date}*\n\nSilakan melakukan pembayaran melalui Portal Pelanggan sebelum jatuh tempo untuk menghindari isolir otomatis. Terima kasih.",
+            'whatsapp.template.invoice_new' => <<<'TEMPLATE'
+*INFORMASI TAGIHAN · {brand_name}*
 
-            'whatsapp.template.invoice_unpaid' => "Yth. Bapak/Ibu {customer_name},\n\nTagihan internet {brand_name} Anda untuk periode *{period}*.\n\n*Detail Tagihan*:\n- No. Invoice: *{invoice_number}*\n- Layanan: {service_type} ({username})\n- Subtotal: *{subtotal}*{prorata_line}\n- Total Tagihan: *{total}*\n- Jatuh Tempo: *{due_date}*\n\nSilakan melakukan pembayaran melalui Portal Pelanggan sebelum jatuh tempo untuk menghindari isolir otomatis. Terima kasih.",
+Yth. Bapak/Ibu *{customer_name}*,
 
-            'whatsapp.template.invoice_accumulated' => "Yth. Bapak/Ibu {customer_name},\n\nTagihan internet {brand_name} *akumulasi* periode *{period_label}*.\n\n*Detail Tagihan*:\n- No. Invoice: *{invoice_number}*\n- Layanan: {service_type} ({username})\n- Subtotal: *{subtotal}*\n- Total Tagihan: *{total}*\n- Jatuh Tempo: *{due_date}*\n\nSilakan lakukan pembayaran sebelum jatuh tempo melalui Portal Pelanggan. Terima kasih.",
+Tagihan internet Anda periode *{period}* telah kami terbitkan. Berikut rinciannya:
 
-            'whatsapp.template.invoice_accumulated_new' => "Yth. Bapak/Ibu {customer_name},\n\nTagihan internet {brand_name} *akumulasi* periode *{period_label}* telah terbit.\n\n*Detail Tagihan*:\n- No. Invoice: *{invoice_number}*\n- Layanan: PPPoE ({username})\n- Subtotal: *{subtotal}*\n- Total Tagihan: *{total}*\n- Jatuh Tempo: *{due_date}*\n\nSilakan lakukan pembayaran sebelum jatuh tempo. Terima kasih.",
+*Rincian Tagihan*
+• No. Invoice : *{invoice_number}*
+• Layanan     : {service_type} ({username})
+• Subtotal    : *{subtotal}*{prorata_line}
+• Total       : *{total}*
+• Jatuh Tempo : *{due_date}*
+{payment_instructions}
 
-            'whatsapp.template.payment_received' => "Terima Kasih!\n\nPembayaran tagihan {brand_name} Anda telah berhasil diterima.\n\n*Detail Pembayaran*:\n- No. Invoice: *{invoice_number}*\n- Pelanggan: *{customer_name}* ({username})\n- Periode: *{period}*\n- Metode Bayar: {payment_method}\n- Jumlah Bayar: *{amount_paid}*\n- Tanggal Bayar: {paid_at}{footer_note}",
+Apabila ada pertanyaan, tim kami siap membantu.
 
-            'whatsapp.template.payment_reactivated' => "Terima Kasih!\n\nPembayaran tagihan {brand_name} Anda telah berhasil diterima.\n\n*Detail Pembayaran*:\n- No. Invoice: *{invoice_number}*\n- Pelanggan: *{customer_name}* ({username})\n- Periode: *{period}*\n- Metode Bayar: {payment_method}\n- Jumlah Bayar: *{amount_paid}*\n- Tanggal Bayar: {paid_at}{footer_note}",
+Hormat kami,
+*{brand_name}*
+TEMPLATE,
 
-            'whatsapp.template.isolation' => "Yth. Bapak/Ibu {customer_name},\n\nLayanan internet {brand_name} Anda dengan username *{username}* telah di-isolir otomatis karena tagihan {invoice_number} sebesar {total} melewati jatuh tempo ({due_date}).\n\nSilakan lakukan pembayaran segera melalui Portal Pelanggan agar internet otomatis aktif kembali.",
+            'whatsapp.template.invoice_unpaid' => <<<'TEMPLATE'
+*PENGINGAT TAGIHAN · {brand_name}*
 
-            'whatsapp.template.admin_scheduler' => "*[{brand_name}] Generate Tagihan Otomatis*\n\nTanggal: *{run_date}*\nJadwal: *H-{days_before} sebelum jatuh tempo*\nInvoice baru: *{invoice_count}*\n\n{invoice_list}\nTotal: *{total}*\n\nDetail lengkap tersedia di panel admin tab Invoice.",
+Yth. Bapak/Ibu *{customer_name}*,
+
+Berikut kami sampaikan kembali rincian tagihan internet periode *{period}*:
+
+*Rincian Tagihan*
+• No. Invoice : *{invoice_number}*
+• Layanan     : {service_type} ({username})
+• Subtotal    : *{subtotal}*{prorata_line}
+• Total       : *{total}*
+• Jatuh Tempo : *{due_date}*
+{payment_instructions}
+
+Terima kasih atas perhatian dan kerja samanya.
+
+Hormat kami,
+*{brand_name}*
+TEMPLATE,
+
+            'whatsapp.template.invoice_accumulated' => <<<'TEMPLATE'
+*TAGIHAN AKUMULASI · {brand_name}*
+
+Yth. Bapak/Ibu *{customer_name}*,
+
+Berikut rincian tagihan akumulasi periode *{period_label}*:
+
+*Rincian Tagihan*
+• No. Invoice : *{invoice_number}*
+• Layanan     : {service_type} ({username})
+• Subtotal    : *{subtotal}*
+• Total       : *{total}*
+• Jatuh Tempo : *{due_date}*
+{payment_instructions}
+
+Apabila memerlukan penjelasan lebih lanjut, hubungi tim kami.
+
+Hormat kami,
+*{brand_name}*
+TEMPLATE,
+
+            'whatsapp.template.invoice_accumulated_new' => <<<'TEMPLATE'
+*TAGIHAN AKUMULASI · {brand_name}*
+
+Yth. Bapak/Ibu *{customer_name}*,
+
+Tagihan akumulasi periode *{period_label}* telah kami terbitkan. Berikut rinciannya:
+
+*Rincian Tagihan*
+• No. Invoice : *{invoice_number}*
+• Layanan     : PPPoE ({username})
+• Subtotal    : *{subtotal}*
+• Total       : *{total}*
+• Jatuh Tempo : *{due_date}*
+{payment_instructions}
+
+Terima kasih atas kerja samanya.
+
+Hormat kami,
+*{brand_name}*
+TEMPLATE,
+
+            'whatsapp.template.payment_received' => <<<'TEMPLATE'
+*KONFIRMASI PEMBAYARAN · {brand_name}*
+
+Yth. Bapak/Ibu *{customer_name}*,
+
+Terima kasih — pembayaran Anda telah kami terima dengan baik.
+
+*Rincian Pembayaran*
+• No. Invoice  : *{invoice_number}*
+• Periode       : *{period}*
+• Username      : {username}
+• Metode Bayar  : {payment_method}
+• Jumlah Bayar  : *{amount_paid}*
+• Waktu Bayar   : {paid_at}{footer_note}
+
+Hormat kami,
+*{brand_name}*
+TEMPLATE,
+
+            'whatsapp.template.payment_reactivated' => <<<'TEMPLATE'
+*KONFIRMASI PEMBAYARAN · {brand_name}*
+
+Yth. Bapak/Ibu *{customer_name}*,
+
+Terima kasih — pembayaran Anda telah kami terima dengan baik.
+
+*Rincian Pembayaran*
+• No. Invoice  : *{invoice_number}*
+• Periode       : *{period}*
+• Username      : {username}
+• Metode Bayar  : {payment_method}
+• Jumlah Bayar  : *{amount_paid}*
+• Waktu Bayar   : {paid_at}{footer_note}
+
+Hormat kami,
+*{brand_name}*
+TEMPLATE,
+
+            'whatsapp.template.isolation' => <<<'TEMPLATE'
+*INFORMASI LAYANAN · {brand_name}*
+
+Yth. Bapak/Ibu *{customer_name}*,
+
+Dengan hormat kami informasikan bahwa layanan internet (username: *{username}*) sementara dinonaktifkan karena tagihan berikut belum kami terima hingga melewati jatuh tempo:
+
+*Rincian Tagihan*
+• No. Invoice : *{invoice_number}*
+• Nominal     : *{total}*
+• Jatuh Tempo : {due_date}
+{payment_instructions}
+
+Kami siap membantu apabila Bapak/Ibu memerlukan bantuan.
+
+Hormat kami,
+*{brand_name}*
+TEMPLATE,
+
+            'whatsapp.template.admin_scheduler' => <<<'TEMPLATE'
+*LAPORAN GENERATE TAGIHAN · {brand_name}*
+
+Ringkasan penjadwalan otomatis:
+
+• Tanggal      : *{run_date}*
+• Jadwal       : H-{days_before} sebelum jatuh tempo
+• Invoice baru : *{invoice_count}*
+
+{invoice_list}
+
+*Total tagihan baru: {total}*
+
+Detail lengkap tersedia di panel Admin → Invoice.
+TEMPLATE,
         ];
     }
 
@@ -121,6 +267,32 @@ class MessageTemplateService
     /**
      * @param  array<string, scalar|null>  $variables
      */
+    public static function renderWithPaymentInstructions(string $key, array $variables = []): string
+    {
+        if (!in_array($key, self::paymentInstructionKeys(), true)) {
+            return self::render($key, $variables);
+        }
+
+        return self::render($key, array_merge($variables, PaymentInstructionService::templateVariables()));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function paymentInstructionKeys(): array
+    {
+        return [
+            'whatsapp.template.invoice_new',
+            'whatsapp.template.invoice_unpaid',
+            'whatsapp.template.invoice_accumulated',
+            'whatsapp.template.invoice_accumulated_new',
+            'whatsapp.template.isolation',
+        ];
+    }
+
+    /**
+     * @param  array<string, scalar|null>  $variables
+     */
     public static function renderContent(string $template, array $variables = []): string
     {
         $output = $template;
@@ -137,7 +309,7 @@ class MessageTemplateService
      */
     public static function sampleVariables(string $key): array
     {
-        return match ($key) {
+        $variables = match ($key) {
             'whatsapp.template.invoice_new',
             'whatsapp.template.invoice_unpaid' => [
                 'customer_name' => 'Budi Santoso',
@@ -147,7 +319,7 @@ class MessageTemplateService
                 'service_type' => 'PPPOE',
                 'username' => 'budi001',
                 'subtotal' => 'Rp 150.000',
-                'prorata_line' => "\n- Prorata: *15 hari* / 30 hari",
+                'prorata_line' => "\n• Prorata    : *15 hari* / 30 hari",
                 'total' => 'Rp 150.000',
                 'due_date' => '20-06-2026',
             ],
@@ -174,8 +346,8 @@ class MessageTemplateService
                 'amount_paid' => 'Rp 150.000',
                 'paid_at' => '22-06-2026 14:30',
                 'footer_note' => $key === 'whatsapp.template.payment_reactivated'
-                    ? "\n\nLayanan internet Anda otomatis aktif kembali secara instan. Terima kasih atas kepercayaan Anda."
-                    : "\n\nTerima kasih atas kepercayaan Anda.",
+                    ? "\n\nLayanan internet Anda telah aktif kembali secara otomatis. Terima kasih atas kepercayaan dan kerja samanya."
+                    : "\n\nTerima kasih atas kepercayaan dan kerja samanya.",
             ],
             'whatsapp.template.isolation' => [
                 'customer_name' => 'Budi Santoso',
@@ -195,5 +367,11 @@ class MessageTemplateService
             ],
             default => [],
         };
+
+        if (in_array($key, self::paymentInstructionKeys(), true)) {
+            $variables = array_merge($variables, PaymentInstructionService::templateVariables());
+        }
+
+        return $variables;
     }
 }

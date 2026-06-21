@@ -306,7 +306,7 @@ class BillingService
 
             try {
                 $dueDateFormatted = $dueDate->format('d-m-Y');
-                $message = MessageTemplateService::render('whatsapp.template.invoice_new', [
+                $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_new', [
                     'customer_name' => $customer->name,
                     'brand_name' => BrandingService::companyName(),
                     'period' => $period,
@@ -542,6 +542,31 @@ class BillingService
     }
 
     /**
+     * Today's revenue from paid invoices (paid_at).
+     *
+     * @return array{date: string, label: string, total: float, payment_count: int}
+     */
+    public static function summarizeTodayRevenue(?Carbon $today = null): array
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay()->locale('id');
+        $rangeStart = $today->copy()->startOfDay();
+        $rangeEnd = $today->copy()->endOfDay();
+
+        $paid = Invoice::query()
+            ->where('status', 'paid')
+            ->whereNotNull('paid_at')
+            ->whereBetween('paid_at', [$rangeStart, $rangeEnd])
+            ->get(['total_amount']);
+
+        return [
+            'date' => $today->toDateString(),
+            'label' => $today->translatedFormat('l, d M Y'),
+            'total' => round((float) $paid->sum('total_amount'), 2),
+            'payment_count' => $paid->count(),
+        ];
+    }
+
+    /**
      * Generate invoices for all eligible PPPoE customers in a billing period (manual / CLI).
      *
      * @param string|null $period Format YYYY-MM (e.g., "2026-06"). Defaults to current month.
@@ -653,7 +678,7 @@ class BillingService
                 }
 
                 try {
-                    $message = MessageTemplateService::render('whatsapp.template.isolation', [
+                    $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.isolation', [
                         'customer_name' => $customer->name,
                         'brand_name' => BrandingService::companyName(),
                         'username' => $customer->username,
@@ -1483,7 +1508,7 @@ class BillingService
             try {
                 $periodLabel = implode(' + ', $periods);
                 $dueDateFormatted = $dueDate->format('d-m-Y');
-                $message = MessageTemplateService::render('whatsapp.template.invoice_accumulated_new', [
+                $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_accumulated_new', [
                     'customer_name' => $customer->name,
                     'brand_name' => BrandingService::companyName(),
                     'period_label' => $periodLabel,
@@ -1611,7 +1636,7 @@ class BillingService
                 ? implode(' + ', $periods)
                 : ($invoice->billing_period ?? '-');
 
-            return MessageTemplateService::render('whatsapp.template.invoice_accumulated', [
+            return MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_accumulated', [
                 'customer_name' => $customer->name,
                 'brand_name' => BrandingService::companyName(),
                 'period_label' => $periodLabel,
@@ -1624,7 +1649,7 @@ class BillingService
             ]);
         }
 
-        return MessageTemplateService::render('whatsapp.template.invoice_unpaid', [
+        return MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_unpaid', [
             'customer_name' => $customer->name,
             'brand_name' => BrandingService::companyName(),
             'period' => $invoice->billing_period ?? '-',
@@ -1666,8 +1691,8 @@ class BillingService
             'amount_paid' => self::formatWhatsAppMoney($amountPaid),
             'paid_at' => $paidAt,
             'footer_note' => $includeReactivationNote
-                ? "\n\nLayanan internet Anda otomatis aktif kembali secara instan. Terima kasih atas kepercayaan Anda."
-                : "\n\nTerima kasih atas kepercayaan Anda.",
+                ? "\n\nLayanan internet Anda telah aktif kembali secara otomatis. Terima kasih atas kepercayaan dan kerja samanya."
+                : "\n\nTerima kasih atas kepercayaan dan kerja samanya.",
         ]);
     }
 
@@ -1682,7 +1707,7 @@ class BillingService
             return '';
         }
 
-        return "\n- Prorata: *{$daysBilled} hari* / " . self::PRORATA_BASE_DAYS . ' hari';
+        return "\n• Prorata    : *{$daysBilled} hari* / " . self::PRORATA_BASE_DAYS . ' hari';
     }
 
     public static function formatDisplayDateTime(mixed $value = null): string

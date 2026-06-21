@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -201,7 +202,7 @@ class WhatsAppService
                 $profile['avatar_url'] = url('/admin/settings/whatsapp-session/avatar');
             }
 
-            return [
+            $result = [
                 'ok' => true,
                 'message' => 'Status sesi berhasil dimuat.',
                 'session' => $data['session'] ?? $config['session_id'],
@@ -211,6 +212,10 @@ class WhatsAppService
                 'last_error' => $data['last_error'] ?? null,
                 'profile' => $profile,
             ];
+
+            self::syncLinkedPhoneFromSession($result);
+
+            return $result;
         } catch (\Exception $e) {
             return [
                 'ok' => false,
@@ -431,5 +436,81 @@ class WhatsAppService
         self::$lastBulkSentAt = null;
         self::$bulkWindowStartedAt = null;
         self::$bulkSentInWindow = 0;
+    }
+
+    public static function syncLinkedPhoneFromSession(array $status): void
+    {
+        if (!($status['ok'] ?? false) || ($status['status'] ?? '') !== 'open') {
+            return;
+        }
+
+        $profile = $status['profile'] ?? null;
+        if (!is_array($profile)) {
+            return;
+        }
+
+        $phone = trim((string) ($profile['id'] ?? ''));
+        if ($phone === '') {
+            return;
+        }
+
+        SettingService::set('whatsapp.linked_phone', $phone, 'whatsapp', false);
+        Cache::forget('whatsapp.linked_phone.live');
+    }
+
+    public static function getLinkedPhoneForMessages(): string
+    {
+        $stored = trim((string) SettingService::get('whatsapp.linked_phone', ''));
+        if ($stored !== '') {
+            return self::formatDisplayPhone($stored);
+        }
+
+        $livePhone = Cache::remember('whatsapp.linked_phone.live', 120, function (): string {
+            $status = self::getSessionStatus();
+            if (($status['ok'] ?? false) && ($status['status'] ?? '') === 'open') {
+                $phone = trim((string) ($status['profile']['id'] ?? ''));
+                if ($phone !== '') {
+                    self::syncLinkedPhoneFromSession($status);
+
+                    return $phone;
+                }
+            }
+
+            return '';
+        });
+
+        if ($livePhone !== '') {
+            return self::formatDisplayPhone($livePhone);
+        }
+
+        $fallback = trim((string) SettingService::get('payment.manual_confirm_phone', ''));
+        if ($fallback !== '') {
+            return self::formatDisplayPhone($fallback);
+        }
+
+        $companyPhone = trim((string) SettingService::get('system.company_phone', ''));
+        if ($companyPhone !== '') {
+            return self::formatDisplayPhone($companyPhone);
+        }
+
+        return '-';
+    }
+
+    public static function formatDisplayPhone(string $phone): string
+    {
+        $digits = preg_replace('/[^0-9]/', '', $phone);
+        if ($digits === '') {
+            return '-';
+        }
+
+        if (str_starts_with($digits, '62')) {
+            return '+' . $digits;
+        }
+
+        if (str_starts_with($digits, '0')) {
+            return '+62' . substr($digits, 1);
+        }
+
+        return '+' . $digits;
     }
 }

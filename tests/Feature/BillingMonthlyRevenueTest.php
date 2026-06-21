@@ -98,4 +98,37 @@ class BillingMonthlyRevenueTest extends TestCase
             ->where('monthlyRevenue.current_month.total', 75000)
         );
     }
+
+    public function test_summarize_today_revenue_groups_by_paid_at_on_same_day(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 15:00:00'));
+
+        $this->makePaidInvoice('T1', '2026-06-22 09:30:00', 100000);
+        $this->makePaidInvoice('T2', '2026-06-22 14:00:00', 50000);
+        $this->makePaidInvoice('Y1', '2026-06-21 18:00:00', 200000);
+
+        $summary = BillingService::summarizeTodayRevenue(Carbon::parse('2026-06-22'));
+
+        $this->assertSame(150000.0, $summary['total']);
+        $this->assertSame(2, $summary['payment_count']);
+        $this->assertSame('2026-06-22', $summary['date']);
+    }
+
+    public function test_dashboard_includes_today_revenue_payload(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 12:00:00'));
+
+        $admin = User::factory()->create();
+        $this->makePaidInvoice('D1', '2026-06-22 10:00:00', 125000);
+
+        $response = $this->actingAs($admin)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/Dashboard/Index')
+            ->has('todayRevenue')
+            ->where('todayRevenue.total', 125000)
+            ->where('todayRevenue.payment_count', 1)
+        );
+    }
 }

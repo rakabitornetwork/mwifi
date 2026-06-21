@@ -13,9 +13,6 @@ import {
 } from 'recharts';
 import {
     Users,
-    CreditCard,
-    Activity,
-    AlertCircle,
     UserX,
     Radio,
     Cpu,
@@ -26,6 +23,7 @@ import {
     Radar,
     RefreshCw,
     TrendingUp,
+    Wallet,
 } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
@@ -50,6 +48,7 @@ function DashboardContent({
     billingActivityLogs = [],
     odps = [],
     monthlyRevenue = {},
+    todayRevenue = {},
 }) {
     const theme = useAdminTheme();
     const { showToast } = useAdminToast();
@@ -181,7 +180,23 @@ function DashboardContent({
         fetchOntDevices();
     };
 
+    const todayPaymentCount = todayRevenue?.payment_count ?? 0;
+    const todayRevenueSubtext = todayPaymentCount === 1
+        ? '1 pembayaran lunas hari ini'
+        : `${todayPaymentCount} pembayaran lunas hari ini`;
+
     const stats = [
+        {
+            name: 'Pendapatan Hari Ini',
+            value: formatRupiah(todayRevenue?.total || 0),
+            change: todayRevenueSubtext,
+            icon: Wallet,
+            cardClass: 'bg-gradient-to-br from-amber-500 to-orange-600 border-amber-400/20 text-white shadow-md shadow-amber-500/5',
+            iconClass: 'text-amber-100',
+            nameClass: 'text-amber-100/80',
+            valClass: 'text-white',
+            changeClass: 'text-amber-100/70',
+        },
         {
             name: 'PPP Active',
             value: customers.filter((c) => c.service_type === 'pppoe' && c.status === 'active').length,
@@ -214,39 +229,6 @@ function DashboardContent({
             nameClass: 'text-rose-100/80',
             valClass: 'text-white',
             changeClass: 'text-rose-100/70',
-        },
-        {
-            name: 'Total Pelanggan',
-            value: customers.length,
-            change: 'Basis Data',
-            icon: Activity,
-            cardClass: 'bg-gradient-to-br from-purple-500 to-violet-600 border-purple-400/20 text-white shadow-md shadow-purple-500/5',
-            iconClass: 'text-purple-100',
-            nameClass: 'text-purple-100/80',
-            valClass: 'text-white',
-            changeClass: 'text-purple-100/70',
-        },
-        {
-            name: 'Total Invoice',
-            value: invoices.length,
-            change: 'Terbit bulanan',
-            icon: CreditCard,
-            cardClass: 'bg-gradient-to-br from-amber-500 to-orange-600 border-amber-400/20 text-white shadow-md shadow-amber-500/5',
-            iconClass: 'text-amber-100',
-            nameClass: 'text-amber-100/80',
-            valClass: 'text-white',
-            changeClass: 'text-amber-100/70',
-        },
-        {
-            name: 'Belum Bayar',
-            value: invoices.filter((inv) => inv.status === 'unpaid').length,
-            change: 'Tagihan pending',
-            icon: AlertCircle,
-            cardClass: 'bg-gradient-to-br from-cyan-500 to-sky-600 border-cyan-400/20 text-white shadow-md shadow-cyan-500/5',
-            iconClass: 'text-cyan-100',
-            nameClass: 'text-cyan-100/80',
-            valClass: 'text-white',
-            changeClass: 'text-cyan-100/70',
         },
     ];
 
@@ -307,7 +289,7 @@ function DashboardContent({
 
     return (
         <>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((stat, idx) => {
                     const Icon = stat.icon;
                     return (

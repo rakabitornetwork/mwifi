@@ -22,6 +22,7 @@ export function AdminThemeProvider({ children }) {
             themeTextTitle: isDarkMode ? 'text-white' : 'text-zinc-900',
             themeTextSub: isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
             themeTextDesc: isDarkMode ? 'text-zinc-500' : 'text-zinc-400',
+            themeBrandBar: isDarkMode ? 'noc-brand-bar noc-brand-bar-dark' : 'noc-brand-bar noc-brand-bar-light',
             themeHeader: isDarkMode ? 'noc-navbar noc-navbar-dark noc-brand-bar' : 'noc-navbar noc-navbar-light noc-brand-bar',
             themeHeaderTextTitle: 'text-white',
             themeHeaderBtn: 'border-white/22 bg-white/10 text-white/90 hover:bg-white/18 hover:text-white hover:border-white/32 shadow-sm',
