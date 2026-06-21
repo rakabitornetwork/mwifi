@@ -315,6 +315,7 @@ class AdminActionController extends Controller
 
         $data = $request->validate([
             'id' => 'nullable|integer',
+            'router_id' => 'required|exists:routers,id',
             'name' => 'required|string|max:100',
             'price' => 'required|numeric|min:0',
             'bandwidth_limit' => 'required|string',
@@ -336,100 +337,98 @@ class AdminActionController extends Controller
         $data['lock_mac'] = isset($data['lock_mac']) ? (bool)$data['lock_mac'] : false;
 
         $id = $data['id'] ?? null;
-        unset($data['id']);
+        $routerId = (int) $data['router_id'];
+        unset($data['id'], $data['router_id']);
 
         $oldPackage = null;
         if ($id) {
             $oldPackage = Package::find($id);
         }
 
-        // Sync profile to all active routers
-        $routers = Router::where('status', 1)->get();
+        $router = Router::findOrFail($routerId);
         $errors = [];
 
-        foreach ($routers as $router) {
-            try {
-                $connector = \App\Services\Router\RouterService::getConnector($router);
+        try {
+            $connector = \App\Services\Router\RouterService::getConnector($router);
 
-                if (($data['type'] ?? 'pppoe') === 'hotspot') {
-                    $mkData = [
-                        'name' => $data['mikrotik_profile'],
-                        'rate-limit' => $data['bandwidth_limit'] ?? null,
-                        'parent-queue' => $data['parent_queue'] ?? null,
-                        'queue-type' => $data['queue_type_rx'] ?? null,
-                        'address-pool' => $data['remote_address'] ?? null,
-                    ];
+            if (($data['type'] ?? 'pppoe') === 'hotspot') {
+                $mkData = [
+                    'name' => $data['mikrotik_profile'],
+                    'rate-limit' => $data['bandwidth_limit'] ?? null,
+                    'parent-queue' => $data['parent_queue'] ?? null,
+                    'queue-type' => $data['queue_type_rx'] ?? null,
+                    'address-pool' => $data['remote_address'] ?? null,
+                ];
 
-                    if ($data['use_validation_script']) {
-                        $price = isset($data['price']) ? intval($data['price']) : 0;
-                        $validity = $data['validity'] ?? '1d';
-                        $profileName = $data['mikrotik_profile'];
-                        $lockMac = $data['lock_mac'];
-                        
-                        $lockMacCode = $lockMac 
-                            ? '[:local mac $"mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]]' 
-                            : '';
-                            
-                        $lockMacStatus = $lockMac ? 'Enable' : 'Disable';
+                if ($data['use_validation_script']) {
+                    $price = isset($data['price']) ? intval($data['price']) : 0;
+                    $validity = $data['validity'] ?? '1d';
+                    $profileName = $data['mikrotik_profile'];
+                    $lockMac = $data['lock_mac'];
 
-                        $script = ':put (",remc,' . $price . ',' . $validity . ',' . $price . ',,' . $lockMacStatus . ',"); {:local date [ /system clock get date ];:local year [ :pick $date 0 4 ];:local month [ :pick $date 5 7 ]; :local comment [ /ip hotspot user get [/ip hotspot user find where name="$user"] comment]; :local ucode [:pic $comment 0 2]; :if ($ucode = "vc" or $ucode = "up" or $comment = "") do={ /sys sch add name="$user" disable=no start-date=$date interval="' . $validity . '"; :delay 2s; :local exp [ /sys sch get [ /sys sch find where name="$user" ] next-run]; :local getxp [len $exp]; :if ($getxp = 15) do={ :local d [:pic $exp 0 6]; :local t [:pic $exp 7 16]; :local s ("/"); :local exp ("$d$s$year $t"); /ip hotspot user set comment=$exp [find where name="$user"];}; :if ($getxp = 8) do={ /ip hotspot user set comment="$date $exp" [find where name="$user"];}; :if ($getxp > 15) do={ /ip hotspot user set comment=$exp [find where name="$user"];}; /sys sch set [find where name="$user"] interval=0s on-event="/ip hotspot user remove [find where name=\\\"$user\\\"]; /system scheduler remove [find where name=\\\"$user\\\"]"; :local mac $"mac-address"; :local time [/system clock get time ]; /system script add name="$date-|-$time-|-$user-|-' . $price . '-|-$address-|-$mac-|-' . $validity . '-|-' . $profileName . '-|-$comment" owner="$month$year" source=$date comment=mikhmon; ' . $lockMacCode . '}}';
+                    $lockMacCode = $lockMac
+                        ? '[:local mac $"mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]]'
+                        : '';
 
-                        $mkData['on-login'] = $script;
-                    } else {
-                        $mkData['on-login'] = '';
-                    }
+                    $lockMacStatus = $lockMac ? 'Enable' : 'Disable';
 
-                    // Filter out null and empty string values to prevent RouterOS REST API 400 Bad Request
-                    // Keep empty string '' for on-login to allow clearing it on the router.
-                    $mkData = array_filter($mkData, function ($val, $key) {
-                        if ($key === 'on-login') {
-                            return $val !== null;
-                        }
-                        return $val !== null && $val !== '';
-                    }, ARRAY_FILTER_USE_BOTH);
+                    $script = ':put (",remc,' . $price . ',' . $validity . ',' . $price . ',,' . $lockMacStatus . ',"); {:local date [ /system clock get date ];:local year [ :pick $date 0 4 ];:local month [ :pick $date 5 7 ]; :local comment [ /ip hotspot user get [/ip hotspot user find where name="$user"] comment]; :local ucode [:pic $comment 0 2]; :if ($ucode = "vc" or $ucode = "up" or $comment = "") do={ /sys sch add name="$user" disable=no start-date=$date interval="' . $validity . '"; :delay 2s; :local exp [ /sys sch get [ /sys sch find where name="$user" ] next-run]; :local getxp [len $exp]; :if ($getxp = 15) do={ :local d [:pic $exp 0 6]; :local t [:pic $exp 7 16]; :local s ("/"); :local exp ("$d$s$year $t"); /ip hotspot user set comment=$exp [find where name="$user"];}; :if ($getxp = 8) do={ /ip hotspot user set comment="$date $exp" [find where name="$user"];}; :if ($getxp > 15) do={ /ip hotspot user set comment=$exp [find where name="$user"];}; /sys sch set [find where name="$user"] interval=0s on-event="/ip hotspot user remove [find where name=\\\"$user\\\"]; /system scheduler remove [find where name=\\\"$user\\\"]"; :local mac $"mac-address"; :local time [/system clock get time ]; /system script add name="$date-|-$time-|-$user-|-' . $price . '-|-$address-|-$mac-|-' . $validity . '-|-' . $profileName . '-|-$comment" owner="$month$year" source=$date comment=mikhmon; ' . $lockMacCode . '}}';
 
-                    $oldProfileName = $oldPackage ? $oldPackage->mikrotik_profile : $data['mikrotik_profile'];
-                    $updated = $connector->updateHotspotProfile($oldProfileName, $mkData);
-                    if (!$updated) {
-                        $updatedNew = $connector->updateHotspotProfile($data['mikrotik_profile'], $mkData);
-                        if (!$updatedNew) {
-                            $added = $connector->addHotspotProfile($mkData);
-                            if (!$added) {
-                                throw new \Exception("Gagal menambahkan profil hotspot di Mikrotik.");
-                            }
-                        }
-                    }
+                    $mkData['on-login'] = $script;
                 } else {
-                    $mkData = [
-                        'name' => $data['mikrotik_profile'],
-                        'rate-limit' => $data['bandwidth_limit'] ?? null,
-                        'local-address' => $data['local_address'] ?? null,
-                        'remote-address' => $data['remote_address'] ?? null,
-                        'dns-server' => $data['dns_server'] ?? null,
-                        'parent-queue' => $data['parent_queue'] ?? null,
-                        'queue-type' => $data['queue_type_rx'] ?? null,
-                    ];
+                    $mkData['on-login'] = '';
+                }
 
-                    // Filter out null and empty string values to prevent RouterOS REST API 400 Bad Request
-                    $mkData = array_filter($mkData, function ($val) {
-                        return $val !== null && $val !== '';
-                    });
+                // Filter out null and empty string values to prevent RouterOS REST API 400 Bad Request
+                // Keep empty string '' for on-login to allow clearing it on the router.
+                $mkData = array_filter($mkData, function ($val, $key) {
+                    if ($key === 'on-login') {
+                        return $val !== null;
+                    }
+                    return $val !== null && $val !== '';
+                }, ARRAY_FILTER_USE_BOTH);
 
-                    $oldProfileName = $oldPackage ? $oldPackage->mikrotik_profile : $data['mikrotik_profile'];
-                    $updated = $connector->updatePppProfile($oldProfileName, $mkData);
-                    if (!$updated) {
-                        $updatedNew = $connector->updatePppProfile($data['mikrotik_profile'], $mkData);
-                        if (!$updatedNew) {
-                            $added = $connector->addPppProfile($mkData);
-                            if (!$added) {
-                                throw new \Exception("Gagal menambahkan profil PPP di Mikrotik.");
-                            }
+                $oldProfileName = $oldPackage ? $oldPackage->mikrotik_profile : $data['mikrotik_profile'];
+                $updated = $connector->updateHotspotProfile($oldProfileName, $mkData);
+                if (!$updated) {
+                    $updatedNew = $connector->updateHotspotProfile($data['mikrotik_profile'], $mkData);
+                    if (!$updatedNew) {
+                        $added = $connector->addHotspotProfile($mkData);
+                        if (!$added) {
+                            throw new \Exception("Gagal menambahkan profil hotspot di Mikrotik.");
                         }
                     }
                 }
-            } catch (\Exception $e) {
-                $errors[] = "{$router->name} (" . $e->getMessage() . ")";
+            } else {
+                $mkData = [
+                    'name' => $data['mikrotik_profile'],
+                    'rate-limit' => $data['bandwidth_limit'] ?? null,
+                    'local-address' => $data['local_address'] ?? null,
+                    'remote-address' => $data['remote_address'] ?? null,
+                    'dns-server' => $data['dns_server'] ?? null,
+                    'parent-queue' => $data['parent_queue'] ?? null,
+                    'queue-type' => $data['queue_type_rx'] ?? null,
+                ];
+
+                // Filter out null and empty string values to prevent RouterOS REST API 400 Bad Request
+                $mkData = array_filter($mkData, function ($val) {
+                    return $val !== null && $val !== '';
+                });
+
+                $oldProfileName = $oldPackage ? $oldPackage->mikrotik_profile : $data['mikrotik_profile'];
+                $updated = $connector->updatePppProfile($oldProfileName, $mkData);
+                if (!$updated) {
+                    $updatedNew = $connector->updatePppProfile($data['mikrotik_profile'], $mkData);
+                    if (!$updatedNew) {
+                        $added = $connector->addPppProfile($mkData);
+                        if (!$added) {
+                            throw new \Exception("Gagal menambahkan profil PPP di Mikrotik.");
+                        }
+                    }
+                }
             }
+        } catch (\Exception $e) {
+            $errors[] = "{$router->name} (" . $e->getMessage() . ")";
         }
 
         // Set queue_type_tx same as queue_type_rx for database consistency
@@ -443,7 +442,7 @@ class AdminActionController extends Controller
             return redirect()->back()->with('warning', 'Paket disimpan secara lokal, namun gagal sinkronisasi profil ke router: ' . implode(', ', $errors));
         }
 
-        return redirect()->back()->with('success', 'Paket internet berhasil disimpan dan disinkronkan ke semua router.');
+        return redirect()->back()->with('success', "Paket internet berhasil disimpan dan disinkronkan ke router {$router->name}.");
     }
 
     /**

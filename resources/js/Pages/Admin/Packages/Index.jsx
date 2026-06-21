@@ -131,6 +131,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         const payload = {
             id: editingPackage ? editingPackage.id : '',
             type: selectedPackageType,
+            router_id: routerFilter,
             ...packageForm,
         };
 
