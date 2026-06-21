@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\BillingActivityLog;
+use App\Models\BillingDeferral;
 use App\Models\Customer;
 use App\Models\HotspotSale;
 use App\Models\HotspotVoucher;
@@ -71,7 +72,16 @@ class AdminPageController extends Controller
             'invoices' => BillingService::appendNextBillingToInvoices(
                 Invoice::with(['customer.package', 'payments'])->orderByDesc('created_at')->get()
             ),
-            'customers' => Customer::with(['package', 'router'])->get(),
+            'customers' => Customer::with(['package', 'router'])
+                ->where('service_type', 'pppoe')
+                ->get(),
+            'billingDeferrals' => BillingService::serializeBillingDeferrals(
+                BillingDeferral::with(['customer.package', 'invoice'])
+                    ->whereIn('status', ['pending', 'invoiced'])
+                    ->orderByDesc('created_at')
+                    ->limit(50)
+                    ->get()
+            ),
             'billingActivityLogs' => BillingActivityLog::orderByDesc('created_at')->limit(50)->get(),
         ]);
     }

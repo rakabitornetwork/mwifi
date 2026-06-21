@@ -512,6 +512,84 @@ class AdminActionController extends Controller
     }
 
     /**
+     * Preview accumulated billing deferral for a customer.
+     */
+    public function previewBillingDeferral(Request $request)
+    {
+        $data = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'months_count' => 'required|integer|in:1,2',
+        ]);
+
+        $customer = Customer::with('package')->findOrFail($data['customer_id']);
+
+        try {
+            return response()->json(
+                BillingService::previewBillingDeferral($customer, (int) $data['months_count'])
+            );
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * Create billing deferral (postpone 1–2 months with accumulated invoice).
+     */
+    public function createBillingDeferral(Request $request)
+    {
+        $data = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'months_count' => 'required|integer|in:1,2',
+            'combined_due_date' => 'required|date|after:today',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $customer = Customer::with('package')->findOrFail($data['customer_id']);
+
+        try {
+            $deferral = BillingService::createBillingDeferral(
+                $customer,
+                (int) $data['months_count'],
+                Carbon::parse($data['combined_due_date']),
+                $request->user(),
+                $data['notes'] ?? null
+            );
+
+            $periodLabel = implode(' + ', $deferral->periods ?? []);
+
+            return redirect()->back()->with(
+                'success',
+                "Penundaan tagihan berhasil. Periode {$periodLabel} akan digabung menjadi satu invoice jatuh tempo {$deferral->combined_due_date->format('d-m-Y')}."
+            );
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Cancel a pending billing deferral.
+     */
+    public function cancelBillingDeferral(Request $request)
+    {
+        $data = $request->validate([
+            'deferral_id' => 'required|exists:billing_deferrals,id',
+        ]);
+
+        $deferral = \App\Models\BillingDeferral::with('customer')->findOrFail($data['deferral_id']);
+
+        try {
+            BillingService::cancelBillingDeferral($deferral);
+
+            return redirect()->back()->with(
+                'success',
+                'Penundaan tagihan untuk ' . ($deferral->customer?->name ?? 'pelanggan') . ' berhasil dibatalkan.'
+            );
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
      * Test connection to a router.
      */
     public function testConnection(Request $request)

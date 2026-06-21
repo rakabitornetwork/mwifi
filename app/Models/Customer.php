@@ -39,4 +39,17 @@ class Customer extends Model
     {
         return $this->hasMany(Invoice::class);
     }
+
+    public function billingDeferrals(): HasMany
+    {
+        return $this->hasMany(BillingDeferral::class);
+    }
+
+    public function pendingBillingDeferral(): ?BillingDeferral
+    {
+        return $this->billingDeferrals()
+            ->where('status', 'pending')
+            ->latest('id')
+            ->first();
+    }
 }

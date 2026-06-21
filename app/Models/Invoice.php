@@ -17,6 +17,8 @@ class Invoice extends Model
         'due_date' => 'date',
         'paid_at' => 'datetime',
         'is_prorated' => 'boolean',
+        'is_accumulated' => 'boolean',
+        'accumulated_periods' => 'array',
         'days_billed' => 'integer',
     ];
 

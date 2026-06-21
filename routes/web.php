@@ -91,6 +91,9 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/invoices/pay-manual', [\App\Http\Controllers\Admin\AdminActionController::class, 'payInvoiceManual']);
     Route::post('admin/invoices/void-payment', [\App\Http\Controllers\Admin\AdminActionController::class, 'voidInvoicePayment']);
     Route::post('admin/invoices/generate', [\App\Http\Controllers\Admin\AdminActionController::class, 'generateInvoices']);
+    Route::post('admin/billing/defer/preview', [\App\Http\Controllers\Admin\AdminActionController::class, 'previewBillingDeferral']);
+    Route::post('admin/billing/defer', [\App\Http\Controllers\Admin\AdminActionController::class, 'createBillingDeferral']);
+    Route::post('admin/billing/defer/cancel', [\App\Http\Controllers\Admin\AdminActionController::class, 'cancelBillingDeferral']);
     Route::get('admin/invoices/{invoice}/print', [\App\Http\Controllers\Admin\AdminActionController::class, 'printInvoice']);
     Route::post('admin/settings/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveSettings']);
     Route::post('admin/profile/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveAdminProfile']);

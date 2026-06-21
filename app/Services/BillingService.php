@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\BillingActivityLog;
+use App\Models\BillingDeferral;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\User;
 use App\Services\Router\RouterService;
 use App\Services\BrandingService;
 use Carbon\Carbon;
@@ -151,6 +153,10 @@ class BillingService
                 continue;
             }
 
+            if (self::isPeriodDeferredForCustomer($customer, $schedule['period'])) {
+                continue;
+            }
+
             $created = self::createInvoiceForCustomer($customer, $schedule['period'], $schedule['due_date']);
             if ($created !== null) {
                 $count++;
@@ -159,6 +165,14 @@ class BillingService
         }
 
         self::recordScheduledInvoiceRun($today, $daysBeforeDue, $count, $createdInvoices);
+
+        $deferralCount = self::processScheduledDeferrals($today);
+        if ($deferralCount > 0) {
+            Log::info("Billing deferral run completed.", [
+                'run_date' => $today->toDateString(),
+                'invoice_count' => $deferralCount,
+            ]);
+        }
 
         return $count;
     }
@@ -470,6 +484,10 @@ class BillingService
                 continue;
             }
 
+            if (self::isPeriodDeferredForCustomer($customer, $period)) {
+                continue;
+            }
+
             $dueDate = self::resolveDueDateForPeriod($customer, $period);
             if ($dueDate->isPast() || $dueDate->isToday()) {
                 $dueDate = Carbon::now()->addDays(7)->startOfDay();
@@ -503,6 +521,10 @@ class BillingService
 
         foreach ($invoices as $invoice) {
             $customer = $invoice->customer;
+
+            if ($customer && self::customerHasPendingDeferral($customer)) {
+                continue;
+            }
 
             DB::beginTransaction();
             try {
@@ -669,5 +691,364 @@ class BillingService
             DB::rollBack();
             throw $e;
         }
+    }
+
+    /**
+     * Resolve anchor billing period for a deferral (oldest unpaid, next after last paid, or current month).
+     */
+    public static function resolveDeferralAnchorPeriod(Customer $customer, ?Carbon $today = null): string
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+
+        $unpaid = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->orderBy('billing_period')
+            ->first();
+
+        if ($unpaid && !empty($unpaid->billing_period)) {
+            return (string) $unpaid->billing_period;
+        }
+
+        $lastPaid = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('status', 'paid')
+            ->orderByDesc('billing_period')
+            ->first();
+
+        if ($lastPaid && !empty($lastPaid->billing_period)) {
+            return Carbon::createFromFormat('Y-m', $lastPaid->billing_period)
+                ->addMonth()
+                ->format('Y-m');
+        }
+
+        return $today->format('Y-m');
+    }
+
+    /**
+     * Resolve billing periods included in a deferral.
+     *
+     * 1 month: anchor period only.
+     * 2 months: bulan lalu + bulan anchor (bulan berikutnya dari bulan lalu).
+     *
+     * @return array<int, string>
+     */
+    public static function resolveDeferralPeriods(Customer $customer, int $monthsCount, ?Carbon $today = null): array
+    {
+        $monthsCount = max(1, min(2, $monthsCount));
+        $anchor = self::resolveDeferralAnchorPeriod($customer, $today);
+
+        if ($monthsCount === 1) {
+            return [$anchor];
+        }
+
+        $previous = Carbon::createFromFormat('Y-m', $anchor)
+            ->subMonth()
+            ->format('Y-m');
+
+        return [$previous, $anchor];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function previewBillingDeferral(Customer $customer, int $monthsCount, ?Carbon $today = null): array
+    {
+        if (!$customer->package) {
+            throw new \RuntimeException('Pelanggan belum memiliki paket internet.');
+        }
+
+        $periods = self::resolveDeferralPeriods($customer, $monthsCount, $today);
+        $accumulated = self::calculateAccumulatedBilling($customer, $periods);
+
+        if ($accumulated['lines'] === []) {
+            throw new \RuntimeException('Tidak ada periode tagihan yang dapat ditunda untuk pelanggan ini.');
+        }
+
+        return [
+            'anchor_period' => self::resolveDeferralAnchorPeriod($customer, $today),
+            'months_count' => max(1, min(2, $monthsCount)),
+            'periods' => $periods,
+            'period_labels' => array_map(
+                fn (string $period) => Carbon::createFromFormat('Y-m', $period)->translatedFormat('F Y'),
+                $periods
+            ),
+            'amount' => $accumulated['amount'],
+            'tax' => $accumulated['tax'],
+            'total_amount' => $accumulated['total_amount'],
+            'lines' => $accumulated['lines'],
+        ];
+    }
+
+    public static function createBillingDeferral(
+        Customer $customer,
+        int $monthsCount,
+        Carbon $combinedDueDate,
+        ?User $createdBy = null,
+        ?string $notes = null
+    ): BillingDeferral {
+        if ($customer->service_type !== 'pppoe') {
+            throw new \RuntimeException('Penundaan tagihan hanya untuk pelanggan PPPoE.');
+        }
+
+        if (!$customer->package) {
+            throw new \RuntimeException('Pelanggan belum memiliki paket internet.');
+        }
+
+        if (self::customerHasPendingDeferral($customer)) {
+            throw new \RuntimeException('Pelanggan masih memiliki penundaan tagihan aktif.');
+        }
+
+        $monthsCount = max(1, min(2, $monthsCount));
+        $combinedDueDate = $combinedDueDate->copy()->startOfDay();
+
+        if ($combinedDueDate->lte(Carbon::today())) {
+            throw new \RuntimeException('Tanggal jatuh tempo gabungan harus setelah hari ini.');
+        }
+
+        $preview = self::previewBillingDeferral($customer, $monthsCount);
+        $periods = $preview['periods'];
+
+        return DB::transaction(function () use ($customer, $monthsCount, $combinedDueDate, $createdBy, $notes, $periods) {
+            foreach ($periods as $period) {
+                Invoice::query()
+                    ->where('customer_id', $customer->id)
+                    ->where('billing_period', $period)
+                    ->where('status', 'unpaid')
+                    ->update(['status' => 'canceled']);
+            }
+
+            return BillingDeferral::create([
+                'customer_id' => $customer->id,
+                'created_by' => $createdBy?->id,
+                'months_count' => $monthsCount,
+                'periods' => $periods,
+                'combined_due_date' => $combinedDueDate,
+                'status' => 'pending',
+                'notes' => $notes,
+            ]);
+        });
+    }
+
+    public static function cancelBillingDeferral(BillingDeferral $deferral): void
+    {
+        if ($deferral->status !== 'pending') {
+            throw new \RuntimeException('Hanya penundaan berstatus pending yang dapat dibatalkan.');
+        }
+
+        $deferral->update(['status' => 'cancelled']);
+    }
+
+    public static function customerHasPendingDeferral(Customer $customer): bool
+    {
+        return BillingDeferral::query()
+            ->where('customer_id', $customer->id)
+            ->where('status', 'pending')
+            ->exists();
+    }
+
+    public static function isPeriodDeferredForCustomer(Customer $customer, string $period): bool
+    {
+        return BillingDeferral::query()
+            ->where('customer_id', $customer->id)
+            ->where('status', 'pending')
+            ->get()
+            ->contains(fn (BillingDeferral $deferral) => in_array($period, $deferral->periods ?? [], true));
+    }
+
+    /**
+     * Generate accumulated invoices for deferrals whose schedule has arrived.
+     */
+    public static function processScheduledDeferrals(?Carbon $today = null): int
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+        $daysBeforeDue = self::getGenerateDaysBeforeDue();
+        $count = 0;
+
+        $deferrals = BillingDeferral::query()
+            ->where('status', 'pending')
+            ->whereNull('invoice_id')
+            ->with(['customer.package'])
+            ->get();
+
+        foreach ($deferrals as $deferral) {
+            $generateOn = Carbon::parse($deferral->combined_due_date)
+                ->subDays($daysBeforeDue)
+                ->startOfDay();
+
+            if ($today->lt($generateOn)) {
+                continue;
+            }
+
+            if (self::createAccumulatedInvoiceFromDeferral($deferral) !== null) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * @return array{invoice_number: string, customer_name: string, total_amount: float, billing_period: string, due_date: string}|null
+     */
+    public static function createAccumulatedInvoiceFromDeferral(BillingDeferral $deferral): ?array
+    {
+        $deferral->loadMissing(['customer.package']);
+
+        $customer = $deferral->customer;
+        if (!$customer || !$customer->package || $deferral->status !== 'pending') {
+            return null;
+        }
+
+        if ($deferral->invoice_id) {
+            return null;
+        }
+
+        $periods = $deferral->periods ?? [];
+        if ($periods === []) {
+            return null;
+        }
+
+        $accumulated = self::calculateAccumulatedBilling($customer, $periods);
+        if ($accumulated['lines'] === []) {
+            return null;
+        }
+
+        $dueDate = Carbon::parse($deferral->combined_due_date)->startOfDay();
+        $billingPeriod = count($periods) === 1
+            ? $periods[0]
+            : ($periods[0] . '+' . $periods[array_key_last($periods)]);
+
+        $result = null;
+
+        DB::transaction(function () use ($deferral, $customer, $periods, $accumulated, $dueDate, $billingPeriod, &$result) {
+            $amount = $accumulated['amount'];
+            $tax = $accumulated['tax'];
+            $total = $accumulated['total_amount'];
+
+            $invNumber = 'INV-ACC-' . str_replace('-', '', $periods[0])
+                . (count($periods) > 1 ? str_replace('-', '', $periods[array_key_last($periods)]) : '')
+                . '-' . str_pad((string) $customer->id, 4, '0', STR_PAD_LEFT)
+                . '-' . strtoupper(bin2hex(random_bytes(2)));
+
+            $invoice = Invoice::create([
+                'customer_id' => $customer->id,
+                'invoice_number' => $invNumber,
+                'billing_period' => $billingPeriod,
+                'amount' => $amount,
+                'days_billed' => array_sum(array_column($accumulated['lines'], 'days_billed')),
+                'is_prorated' => collect($accumulated['lines'])->contains(fn (array $line) => $line['is_prorated']),
+                'is_accumulated' => true,
+                'accumulated_periods' => $periods,
+                'tax' => $tax,
+                'total_amount' => $total,
+                'due_date' => $dueDate,
+                'status' => 'unpaid',
+            ]);
+
+            $deferral->update([
+                'status' => 'invoiced',
+                'invoice_id' => $invoice->id,
+            ]);
+
+            try {
+                $periodLabel = implode(' + ', $periods);
+                $dueDateFormatted = $dueDate->format('d-m-Y');
+                $brandName = BrandingService::companyName();
+                $message = "Yth. Bapak/Ibu {$customer->name},\n\nTagihan internet {$brandName} *akumulasi* periode *{$periodLabel}* telah terbit.\n\n*Detail Tagihan*:\n- No. Invoice: *{$invNumber}*\n- Layanan: PPPoE ({$customer->username})\n- Subtotal: *Rp " . number_format($amount, 0, ',', '.') . "*\n- Total Tagihan: *Rp " . number_format($total, 0, ',', '.') . "*\n- Jatuh Tempo: *{$dueDateFormatted}*\n\nSilakan lakukan pembayaran sebelum jatuh tempo. Terima kasih.";
+
+                if (class_exists(\App\Services\WhatsAppService::class)) {
+                    \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
+                }
+            } catch (\Exception $waEx) {
+                Log::error("Failed to send WhatsApp accumulated billing notification for {$customer->username}: " . $waEx->getMessage());
+            }
+
+            $result = [
+                'invoice_number' => $invNumber,
+                'customer_name' => $customer->name,
+                'total_amount' => $total,
+                'billing_period' => $billingPeriod,
+                'due_date' => $dueDate->toDateString(),
+            ];
+        });
+
+        return $result;
+    }
+
+    /**
+     * @param array<int, string> $periods
+     * @return array{amount: float, tax: float, total_amount: float, lines: array<int, array<string, mixed>>}
+     */
+    public static function calculateAccumulatedBilling(Customer $customer, array $periods): array
+    {
+        if (!$customer->package) {
+            return [
+                'amount' => 0,
+                'tax' => 0,
+                'total_amount' => 0,
+                'lines' => [],
+            ];
+        }
+
+        $monthlyPrice = (float) $customer->package->price;
+        $lines = [];
+        $amount = 0.0;
+
+        foreach ($periods as $period) {
+            $billing = self::calculateInvoiceAmount($customer, $period, $monthlyPrice);
+            if ($billing === null) {
+                continue;
+            }
+
+            $lines[] = [
+                'period' => $period,
+                'amount' => $billing['amount'],
+                'days_billed' => $billing['days_billed'],
+                'is_prorated' => $billing['is_prorated'],
+            ];
+            $amount += $billing['amount'];
+        }
+
+        $amount = round($amount, 2);
+        $taxRate = (float) SettingService::get('system.tax_rate', 0);
+        $tax = round($amount * $taxRate, 2);
+        $total = round($amount + $tax, 2);
+
+        return [
+            'amount' => $amount,
+            'tax' => $tax,
+            'total_amount' => $total,
+            'lines' => $lines,
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function serializeBillingDeferrals($deferrals): array
+    {
+        return collect($deferrals)->map(function (BillingDeferral $deferral) {
+            $preview = self::calculateAccumulatedBilling(
+                $deferral->customer,
+                $deferral->periods ?? []
+            );
+
+            return [
+                'id' => $deferral->id,
+                'customer_id' => $deferral->customer_id,
+                'customer_name' => $deferral->customer?->name,
+                'customer_username' => $deferral->customer?->username,
+                'months_count' => $deferral->months_count,
+                'periods' => $deferral->periods ?? [],
+                'combined_due_date' => $deferral->combined_due_date?->format('Y-m-d'),
+                'status' => $deferral->status,
+                'notes' => $deferral->notes,
+                'invoice_id' => $deferral->invoice_id,
+                'invoice_number' => $deferral->invoice?->invoice_number,
+                'estimated_total_amount' => $preview['total_amount'],
+                'created_at' => $deferral->created_at?->toDateTimeString(),
+            ];
+        })->all();
     }
 }
