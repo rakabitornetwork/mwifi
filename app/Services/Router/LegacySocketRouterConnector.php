@@ -523,6 +523,35 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
         }
     }
 
+    public function getInterfaceLiveTraffic(string $interfaceName): array
+    {
+        if (!$this->client) {
+            throw new Exception('Koneksi RouterOS belum tersedia.');
+        }
+
+        try {
+            $query = (new Query('/interface/monitor-traffic'))
+                ->equal('interface', $interfaceName)
+                ->equal('once', '');
+
+            $row = $this->client->query($query)->read()[0] ?? [];
+
+            if (!is_array($row) || $row === []) {
+                throw new Exception("Interface \"{$interfaceName}\" tidak dapat dimonitor.");
+            }
+
+            $rates = MikrotikInterfaceService::parseMonitorTrafficRow($row);
+
+            return [
+                'name' => (string) ($row['name'] ?? $interfaceName),
+                'rx_bps' => $rates['rx_bps'],
+                'tx_bps' => $rates['tx_bps'],
+            ];
+        } catch (Exception $e) {
+            throw new Exception('Gagal membaca trafik interface RouterOS: ' . $e->getMessage());
+        }
+    }
+
     public function getSimpleQueueTrafficStats(): array
     {
         if (!$this->client) {

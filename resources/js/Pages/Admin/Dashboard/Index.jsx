@@ -88,6 +88,7 @@ function DashboardContent({
     const [ontDevices, setOntDevices] = useState([]);
     const [isLoadingOnt, setIsLoadingOnt] = useState(true);
     const [isSyncingRouter, setIsSyncingRouter] = useState(null);
+    const monitorIntervalMs = 7000;
 
     const fetchOntDevices = async () => {
         setIsLoadingOnt(true);
@@ -212,7 +213,7 @@ function DashboardContent({
         fetchServerResources();
         fetchInterfaceList();
 
-        const interval = setInterval(fetchServerResources, 15000);
+        const interval = setInterval(fetchServerResources, monitorIntervalMs);
 
         return () => clearInterval(interval);
     }, [selectedRouterId]);
@@ -226,7 +227,7 @@ function DashboardContent({
         setTrafficHistory([]);
         fetchInterfaceTraffic();
 
-        const interval = setInterval(fetchInterfaceTraffic, 15000);
+        const interval = setInterval(fetchInterfaceTraffic, monitorIntervalMs);
         return () => clearInterval(interval);
     }, [selectedRouterId, selectedInterface]);
 
@@ -557,7 +558,7 @@ function DashboardContent({
                                             <span className="text-amber-500">Belum ada router</span>
                                         )}
                                         <span className="font-mono text-emerald-500 shrink-0">
-                                            {isLoadingResources ? 'Memuat...' : 'Interval: 15s'}
+                                            {isLoadingResources ? 'Memuat...' : 'Interval: 7s'}
                                         </span>
                                     </div>
                                 </div>
@@ -682,7 +683,11 @@ function DashboardContent({
                                         )}
                                     </div>
                                     <p className="text-[9px] text-zinc-500 dark:text-zinc-400">
-                                        RX/TX dari perspektif router pada interface terpilih. Refresh otomatis setiap 15 detik.
+                                        RX/TX dari perspektif router via RouterOS monitor-traffic.
+                                        {interfaceTraffic.sampled_at && (
+                                            <> Terakhir diukur: {new Date(interfaceTraffic.sampled_at).toLocaleTimeString('id-ID')}.</>
+                                        )}
+                                        {' '}Refresh otomatis setiap 7 detik.
                                     </p>
                                 </div>
                             </div>

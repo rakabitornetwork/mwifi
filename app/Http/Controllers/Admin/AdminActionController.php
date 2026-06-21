@@ -1363,6 +1363,7 @@ class AdminActionController extends Controller
         try {
             $connector = \App\Services\Router\RouterService::getConnector($router);
             $interfaces = $connector->getInterfaces();
+            $dashboardInterfaces = \App\Services\Router\MikrotikInterfaceService::filterForDashboard($interfaces);
 
             if (empty($validated['interface'])) {
                 return response()->json([
@@ -1374,7 +1375,7 @@ class AdminActionController extends Controller
                         'type' => $iface['type'],
                         'running' => $iface['running'],
                         'disabled' => $iface['disabled'],
-                    ], $interfaces),
+                    ], $dashboardInterfaces),
                 ]);
             }
 
@@ -1389,16 +1390,19 @@ class AdminActionController extends Controller
                 ], 404);
             }
 
+            $live = $connector->getInterfaceLiveTraffic($selectedName);
+
             return response()->json([
                 'router_id' => $router->id,
                 'router_name' => $router->name,
-                'interface' => $selected['name'],
+                'interface' => $live['name'] ?? $selected['name'],
                 'type' => $selected['type'],
                 'running' => $selected['running'],
                 'disabled' => $selected['disabled'],
-                'rx_bps' => (int) $selected['rx_bps'],
-                'tx_bps' => (int) $selected['tx_bps'],
-                'source' => 'routeros',
+                'rx_bps' => (int) $live['rx_bps'],
+                'tx_bps' => (int) $live['tx_bps'],
+                'sampled_at' => now()->toIso8601String(),
+                'source' => 'routeros-monitor-traffic',
             ]);
         } catch (\Exception $e) {
             return response()->json([

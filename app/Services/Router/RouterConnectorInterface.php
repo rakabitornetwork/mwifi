@@ -158,6 +158,13 @@ interface RouterConnectorInterface
     public function getInterfaces(): array;
 
     /**
+     * Live rx/tx for one interface via RouterOS monitor-traffic.
+     *
+     * @return array{rx_bps:int, tx_bps:int, name:string|null}
+     */
+    public function getInterfaceLiveTraffic(string $interfaceName): array;
+
+    /**
      * Live simple-queue throughput keyed by queue target/name (customer perspective).
      *
      * @return array<string, array{download_bps:int, upload_bps:int}>

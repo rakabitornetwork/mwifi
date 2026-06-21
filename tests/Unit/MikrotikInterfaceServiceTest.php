@@ -28,13 +28,24 @@ class MikrotikInterfaceServiceTest extends TestCase
         $this->assertTrue($result[0]['running']);
     }
 
-    public function test_pick_default_interface_prefers_ether1(): void
+    public function test_pick_default_interface_prefers_wan_uplink(): void
     {
         $name = MikrotikInterfaceService::pickDefaultInterfaceName([
-            ['name' => 'bridge1', 'running' => true, 'disabled' => false],
-            ['name' => 'ether1', 'running' => false, 'disabled' => false],
+            ['name' => 'bridge1', 'type' => 'bridge', 'running' => true, 'disabled' => false],
+            ['name' => 'ether1-wan', 'type' => 'ether', 'running' => true, 'disabled' => false],
         ]);
 
-        $this->assertSame('ether1', $name);
+        $this->assertSame('ether1-wan', $name);
+    }
+
+    public function test_filter_for_dashboard_excludes_pppoe_sessions(): void
+    {
+        $filtered = MikrotikInterfaceService::filterForDashboard([
+            ['name' => '<pppoe-user@realm>', 'type' => 'pppoe-in', 'running' => true, 'disabled' => false],
+            ['name' => 'ether1-wan', 'type' => 'ether', 'running' => true, 'disabled' => false],
+        ]);
+
+        $this->assertCount(1, $filtered);
+        $this->assertSame('ether1-wan', $filtered[0]['name']);
     }
 }

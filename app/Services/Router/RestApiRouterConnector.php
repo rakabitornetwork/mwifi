@@ -545,6 +545,42 @@ class RestApiRouterConnector implements RouterConnectorInterface
         }
     }
 
+    public function getInterfaceLiveTraffic(string $interfaceName): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(12)
+                ->post("{$this->baseUrl}/interface/monitor-traffic", [
+                    'interface' => $interfaceName,
+                    'once' => true,
+                    '.proplist' => ['name', 'rx-bits-per-second', 'tx-bits-per-second'],
+                ]);
+
+            if (!$response->successful()) {
+                $message = $response->json('message') ?? $response->body();
+                throw new Exception(trim((string) $message));
+            }
+
+            $payload = $response->json();
+            $row = is_array($payload) ? ($payload[0] ?? $payload) : [];
+
+            if (!is_array($row) || $row === []) {
+                throw new Exception("Interface \"{$interfaceName}\" tidak dapat dimonitor.");
+            }
+
+            $rates = MikrotikInterfaceService::parseMonitorTrafficRow($row);
+
+            return [
+                'name' => (string) ($row['name'] ?? $interfaceName),
+                'rx_bps' => $rates['rx_bps'],
+                'tx_bps' => $rates['tx_bps'],
+            ];
+        } catch (Exception $e) {
+            throw new Exception('Gagal membaca trafik interface RouterOS: ' . $e->getMessage());
+        }
+    }
+
     public function getSimpleQueueTrafficStats(): array
     {
         try {
