@@ -14,7 +14,7 @@ class DatabaseBackupService
 {
     public const DISK = 'local';
 
-    public const BACKUP_PATH = 'backups/database';
+    public const TEMP_BACKUP_PATH = 'backups/temp';
 
     /**
      * @return array<string, mixed>
@@ -37,40 +37,9 @@ class DatabaseBackupService
             'database' => $this->databaseName($config),
             'host' => $config['host'] ?? null,
             'port' => $config['port'] ?? null,
-            'backup_directory' => storage_path('app/' . self::BACKUP_PATH),
             'mysqldump_available' => in_array($driver, ['mysql', 'mariadb'], true)
                 && $this->findMysqlBinary('mysqldump') !== null,
         ];
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    public function listBackups(): array
-    {
-        $this->ensureBackupDirectory();
-
-        $files = Storage::disk(self::DISK)->files(self::BACKUP_PATH);
-
-        $backups = [];
-        foreach ($files as $file) {
-            $filename = basename($file);
-            if (!$this->isAllowedBackupFilename($filename)) {
-                continue;
-            }
-
-            $backups[] = [
-                'filename' => $filename,
-                'size' => Storage::disk(self::DISK)->size($file),
-                'size_human' => $this->formatBytes(Storage::disk(self::DISK)->size($file)),
-                'created_at' => date('Y-m-d H:i:s', Storage::disk(self::DISK)->lastModified($file)),
-                'created_at_timestamp' => Storage::disk(self::DISK)->lastModified($file),
-            ];
-        }
-
-        usort($backups, fn (array $a, array $b) => $b['created_at_timestamp'] <=> $a['created_at_timestamp']);
-
-        return $backups;
     }
 
     /**
@@ -78,7 +47,7 @@ class DatabaseBackupService
      */
     public function createBackup(): array
     {
-        $this->ensureBackupDirectory();
+        $this->ensureTempBackupDirectory();
 
         $info = $this->getDatabaseInfo();
         $driver = $info['driver'];
@@ -95,39 +64,15 @@ class DatabaseBackupService
             throw new \RuntimeException("Driver database \"{$driver}\" belum didukung untuk backup.");
         }
 
-        $path = self::BACKUP_PATH . '/' . $filename;
+        $path = self::TEMP_BACKUP_PATH . '/' . $filename;
 
         return [
             'filename' => $filename,
+            'absolute_path' => Storage::disk(self::DISK)->path($path),
             'size' => Storage::disk(self::DISK)->size($path),
             'size_human' => $this->formatBytes(Storage::disk(self::DISK)->size($path)),
             'created_at' => now()->toDateTimeString(),
         ];
-    }
-
-    public function resolveBackupPath(string $filename): string
-    {
-        $safeName = $this->sanitizeFilename($filename);
-        $relative = self::BACKUP_PATH . '/' . $safeName;
-        $absolute = Storage::disk(self::DISK)->path($relative);
-
-        if (!File::exists($absolute)) {
-            throw new \RuntimeException('File backup tidak ditemukan.');
-        }
-
-        return $absolute;
-    }
-
-    public function deleteBackup(string $filename): void
-    {
-        $safeName = $this->sanitizeFilename($filename);
-        $relative = self::BACKUP_PATH . '/' . $safeName;
-
-        if (!Storage::disk(self::DISK)->exists($relative)) {
-            throw new \RuntimeException('File backup tidak ditemukan.');
-        }
-
-        Storage::disk(self::DISK)->delete($relative);
     }
 
     /**
@@ -269,12 +214,6 @@ class DatabaseBackupService
         return DB::connection($this->connectionName())->getSchemaBuilder()->hasTable($table);
     }
 
-    public function restoreFromExistingBackup(string $filename): void
-    {
-        $path = $this->resolveBackupPath($filename);
-        $this->restoreFromPath($path);
-    }
-
     public function restoreFromUpload(UploadedFile $file): void
     {
         $extension = strtolower($file->getClientOriginalExtension() ?: '');
@@ -337,7 +276,7 @@ class DatabaseBackupService
 
         if ($databasePath !== ':memory:' && is_string($databasePath) && File::exists($databasePath)) {
             Storage::disk(self::DISK)->put(
-                self::BACKUP_PATH . '/' . $filename,
+                self::TEMP_BACKUP_PATH . '/' . $filename,
                 File::get($databasePath)
             );
 
@@ -370,7 +309,7 @@ class DatabaseBackupService
     {
         $connection = $this->connectionName();
         $config = Config::get("database.connections.{$connection}", []);
-        $target = Storage::disk(self::DISK)->path(self::BACKUP_PATH . '/' . $filename);
+        $target = Storage::disk(self::DISK)->path(self::TEMP_BACKUP_PATH . '/' . $filename);
 
         $command = [
             $mysqldump,
@@ -403,7 +342,7 @@ class DatabaseBackupService
     private function createPhpSqlDump(string $filename): void
     {
         $sql = $this->buildPhpSqlDump();
-        Storage::disk(self::DISK)->put(self::BACKUP_PATH . '/' . $filename, $sql);
+        Storage::disk(self::DISK)->put(self::TEMP_BACKUP_PATH . '/' . $filename, $sql);
     }
 
     private function buildPhpSqlDump(): string
@@ -662,25 +601,9 @@ class DatabaseBackupService
         return (string) $database;
     }
 
-    private function ensureBackupDirectory(): void
+    private function ensureTempBackupDirectory(): void
     {
-        Storage::disk(self::DISK)->makeDirectory(self::BACKUP_PATH);
-    }
-
-    private function sanitizeFilename(string $filename): string
-    {
-        $basename = basename($filename);
-
-        if (!$this->isAllowedBackupFilename($basename)) {
-            throw new \RuntimeException('Nama file backup tidak valid.');
-        }
-
-        return $basename;
-    }
-
-    private function isAllowedBackupFilename(string $filename): bool
-    {
-        return (bool) preg_match('/^[a-zA-Z0-9][a-zA-Z0-9._-]+\.(sql|sqlite)$/', $filename);
+        Storage::disk(self::DISK)->makeDirectory(self::TEMP_BACKUP_PATH);
     }
 
     private function formatBytes(int $bytes): string

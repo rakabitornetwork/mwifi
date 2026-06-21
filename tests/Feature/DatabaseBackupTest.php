@@ -21,39 +21,14 @@ class DatabaseBackupTest extends TestCase
         return User::factory()->create();
     }
 
-    public function test_admin_can_create_backup(): void
+    public function test_admin_can_download_backup(): void
     {
         $response = $this->actingAs($this->adminUser())
             ->post('/admin/database/backup');
 
-        $response->assertRedirect();
-        $response->assertSessionHas('success');
-        $this->assertNotEmpty(app(DatabaseBackupService::class)->listBackups());
-    }
-
-    public function test_admin_can_list_and_delete_backup(): void
-    {
-        $filename = 'mwifi_sqlite_test_' . uniqid() . '.sql';
-        Storage::disk('local')->put(
-            DatabaseBackupService::BACKUP_PATH . '/' . $filename,
-            '-- test backup'
-        );
-
-        $service = app(DatabaseBackupService::class);
-        $backups = $service->listBackups();
-        $found = collect($backups)->firstWhere('filename', $filename);
-
-        $this->assertNotNull($found);
-        $this->assertSame('-- test backup', Storage::disk('local')->get(DatabaseBackupService::BACKUP_PATH . '/' . $filename));
-
-        $response = $this->actingAs($this->adminUser())
-            ->post('/admin/database/backups/delete', [
-                'filename' => $filename,
-            ]);
-
-        $response->assertRedirect();
-        $response->assertSessionHas('success');
-        $this->assertNull(collect($service->listBackups())->firstWhere('filename', $filename));
+        $response->assertOk();
+        $response->assertDownload();
+        $this->assertNotEmpty($response->getFile()->getContent());
     }
 
     public function test_customer_cannot_create_backup(): void
@@ -99,11 +74,20 @@ class DatabaseBackupTest extends TestCase
     {
         $response = $this->actingAs($this->adminUser())
             ->post('/admin/database/restore', [
-                'source' => 'upload',
                 'confirm' => 'SALAH',
             ]);
 
         $response->assertSessionHasErrors('confirm');
+    }
+
+    public function test_restore_requires_uploaded_file(): void
+    {
+        $response = $this->actingAs($this->adminUser())
+            ->post('/admin/database/restore', [
+                'confirm' => 'RESTORE',
+            ]);
+
+        $response->assertSessionHasErrors('backup_file');
     }
 
     public function test_backup_dump_contains_database_rows(): void
@@ -112,22 +96,10 @@ class DatabaseBackupTest extends TestCase
 
         $backup = app(DatabaseBackupService::class)->createBackup();
         $content = Storage::disk('local')->get(
-            DatabaseBackupService::BACKUP_PATH . '/' . $backup['filename']
+            DatabaseBackupService::TEMP_BACKUP_PATH . '/' . $backup['filename']
         );
 
         $this->assertStringContainsString('backup-marker@example.com', $content);
-    }
-
-    public function test_restore_route_rejects_missing_backup_file(): void
-    {
-        $response = $this->actingAs($this->adminUser())
-            ->post('/admin/database/restore', [
-                'source' => 'existing',
-                'filename' => 'missing.sql',
-                'confirm' => 'RESTORE',
-            ]);
-
-        $response->assertSessionHas('error');
     }
 
     public function test_admin_can_reset_database_while_preserving_admin_accounts(): void

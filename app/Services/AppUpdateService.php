@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\Process\Process;
 
 class AppUpdateService
@@ -103,17 +104,53 @@ class AppUpdateService
     }
 
     /**
+     * Status cepat untuk muat halaman (tanpa git fetch). Pakai cache bila ada.
+     *
+     * @return array<string, mixed>
+     */
+    public function getCachedStatus(): array
+    {
+        $ttl = max(0, (int) config('update.status_cache_seconds', 120));
+
+        if ($ttl === 0) {
+            return $this->getStatus();
+        }
+
+        return Cache::remember('app_update_status', $ttl, fn () => $this->getStatus());
+    }
+
+    public function forgetCachedStatus(): void
+    {
+        Cache::forget('app_update_status');
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function checkForUpdates(bool $fetch = true): array
     {
+        $this->forgetCachedStatus();
+
         $status = $this->getStatus();
         $branch = (string) ($status['repository']['branch'] ?: config('update.branch', 'main'));
 
         if ($fetch && ($status['requirements']['git']['ok'] ?? false) && ($status['requirements']['is_git_repo']['ok'] ?? false)) {
             $branch = (string) ($status['repository']['branch'] ?: config('update.branch', 'main'));
-            $this->runGit(['fetch', 'origin', $branch], 'Memuat info pembaruan dari GitHub');
+            $fetchTimeout = max(15, (int) config('update.fetch_timeout', 45));
+            $fetchSteps = null;
+            $this->runGit(
+                ['fetch', 'origin', $branch],
+                'Memuat info pembaruan dari GitHub',
+                $fetchSteps,
+                null,
+                $fetchTimeout
+            );
             $status = $this->getStatus();
+        }
+
+        $ttl = max(0, (int) config('update.status_cache_seconds', 120));
+        if ($ttl > 0) {
+            Cache::put('app_update_status', $status, $ttl);
         }
 
         return $status;
@@ -278,14 +315,22 @@ class AppUpdateService
             if ($fromGit !== null) {
                 return $fromGit;
             }
+        }
 
+        // GitHub API lebih cepat daripada git ls-remote untuk muat halaman.
+        $fromApi = $this->getRemoteGitHubCommit($owner, $repo, $branch);
+        if (!empty($fromApi['commit'])) {
+            return $fromApi;
+        }
+
+        if ($canUseGit) {
             $fromLsRemote = $this->getRemoteFromLsRemote($branch);
             if ($fromLsRemote !== null) {
                 return $fromLsRemote;
             }
         }
 
-        return $this->getRemoteGitHubCommit($owner, $repo, $branch);
+        return $fromApi;
     }
 
     /**
@@ -364,7 +409,7 @@ class AppUpdateService
     private function getRemoteGitHubCommit(string $owner, string $repo, string $branch): array
     {
         try {
-            $request = Http::timeout(15)
+            $request = Http::timeout(8)
                 ->withHeaders([
                     'Accept' => 'application/vnd.github+json',
                     'User-Agent' => 'mWiFi-Update-Checker',
@@ -526,9 +571,9 @@ class AppUpdateService
     /**
      * @param array<int, string> $args
      */
-    private function runGit(array $args, ?string $label = null, ?array &$steps = null, ?callable $onLog = null): Process
+    private function runGit(array $args, ?string $label = null, ?array &$steps = null, ?callable $onLog = null, ?int $timeout = null): Process
     {
-        return $this->runProcess(array_merge(['git'], $args), $label ?? 'Git', $steps, $onLog);
+        return $this->runProcess(array_merge(['git'], $args), $label ?? 'Git', $steps, $onLog, $timeout);
     }
 
     /**
@@ -536,13 +581,13 @@ class AppUpdateService
      * @param array<int, string>|null $steps
      * @param callable(string, string): void|null $onLog
      */
-    private function runProcess(array $command, string $label, ?array &$steps = null, ?callable $onLog = null): Process
+    private function runProcess(array $command, string $label, ?array &$steps = null, ?callable $onLog = null, ?int $timeout = null): Process
     {
         $onLog?->__invoke('$ ' . $this->formatCommand($command), 'cmd');
         $onLog?->__invoke('→ ' . $label, 'info');
 
         $process = new Process($command, base_path());
-        $process->setTimeout((int) config('update.timeout', 600));
+        $process->setTimeout($timeout ?? (int) config('update.timeout', 600));
         $process->run(function ($type, $buffer) use ($onLog) {
             if (!$onLog) {
                 return;

@@ -4,22 +4,60 @@ import { ArrowUpCircle, GitBranch, RefreshCw } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
-function UpdatePageContent({ appUpdateInfo = {} }) {
+function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
     const theme = useAdminTheme();
     const { showToast } = useAdminToast();
+    const [updateInfo, setUpdateInfo] = useState(initialUpdateInfo);
+    const [isCheckingRemote, setIsCheckingRemote] = useState(false);
     const [isRunningUpdate, setIsRunningUpdate] = useState(false);
     const [updateTerminalLines, setUpdateTerminalLines] = useState([]);
     const [updateTerminalStatus, setUpdateTerminalStatus] = useState('idle');
     const updateTerminalRef = useRef(null);
 
     const canRunAppUpdate = Boolean(
-        appUpdateInfo.can_run_update
+        updateInfo.can_run_update
         ?? (
-            appUpdateInfo.update_available
-            && appUpdateInfo.enabled !== false
-            && appUpdateInfo.remote?.commit
+            updateInfo.update_available
+            && updateInfo.enabled !== false
+            && updateInfo.remote?.commit
         )
     );
+
+    const refreshRemoteStatus = async (fetchFromGit = true) => {
+        setIsCheckingRemote(true);
+        try {
+            const url = fetchFromGit ? '/admin/update/status?fetch=1' : '/admin/update/status';
+            const response = await fetch(url, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`Gagal memuat status (${response.status}).`);
+            }
+
+            const data = await response.json();
+            if (data?.error) {
+                throw new Error(data.error);
+            }
+
+            setUpdateInfo(data);
+        } catch (error) {
+            showToast(error?.message || 'Gagal memeriksa pembaruan dari GitHub.', 'error');
+        } finally {
+            setIsCheckingRemote(false);
+        }
+    };
+
+    useEffect(() => {
+        refreshRemoteStatus(true);
+    }, []);
+
+    useEffect(() => {
+        setUpdateInfo(initialUpdateInfo);
+    }, [initialUpdateInfo]);
 
     useEffect(() => {
         if (updateTerminalRef.current) {
@@ -156,17 +194,21 @@ function UpdatePageContent({ appUpdateInfo = {} }) {
                             <div className="min-w-0">
                                 <h2 className={`text-sm font-bold tracking-tight ${theme.themeTextTitle}`}>Pembaruan Aplikasi</h2>
                                 <p className={`text-[11px] leading-relaxed mt-0.5 ${theme.themeTextSub}`}>
-                                    Status dicek otomatis via <span className="font-semibold">git fetch</span> saat halaman dibuka (branch: {appUpdateInfo.repository?.branch || 'main'}).
+                                    Halaman dibuka instan; versi GitHub diperbarui di background (branch: {updateInfo.repository?.branch || 'main'}).
                                 </p>
                             </div>
                         </div>
                         <span className={`self-start shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                            appUpdateInfo.update_available
+                            isCheckingRemote
+                                ? (theme.isDarkMode ? 'bg-violet-500/15 text-violet-300 border border-violet-500/20' : 'bg-violet-50 text-violet-700 border border-violet-200')
+                                : updateInfo.update_available
                                 ? (theme.isDarkMode ? 'bg-amber-500/15 text-amber-300 border border-amber-500/20' : 'bg-amber-50 text-amber-700 border border-amber-200')
                                 : (theme.isDarkMode ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')
                         }`}>
-                            {appUpdateInfo.update_available
-                                ? (appUpdateInfo.behind_count > 0 ? `${appUpdateInfo.behind_count} commit baru` : 'Pembaruan tersedia')
+                            {isCheckingRemote
+                                ? 'Memeriksa GitHub...'
+                                : updateInfo.update_available
+                                ? (updateInfo.behind_count > 0 ? `${updateInfo.behind_count} commit baru` : 'Pembaruan tersedia')
                                 : 'Sudah versi terbaru'}
                         </span>
                     </div>
@@ -174,42 +216,65 @@ function UpdatePageContent({ appUpdateInfo = {} }) {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className={`rounded-xl border p-3 ${theme.isDarkMode ? 'border-zinc-800 bg-zinc-900/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
                             <p className={`text-[10px] font-bold uppercase tracking-wide ${theme.themeTextSub}`}>Versi lokal</p>
-                            <p className={`text-base font-black font-mono mt-1 ${theme.themeTextTitle}`}>{appUpdateInfo.local?.commit_short || '—'}</p>
-                            <p className={`text-[10px] mt-1 line-clamp-2 ${theme.themeTextSub}`}>{appUpdateInfo.local?.commit_message || '—'}</p>
+                            <p className={`text-base font-black font-mono mt-1 ${theme.themeTextTitle}`}>{updateInfo.local?.commit_short || '—'}</p>
+                            <p className={`text-[10px] mt-1 line-clamp-2 ${theme.themeTextSub}`}>{updateInfo.local?.commit_message || '—'}</p>
                         </div>
-                        <div className={`rounded-xl border p-3 ${appUpdateInfo.update_available ? (theme.isDarkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/50') : (theme.isDarkMode ? 'border-zinc-800 bg-zinc-900/30' : 'border-zinc-200 bg-zinc-50/80')}`}>
+                        <div className={`rounded-xl border p-3 ${updateInfo.update_available ? (theme.isDarkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/50') : (theme.isDarkMode ? 'border-zinc-800 bg-zinc-900/30' : 'border-zinc-200 bg-zinc-50/80')}`}>
                             <p className={`text-[10px] font-bold uppercase tracking-wide ${theme.themeTextSub}`}>
                                 Versi GitHub
-                                {appUpdateInfo.remote?.source === 'git' && (
-                                    <span className={`ml-1 font-normal normal-case ${theme.themeTextDesc}`}>(origin/{appUpdateInfo.repository?.branch || 'main'})</span>
+                                {updateInfo.remote?.source === 'git' && (
+                                    <span className={`ml-1 font-normal normal-case ${theme.themeTextDesc}`}>(origin/{updateInfo.repository?.branch || 'main'})</span>
+                                )}
+                                {updateInfo.remote?.source === 'github_api' && (
+                                    <span className={`ml-1 font-normal normal-case ${theme.themeTextDesc}`}>(GitHub API)</span>
                                 )}
                             </p>
-                            <p className={`text-base font-black font-mono mt-1 ${theme.themeTextTitle}`}>{appUpdateInfo.remote?.commit_short || '—'}</p>
-                            <p className={`text-[10px] mt-1 line-clamp-2 ${theme.themeTextSub}`}>{appUpdateInfo.remote?.commit_message || appUpdateInfo.remote?.error || 'Belum dapat memuat versi remote.'}</p>
+                            <p className={`text-base font-black font-mono mt-1 ${theme.themeTextTitle}`}>
+                                {isCheckingRemote && !updateInfo.remote?.commit_short ? (
+                                    <span className="inline-flex items-center gap-1.5 text-sm font-bold">
+                                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                        ...
+                                    </span>
+                                ) : (
+                                    updateInfo.remote?.commit_short || '—'
+                                )}
+                            </p>
+                            <p className={`text-[10px] mt-1 line-clamp-2 ${theme.themeTextSub}`}>{updateInfo.remote?.commit_message || updateInfo.remote?.error || 'Belum dapat memuat versi remote.'}</p>
                         </div>
                     </div>
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                         <p className={`text-[10px] ${theme.themeTextSub}`}>
                             Backup database dulu via menu <span className="font-semibold">Database</span>.
-                            {appUpdateInfo.repository?.github_url && (
+                            {updateInfo.repository?.github_url && (
                                 <>
                                     {' · '}
-                                    <a href={appUpdateInfo.repository.github_url} target="_blank" rel="noopener noreferrer" className={`font-semibold hover:underline ${theme.isDarkMode ? 'text-violet-300' : 'text-violet-700'}`}>
+                                    <a href={updateInfo.repository.github_url} target="_blank" rel="noopener noreferrer" className={`font-semibold hover:underline ${theme.isDarkMode ? 'text-violet-300' : 'text-violet-700'}`}>
                                         GitHub
                                     </a>
                                 </>
                             )}
                         </p>
-                        <button
-                            type="button"
-                            onClick={handleRunUpdate}
-                            disabled={isRunningUpdate || !canRunAppUpdate}
-                            className="w-full sm:w-auto px-5 py-2.5 disabled:opacity-45 disabled:cursor-not-allowed bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-colors"
-                        >
-                            {isRunningUpdate ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ArrowUpCircle className="w-3.5 h-3.5" />}
-                            <span>{isRunningUpdate ? 'Memperbarui...' : 'Update Sekarang'}</span>
-                        </button>
+                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                            <button
+                                type="button"
+                                onClick={() => refreshRemoteStatus(true)}
+                                disabled={isCheckingRemote || isRunningUpdate}
+                                className="w-full sm:w-auto px-4 py-2.5 disabled:opacity-45 border rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors border-violet-300/60 text-violet-700 hover:bg-violet-50 dark:border-violet-500/30 dark:text-violet-200 dark:hover:bg-violet-500/10"
+                            >
+                                <RefreshCw className={`w-3.5 h-3.5 ${isCheckingRemote ? 'animate-spin' : ''}`} />
+                                <span>{isCheckingRemote ? 'Memeriksa...' : 'Cek Ulang'}</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleRunUpdate}
+                                disabled={isRunningUpdate || isCheckingRemote || !canRunAppUpdate}
+                                className="w-full sm:w-auto px-5 py-2.5 disabled:opacity-45 disabled:cursor-not-allowed bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-colors"
+                            >
+                                {isRunningUpdate ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ArrowUpCircle className="w-3.5 h-3.5" />}
+                                <span>{isRunningUpdate ? 'Memperbarui...' : 'Update Sekarang'}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -98,13 +98,12 @@ Route::middleware('auth')->group(function () {
 
     // Database backup & restore
     Route::post('admin/database/backup', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'createBackup']);
-    Route::get('admin/database/backups/{filename}/download', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'downloadBackup']);
-    Route::post('admin/database/backups/delete', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'deleteBackup']);
     Route::post('admin/database/restore', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'restoreBackup']);
     Route::post('admin/database/reset', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'resetApplicationData']);
 
     // Application update from GitHub
     Route::post('admin/update/check', [\App\Http\Controllers\Admin\AppUpdateController::class, 'checkUpdates']);
+    Route::get('admin/update/status', [\App\Http\Controllers\Admin\AppUpdateController::class, 'status']);
     Route::post('admin/update/run', [\App\Http\Controllers\Admin\AppUpdateController::class, 'runUpdate']);
     Route::post('admin/update/run-stream', [\App\Http\Controllers\Admin\AppUpdateController::class, 'runUpdateStream']);
 

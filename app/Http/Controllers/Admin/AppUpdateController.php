@@ -34,6 +34,23 @@ class AppUpdateController extends Controller
         }
     }
 
+    public function status(Request $request)
+    {
+        $this->ensureAdmin($request);
+
+        try {
+            $status = $request->boolean('fetch')
+                ? $this->updateService->checkForUpdates(true)
+                : $this->updateService->getCachedStatus();
+
+            return response()->json($status);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function runUpdate(Request $request)
     {
         $this->ensureAdmin($request);

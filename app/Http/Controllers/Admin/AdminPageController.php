@@ -93,14 +93,13 @@ class AdminPageController extends Controller
 
         return Inertia::render('Admin/Database/Index', [
             'databaseInfo' => $backupService->getDatabaseInfo(),
-            'databaseBackups' => $backupService->listBackups(),
         ]);
     }
 
     public function update(): Response
     {
         return Inertia::render('Admin/Update/Index', [
-            'appUpdateInfo' => app(AppUpdateService::class)->checkForUpdates(true),
+            'appUpdateInfo' => app(AppUpdateService::class)->getCachedStatus(),
         ]);
     }
 

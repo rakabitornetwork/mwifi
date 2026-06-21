@@ -98,6 +98,46 @@ class AppUpdateTest extends TestCase
         $this->assertStringContainsString('Aplikasi berhasil diperbarui.', $content);
     }
 
+    public function test_admin_can_fetch_update_status_json(): void
+    {
+        $response = $this->actingAs($this->adminUser())
+            ->getJson('/admin/update/status');
+
+        $response->assertOk();
+        $response->assertJsonStructure([
+            'enabled',
+            'update_available',
+            'can_run_update',
+            'local',
+            'remote',
+        ]);
+    }
+
+    public function test_update_page_uses_cached_status_without_fetch(): void
+    {
+        $this->mock(AppUpdateService::class, function ($mock) {
+            $mock->shouldReceive('getCachedStatus')
+                ->once()
+                ->andReturn([
+                    'enabled' => true,
+                    'update_available' => false,
+                    'can_run_update' => false,
+                    'local' => ['commit_short' => 'abc1234'],
+                    'remote' => ['commit_short' => 'abc1234'],
+                ]);
+            $mock->shouldNotReceive('checkForUpdates');
+        });
+
+        $response = $this->actingAs($this->adminUser())
+            ->get('/update');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/Update/Index')
+            ->where('appUpdateInfo.local.commit_short', 'abc1234')
+        );
+    }
+
     public function test_customer_cannot_check_updates(): void
     {
         $user = User::factory()->create();

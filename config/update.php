@@ -52,4 +52,15 @@ return [
 
     'allow_dirty_tree' => false,
 
+    /*
+    | Detik cache status update untuk muat halaman cepat (tanpa git fetch).
+    | Refresh penuh (fetch) tetap via tombol "Cek Ulang" atau background check.
+    */
+    'status_cache_seconds' => 120,
+
+    /*
+    | Timeout git fetch / ls-remote saat cek pembaruan (detik).
+    */
+    'fetch_timeout' => 45,
+
 ];

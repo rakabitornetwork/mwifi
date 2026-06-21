@@ -15,16 +15,20 @@ import {
 } from 'lucide-react';
 
 export const adminNavItems = [
+    // Ringkasan
     { tab: 'dashboard', icon: Activity, label: 'Dashboard' },
+    // Infrastruktur & layanan
     { tab: 'routers', icon: Wifi, label: 'Router Mikrotik' },
-    { tab: 'customers', icon: Users, label: 'Manajemen PPPoE' },
     { tab: 'network-map', icon: Map, label: 'Peta Jaringan' },
     { tab: 'packages', icon: Layers, label: 'Paket Internet' },
-    { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
+    // Operasional pelanggan
+    { tab: 'customers', icon: Users, label: 'Manajemen PPPoE' },
     { tab: 'hotspot', icon: Radio, label: 'Manajemen Hotspot' },
+    { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
+    // Administrasi sistem
+    { tab: 'settings', icon: Settings, label: 'Pengaturan' },
     { tab: 'database', icon: Database, label: 'Database' },
     { tab: 'update', icon: GitBranch, label: 'Update' },
-    { tab: 'settings', icon: Settings, label: 'Pengaturan' },
 ];
 
 export function getAdminNavLinkClass(tabName, activeTab) {

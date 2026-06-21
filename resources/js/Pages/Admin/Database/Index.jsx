@@ -3,7 +3,6 @@ import { router } from '@inertiajs/react';
 import {
     Database,
     Download,
-    HardDrive,
     RefreshCw,
     RotateCcw,
     ShieldOff,
@@ -13,38 +12,69 @@ import {
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
-function DatabasePageContent({ databaseInfo = {}, databaseBackups = [] }) {
+function parseDownloadFilename(contentDisposition) {
+    if (!contentDisposition) {
+        return null;
+    }
+
+    const match = contentDisposition.match(/filename[^;=\n]*=(['"]?)([^'"\n]*)\1/);
+
+    return match?.[2] || null;
+}
+
+function DatabasePageContent({ databaseInfo = {} }) {
     const theme = useAdminTheme();
     const { showToast } = useAdminToast();
     const [isCreatingBackup, setIsCreatingBackup] = useState(false);
     const [isRestoringDatabase, setIsRestoringDatabase] = useState(false);
-    const [restoreSource, setRestoreSource] = useState('existing');
-    const [selectedRestoreFilename, setSelectedRestoreFilename] = useState('');
     const [restoreConfirmText, setRestoreConfirmText] = useState('');
     const [restoreUploadName, setRestoreUploadName] = useState('');
     const [isResettingDatabase, setIsResettingDatabase] = useState(false);
     const [resetConfirmText, setResetConfirmText] = useState('');
 
-    const themeInnerWidget = theme.isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
-
-    const handleCreateBackup = () => {
-        if (!confirm('Buat backup database sekarang?\n\nFile akan disimpan di server (storage/app/backups/database).')) return;
+    const handleCreateBackup = async () => {
+        if (!confirm(
+            'Buat backup database sekarang?\n\n' +
+            'File akan langsung diunduh ke komputer Anda.\n' +
+            'Tidak disimpan di server VPS.'
+        )) {
+            return;
+        }
 
         setIsCreatingBackup(true);
-        router.post('/admin/database/backup', {}, {
-            preserveScroll: true,
-            onFinish: () => setIsCreatingBackup(false),
-            onSuccess: () => router.reload(),
-        });
-    };
 
-    const handleDeleteBackup = (filename) => {
-        if (!confirm(`Hapus file backup "${filename}"?\n\nTindakan ini tidak dapat dibatalkan.`)) return;
+        try {
+            const response = await fetch('/admin/database/backup', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    Accept: 'application/octet-stream',
+                },
+            });
 
-        router.post('/admin/database/backups/delete', { filename }, {
-            preserveScroll: true,
-            onSuccess: () => router.reload(),
-        });
+            if (!response.ok) {
+                const data = await response.json().catch(() => null);
+                showToast(data?.message || 'Gagal membuat backup.', 'error');
+                return;
+            }
+
+            const blob = await response.blob();
+            const filename = parseDownloadFilename(response.headers.get('Content-Disposition'))
+                || `mwifi_backup_${Date.now()}.sql`;
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            showToast(`Backup berhasil diunduh: ${filename}`, 'success');
+        } catch {
+            showToast('Gagal membuat backup.', 'error');
+        } finally {
+            setIsCreatingBackup(false);
+        }
     };
 
     const handleRestoreDatabase = (e) => {
@@ -55,12 +85,7 @@ function DatabasePageContent({ databaseInfo = {}, databaseBackups = [] }) {
             return;
         }
 
-        if (restoreSource === 'existing' && !selectedRestoreFilename) {
-            showToast('Pilih file backup yang akan dipulihkan.', 'warning');
-            return;
-        }
-
-        if (restoreSource === 'upload' && !restoreUploadName) {
+        if (!restoreUploadName) {
             showToast('Unggah file backup (.sql atau .sqlite).', 'warning');
             return;
         }
@@ -69,16 +94,11 @@ function DatabasePageContent({ databaseInfo = {}, databaseBackups = [] }) {
 
         const form = e.target;
         const formData = new FormData(form);
-        formData.set('source', restoreSource);
         formData.set('confirm', restoreConfirmText);
 
-        if (restoreSource === 'existing') {
-            formData.set('filename', selectedRestoreFilename);
-        } else {
-            const fileInput = form.querySelector('input[name="backup_file"]');
-            if (fileInput?.files?.[0]) {
-                formData.set('backup_file', fileInput.files[0]);
-            }
+        const fileInput = form.querySelector('input[name="backup_file"]');
+        if (fileInput?.files?.[0]) {
+            formData.set('backup_file', fileInput.files[0]);
         }
 
         setIsRestoringDatabase(true);
@@ -113,9 +133,8 @@ function DatabasePageContent({ databaseInfo = {}, databaseBackups = [] }) {
             '• Router, paket, ODP, voucher hotspot\n\n' +
             'Yang TETAP AMAN:\n' +
             '• Akun administrator (Super Admin)\n' +
-            '• Pengaturan aplikasi (branding, payment, WA, dll)\n' +
-            '• File backup di server\n\n' +
-            'Disarankan buat backup dulu. Lanjutkan reset?'
+            '• Pengaturan aplikasi (branding, payment, WA, dll)\n\n' +
+            'Disarankan unduh backup dulu. Lanjutkan reset?'
         )) return;
 
         setIsResettingDatabase(true);
@@ -146,7 +165,7 @@ function DatabasePageContent({ databaseInfo = {}, databaseBackups = [] }) {
                             <div className="min-w-0">
                                 <h2 className={`text-sm font-bold tracking-tight ${theme.themeTextTitle}`}>Manajemen Database</h2>
                                 <p className={`text-[11px] leading-relaxed mt-0.5 ${theme.themeTextSub}`}>
-                                    Cadangkan, pulihkan, atau kosongkan data operasional — aman untuk akun admin & pengaturan.
+                                    Unduh cadangan ke komputer lokal, pulihkan dari file upload, atau kosongkan data operasional.
                                 </p>
                             </div>
                         </div>
@@ -157,7 +176,7 @@ function DatabasePageContent({ databaseInfo = {}, databaseBackups = [] }) {
                             className="shrink-0 w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-colors"
                         >
                             {isCreatingBackup ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                            <span>{isCreatingBackup ? 'Memproses...' : 'Backup Baru'}</span>
+                            <span>{isCreatingBackup ? 'Memproses...' : 'Unduh Backup'}</span>
                         </button>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
@@ -188,62 +207,10 @@ function DatabasePageContent({ databaseInfo = {}, databaseBackups = [] }) {
                             </span>
                         ))}
                     </div>
-                </div>
-            </div>
-
-            <div className={`${theme.themeCard} border rounded-2xl p-4 sm:p-5`}>
-                <div className="flex items-center justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-2">
-                        <HardDrive className="w-4 h-4 text-indigo-500" />
-                        <h3 className={`text-xs font-bold uppercase tracking-wide ${theme.themeTextTitle}`}>
-                            File Backup
-                        </h3>
-                    </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme.isDarkMode ? 'bg-indigo-500/15 text-indigo-300' : 'bg-indigo-50 text-indigo-700'}`}>
-                        {databaseBackups.length} file
-                    </span>
-                </div>
-
-                {databaseBackups.length === 0 ? (
-                    <p className={`text-[11px] text-center py-6 rounded-xl border border-dashed ${themeInnerWidget} ${theme.themeTextSub}`}>
-                        Belum ada backup. Simpan cadangan sebelum restore atau reset.
+                    <p className={`text-[10px] ${theme.themeTextDesc}`}>
+                        Backup langsung diunduh ke komputer Anda — tidak disimpan di server VPS.
                     </p>
-                ) : (
-                    <div className={`rounded-xl border divide-y ${theme.isDarkMode ? 'border-zinc-800 divide-zinc-800/80' : 'border-zinc-200 divide-zinc-100'}`}>
-                        {databaseBackups.map((backup) => (
-                            <div key={backup.filename} className="flex items-center gap-2 p-2.5 sm:p-3">
-                                <div className="min-w-0 flex-1">
-                                    <p className={`text-xs font-semibold truncate ${theme.themeTextTitle}`} title={backup.filename}>
-                                        {backup.filename}
-                                    </p>
-                                    <p className={`text-[10px] mt-0.5 ${theme.themeTextSub}`}>
-                                        {backup.size_human} · {backup.created_at}
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                    <a
-                                        href={`/admin/database/backups/${encodeURIComponent(backup.filename)}/download`}
-                                        className={`p-1.5 rounded-lg border transition-colors ${theme.isDarkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-50'}`}
-                                        title="Unduh"
-                                    >
-                                        <Download className="w-3.5 h-3.5" />
-                                    </a>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleDeleteBackup(backup.filename)}
-                                        className="p-1.5 rounded-lg border border-rose-500/25 text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                                        title="Hapus"
-                                    >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-                <p className={`text-[10px] mt-2.5 ${theme.themeTextDesc}`}>
-                    Disimpan di <code className="font-mono opacity-80">storage/app/backups/database</code>
-                </p>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -266,72 +233,25 @@ function DatabasePageContent({ databaseInfo = {}, databaseBackups = [] }) {
                             </div>
                             <div>
                                 <h3 className={`text-xs font-bold ${theme.isDarkMode ? 'text-indigo-50' : 'text-indigo-900'}`}>Restore</h3>
-                                <p className={`text-[10px] ${theme.isDarkMode ? 'text-indigo-200/75' : 'text-indigo-700/70'}`}>Menimpa seluruh database. Backup dulu.</p>
+                                <p className={`text-[10px] ${theme.isDarkMode ? 'text-indigo-200/75' : 'text-indigo-700/70'}`}>Upload file backup dari komputer lokal.</p>
                             </div>
                         </div>
 
-                        <div className={`inline-flex w-full rounded-lg border p-0.5 ${
+                        <label className={`flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg border border-dashed text-xs font-semibold cursor-pointer transition-colors duration-200 ${
                             theme.isDarkMode
-                                ? 'border-white/10 bg-white/5'
-                                : 'border-indigo-200/60 bg-white/50'
+                                ? 'border-white/15 bg-white/5 text-indigo-100/90 hover:bg-white/8'
+                                : 'border-indigo-300/50 bg-white/60 text-indigo-800/80 hover:bg-white/90'
                         }`}>
-                            {[
-                                { id: 'existing', label: 'Dari server' },
-                                { id: 'upload', label: 'Upload file' },
-                            ].map(({ id, label }) => (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    onClick={() => setRestoreSource(id)}
-                                    className={`flex-1 py-1.5 rounded-md text-[10px] font-bold transition-all duration-200 cursor-pointer ${
-                                        restoreSource === id
-                                            ? (theme.isDarkMode
-                                                ? 'bg-indigo-500/25 text-indigo-50 shadow-sm ring-1 ring-white/10'
-                                                : 'bg-white text-indigo-800 shadow-sm ring-1 ring-indigo-100')
-                                            : (theme.isDarkMode
-                                                ? 'text-indigo-200/70 hover:text-indigo-100 hover:bg-white/5'
-                                                : 'text-indigo-600/70 hover:text-indigo-800 hover:bg-indigo-50/80')
-                                    }`}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-
-                        {restoreSource === 'existing' ? (
-                            <select
-                                value={selectedRestoreFilename}
-                                onChange={(e) => setSelectedRestoreFilename(e.target.value)}
-                                className={`w-full p-2 border rounded-lg text-xs focus:outline-none focus:ring-2 ${
-                                    theme.isDarkMode
-                                        ? 'border-white/12 bg-slate-900/40 text-indigo-50 focus:ring-indigo-400/25'
-                                        : 'border-indigo-200/80 bg-white/90 text-slate-800 focus:ring-indigo-300/40'
-                                }`}
-                            >
-                                <option value="">Pilih file backup...</option>
-                                {databaseBackups.map((backup) => (
-                                    <option key={backup.filename} value={backup.filename}>
-                                        {backup.filename}
-                                    </option>
-                                ))}
-                            </select>
-                        ) : (
-                            <label className={`flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg border border-dashed text-xs font-semibold cursor-pointer transition-colors duration-200 ${
-                                theme.isDarkMode
-                                    ? 'border-white/15 bg-white/5 text-indigo-100/90 hover:bg-white/8'
-                                    : 'border-indigo-300/50 bg-white/60 text-indigo-800/80 hover:bg-white/90'
-                            }`}>
-                                <Upload className="w-3.5 h-3.5" />
-                                <span className="truncate">{restoreUploadName || 'Pilih .sql / .sqlite'}</span>
-                                <input
-                                    type="file"
-                                    name="backup_file"
-                                    accept=".sql,.sqlite"
-                                    className="sr-only"
-                                    onChange={(e) => setRestoreUploadName(e.target.files?.[0]?.name || '')}
-                                />
-                            </label>
-                        )}
+                            <Upload className="w-3.5 h-3.5" />
+                            <span className="truncate">{restoreUploadName || 'Pilih .sql / .sqlite'}</span>
+                            <input
+                                type="file"
+                                name="backup_file"
+                                accept=".sql,.sqlite"
+                                className="sr-only"
+                                onChange={(e) => setRestoreUploadName(e.target.files?.[0]?.name || '')}
+                            />
+                        </label>
 
                         <div className="flex gap-2">
                             <input
@@ -391,7 +311,7 @@ function DatabasePageContent({ databaseInfo = {}, databaseBackups = [] }) {
                                 : 'bg-white/45 border-rose-200/50 text-rose-800/75'
                         }`}>
                             <span className={`font-semibold ${theme.isDarkMode ? 'text-rose-100' : 'text-rose-900'}`}>Aman:</span>{' '}
-                            admin, pengaturan & file backup.{' '}
+                            akun admin & pengaturan aplikasi.{' '}
                             <span className={`font-semibold ${theme.isDarkMode ? 'text-rose-100/90' : 'text-rose-900/90'}`}>Mikrotik tidak terpengaruh.</span>
                         </p>
 
@@ -428,10 +348,10 @@ function DatabasePageContent({ databaseInfo = {}, databaseBackups = [] }) {
     );
 }
 
-export default function DatabaseIndex({ databaseInfo, databaseBackups }) {
+export default function DatabaseIndex({ databaseInfo }) {
     return (
         <AdminLayout title="Database">
-            <DatabasePageContent databaseInfo={databaseInfo} databaseBackups={databaseBackups} />
+            <DatabasePageContent databaseInfo={databaseInfo} />
         </AdminLayout>
     );
 }
