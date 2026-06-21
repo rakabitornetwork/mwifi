@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { router, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { ArrowUpCircle, GitBranch, RefreshCw } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
@@ -26,6 +26,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
     const [updateTerminalLines, setUpdateTerminalLines] = useState([]);
     const [updateTerminalStatus, setUpdateTerminalStatus] = useState('idle');
     const updateTerminalRef = useRef(null);
+    const updateFinishedRef = useRef(false);
 
     const canRunAppUpdate = Boolean(
         updateInfo.can_run_update
@@ -92,6 +93,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
         )) return;
 
         setIsRunningUpdate(true);
+        updateFinishedRef.current = false;
         setUpdateTerminalStatus('running');
         setUpdateTerminalLines([
             { text: 'Menghubungkan ke server update...', type: 'info' },
@@ -126,6 +128,26 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                     }
                 }
             });
+        };
+
+        const handleStreamDone = (data) => {
+            if (updateFinishedRef.current) {
+                return;
+            }
+
+            setUpdateTerminalStatus(data?.success ? 'success' : 'error');
+
+            if (data?.success) {
+                updateFinishedRef.current = true;
+                showToast(data.message || 'Pembaruan berhasil.', 'success');
+                appendLine('Pembaruan selesai. Memuat ulang halaman...', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+                return;
+            }
+
+            showToast(data?.message || 'Gagal memperbarui aplikasi.', 'error');
         };
 
         try {
@@ -165,13 +187,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                         if (eventName === 'log' && data?.line) {
                             appendLine(data.line, data.type || 'stdout');
                         } else if (eventName === 'done') {
-                            setUpdateTerminalStatus(data?.success ? 'success' : 'error');
-                            if (data?.success) {
-                                showToast(data.message || 'Pembaruan berhasil.', 'success');
-                                setTimeout(() => router.reload(), 1800);
-                            } else {
-                                showToast(data?.message || 'Gagal memperbarui aplikasi.', 'error');
-                            }
+                            handleStreamDone(data);
                         }
                     });
                 });
@@ -182,7 +198,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                     if (eventName === 'log' && data?.line) {
                         appendLine(data.line, data.type || 'stdout');
                     } else if (eventName === 'done') {
-                        setUpdateTerminalStatus(data?.success ? 'success' : 'error');
+                        handleStreamDone(data);
                     }
                 });
             }

@@ -39,9 +39,6 @@
         }
         .slip-header { text-align: center; margin-bottom: 8px; }
         .brand-block { display: block; }
-        .brand-logo {
-            display: block; margin: 0 auto 4px; height: 12mm; max-width: 40mm; object-fit: contain;
-        }
         .brand-name { font-size: 13px; font-weight: 700; text-transform: uppercase; }
         .brand-meta { font-size: 9px; margin-top: 2px; }
         .doc-title { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #000; }
@@ -86,7 +83,7 @@
         <button type="button" class="primary" onclick="window.print()">Cetak</button>
     </div>
     <div class="receipt">
-        @include('admin.invoices._invoice-content')
+        @include('admin.invoices._invoice-content', ['hideLogo' => true])
     </div>
 </body>
 </html>
