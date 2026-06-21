@@ -111,7 +111,8 @@ class AdminPageController extends Controller
     public function packages(): Response
     {
         return Inertia::render('Admin/Packages/Index', [
-            'packages' => Package::all(),
+            'packages' => Package::orderBy('name')->get(),
+            'routers' => Router::orderBy('name')->get(['id', 'name', 'host', 'status']),
         ]);
     }
 

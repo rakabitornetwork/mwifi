@@ -1349,6 +1349,55 @@ class AdminActionController extends Controller
     }
 
     /**
+     * Profile names available on a Mikrotik router (PPPoE + Hotspot).
+     */
+    public function getRouterPackageProfiles(\Illuminate\Http\Request $request)
+    {
+        $validated = $request->validate([
+            'router_id' => 'required|exists:routers,id',
+        ]);
+
+        $router = Router::findOrFail($validated['router_id']);
+
+        try {
+            $connector = \App\Services\Router\RouterService::getConnector($router);
+
+            $pppProfiles = [];
+            foreach ($connector->getProfiles() as $profile) {
+                $name = trim((string) ($profile['name'] ?? ''));
+                if ($name !== '') {
+                    $pppProfiles[] = $name;
+                }
+            }
+
+            $hotspotProfiles = [];
+            foreach ($connector->getHotspotProfiles() as $profile) {
+                $name = trim((string) ($profile['name'] ?? ''));
+                if ($name !== '') {
+                    $hotspotProfiles[] = $name;
+                }
+            }
+
+            $allProfiles = array_values(array_unique(array_merge($pppProfiles, $hotspotProfiles)));
+            sort($allProfiles, SORT_NATURAL | SORT_FLAG_CASE);
+
+            return response()->json([
+                'router_id' => $router->id,
+                'router_name' => $router->name,
+                'ppp_profiles' => array_values(array_unique($pppProfiles)),
+                'hotspot_profiles' => array_values(array_unique($hotspotProfiles)),
+                'all_profiles' => $allProfiles,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'router_id' => $router->id,
+                'router_name' => $router->name,
+            ], 502);
+        }
+    }
+
+    /**
      * List Mikrotik interfaces or read live rx/tx for a selected interface.
      */
     public function getRouterInterfaceTraffic(\Illuminate\Http\Request $request)

@@ -111,6 +111,7 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/profile/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveAdminProfile']);
     Route::get('admin/server/resources', [\App\Http\Controllers\Admin\AdminActionController::class, 'getServerResources']);
     Route::get('admin/server/interface-traffic', [\App\Http\Controllers\Admin\AdminActionController::class, 'getRouterInterfaceTraffic']);
+    Route::get('admin/packages/router-profiles', [\App\Http\Controllers\Admin\AdminActionController::class, 'getRouterPackageProfiles']);
 
     // Database backup & restore
     Route::post('admin/database/backup', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'createBackup']);
