@@ -1361,32 +1361,15 @@ class AdminActionController extends Controller
 
         try {
             $connector = \App\Services\Router\RouterService::getConnector($router);
-
-            $pppProfiles = [];
-            foreach ($connector->getProfiles() as $profile) {
-                $name = trim((string) ($profile['name'] ?? ''));
-                if ($name !== '') {
-                    $pppProfiles[] = $name;
-                }
-            }
-
-            $hotspotProfiles = [];
-            foreach ($connector->getHotspotProfiles() as $profile) {
-                $name = trim((string) ($profile['name'] ?? ''));
-                if ($name !== '') {
-                    $hotspotProfiles[] = $name;
-                }
-            }
-
-            $allProfiles = array_values(array_unique(array_merge($pppProfiles, $hotspotProfiles)));
-            sort($allProfiles, SORT_NATURAL | SORT_FLAG_CASE);
+            $options = \App\Services\Router\MikrotikPackageFormOptionsService::build($connector);
 
             return response()->json([
                 'router_id' => $router->id,
                 'router_name' => $router->name,
-                'ppp_profiles' => array_values(array_unique($pppProfiles)),
-                'hotspot_profiles' => array_values(array_unique($hotspotProfiles)),
-                'all_profiles' => $allProfiles,
+                'ppp_profiles' => $options['ppp_profile_names'],
+                'hotspot_profiles' => $options['hotspot_profile_names'],
+                'all_profiles' => $options['all_profiles'],
+                'form_options' => $options,
             ]);
         } catch (\Exception $e) {
             return response()->json([

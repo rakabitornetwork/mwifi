@@ -6,6 +6,76 @@ import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 import { formatRupiah } from '../../../utils/formatRupiah';
 
+const HOTSPOT_VALIDITY_PRESETS = ['1h', '2h', '6h', '12h', '1d', '7d', '30d'];
+
+const emptyPackageForm = {
+    name: '',
+    price: '',
+    bandwidth_limit: '',
+    mikrotik_profile: '',
+    local_address: '',
+    remote_address: '',
+    dns_server: '',
+    parent_queue: '',
+    queue_type_rx: '',
+    queue_type_tx: '',
+    validity: '',
+    description: '',
+};
+
+function RouterOsField({
+    label,
+    name,
+    value,
+    onChange,
+    options = [],
+    placeholder = '',
+    required = false,
+    themeInput,
+    themeLabel,
+    allowEmpty = true,
+    disabled = false,
+}) {
+    const normalizedOptions = [...new Set(options.filter(Boolean))];
+    const hasOptions = normalizedOptions.length > 0;
+    const isCustomValue = value && !normalizedOptions.includes(value);
+
+    return (
+        <div className="flex flex-col gap-1">
+            <label className={`font-bold ${themeLabel}`}>{label}</label>
+            {hasOptions ? (
+                <select
+                    name={name}
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    required={required}
+                    disabled={disabled}
+                    className={`p-2 border rounded-lg font-mono ${themeInput} disabled:opacity-50`}
+                >
+                    {allowEmpty && <option value="">— Pilih —</option>}
+                    {normalizedOptions.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                    ))}
+                    {isCustomValue && (
+                        <option value={value}>{value} (kustom)</option>
+                    )}
+                </select>
+            ) : (
+                <input
+                    name={name}
+                    type="text"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    required={required}
+                    disabled={disabled}
+                    placeholder={placeholder}
+                    className={`p-2 border rounded-lg font-mono ${themeInput} disabled:opacity-50`}
+                />
+            )}
+        </div>
+    );
+}
+
 function PackagesPageContent({ packages = [], routers = [] }) {
     const theme = useAdminFormTheme();
     const {
@@ -27,19 +97,52 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     const [editingPackage, setEditingPackage] = useState(null);
     const [selectedPackageType, setSelectedPackageType] = useState('pppoe');
     const [routerFilter, setRouterFilter] = useState(defaultRouterId);
-    const [routerProfiles, setRouterProfiles] = useState([]);
+    const [routerOsCache, setRouterOsCache] = useState({});
     const [isLoadingRouterProfiles, setIsLoadingRouterProfiles] = useState(false);
     const [routerProfileError, setRouterProfileError] = useState(null);
+    const [modalRouterId, setModalRouterId] = useState('');
+    const [isLoadingModalOptions, setIsLoadingModalOptions] = useState(false);
+    const [modalOptionsError, setModalOptionsError] = useState(null);
+    const [packageForm, setPackageForm] = useState(emptyPackageForm);
+
+    const loadRouterOsData = async (routerId) => {
+        if (!routerId) {
+            return null;
+        }
+
+        if (routerOsCache[routerId]) {
+            return routerOsCache[routerId];
+        }
+
+        const res = await fetch(`/admin/packages/router-profiles?router_id=${routerId}`, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.error || 'Gagal memuat data RouterOS.');
+        }
+
+        setRouterOsCache((prev) => ({ ...prev, [routerId]: data }));
+        return data;
+    };
 
     const handleSavePackage = (e) => {
         e.preventDefault();
-        const data = new FormData(e.target);
-        const payload = Object.fromEntries(data.entries());
+        const payload = {
+            id: editingPackage ? editingPackage.id : '',
+            type: selectedPackageType,
+            ...packageForm,
+        };
 
         router.post('/admin/packages/save', payload, {
             onSuccess: () => {
                 setShowPackageModal(false);
                 setEditingPackage(null);
+                setPackageForm(emptyPackageForm);
             },
         });
     };
@@ -51,16 +154,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     };
 
     useEffect(() => {
-        if (editingPackage) {
-            setSelectedPackageType(editingPackage.type || 'pppoe');
-        } else {
-            setSelectedPackageType('pppoe');
-        }
-    }, [editingPackage, showPackageModal]);
-
-    useEffect(() => {
         if (!routerFilter) {
-            setRouterProfiles([]);
             setRouterProfileError(null);
             return;
         }
@@ -69,25 +163,9 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         setIsLoadingRouterProfiles(true);
         setRouterProfileError(null);
 
-        fetch(`/admin/packages/router-profiles?router_id=${routerFilter}`, {
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        })
-            .then(async (res) => {
-                const data = await res.json();
-                if (cancelled) return;
-
-                if (!res.ok) {
-                    throw new Error(data.error || 'Gagal memuat profil dari router.');
-                }
-
-                setRouterProfiles(data.all_profiles || []);
-            })
+        loadRouterOsData(routerFilter)
             .catch((error) => {
                 if (cancelled) return;
-                setRouterProfiles([]);
                 setRouterProfileError(error?.message || 'Gagal memuat profil dari router.');
             })
             .finally(() => {
@@ -100,6 +178,65 @@ function PackagesPageContent({ packages = [], routers = [] }) {
             cancelled = true;
         };
     }, [routerFilter]);
+
+    useEffect(() => {
+        if (!showPackageModal) {
+            return;
+        }
+
+        const initialRouterId = routerFilter || defaultRouterId;
+        setModalRouterId(initialRouterId);
+        setModalOptionsError(null);
+
+        if (editingPackage) {
+            setSelectedPackageType(editingPackage.type || 'pppoe');
+            setPackageForm({
+                name: editingPackage.name || '',
+                price: editingPackage.price ?? '',
+                bandwidth_limit: editingPackage.bandwidth_limit || '',
+                mikrotik_profile: editingPackage.mikrotik_profile || '',
+                local_address: editingPackage.local_address || '',
+                remote_address: editingPackage.remote_address || '',
+                dns_server: editingPackage.dns_server || '',
+                parent_queue: editingPackage.parent_queue || '',
+                queue_type_rx: editingPackage.queue_type_rx || '',
+                queue_type_tx: editingPackage.queue_type_tx || '',
+                validity: editingPackage.validity || '',
+                description: editingPackage.description || '',
+            });
+        } else {
+            setSelectedPackageType('pppoe');
+            setPackageForm(emptyPackageForm);
+        }
+    }, [showPackageModal, editingPackage, routerFilter, defaultRouterId]);
+
+    useEffect(() => {
+        if (!showPackageModal || !modalRouterId) {
+            return;
+        }
+
+        let cancelled = false;
+        setIsLoadingModalOptions(true);
+        setModalOptionsError(null);
+
+        loadRouterOsData(modalRouterId)
+            .catch((error) => {
+                if (cancelled) return;
+                setModalOptionsError(error?.message || 'Gagal memuat opsi RouterOS.');
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setIsLoadingModalOptions(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [showPackageModal, modalRouterId]);
+
+    const filterRouterOs = routerFilter ? routerOsCache[routerFilter] : null;
+    const routerProfiles = filterRouterOs?.all_profiles || [];
 
     const profileSet = useMemo(
         () => new Set(routerProfiles.map((name) => String(name).toLowerCase())),
@@ -125,6 +262,46 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     }, [packages, routerFilter, isLoadingRouterProfiles, routerProfileError, profileSet]);
 
     const selectedRouter = routers.find((r) => String(r.id) === String(routerFilter));
+    const modalRouterOs = modalRouterId ? routerOsCache[modalRouterId] : null;
+    const modalFormOptions = modalRouterOs?.form_options || null;
+
+    const profileNameOptions = selectedPackageType === 'hotspot'
+        ? (modalFormOptions?.hotspot_profile_names || [])
+        : (modalFormOptions?.ppp_profile_names || []);
+
+    const updatePackageForm = (field, value) => {
+        setPackageForm((prev) => ({ ...prev, [field]: value }));
+    };
+
+    const applyProfileDefaults = (profileName) => {
+        if (!profileName || !modalFormOptions) {
+            updatePackageForm('mikrotik_profile', profileName);
+            return;
+        }
+
+        const details = selectedPackageType === 'hotspot'
+            ? modalFormOptions.hotspot_profile_details?.[profileName]
+            : modalFormOptions.ppp_profile_details?.[profileName];
+
+        setPackageForm((prev) => ({
+            ...prev,
+            mikrotik_profile: profileName,
+            bandwidth_limit: details?.bandwidth_limit || prev.bandwidth_limit,
+            local_address: details?.local_address || prev.local_address,
+            remote_address: details?.remote_address || prev.remote_address,
+            dns_server: details?.dns_server || prev.dns_server,
+            parent_queue: details?.parent_queue || prev.parent_queue,
+            queue_type_rx: details?.queue_type_rx || prev.queue_type_rx,
+            queue_type_tx: details?.queue_type_tx || prev.queue_type_tx,
+        }));
+    };
+
+    const validityOptions = useMemo(() => {
+        const fromPackages = packages
+            .filter((pkg) => pkg.type === 'hotspot' && pkg.validity)
+            .map((pkg) => pkg.validity);
+        return [...new Set([...HOTSPOT_VALIDITY_PRESETS, ...fromPackages])];
+    }, [packages]);
 
     const openAddModal = () => {
         setEditingPackage(null);
@@ -274,7 +451,31 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                     <button type="button" onClick={() => setShowPackageModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
                 <form onSubmit={handleSavePackage} className="space-y-3 text-xs">
-                    <input type="hidden" name="id" value={editingPackage ? editingPackage.id : ''} />
+                    <div className="flex flex-col gap-1">
+                        <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
+                        <select
+                            value={modalRouterId}
+                            onChange={(e) => setModalRouterId(e.target.value)}
+                            className={`p-2 border rounded-lg ${themeInput}`}
+                        >
+                            <option value="">— Pilih router —</option>
+                            {routers.map((r) => (
+                                <option key={r.id} value={r.id}>
+                                    {r.name}{r.status ? '' : ' (nonaktif)'}
+                                </option>
+                            ))}
+                        </select>
+                        {isLoadingModalOptions && (
+                            <span className={`text-[10px] inline-flex items-center gap-1 ${themeTextSub}`}>
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                Memuat opsi dari RouterOS...
+                            </span>
+                        )}
+                        {modalOptionsError && (
+                            <span className="text-[10px] text-amber-500">{modalOptionsError}</span>
+                        )}
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Jenis Layanan</label>
@@ -289,10 +490,18 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                             </select>
                         </div>
                         {selectedPackageType === 'hotspot' ? (
-                            <div className="flex flex-col gap-1">
-                                <label className={`font-bold ${themeLabel}`}>Masa Aktif</label>
-                                <input required name="validity" type="text" defaultValue={editingPackage ? editingPackage.validity : ''} placeholder="e.g. 2h, 1d, 30d" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                            </div>
+                            <RouterOsField
+                                label="Masa Aktif"
+                                name="validity"
+                                value={packageForm.validity}
+                                onChange={(value) => updatePackageForm('validity', value)}
+                                options={validityOptions}
+                                placeholder="e.g. 2h, 1d, 30d"
+                                required
+                                themeInput={themeInput}
+                                themeLabel={themeLabel}
+                                allowEmpty={false}
+                            />
                         ) : (
                             <div className="flex flex-col gap-1">
                                 <label className={`font-bold ${themeLabel}`}>Masa Aktif</label>
@@ -302,57 +511,153 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                     </div>
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Nama Paket</label>
-                        <input required name="name" type="text" defaultValue={editingPackage ? editingPackage.name : ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                        <input
+                            required
+                            name="name"
+                            type="text"
+                            value={packageForm.name}
+                            onChange={(e) => updatePackageForm('name', e.target.value)}
+                            className={`p-2 border rounded-lg ${themeInput}`}
+                        />
                     </div>
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Harga (Rp)</label>
-                        <input required name="price" type="number" defaultValue={editingPackage ? editingPackage.price : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                        <input
+                            required
+                            name="price"
+                            type="number"
+                            value={packageForm.price}
+                            onChange={(e) => updatePackageForm('price', e.target.value)}
+                            className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                        />
                     </div>
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Batas Kecepatan (Speed Limit)</label>
-                        <input required name="bandwidth_limit" type="text" defaultValue={editingPackage ? editingPackage.bandwidth_limit : ''} placeholder="e.g. 20M/20M" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Nama Profile Mikrotik</label>
-                        <input required name="mikrotik_profile" type="text" defaultValue={editingPackage ? editingPackage.mikrotik_profile : ''} placeholder="e.g. Family-20M" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                    </div>
+                    <RouterOsField
+                        label="Batas Kecepatan (Speed Limit)"
+                        name="bandwidth_limit"
+                        value={packageForm.bandwidth_limit}
+                        onChange={(value) => updatePackageForm('bandwidth_limit', value)}
+                        options={modalFormOptions?.bandwidth_limits || []}
+                        placeholder="e.g. 20M/20M"
+                        required
+                        themeInput={themeInput}
+                        themeLabel={themeLabel}
+                        allowEmpty={false}
+                    />
+                    <RouterOsField
+                        label="Nama Profile Mikrotik"
+                        name="mikrotik_profile"
+                        value={packageForm.mikrotik_profile}
+                        onChange={applyProfileDefaults}
+                        options={profileNameOptions}
+                        placeholder="e.g. Family-20M"
+                        required
+                        themeInput={themeInput}
+                        themeLabel={themeLabel}
+                        allowEmpty={false}
+                    />
                     {selectedPackageType === 'pppoe' && (
                         <>
                             <div className="grid grid-cols-2 gap-3">
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Local Address</label>
-                                    <input name="local_address" type="text" defaultValue={editingPackage ? editingPackage.local_address : ''} placeholder="e.g. 192.168.22.1" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Remote Address</label>
-                                    <input name="remote_address" type="text" defaultValue={editingPackage ? editingPackage.remote_address : ''} placeholder="e.g. pool_ppp" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                </div>
+                                <RouterOsField
+                                    label="Local Address"
+                                    name="local_address"
+                                    value={packageForm.local_address}
+                                    onChange={(value) => updatePackageForm('local_address', value)}
+                                    options={modalFormOptions?.local_addresses || []}
+                                    placeholder="e.g. 192.168.22.1"
+                                    themeInput={themeInput}
+                                    themeLabel={themeLabel}
+                                />
+                                <RouterOsField
+                                    label="Remote Address"
+                                    name="remote_address"
+                                    value={packageForm.remote_address}
+                                    onChange={(value) => updatePackageForm('remote_address', value)}
+                                    options={modalFormOptions?.remote_addresses || modalFormOptions?.ip_pool_names || []}
+                                    placeholder="e.g. pool_ppp"
+                                    themeInput={themeInput}
+                                    themeLabel={themeLabel}
+                                />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>DNS Server</label>
-                                    <input name="dns_server" type="text" defaultValue={editingPackage ? editingPackage.dns_server : ''} placeholder="e.g. 8.8.8.8, 8.8.4.4" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Parent Queue</label>
-                                    <input name="parent_queue" type="text" defaultValue={editingPackage ? editingPackage.parent_queue : ''} placeholder="e.g. GLOBAL CONN" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                </div>
+                                <RouterOsField
+                                    label="DNS Server"
+                                    name="dns_server"
+                                    value={packageForm.dns_server}
+                                    onChange={(value) => updatePackageForm('dns_server', value)}
+                                    options={modalFormOptions?.dns_servers || []}
+                                    placeholder="e.g. 8.8.8.8, 8.8.4.4"
+                                    themeInput={themeInput}
+                                    themeLabel={themeLabel}
+                                />
+                                <RouterOsField
+                                    label="Parent Queue"
+                                    name="parent_queue"
+                                    value={packageForm.parent_queue}
+                                    onChange={(value) => updatePackageForm('parent_queue', value)}
+                                    options={modalFormOptions?.parent_queues || []}
+                                    placeholder="e.g. GLOBAL CONN"
+                                    themeInput={themeInput}
+                                    themeLabel={themeLabel}
+                                />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Queue Type Rx</label>
-                                    <input name="queue_type_rx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_rx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Queue Type Tx</label>
-                                    <input name="queue_type_tx" type="text" defaultValue={editingPackage ? editingPackage.queue_type_tx : ''} placeholder="e.g. my-cake" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                                </div>
+                                <RouterOsField
+                                    label="Queue Type Rx"
+                                    name="queue_type_rx"
+                                    value={packageForm.queue_type_rx}
+                                    onChange={(value) => updatePackageForm('queue_type_rx', value)}
+                                    options={modalFormOptions?.queue_types || []}
+                                    placeholder="e.g. my-cake"
+                                    themeInput={themeInput}
+                                    themeLabel={themeLabel}
+                                />
+                                <RouterOsField
+                                    label="Queue Type Tx"
+                                    name="queue_type_tx"
+                                    value={packageForm.queue_type_tx}
+                                    onChange={(value) => updatePackageForm('queue_type_tx', value)}
+                                    options={modalFormOptions?.queue_types || []}
+                                    placeholder="e.g. my-cake"
+                                    themeInput={themeInput}
+                                    themeLabel={themeLabel}
+                                />
                             </div>
                         </>
                     )}
+                    {selectedPackageType === 'hotspot' && (
+                        <div className="grid grid-cols-2 gap-3">
+                            <RouterOsField
+                                label="Address Pool"
+                                name="remote_address"
+                                value={packageForm.remote_address}
+                                onChange={(value) => updatePackageForm('remote_address', value)}
+                                options={modalFormOptions?.ip_pool_names || modalFormOptions?.remote_addresses || []}
+                                placeholder="e.g. pool_hotspot"
+                                themeInput={themeInput}
+                                themeLabel={themeLabel}
+                            />
+                            <RouterOsField
+                                label="Parent Queue"
+                                name="parent_queue"
+                                value={packageForm.parent_queue}
+                                onChange={(value) => updatePackageForm('parent_queue', value)}
+                                options={modalFormOptions?.parent_queues || []}
+                                placeholder="e.g. GLOBAL CONN"
+                                themeInput={themeInput}
+                                themeLabel={themeLabel}
+                            />
+                        </div>
+                    )}
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Deskripsi Paket</label>
-                        <textarea name="description" rows={2} defaultValue={editingPackage ? editingPackage.description : ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                        <textarea
+                            name="description"
+                            rows={2}
+                            value={packageForm.description}
+                            onChange={(e) => updatePackageForm('description', e.target.value)}
+                            className={`p-2 border rounded-lg ${themeInput}`}
+                        />
                     </div>
                     <div className="flex justify-end pt-3 gap-2">
                         <button type="button" onClick={() => setShowPackageModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
