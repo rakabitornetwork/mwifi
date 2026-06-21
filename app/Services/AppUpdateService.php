@@ -212,6 +212,17 @@ class AppUpdateService
                 null,
                 $fetchTimeout
             );
+            try {
+                $this->runGit(
+                    ['fetch', 'origin', '--tags', '--quiet'],
+                    'Memuat tag rilis dari GitHub',
+                    $fetchSteps,
+                    null,
+                    $fetchTimeout
+                );
+            } catch (\RuntimeException) {
+                // Tag fetch opsional; deteksi versi tetap memakai tag lokal bila ada.
+            }
             $status = $this->getStatus();
         }
 
@@ -355,6 +366,12 @@ class AppUpdateService
     private function syncGitFromRemote(string $branch, ?array &$steps = null, ?callable $onLog = null): void
     {
         $this->runGit(['fetch', 'origin', $branch], 'Fetch dari GitHub', $steps, $onLog);
+
+        try {
+            $this->runGit(['fetch', 'origin', '--tags', '--quiet'], 'Fetch tag rilis', $steps, $onLog);
+        } catch (\RuntimeException $e) {
+            $onLog?->__invoke('Peringatan: gagal fetch tag — ' . $e->getMessage(), 'stderr');
+        }
 
         if (config('update.pull_strategy', 'hard_reset') === 'ff_only') {
             $this->runGit(['pull', 'origin', $branch, '--ff-only'], 'Pull kode terbaru', $steps, $onLog);
@@ -662,41 +679,49 @@ class AppUpdateService
         $fallback = (string) config('update.app_version', '1.0');
 
         if (!$canUseGit) {
-            return [
-                'version' => $fallback,
-                'label' => $fallback,
-                'tag' => null,
-                'describe' => null,
-                'commits_since_tag' => 0,
-                'source' => 'config',
-            ];
+            return $this->localVersionFallback($fallback);
         }
 
         $describeProcess = $this->runGit(['describe', '--tags', '--always']);
-        if (!$describeProcess->isSuccessful()) {
-            return [
-                'version' => $fallback,
-                'label' => $fallback,
-                'tag' => null,
-                'describe' => null,
-                'commits_since_tag' => 0,
-                'source' => 'config',
-            ];
-        }
-
-        $describe = trim($describeProcess->getOutput());
+        $describe = $describeProcess->isSuccessful() ? trim($describeProcess->getOutput()) : null;
         if ($describe === '') {
+            $describe = null;
+        }
+
+        $exactTagProcess = $this->runGitOptional(['describe', '--tags', '--exact-match']);
+        if ($exactTagProcess->isSuccessful()) {
+            $exactTag = $this->normalizeVersionTag(trim($exactTagProcess->getOutput()));
+            if ($exactTag !== null) {
+                return [
+                    'version' => $exactTag,
+                    'label' => $exactTag,
+                    'tag' => $exactTag,
+                    'describe' => $describe,
+                    'commits_since_tag' => 0,
+                    'source' => 'git_tag',
+                ];
+            }
+        }
+
+        $baseTag = $this->getHighestMergedSemverTag();
+        if ($baseTag !== null) {
+            $countProcess = $this->runGit(['rev-list', '--count', "{$baseTag}..HEAD"]);
+            $commitsSinceTag = $countProcess->isSuccessful()
+                ? max(0, (int) trim($countProcess->getOutput()))
+                : 0;
+            $label = $commitsSinceTag > 0 ? "{$baseTag} (+{$commitsSinceTag})" : $baseTag;
+
             return [
-                'version' => $fallback,
-                'label' => $fallback,
-                'tag' => null,
-                'describe' => null,
-                'commits_since_tag' => 0,
-                'source' => 'config',
+                'version' => $baseTag,
+                'label' => $label,
+                'tag' => $baseTag,
+                'describe' => $describe,
+                'commits_since_tag' => $commitsSinceTag,
+                'source' => 'git_tag',
             ];
         }
 
-        if (preg_match('/^v?(\d+(?:\.\d+)*)(?:-(\d+)-g[0-9a-f]+)?$/i', $describe, $matches)) {
+        if ($describe !== null && preg_match('/^v?(\d+(?:\.\d+)*)(?:-(\d+)-g[0-9a-f]+)?$/i', $describe, $matches)) {
             $tag = $matches[1];
             $commitsSinceTag = isset($matches[2]) ? (int) $matches[2] : 0;
             $label = $commitsSinceTag > 0 ? "{$tag} (+{$commitsSinceTag})" : $tag;
@@ -711,21 +736,21 @@ class AppUpdateService
             ];
         }
 
-        $exactTagProcess = $this->runGit(['describe', '--tags', '--exact-match']);
-        if ($exactTagProcess->isSuccessful()) {
-            $tag = $this->normalizeVersionTag(trim($exactTagProcess->getOutput()));
-            if ($tag !== null) {
-                return [
-                    'version' => $tag,
-                    'label' => $tag,
-                    'tag' => $tag,
-                    'describe' => $describe,
-                    'commits_since_tag' => 0,
-                    'source' => 'git_tag',
-                ];
-            }
-        }
+        return $this->localVersionFallback($fallback, $describe);
+    }
 
+    /**
+     * @return array{
+     *     version: string,
+     *     label: string,
+     *     tag: ?string,
+     *     describe: ?string,
+     *     commits_since_tag: int,
+     *     source: string
+     * }
+     */
+    private function localVersionFallback(string $fallback, ?string $describe = null): array
+    {
         return [
             'version' => $fallback,
             'label' => $fallback,
@@ -734,6 +759,21 @@ class AppUpdateService
             'commits_since_tag' => 0,
             'source' => 'config',
         ];
+    }
+
+    private function getHighestMergedSemverTag(): ?string
+    {
+        $mergedTagProcess = $this->runGit(['tag', '--merged', 'HEAD']);
+        if (!$mergedTagProcess->isSuccessful()) {
+            return null;
+        }
+
+        $tagNames = array_values(array_filter(array_map(
+            'trim',
+            preg_split('/\R/', trim($mergedTagProcess->getOutput())) ?: []
+        )));
+
+        return $this->pickHighestSemverVersion($tagNames);
     }
 
     private function githubApiRequest(string $owner, string $repo): \Illuminate\Http\Client\PendingRequest
@@ -1005,6 +1045,18 @@ class AppUpdateService
     private function isProjectWritable(): bool
     {
         return is_writable(base_path()) && is_writable(storage_path()) && is_writable(base_path('bootstrap/cache'));
+    }
+
+    /**
+     * @param array<int, string> $args
+     */
+    private function runGitOptional(array $args): Process
+    {
+        $process = new Process(array_merge(['git'], $args), base_path());
+        $process->setTimeout(30);
+        $process->run();
+
+        return $process;
     }
 
     /**

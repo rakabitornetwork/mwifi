@@ -227,7 +227,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
     const buildStatusMessages = {
         on_release: 'Build ini sesuai rilis terakhir di GitHub.',
         ahead_of_release: branchInSync
-            ? `Kode sudah sinkron dengan branch GitHub, tetapi ada ${buildCommitsSinceRelease} commit setelah tag rilis terakhir.`
+            ? `Kode sudah sinkron dengan branch GitHub, tetapi ada ${buildCommitsSinceRelease} commit setelah rilis ${formatVersion(release.tag || release.build_base_version || release.version)}.`
             : 'Build berada di atas tag rilis terakhir.',
         behind_github: 'Ada pembaruan di GitHub yang belum ditarik ke server ini.',
         unknown: 'Status build tidak dapat ditentukan sepenuhnya.',
@@ -355,7 +355,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                             </p>
                             {buildCommitsSinceRelease > 0 && (
                                 <p className={`text-[10px] mt-2 px-2 py-1 rounded-md ${theme.isDarkMode ? 'bg-sky-500/10 text-sky-300/90' : 'bg-sky-50 text-sky-800'}`}>
-                                    +{buildCommitsSinceRelease} commit setelah rilis {formatVersion(latestReleaseVersion || release.build_base_version || release.tag)}
+                                    +{buildCommitsSinceRelease} commit setelah rilis {formatVersion(release.tag || release.build_base_version || release.version)}
                                 </p>
                             )}
                         </div>

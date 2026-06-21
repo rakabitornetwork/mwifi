@@ -18,7 +18,7 @@ return [
     | Versi fallback jika Git tag tidak tersedia (mis. deploy tanpa .git).
     | Versi aktif diambil otomatis dari Git tag terdekat.
     */
-    'app_version' => '1.2',
+    'app_version' => '1.3',
 
     'repository' => 'https://github.com/rakabitornetwork/mwifi.git',
 

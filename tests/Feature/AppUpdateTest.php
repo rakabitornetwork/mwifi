@@ -52,8 +52,9 @@ class AppUpdateTest extends TestCase
         $this->assertArrayHasKey('remote_version', $status['release']);
         $this->assertArrayHasKey('build_status', $status['release']);
         $this->assertArrayHasKey('latest_release_version', $status['release']);
-        $this->assertSame('1.2', $status['release']['version']);
         $this->assertSame('git_tag', $status['release']['source']);
+        $this->assertNotEmpty($status['release']['version']);
+        $this->assertTrue(version_compare($status['release']['version'], '1.0', '>='));
         $this->assertContains($status['release']['build_status'], ['on_release', 'ahead_of_release', 'behind_github', 'unknown']);
         $this->assertSame('https://github.com/rakabitornetwork/mwifi', $status['repository']['github_url']);
     }

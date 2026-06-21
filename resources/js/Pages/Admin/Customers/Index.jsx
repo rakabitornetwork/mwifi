@@ -68,6 +68,7 @@ function CustomersPageContent({
         return routers[0] ? String(routers[0].id) : '';
     });
     const [pageSize, setPageSize] = useState(10);
+    const [packageCountSort, setPackageCountSort] = useState('desc');
     const [customerPage, setCustomerPage] = useState(1);
     const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
     const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
@@ -92,7 +93,7 @@ function CustomersPageContent({
 
     useEffect(() => {
         setCustomerPage(1);
-    }, [searchTerm, routerFilter, pageSize]);
+    }, [searchTerm, routerFilter, pageSize, packageCountSort]);
 
     useEffect(() => {
         if (showCustomerModal) {
@@ -159,11 +160,17 @@ function CustomersPageContent({
         const packageCountB = packageCustomerCounts[b.package_id ?? 'none'] || 0;
 
         if (packageCountB !== packageCountA) {
-            return packageCountB - packageCountA;
+            return packageCountSort === 'desc'
+                ? packageCountB - packageCountA
+                : packageCountA - packageCountB;
         }
 
         return String(a.name || '').localeCompare(String(b.name || ''), 'id', { sensitivity: 'base' });
     });
+
+    const togglePackageCountSort = () => {
+        setPackageCountSort((current) => (current === 'desc' ? 'asc' : 'desc'));
+    };
 
     const totalCustomerPages = Math.ceil(sortedCustomers.length / pageSize) || 1;
     const paginatedCustomers = sortedCustomers.slice(
@@ -337,7 +344,41 @@ function CustomersPageContent({
                     <div className="flex items-start gap-2 min-w-0">
                         <Users className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
                         <div className="min-w-0">
-                            <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Pelanggan PPPoE</h2>
+                            <div className="flex items-center gap-1.5">
+                                <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Pelanggan PPPoE</h2>
+                                <button
+                                    type="button"
+                                    onClick={togglePackageCountSort}
+                                    title={
+                                        packageCountSort === 'desc'
+                                            ? 'Urut: paket dengan pelanggan terbanyak dulu (klik untuk terbalik)'
+                                            : 'Urut: paket dengan pelanggan paling sedikit dulu (klik untuk terbalik)'
+                                    }
+                                    aria-label={
+                                        packageCountSort === 'desc'
+                                            ? 'Urut menurun berdasarkan jumlah pelanggan per paket'
+                                            : 'Urut menaik berdasarkan jumlah pelanggan per paket'
+                                    }
+                                    className={`inline-flex flex-col items-center justify-center w-5 h-5 rounded-md border transition-colors cursor-pointer shrink-0 ${
+                                        isDarkMode
+                                            ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900 hover:border-zinc-700'
+                                            : 'border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 hover:border-zinc-300'
+                                    }`}
+                                >
+                                    <ChevronUp
+                                        className={`w-2.5 h-2.5 -mb-0.5 ${
+                                            packageCountSort === 'asc' ? 'text-emerald-500' : 'opacity-35'
+                                        }`}
+                                        aria-hidden="true"
+                                    />
+                                    <ChevronDown
+                                        className={`w-2.5 h-2.5 -mt-0.5 ${
+                                            packageCountSort === 'desc' ? 'text-emerald-500' : 'opacity-35'
+                                        }`}
+                                        aria-hidden="true"
+                                    />
+                                </button>
+                            </div>
                             {selectedRouter && (
                                 <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
                                     Router: {selectedRouter.name} · {routerScopedCustomers.length} pelanggan
