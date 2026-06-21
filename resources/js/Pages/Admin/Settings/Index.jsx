@@ -59,6 +59,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
     const whatsappBulkDelaySecondsDefault = Math.min(120, Math.max(1, parseInt(settingsMap['whatsapp.bulk_delay_seconds'] || '4', 10) || 4));
     const whatsappBulkDelayJitterDefault = Math.min(60, Math.max(0, parseInt(settingsMap['whatsapp.bulk_delay_jitter_seconds'] || '3', 10) || 3));
     const appName = branding.app_name || settingsMap['system.app_name'] || 'mWiFi';
+    const companyName = branding.company_name || settingsMap['system.company_name'] || branding.display_name || appName;
 
     const [waTestPhone, setWaTestPhone] = useState(billingAdminPhoneDefault);
     const [isTestingWa, setIsTestingWa] = useState(false);
@@ -322,7 +323,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
         setIsTestingWa(true);
         router.post('/admin/settings/whatsapp-test', {
             phone: waTestPhone,
-            message: `Tes notifikasi WhatsApp dari panel Pengaturan ${appName}.`,
+            message: `Tes notifikasi WhatsApp dari ${companyName}.`,
         }, {
             preserveScroll: true,
             onFinish: () => setIsTestingWa(false),
@@ -396,13 +397,13 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                     <div className="lg:col-span-2 space-y-3 text-xs">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Nama Perusahaan / ISP</label>
+                                <input name="system[company_name]" type="text" defaultValue={branding.company_name || settingsMap['system.company_name'] || ''} placeholder="RT RW NET Anda" className={`p-2 border rounded-lg ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
                                 <label className={`font-bold ${themeLabel}`}>Nama Aplikasi</label>
                                 <input name="system[app_name]" type="text" defaultValue={branding.app_name || settingsMap['system.app_name'] || ''} placeholder="Nama aplikasi" className={`p-2 border rounded-lg ${themeInput}`} />
                                 <span className={`text-[10px] ${themeTextDesc}`}>Dipakai di tab browser & judul halaman.</span>
-                            </div>
-                            <div className="flex flex-col gap-1">
-                                <label className={`font-bold ${themeLabel}`}>Nama Perusahaan / ISP</label>
-                                <input name="system[company_name]" type="text" defaultValue={branding.company_name || settingsMap['system.company_name'] || ''} placeholder="RT RW NET Anda" className={`p-2 border rounded-lg ${themeInput}`} />
                             </div>
                         </div>
                         <div className="flex flex-col gap-1">

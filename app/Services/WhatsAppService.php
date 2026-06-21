@@ -12,7 +12,7 @@ class WhatsAppService
 
     public static function defaultTestMessage(): string
     {
-        return 'Tes notifikasi WhatsApp dari panel Pengaturan ' . BrandingService::appName() . '.';
+        return 'Tes notifikasi WhatsApp dari ' . BrandingService::companyName() . '.';
     }
 
     /**
