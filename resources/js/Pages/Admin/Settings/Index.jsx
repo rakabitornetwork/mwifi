@@ -309,12 +309,13 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                             <label className={`font-bold ${themeLabel}`}>Meta Description</label>
                             <textarea
                                 name="system[seo_description]"
-                                rows={2}
+                                rows={3}
                                 maxLength={320}
                                 defaultValue={settingsMap['system.seo_description'] || ''}
-                                placeholder="Deskripsi singkat layanan ISP Anda untuk Google..."
+                                placeholder={`${companyName} — platform manajemen ISP & RT/RW NET untuk billing otomatis, PPPoE/Hotspot MikroTik, tagihan WhatsApp, dan portal pelanggan terintegrasi.`}
                                 className={`p-2 border rounded-lg ${themeInput}`}
                             />
+                            <span className={`text-[10px] ${themeTextDesc}`}>Ideal 150–160 karakter. Kosongkan untuk memakai tagline perusahaan atau deskripsi default aplikasi.</span>
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Meta Keywords</label>

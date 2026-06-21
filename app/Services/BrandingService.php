@@ -26,12 +26,27 @@ class BrandingService
             'footer_copyright' => self::renderCopyright(),
             'seo' => [
                 'title' => $seoTitle ?: $appName,
-                'description' => SettingService::get('system.seo_description', ''),
+                'description' => self::seoDescription(),
                 'keywords' => SettingService::get('system.seo_keywords', ''),
                 'robots' => SettingService::get('system.seo_robots', 'index,follow'),
             ],
             'version' => SettingService::get('system.branding_version', '1'),
         ];
+    }
+
+    public static function seoDescription(): string
+    {
+        $stored = trim((string) SettingService::get('system.seo_description', ''));
+        if ($stored !== '') {
+            return $stored;
+        }
+
+        $tagline = trim((string) SettingService::get('system.company_tagline', ''));
+        if ($tagline !== '') {
+            return $tagline;
+        }
+
+        return self::companyName() . ' — platform manajemen ISP & RT/RW NET untuk billing otomatis, PPPoE/Hotspot MikroTik, tagihan WhatsApp, dan portal pelanggan terintegrasi.';
     }
 
     public static function renderCopyright(?string $template = null): string
