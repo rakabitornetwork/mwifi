@@ -45,6 +45,18 @@ class Customer extends Model
         return $this->hasMany(BillingDeferral::class);
     }
 
+    public function bandwidthUsages(): HasMany
+    {
+        return $this->hasMany(CustomerBandwidthUsage::class);
+    }
+
+    public function currentBandwidthUsage(): ?CustomerBandwidthUsage
+    {
+        return $this->bandwidthUsages()
+            ->where('period', now()->format('Y-m'))
+            ->first();
+    }
+
     public function pendingBillingDeferral(): ?BillingDeferral
     {
         return $this->billingDeferrals()

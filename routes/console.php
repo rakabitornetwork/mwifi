@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 // Otomatisasi Billing & Isolir
 Schedule::command('billing:generate')->dailyAt('00:00');
 Schedule::command('billing:isolir-check')->hourly();
+Schedule::command('bandwidth:sample')->everyFiveMinutes();

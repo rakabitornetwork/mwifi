@@ -233,6 +233,11 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                     <div className="flex items-center gap-2">
                         <Database className="w-4 h-4 text-indigo-500" />
                         <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Quota Bandwidth (Total Pemakaian)</p>
+                        {quota?.period && (
+                            <span className={`text-[10px] ${themeTextDesc}`}>
+                                Periode {quota.period} · reset otomatis tiap tanggal 1
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
                         {isLoadingQuota && (
@@ -255,7 +260,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                     <p className="text-[10px] text-amber-500">{quotaError}</p>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
                     <QuotaCard
                         label="Total Quota Terpakai"
                         usedBytes={totalBytes}
@@ -295,18 +300,6 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                         themeTextDesc={themeTextDesc}
                         isDarkMode={isDarkMode}
                     />
-                    <div className={`rounded-lg border p-2.5 ${isDarkMode ? 'border-zinc-700 bg-zinc-900/40' : 'border-zinc-200 bg-white/80'}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Sumber Data</p>
-                        <p className={`text-xs font-mono mt-1 ${themeTextTitle}`}>
-                            {quota?.source === 'simple-queue' && 'Simple Queue (RouterOS)'}
-                            {quota?.source === 'ppp-active' && 'Sesi PPP Aktif (RouterOS)'}
-                            {quota?.source === 'hotspot-user' && 'User Hotspot (RouterOS)'}
-                            {!quota?.source && !isLoadingQuota && 'Belum ada data quota'}
-                        </p>
-                        <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
-                            Akumulasi byte upload/download, bukan kecepatan real-time.
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>

@@ -257,18 +257,37 @@ class MikrotikQuotaService
             'upload_limit_bytes' => $limits['upload_limit_bytes'] ?? null,
         ];
 
-        $quota[$username] = $entry;
-
         $aliases = array_unique(array_filter([
+            $username,
             strtolower($username),
             explode('@', $username)[0],
             strtolower(explode('@', $username)[0]),
         ]));
 
         foreach ($aliases as $alias) {
-            if ($alias !== '') {
-                $quota[$alias] = $entry;
+            if ($alias === '') {
+                continue;
             }
+
+            if (isset($quota[$alias]) && self::sourcePriority($quota[$alias]['source'] ?? '') <= self::sourcePriority($source)) {
+                continue;
+            }
+
+            $existingLimits = $quota[$alias] ?? [];
+            $quota[$alias] = array_merge($entry, [
+                'download_limit_bytes' => $entry['download_limit_bytes'] ?? $existingLimits['download_limit_bytes'] ?? null,
+                'upload_limit_bytes' => $entry['upload_limit_bytes'] ?? $existingLimits['upload_limit_bytes'] ?? null,
+            ]);
         }
+    }
+
+    private static function sourcePriority(string $source): int
+    {
+        return match ($source) {
+            'simple-queue' => 1,
+            'hotspot-user' => 2,
+            'ppp-active' => 3,
+            default => 99,
+        };
     }
 }
