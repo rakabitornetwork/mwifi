@@ -491,34 +491,35 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
 
     public function getInterfaceTrafficStats(): array
     {
+        $map = [];
+
+        foreach ($this->getInterfaces() as $iface) {
+            $stats = [
+                'rx_bps' => (int) ($iface['rx_bps'] ?? 0),
+                'tx_bps' => (int) ($iface['tx_bps'] ?? 0),
+            ];
+
+            $map[$iface['name']] = $stats;
+            $map[strtolower((string) $iface['name'])] = $stats;
+        }
+
+        return $map;
+    }
+
+    public function getInterfaces(): array
+    {
         if (!$this->client) {
             return [];
         }
 
         try {
             $query = (new Query('/interface/print'))
-                ->equal('.proplist', 'name,rx-bits-per-second,tx-bits-per-second,rx-rate,tx-rate,type,running')
+                ->equal('.proplist', 'name,type,running,disabled,rx-bits-per-second,tx-bits-per-second,rx-rate,tx-rate')
                 ->equal('stats', '');
 
-            $map = [];
-            foreach ($this->client->query($query)->read() as $iface) {
-                $name = $iface['name'] ?? '';
-                if ($name === '') {
-                    continue;
-                }
-
-                $stats = [
-                    'rx_bps' => MikrotikTrafficService::normalizeRate($iface['rx-bits-per-second'] ?? $iface['rx-rate'] ?? 0) ?? 0,
-                    'tx_bps' => MikrotikTrafficService::normalizeRate($iface['tx-bits-per-second'] ?? $iface['tx-rate'] ?? 0) ?? 0,
-                ];
-
-                $map[$name] = $stats;
-                $map[strtolower($name)] = $stats;
-            }
-
-            return $map;
+            return MikrotikInterfaceService::normalizeList($this->client->query($query)->read());
         } catch (Exception $e) {
-            return [];
+            throw new Exception('Gagal membaca daftar interface RouterOS: ' . $e->getMessage());
         }
     }
 

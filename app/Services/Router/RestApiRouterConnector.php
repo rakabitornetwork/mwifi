@@ -510,6 +510,23 @@ class RestApiRouterConnector implements RouterConnectorInterface
 
     public function getInterfaceTrafficStats(): array
     {
+        $map = [];
+
+        foreach ($this->getInterfaces() as $iface) {
+            $stats = [
+                'rx_bps' => (int) ($iface['rx_bps'] ?? 0),
+                'tx_bps' => (int) ($iface['tx_bps'] ?? 0),
+            ];
+
+            $map[$iface['name']] = $stats;
+            $map[strtolower((string) $iface['name'])] = $stats;
+        }
+
+        return $map;
+    }
+
+    public function getInterfaces(): array
+    {
         try {
             $response = Http::withBasicAuth($this->username, $this->password)
                 ->withoutVerifying()
@@ -517,32 +534,14 @@ class RestApiRouterConnector implements RouterConnectorInterface
                 ->get("{$this->baseUrl}/interface");
 
             if (!$response->successful()) {
-                return [];
+                throw new Exception('HTTP status ' . $response->status());
             }
 
-            $map = [];
-            foreach ($response->json() as $iface) {
-                if (!is_array($iface)) {
-                    continue;
-                }
+            $payload = $response->json();
 
-                $name = $iface['name'] ?? '';
-                if ($name === '') {
-                    continue;
-                }
-
-                $stats = [
-                    'rx_bps' => MikrotikTrafficService::normalizeRate($iface['rx-bits-per-second'] ?? $iface['rx-rate'] ?? 0) ?? 0,
-                    'tx_bps' => MikrotikTrafficService::normalizeRate($iface['tx-bits-per-second'] ?? $iface['tx-rate'] ?? 0) ?? 0,
-                ];
-
-                $map[$name] = $stats;
-                $map[strtolower($name)] = $stats;
-            }
-
-            return $map;
+            return MikrotikInterfaceService::normalizeList(is_array($payload) ? $payload : []);
         } catch (Exception $e) {
-            return [];
+            throw new Exception('Gagal membaca daftar interface RouterOS: ' . $e->getMessage());
         }
     }
 

@@ -1349,6 +1349,67 @@ class AdminActionController extends Controller
     }
 
     /**
+     * List Mikrotik interfaces or read live rx/tx for a selected interface.
+     */
+    public function getRouterInterfaceTraffic(\Illuminate\Http\Request $request)
+    {
+        $validated = $request->validate([
+            'router_id' => 'required|exists:routers,id',
+            'interface' => 'nullable|string|max:100',
+        ]);
+
+        $router = Router::findOrFail($validated['router_id']);
+
+        try {
+            $connector = \App\Services\Router\RouterService::getConnector($router);
+            $interfaces = $connector->getInterfaces();
+
+            if (empty($validated['interface'])) {
+                return response()->json([
+                    'router_id' => $router->id,
+                    'router_name' => $router->name,
+                    'default_interface' => \App\Services\Router\MikrotikInterfaceService::pickDefaultInterfaceName($interfaces),
+                    'interfaces' => array_map(static fn (array $iface) => [
+                        'name' => $iface['name'],
+                        'type' => $iface['type'],
+                        'running' => $iface['running'],
+                        'disabled' => $iface['disabled'],
+                    ], $interfaces),
+                ]);
+            }
+
+            $selectedName = (string) $validated['interface'];
+            $selected = collect($interfaces)->firstWhere('name', $selectedName);
+
+            if ($selected === null) {
+                return response()->json([
+                    'error' => "Interface \"{$selectedName}\" tidak ditemukan di router ini.",
+                    'router_id' => $router->id,
+                    'router_name' => $router->name,
+                ], 404);
+            }
+
+            return response()->json([
+                'router_id' => $router->id,
+                'router_name' => $router->name,
+                'interface' => $selected['name'],
+                'type' => $selected['type'],
+                'running' => $selected['running'],
+                'disabled' => $selected['disabled'],
+                'rx_bps' => (int) $selected['rx_bps'],
+                'tx_bps' => (int) $selected['tx_bps'],
+                'source' => 'routeros',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'router_id' => $router->id,
+                'router_name' => $router->name,
+            ], 502);
+        }
+    }
+
+    /**
      * Synchronize Hotspot Profiles from MikroTik.
      */
     public function syncHotspotProfiles(Request $request)

@@ -24,10 +24,13 @@ import {
     RefreshCw,
     TrendingUp,
     Wallet,
+    ArrowDownLeft,
+    ArrowUpRight,
 } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { formatRupiah } from '../../../utils/formatRupiah';
+import { bpsToMbps, formatSpeedBps } from '../../../utils/formatSpeedBps';
 
 function formatTimeAgo(isoString) {
     if (!isoString) return '-';
@@ -76,6 +79,12 @@ function DashboardContent({
     const [resourceHistory, setResourceHistory] = useState([]);
     const [resourceError, setResourceError] = useState(null);
     const [isLoadingResources, setIsLoadingResources] = useState(false);
+    const [interfaceList, setInterfaceList] = useState([]);
+    const [selectedInterface, setSelectedInterface] = useState('');
+    const [interfaceTraffic, setInterfaceTraffic] = useState({ rx_bps: 0, tx_bps: 0, running: false });
+    const [trafficHistory, setTrafficHistory] = useState([]);
+    const [interfaceError, setInterfaceError] = useState(null);
+    const [isLoadingInterfaces, setIsLoadingInterfaces] = useState(false);
     const [ontDevices, setOntDevices] = useState([]);
     const [isLoadingOnt, setIsLoadingOnt] = useState(true);
     const [isSyncingRouter, setIsSyncingRouter] = useState(null);
@@ -119,6 +128,72 @@ function DashboardContent({
         }
     };
 
+    const fetchInterfaceList = async () => {
+        if (!selectedRouterId) {
+            setInterfaceList([]);
+            setSelectedInterface('');
+            return;
+        }
+
+        setIsLoadingInterfaces(true);
+        try {
+            const res = await fetch(`/admin/server/interface-traffic?router_id=${selectedRouterId}`);
+            const data = await res.json();
+
+            if (!res.ok) {
+                setInterfaceError(data.error || 'Gagal memuat daftar interface.');
+                setInterfaceList([]);
+                setSelectedInterface('');
+                return;
+            }
+
+            setInterfaceError(null);
+            const interfaces = data.interfaces || [];
+            setInterfaceList(interfaces);
+
+            setSelectedInterface((current) => {
+                if (current && interfaces.some((item) => item.name === current)) {
+                    return current;
+                }
+
+                return data.default_interface || interfaces[0]?.name || '';
+            });
+        } catch (err) {
+            console.error('Failed to load Mikrotik interfaces', err);
+            setInterfaceError('Gagal memuat daftar interface.');
+            setInterfaceList([]);
+            setSelectedInterface('');
+        } finally {
+            setIsLoadingInterfaces(false);
+        }
+    };
+
+    const fetchInterfaceTraffic = async () => {
+        if (!selectedRouterId || !selectedInterface) {
+            return;
+        }
+
+        try {
+            const params = new URLSearchParams({
+                router_id: selectedRouterId,
+                interface: selectedInterface,
+            });
+            const res = await fetch(`/admin/server/interface-traffic?${params.toString()}`);
+            const data = await res.json();
+
+            if (!res.ok) {
+                setInterfaceError(data.error || 'Gagal membaca trafik interface.');
+                return;
+            }
+
+            setInterfaceError(null);
+            setInterfaceTraffic(data);
+        } catch (err) {
+            console.error('Failed to load interface traffic', err);
+            setInterfaceError('Gagal membaca trafik interface.');
+        }
+    };
+
     useEffect(() => {
         fetchOntDevices();
     }, []);
@@ -126,15 +201,34 @@ function DashboardContent({
     useEffect(() => {
         if (!selectedRouterId) {
             setResourceHistory([]);
+            setInterfaceList([]);
+            setSelectedInterface('');
+            setTrafficHistory([]);
             return;
         }
 
         setResourceHistory([]);
+        setTrafficHistory([]);
         fetchServerResources();
+        fetchInterfaceList();
 
         const interval = setInterval(fetchServerResources, 15000);
+
         return () => clearInterval(interval);
     }, [selectedRouterId]);
+
+    useEffect(() => {
+        if (!selectedRouterId || !selectedInterface) {
+            setTrafficHistory([]);
+            return;
+        }
+
+        setTrafficHistory([]);
+        fetchInterfaceTraffic();
+
+        const interval = setInterval(fetchInterfaceTraffic, 15000);
+        return () => clearInterval(interval);
+    }, [selectedRouterId, selectedInterface]);
 
     useEffect(() => {
         if (!serverResources || serverResources.cpu === undefined) return;
@@ -152,6 +246,28 @@ function DashboardContent({
             return newHistory;
         });
     }, [serverResources]);
+
+    useEffect(() => {
+        if (interfaceTraffic?.rx_bps === undefined && interfaceTraffic?.tx_bps === undefined) {
+            return;
+        }
+
+        setTrafficHistory((prev) => {
+            const next = [...prev];
+            if (next.length >= 15) {
+                next.shift();
+            }
+
+            const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            next.push({
+                time: timeStr,
+                rx_mbps: bpsToMbps(interfaceTraffic.rx_bps),
+                tx_mbps: bpsToMbps(interfaceTraffic.tx_bps),
+            });
+
+            return next;
+        });
+    }, [interfaceTraffic]);
 
     const handleRebootOnt = async (deviceId) => {
         if (!confirm('Apakah Anda yakin ingin me-reboot perangkat ONT ini?')) return;
@@ -481,6 +597,93 @@ function DashboardContent({
                                         </AreaChart>
                                     </ResponsiveContainer>
                                     )}
+                                </div>
+
+                                <div className="space-y-2 pt-3 border-t border-zinc-200/50 dark:border-zinc-800/50">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[10px] text-zinc-500 font-bold">
+                                        <span>Trafik Interface (Real-time)</span>
+                                        <select
+                                            value={selectedInterface}
+                                            onChange={(e) => setSelectedInterface(e.target.value)}
+                                            disabled={interfaceList.length === 0 || isLoadingInterfaces}
+                                            className={`text-[10px] font-semibold px-2 py-1 rounded-lg border max-w-[220px] truncate disabled:opacity-50 ${themeSelect}`}
+                                            title="Pilih interface Mikrotik"
+                                        >
+                                            {interfaceList.length === 0 ? (
+                                                <option value="">Tidak ada interface</option>
+                                            ) : (
+                                                interfaceList.map((iface) => (
+                                                    <option key={iface.name} value={iface.name}>
+                                                        {iface.name} ({iface.type}{iface.running ? ', aktif' : ''})
+                                                    </option>
+                                                ))
+                                            )}
+                                        </select>
+                                    </div>
+
+                                    {interfaceError && (
+                                        <p className="text-[10px] font-semibold text-amber-500">{interfaceError}</p>
+                                    )}
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div className={`rounded-lg border p-2.5 ${isDarkMode ? 'border-sky-500/20 bg-sky-500/5' : 'border-sky-200 bg-sky-50/80'}`}>
+                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-sky-600 dark:text-sky-400">
+                                                <ArrowDownLeft className="w-3.5 h-3.5" />
+                                                RX (terima)
+                                            </div>
+                                            <p className={`text-sm font-black mt-1 ${themeTextTitle}`}>
+                                                {selectedInterface ? formatSpeedBps(interfaceTraffic.rx_bps) : '—'}
+                                            </p>
+                                        </div>
+                                        <div className={`rounded-lg border p-2.5 ${isDarkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/80'}`}>
+                                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-violet-600 dark:text-violet-400">
+                                                <ArrowUpRight className="w-3.5 h-3.5" />
+                                                TX (kirim)
+                                            </div>
+                                            <p className={`text-sm font-black mt-1 ${themeTextTitle}`}>
+                                                {selectedInterface ? formatSpeedBps(interfaceTraffic.tx_bps) : '—'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-28 w-full">
+                                        {trafficHistory.length === 0 ? (
+                                            <div className={`h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>
+                                                {isLoadingInterfaces
+                                                    ? 'Memuat interface...'
+                                                    : selectedInterface
+                                                        ? 'Menunggu data trafik...'
+                                                        : 'Pilih interface terlebih dahulu'}
+                                            </div>
+                                        ) : (
+                                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                                <AreaChart data={trafficHistory} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                                                    <defs>
+                                                        <linearGradient id="colorRx" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.2} />
+                                                            <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                                                        </linearGradient>
+                                                        <linearGradient id="colorTx" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
+                                                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} />
+                                                    <XAxis dataKey="time" stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={8} tickLine={false} />
+                                                    <YAxis stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={8} tickLine={false} axisLine={false} />
+                                                    <Tooltip
+                                                        formatter={(value, name) => [`${value} Mbps`, name]}
+                                                        contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '8px', fontSize: '10px' }}
+                                                    />
+                                                    <Area type="monotone" dataKey="rx_mbps" name="RX" stroke="#0ea5e9" strokeWidth={1.5} fillOpacity={1} fill="url(#colorRx)" />
+                                                    <Area type="monotone" dataKey="tx_mbps" name="TX" stroke="#8b5cf6" strokeWidth={1.5} fillOpacity={1} fill="url(#colorTx)" />
+                                                </AreaChart>
+                                            </ResponsiveContainer>
+                                        )}
+                                    </div>
+                                    <p className="text-[9px] text-zinc-500 dark:text-zinc-400">
+                                        RX/TX dari perspektif router pada interface terpilih. Refresh otomatis setiap 15 detik.
+                                    </p>
                                 </div>
                             </div>
 

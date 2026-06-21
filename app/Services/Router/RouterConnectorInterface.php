@@ -151,6 +151,13 @@ interface RouterConnectorInterface
     public function getInterfaceTrafficStats(): array;
 
     /**
+     * Router interfaces with live rx/tx throughput.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getInterfaces(): array;
+
+    /**
      * Live simple-queue throughput keyed by queue target/name (customer perspective).
      *
      * @return array<string, array{download_bps:int, upload_bps:int}>

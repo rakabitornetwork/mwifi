@@ -110,6 +110,7 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/settings/whatsapp-session/refresh-profile', [\App\Http\Controllers\Admin\AdminActionController::class, 'refreshWhatsAppSessionProfile']);
     Route::post('admin/profile/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveAdminProfile']);
     Route::get('admin/server/resources', [\App\Http\Controllers\Admin\AdminActionController::class, 'getServerResources']);
+    Route::get('admin/server/interface-traffic', [\App\Http\Controllers\Admin\AdminActionController::class, 'getRouterInterfaceTraffic']);
 
     // Database backup & restore
     Route::post('admin/database/backup', [\App\Http\Controllers\Admin\DatabaseBackupController::class, 'createBackup']);
