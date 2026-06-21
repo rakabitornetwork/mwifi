@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
-import { ChevronDown, ChevronUp, Edit, Eye, Plus, Save, Search, Trash2, Users, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Save, Search, Trash2, Upload, Users, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import CustomerDetailPanel from '../../../Components/Admin/CustomerDetailPanel';
@@ -8,6 +8,31 @@ import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
 const PAGE_SIZE = 10;
+
+function getVisiblePages(currentPage, totalPages) {
+    if (totalPages <= 7) {
+        return Array.from({ length: totalPages }, (_, index) => index + 1);
+    }
+
+    const pages = new Set([1, totalPages, currentPage]);
+    for (let page = currentPage - 1; page <= currentPage + 1; page += 1) {
+        if (page > 1 && page < totalPages) {
+            pages.add(page);
+        }
+    }
+
+    const sortedPages = [...pages].sort((a, b) => a - b);
+    const visiblePages = [];
+
+    sortedPages.forEach((page, index) => {
+        if (index > 0 && page - sortedPages[index - 1] > 1) {
+            visiblePages.push('ellipsis');
+        }
+        visiblePages.push(page);
+    });
+
+    return visiblePages;
+}
 
 function CustomersPageContent({
     customers = [],
@@ -47,6 +72,13 @@ function CustomersPageContent({
     const [customerToDelete, setCustomerToDelete] = useState(null);
     const [deleteMode, setDeleteMode] = useState('local_only');
     const [expandedCustomerId, setExpandedCustomerId] = useState(null);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [importCsvFile, setImportCsvFile] = useState(null);
+    const [importRouterId, setImportRouterId] = useState(() => String(routers[0]?.id ?? ''));
+    const [importSkipExisting, setImportSkipExisting] = useState(false);
+    const [importDryRun, setImportDryRun] = useState(true);
+    const [isImporting, setIsImporting] = useState(false);
+    const [importResult, setImportResult] = useState(null);
 
     const pppoePackages = packages.filter((p) => p.type === 'pppoe');
 
@@ -147,6 +179,18 @@ function CustomersPageContent({
         customerPage * PAGE_SIZE
     );
 
+    const paginationRangeStart = sortedCustomers.length === 0
+        ? 0
+        : (customerPage - 1) * PAGE_SIZE + 1;
+    const paginationRangeEnd = Math.min(customerPage * PAGE_SIZE, sortedCustomers.length);
+    const visiblePages = getVisiblePages(customerPage, totalCustomerPages);
+    const paginationNavButton = isDarkMode
+        ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-400'
+        : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-600';
+    const paginationPageButton = isDarkMode
+        ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white'
+        : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-950';
+
     const openCustomerModal = (customer = null) => {
         setEditingCustomer(customer);
         setShowCustomerModal(true);
@@ -215,6 +259,69 @@ function CustomersPageContent({
         });
     };
 
+    const openImportModal = () => {
+        setImportCsvFile(null);
+        setImportRouterId(String(routers[0]?.id ?? ''));
+        setImportSkipExisting(false);
+        setImportDryRun(true);
+        setImportResult(null);
+        setShowImportModal(true);
+    };
+
+    const handleImportCsv = async (e) => {
+        e.preventDefault();
+
+        if (!importCsvFile) {
+            showToast('Pilih file CSV terlebih dahulu.', 'warning');
+            return;
+        }
+
+        if (!importRouterId) {
+            showToast('Pilih router tujuan impor.', 'warning');
+            return;
+        }
+
+        setIsImporting(true);
+        setImportResult(null);
+
+        const formData = new FormData();
+        formData.append('csv_file', importCsvFile);
+        formData.append('router_id', importRouterId);
+        if (importSkipExisting) {
+            formData.append('skip_existing', '1');
+        }
+        if (importDryRun) {
+            formData.append('dry_run', '1');
+        }
+
+        try {
+            const response = await fetch('/admin/customers/import-csv', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    Accept: 'application/json',
+                },
+                body: formData,
+            });
+
+            const payload = await response.json();
+            setImportResult(payload.result ?? null);
+
+            if (payload.success) {
+                showToast(payload.message, 'success');
+                if (!payload.dry_run) {
+                    router.reload({ only: ['customers', 'packages'] });
+                }
+            } else {
+                showToast(payload.message || 'Impor gagal.', 'error');
+            }
+        } catch {
+            showToast('Gagal menghubungi server saat impor CSV.', 'error');
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
     return (
         <>
             <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
@@ -237,6 +344,14 @@ function CustomersPageContent({
                                 <Trash2 className="w-4 h-4" />
                             </button>
                         )}
+                        <button
+                            type="button"
+                            onClick={openImportModal}
+                            title="Impor CSV"
+                            className={`p-2 border rounded-xl cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                        >
+                            <Upload className="w-4 h-4" />
+                        </button>
                         <button
                             type="button"
                             onClick={() => openCustomerModal()}
@@ -398,45 +513,84 @@ function CustomersPageContent({
                     </table>
                 </div>
 
-                {sortedCustomers.length > PAGE_SIZE && (
-                    <div className={`flex flex-col sm:flex-row items-center justify-between pt-4 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-3 text-xs`}>
-                        <span className={themeTextSub}>
-                            Menampilkan <span className={`font-bold ${themeTextTitle}`}>{Math.min((customerPage - 1) * PAGE_SIZE + 1, sortedCustomers.length)}</span> hingga <span className={`font-bold ${themeTextTitle}`}>{Math.min(customerPage * PAGE_SIZE, sortedCustomers.length)}</span> dari <span className={`font-bold ${themeTextTitle}`}>{sortedCustomers.length}</span> pelanggan
-                        </span>
-                        <div className="flex items-center space-x-1">
-                            <button
-                                type="button"
-                                disabled={customerPage === 1}
-                                onClick={() => setCustomerPage((p) => Math.max(p - 1, 1))}
-                                className={`px-3 py-1.5 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
-                            >
-                                Sebelumnya
-                            </button>
-                            {Array.from({ length: totalCustomerPages }, (_, idx) => idx + 1).map((page) => {
-                                const isCurrent = page === customerPage;
-                                return (
-                                    <button
-                                        key={page}
-                                        type="button"
-                                        onClick={() => setCustomerPage(page)}
-                                        className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all duration-150 cursor-pointer ${isCurrent
-                                            ? 'bg-emerald-500 border-emerald-500 text-white'
-                                            : (isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-950')
-                                        }`}
-                                    >
-                                        {page}
-                                    </button>
-                                );
-                            })}
-                            <button
-                                type="button"
-                                disabled={customerPage === totalCustomerPages}
-                                onClick={() => setCustomerPage((p) => Math.min(p + 1, totalCustomerPages))}
-                                className={`px-3 py-1.5 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
-                            >
-                                Berikutnya
-                            </button>
+                {sortedCustomers.length > 0 && (
+                    <div className={`flex flex-col lg:flex-row lg:items-center lg:justify-between pt-4 mt-1 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-4`}>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
+                            <p className={`text-[11px] leading-relaxed ${themeTextSub}`}>
+                                Menampilkan{' '}
+                                <span className={`font-semibold tabular-nums ${themeTextTitle}`}>
+                                    {paginationRangeStart.toLocaleString('id-ID')}–{paginationRangeEnd.toLocaleString('id-ID')}
+                                </span>
+                                {' '}dari{' '}
+                                <span className={`font-semibold tabular-nums ${themeTextTitle}`}>
+                                    {sortedCustomers.length.toLocaleString('id-ID')}
+                                </span>
+                                {' '}pelanggan
+                            </p>
+                            <span className={`hidden sm:block w-px h-3.5 ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`} aria-hidden="true" />
+                            <p className={`text-[10px] font-medium tracking-wide uppercase ${themeTextDesc}`}>
+                                Halaman{' '}
+                                <span className={`tabular-nums normal-case font-semibold ${themeTextTitle}`}>{customerPage}</span>
+                                {' '}/
+                                {' '}
+                                <span className={`tabular-nums normal-case font-semibold ${themeTextTitle}`}>{totalCustomerPages}</span>
+                            </p>
                         </div>
+
+                        {totalCustomerPages > 1 && (
+                            <nav
+                                aria-label="Navigasi halaman pelanggan"
+                                className="flex items-center justify-center sm:justify-end gap-1 shrink-0"
+                            >
+                                <button
+                                    type="button"
+                                    disabled={customerPage === 1}
+                                    onClick={() => setCustomerPage((page) => Math.max(page - 1, 1))}
+                                    title="Halaman sebelumnya"
+                                    aria-label="Halaman sebelumnya"
+                                    className={`inline-flex items-center justify-center w-8 h-8 border rounded-lg transition-colors duration-150 cursor-pointer disabled:cursor-not-allowed ${paginationNavButton}`}
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                </button>
+
+                                {visiblePages.map((page, index) => (
+                                    page === 'ellipsis' ? (
+                                        <span
+                                            key={`ellipsis-${index}`}
+                                            className={`inline-flex items-center justify-center w-8 h-8 text-[11px] select-none ${themeTextDesc}`}
+                                            aria-hidden="true"
+                                        >
+                                            …
+                                        </span>
+                                    ) : (
+                                        <button
+                                            key={page}
+                                            type="button"
+                                            onClick={() => setCustomerPage(page)}
+                                            aria-label={`Halaman ${page}`}
+                                            aria-current={page === customerPage ? 'page' : undefined}
+                                            className={`inline-flex items-center justify-center min-w-8 h-8 px-2 rounded-lg border text-[11px] font-semibold tabular-nums transition-all duration-150 cursor-pointer ${page === customerPage
+                                                ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/20'
+                                                : paginationPageButton
+                                            }`}
+                                        >
+                                            {page}
+                                        </button>
+                                    )
+                                ))}
+
+                                <button
+                                    type="button"
+                                    disabled={customerPage === totalCustomerPages}
+                                    onClick={() => setCustomerPage((page) => Math.min(page + 1, totalCustomerPages))}
+                                    title="Halaman berikutnya"
+                                    aria-label="Halaman berikutnya"
+                                    className={`inline-flex items-center justify-center w-8 h-8 border rounded-lg transition-colors duration-150 cursor-pointer disabled:cursor-not-allowed ${paginationNavButton}`}
+                                >
+                                    <ChevronRight className="w-4 h-4" />
+                                </button>
+                            </nav>
+                        )}
                     </div>
                 )}
             </div>
@@ -721,6 +875,121 @@ function CustomersPageContent({
                         <Trash2 className="w-4 h-4" />
                     </button>
                 </div>
+            </TransitionModal>
+
+            <TransitionModal show={showImportModal} themeCard={themeCard} maxWidth="md">
+                <form onSubmit={handleImportCsv} className="space-y-4 text-xs">
+                    <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                        <div className="flex items-center gap-2">
+                            <Upload className="w-4 h-4 text-emerald-500" />
+                            <h3 className={`text-sm font-bold ${themeTextTitle}`}>Impor Pelanggan CSV</h3>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowImportModal(false)}
+                            className={`text-zinc-500 ${isDarkMode ? 'hover:text-white' : 'hover:text-zinc-800'}`}
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    <p className={`${themeTextDesc} leading-relaxed text-[11px]`}>
+                        Upload export CSV dari aplikasi billing lama (format Mikhmon). Kolom wajib: Login, Password, FullName, Plan.
+                        Impor hanya ke database — secret PPP di Mikrotik tidak diubah.
+                    </p>
+
+                    <div className="space-y-1">
+                        <label className={`block font-semibold ${themeLabel}`}>Router Tujuan</label>
+                        <select
+                            value={importRouterId}
+                            onChange={(e) => setImportRouterId(e.target.value)}
+                            required
+                            className={`w-full px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                        >
+                            <option value="">Pilih router...</option>
+                            {routers.map((r) => (
+                                <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="space-y-1">
+                        <label className={`block font-semibold ${themeLabel}`}>File CSV</label>
+                        <label className={`flex items-center justify-center gap-2 w-full px-3 py-3 rounded-xl border border-dashed cursor-pointer transition-colors ${isDarkMode ? 'border-zinc-700 bg-zinc-950/40 hover:bg-zinc-900/60' : 'border-zinc-300 bg-zinc-50 hover:bg-white'}`}>
+                            <Upload className="w-3.5 h-3.5" />
+                            <span className={`truncate ${themeTextSub}`}>
+                                {importCsvFile?.name || 'Pilih file .csv'}
+                            </span>
+                            <input
+                                type="file"
+                                accept=".csv,text/csv"
+                                className="sr-only"
+                                onChange={(e) => setImportCsvFile(e.target.files?.[0] ?? null)}
+                            />
+                        </label>
+                    </div>
+
+                    <div className={`p-3 ${themeInnerWidget} rounded-xl space-y-2`}>
+                        <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={importDryRun}
+                                onChange={(e) => setImportDryRun(e.target.checked)}
+                                className={`mt-0.5 rounded text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}
+                            />
+                            <span className={themeTextSub}>
+                                <span className={`font-semibold ${themeTextTitle}`}>Simulasi dulu (dry-run)</span>
+                                <span className={`block ${themeTextDesc} text-[10px] mt-0.5`}>Cek hasil tanpa menyimpan ke database.</span>
+                            </span>
+                        </label>
+                        <label className="flex items-start gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                checked={importSkipExisting}
+                                onChange={(e) => setImportSkipExisting(e.target.checked)}
+                                className={`mt-0.5 rounded text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}
+                            />
+                            <span className={themeTextSub}>
+                                <span className={`font-semibold ${themeTextTitle}`}>Lewati username yang sudah ada</span>
+                                <span className={`block ${themeTextDesc} text-[10px] mt-0.5`}>Pelanggan dengan username sama tidak akan diperbarui.</span>
+                            </span>
+                        </label>
+                    </div>
+
+                    {importResult && (
+                        <div className={`p-3 rounded-xl border text-[11px] space-y-1 ${isDarkMode ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50'}`}>
+                            <p className={`font-bold ${themeTextTitle}`}>Ringkasan</p>
+                            <p className={themeTextSub}>Total baris: {importResult.total}</p>
+                            <p className={themeTextSub}>Baru: {importResult.created} · Diperbarui: {importResult.updated} · Dilewati: {importResult.skipped}</p>
+                            <p className={themeTextSub}>Paket baru: {importResult.packages_created} · Error: {importResult.errors?.length ?? 0}</p>
+                            {importResult.errors?.length > 0 && (
+                                <ul className={`mt-2 space-y-0.5 max-h-24 overflow-y-auto ${themeTextDesc}`}>
+                                    {importResult.errors.slice(0, 5).map((err) => (
+                                        <li key={err}>- {err}</li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    )}
+
+                    <div className="flex justify-end gap-2 pt-1">
+                        <button
+                            type="button"
+                            onClick={() => setShowImportModal(false)}
+                            className={`px-3 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100'}`}
+                        >
+                            Tutup
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isImporting || !importCsvFile || !importRouterId}
+                            className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-lg cursor-pointer inline-flex items-center gap-2"
+                        >
+                            {isImporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                            {importDryRun ? 'Jalankan Simulasi' : 'Impor Sekarang'}
+                        </button>
+                    </div>
+                </form>
             </TransitionModal>
         </>
     );

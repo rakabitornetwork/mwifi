@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\User;
 use App\Services\BillingService;
 use App\Services\BrandingService;
+use App\Services\Customer\LegacyCsvImportService;
 use App\Services\HotspotVoucherService;
 use App\Services\MessageTemplateService;
 use App\Services\SettingService;
@@ -188,6 +189,83 @@ class AdminActionController extends Controller
         }
 
         return redirect()->back()->with('success', 'Data pelanggan berhasil disimpan.');
+    }
+
+    /**
+     * Import customers from legacy billing CSV export.
+     */
+    public function importCustomersCsv(Request $request, LegacyCsvImportService $importService)
+    {
+        $data = $request->validate([
+            'csv_file' => 'required|file|max:10240',
+            'router_id' => 'required|exists:routers,id',
+        ]);
+
+        /** @var UploadedFile $uploadedFile */
+        $uploadedFile = $data['csv_file'];
+        $extension = strtolower($uploadedFile->getClientOriginalExtension());
+        if (!in_array($extension, ['csv', 'txt'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File harus berformat .csv',
+            ], 422);
+        }
+
+        $path = $uploadedFile->getRealPath();
+        if ($path === false) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File CSV tidak dapat dibaca.',
+            ], 422);
+        }
+
+        $dryRun = $request->boolean('dry_run');
+        $skipExisting = $request->boolean('skip_existing');
+
+        try {
+            $result = $importService->import(
+                $path,
+                (int) $data['router_id'],
+                $dryRun,
+                $skipExisting,
+            );
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Impor gagal: ' . $e->getMessage(),
+            ], 500);
+        }
+
+        $prefix = $dryRun ? 'Simulasi impor' : 'Impor selesai';
+        $message = sprintf(
+            '%s: %d baris, %d baru, %d diperbarui, %d dilewati, %d paket baru.',
+            $prefix,
+            $result['total'],
+            $result['created'],
+            $result['updated'],
+            $result['skipped'],
+            $result['packages_created'],
+        );
+
+        if ($result['errors'] !== []) {
+            return response()->json([
+                'success' => false,
+                'message' => $message . ' Beberapa baris gagal.',
+                'result' => $result,
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'result' => $result,
+            'dry_run' => $dryRun,
+        ]);
     }
 
     /**

@@ -80,6 +80,7 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/routers/sync', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncRouter']);
     Route::post('admin/routers/get-profiles', [\App\Http\Controllers\Admin\AdminActionController::class, 'getRouterProfiles']);
     Route::post('admin/customers/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveCustomer']);
+    Route::post('admin/customers/import-csv', [\App\Http\Controllers\Admin\AdminActionController::class, 'importCustomersCsv']);
     Route::post('admin/customers/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteCustomer']);
     Route::post('admin/customers/bulk-delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'bulkDeleteCustomer']);
     Route::get('admin/customers/bandwidth-quota', [\App\Http\Controllers\Admin\AdminActionController::class, 'getCustomerBandwidthQuota']);

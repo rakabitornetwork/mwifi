@@ -30,8 +30,33 @@ class LegacyCsvImportService
      *     errors: list<string>
      * }
      */
+    public function validateFormat(string $filePath): void
+    {
+        $handle = fopen($filePath, 'r');
+        if ($handle === false) {
+            throw new \InvalidArgumentException("Tidak dapat membaca file: {$filePath}");
+        }
+
+        $header = fgetcsv($handle);
+        fclose($handle);
+
+        if ($header === false) {
+            throw new \InvalidArgumentException('File CSV kosong atau tidak valid.');
+        }
+
+        $header = array_map('trim', $header);
+        $missing = array_diff(self::REQUIRED_HEADERS, $header);
+        if ($missing !== []) {
+            throw new \InvalidArgumentException(
+                'Format CSV tidak dikenali. Kolom wajib: ' . implode(', ', self::REQUIRED_HEADERS)
+            );
+        }
+    }
+
     public function import(string $filePath, int $routerId, bool $dryRun = false, bool $skipExisting = false): array
     {
+        $this->validateFormat($filePath);
+
         $handle = fopen($filePath, 'r');
         if ($handle === false) {
             throw new \InvalidArgumentException("Tidak dapat membaca file: {$filePath}");
