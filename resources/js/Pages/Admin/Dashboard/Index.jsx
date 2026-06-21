@@ -437,7 +437,7 @@ function DashboardContent({
 
     return (
         <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {stats.map((stat, idx) => {
                     const Icon = stat.icon;
                     return (
@@ -525,14 +525,14 @@ function DashboardContent({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-4">
                     <div className={`${themeCard} border rounded-2xl p-4 shadow-xs space-y-4`}>
-                        <div className="flex justify-between items-center pb-2 border-b border-zinc-200/50 dark:border-zinc-800/40">
-                            <div className="flex items-center space-x-2">
-                                <Cpu className="w-4 h-4 text-emerald-500 animate-pulse" />
-                                <h3 className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>NOC Monitor Kinerja Server & ODP</h3>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-zinc-200/50 dark:border-zinc-800/40">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <Cpu className="w-4 h-4 text-emerald-500 animate-pulse shrink-0" />
+                                <h3 className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate ${themeTextTitle}`}>NOC Monitor Kinerja Server & ODP</h3>
                             </div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center gap-2 shrink-0">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Live Monitoring</span>
+                                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider whitespace-nowrap">Live Monitoring</span>
                             </div>
                         </div>
 
@@ -787,15 +787,15 @@ function DashboardContent({
                                                 : dev.status === 'offline' ? 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
                                                     : 'bg-rose-500/10 text-rose-500 border-rose-500/20';
                                     return (
-                                        <div key={idx} className={`p-2 border rounded-xl flex items-center justify-between text-xs sm:text-[13px] font-semibold transition-colors duration-150 ${themeInnerWidget}`}>
-                                            <div className="space-y-0.5">
-                                                <div className="flex items-center space-x-1.5">
-                                                    <span className={`font-bold ${themeTextTitle}`}>{dev.username}</span>
-                                                    <span className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono`}>({dev.model})</span>
+                                        <div key={idx} className={`p-2 border rounded-xl flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-[13px] font-semibold transition-colors duration-150 ${themeInnerWidget}`}>
+                                            <div className="space-y-0.5 min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                                    <span className={`font-bold truncate max-w-full ${themeTextTitle}`}>{dev.username}</span>
+                                                    <span className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono shrink-0`}>({dev.model})</span>
                                                 </div>
-                                                <p className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono leading-none`}>SN: {dev.sn}</p>
+                                                <p className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono leading-none truncate`}>SN: {dev.sn}</p>
                                             </div>
-                                            <div className="flex items-center space-x-1.5">
+                                            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                                                 <button
                                                     type="button"
                                                     onClick={() => handleRebootOnt(dev.id)}
@@ -816,12 +816,12 @@ function DashboardContent({
                     </div>
 
                     <div className={`${themeCard} rounded-2xl p-4 shadow-sm space-y-3 transition-colors duration-250`}>
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center space-x-2">
-                                <MessageSquare className="w-4 h-4 text-emerald-500" />
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex items-center gap-2 min-w-0">
+                                <MessageSquare className="w-4 h-4 text-emerald-500 shrink-0" />
                                 <h3 className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Log Generate Tagihan Otomatis</h3>
                             </div>
-                            <span className={`text-xs ${themeTextSub} font-medium`}>Auto Refresh</span>
+                            <span className={`text-xs ${themeTextSub} font-medium shrink-0`}>Auto Refresh</span>
                         </div>
 
                         <div className="space-y-2 max-h-[195px] overflow-y-auto pr-1">
@@ -831,29 +831,29 @@ function DashboardContent({
                                 </div>
                             ) : (
                                 waLogs.map((log, idx) => (
-                                    <div key={idx} className={`p-2 border rounded-lg flex items-start justify-between text-xs sm:text-[13px] font-medium space-x-3 transition-colors duration-150 ${isDarkMode ? 'bg-zinc-950/40 border-zinc-900/50' : 'bg-zinc-50 border-zinc-200/50'}`}>
-                                        <div className="space-y-0.5">
-                                            <div className="flex items-center space-x-1.5">
-                                                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase border ${isDarkMode ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-zinc-200 text-zinc-600 border-zinc-300'}`}>
+                                    <div key={idx} className={`p-2 border rounded-lg flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between text-xs sm:text-[13px] font-medium transition-colors duration-150 ${isDarkMode ? 'bg-zinc-950/40 border-zinc-900/50' : 'bg-zinc-50 border-zinc-200/50'}`}>
+                                        <div className="space-y-0.5 min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase border shrink-0 ${isDarkMode ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-zinc-200 text-zinc-600 border-zinc-300'}`}>
                                                     {log.type}
                                                 </span>
-                                                <span className={`${themeTextTitle} font-bold`}>{log.target}</span>
+                                                <span className={`${themeTextTitle} font-bold truncate`}>{log.target}</span>
                                             </div>
-                                            <p className={`${themeTextDesc} line-clamp-1`}>{log.text}</p>
+                                            <p className={`${themeTextDesc} line-clamp-2 sm:line-clamp-1`}>{log.text}</p>
                                         </div>
-                                        <span className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono whitespace-nowrap`}>{log.time}</span>
+                                        <span className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono shrink-0 self-end sm:self-auto`}>{log.time}</span>
                                     </div>
                                 ))
                             )}
                         </div>
                     </div>
 
-                    <div className={`p-3 border rounded-2xl flex items-center justify-between text-xs sm:text-[13px] font-bold transition-colors duration-250 ${themeInnerWidget}`}>
-                        <div className="flex items-center space-x-2">
-                            <Sliders className={`w-3.5 h-3.5 ${themeTextSub}`} />
-                            <span className={themeTextTitle}>Quick Tools Panel</span>
+                    <div className={`p-3 border rounded-2xl flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-[13px] font-bold transition-colors duration-250 ${themeInnerWidget}`}>
+                        <div className="flex items-center gap-2 min-w-0">
+                            <Sliders className={`w-3.5 h-3.5 shrink-0 ${themeTextSub}`} />
+                            <span className={`truncate ${themeTextTitle}`}>Quick Tools Panel</span>
                         </div>
-                        <div className="flex space-x-1.5">
+                        <div className="flex flex-wrap gap-1.5 shrink-0 self-end sm:self-auto">
                             <button
                                 type="button"
                                 onClick={() => handleSyncRouter()}

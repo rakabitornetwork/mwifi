@@ -98,16 +98,16 @@ function RoutersPageContent({ routers = [] }) {
     return (
         <>
             <div className={`${theme.themeCard} border rounded-2xl p-5 space-y-4`}>
-                <div className={`flex justify-between items-center border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
-                    <div className="flex items-center space-x-2">
-                        <Wifi className="w-5 h-5 text-emerald-500" />
-                        <h2 className={`text-sm font-bold ${theme.themeTextTitle}`}>Manajemen Router Mikrotik</h2>
+                <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Wifi className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <h2 className={`text-sm font-bold truncate ${theme.themeTextTitle}`}>Manajemen Router Mikrotik</h2>
                     </div>
                     <button
                         type="button"
                         onClick={openCreateModal}
                         title="Tambah Router"
-                        className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center"
+                        className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shrink-0 self-end sm:self-auto"
                     >
                         <Plus className="w-4 h-4" />
                     </button>
@@ -137,7 +137,8 @@ function RoutersPageContent({ routers = [] }) {
                                             {routerItem.status ? 'Aktif' : 'Non-Aktif'}
                                         </span>
                                     </td>
-                                    <td className="py-3 px-2 text-right space-x-1">
+                                    <td className="py-3 px-2 text-right w-[1%] whitespace-nowrap">
+                                        <div className="inline-flex flex-wrap gap-0.5 justify-end">
                                         <button
                                             type="button"
                                             onClick={() => handleTestConnection(routerItem.id)}
@@ -164,6 +165,7 @@ function RoutersPageContent({ routers = [] }) {
                                         >
                                             <Edit className="w-4 h-4" />
                                         </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -173,7 +175,7 @@ function RoutersPageContent({ routers = [] }) {
             </div>
 
             <TransitionModal show={showRouterModal} themeCard={theme.themeCard} maxWidth="md">
-                <div className={`flex justify-between items-center pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${theme.themeTextTitle}`}>
                         {editingRouter ? 'Edit Router Mikrotik' : 'Tambah Router Mikrotik'}
                     </h3>
@@ -191,7 +193,7 @@ function RoutersPageContent({ routers = [] }) {
                         <label className={`font-bold ${themeLabel}`}>IP Address / Host</label>
                         <input required name="host" type="text" defaultValue={editingRouter ? editingRouter.host : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Port API</label>
                             <input required name="port" type="number" defaultValue={editingRouter ? editingRouter.port : 8728} className={`p-2 border rounded-lg ${themeInput}`} />

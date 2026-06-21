@@ -318,11 +318,11 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         <>
             <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
                 <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3 gap-3`}>
-                    <div className="flex items-center space-x-2">
-                        <Layers className="w-5 h-5 text-emerald-500" />
-                        <h2 className={`text-sm font-bold ${themeTextTitle}`}>Paket Layanan Internet</h2>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Layers className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <h2 className={`text-sm font-bold truncate ${themeTextTitle}`}>Paket Layanan Internet</h2>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
                         <select
                             value={routerFilter}
                             onChange={(e) => setRouterFilter(e.target.value)}
@@ -419,7 +419,8 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                             : '-'
                                         }
                                     </td>
-                                    <td className="py-3 px-2 text-right space-x-1">
+                                    <td className="py-3 px-2 text-right w-[1%] whitespace-nowrap">
+                                        <div className="inline-flex flex-wrap gap-0.5 justify-end">
                                         <button
                                             type="button"
                                             onClick={() => openEditModal(pkg)}
@@ -436,6 +437,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                         >
                                             <Trash2 className="w-4 h-4" />
                                         </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -445,7 +447,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
             </div>
 
             <TransitionModal show={showPackageModal} themeCard={themeCard} maxWidth="md">
-                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>
                         {editingPackage ? 'Edit Paket Layanan' : 'Tambah Paket Layanan'}
                     </h3>
@@ -467,7 +469,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Jenis Layanan</label>
                             <select
@@ -536,7 +538,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                     </div>
                     {selectedPackageType === 'pppoe' && (
                         <>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="flex flex-col gap-1">
                                     <label className={`font-bold ${themeLabel}`}>Local Address</label>
                                     <input
@@ -560,7 +562,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     disabled={isLoadingRouterProfiles}
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="flex flex-col gap-1">
                                     <label className={`font-bold ${themeLabel}`}>DNS Server</label>
                                     <input
@@ -584,7 +586,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     disabled={isLoadingRouterProfiles}
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <RouterOsField
                                     label="Queue Type Rx"
                                     name="queue_type_rx"
@@ -626,7 +628,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                         </>
                     )}
                     {selectedPackageType === 'hotspot' && (
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <RouterOsField
                                 label="Address Pool"
                                 name="remote_address"

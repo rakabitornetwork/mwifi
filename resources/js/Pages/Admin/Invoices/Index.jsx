@@ -5,6 +5,7 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { formatRupiah } from '../../../utils/formatRupiah';
+import getVisiblePages from '../../../utils/getVisiblePages';
 
 function formatTimeAgo(isoString) {
     if (!isoString) return '-';
@@ -304,6 +305,7 @@ function InvoicesPageContent({
     const unpaidInvoicesCount = invoices.filter((inv) => inv.status === 'unpaid').length;
 
     const totalInvoicePages = Math.ceil(filteredInvoices.length / invoicePageSize) || 1;
+    const visibleInvoicePages = getVisiblePages(invoicePage, totalInvoicePages);
     const paginatedInvoices = filteredInvoices.slice(
         (invoicePage - 1) * invoicePageSize,
         invoicePage * invoicePageSize
@@ -600,7 +602,8 @@ function InvoicesPageContent({
                                             <span className={theme.themeTextDesc}>-</span>
                                         )}
                                     </td>
-                                    <td className="py-3 px-2 text-right space-x-1">
+                                    <td className="py-3 px-2 text-right w-[1%] whitespace-nowrap">
+                                        <div className="inline-flex flex-wrap gap-0.5 justify-end max-w-[96px] sm:max-w-none">
                                             {canPrintInvoice(inv) && (
                                                 <>
                                                     <button
@@ -674,6 +677,7 @@ function InvoicesPageContent({
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -682,62 +686,66 @@ function InvoicesPageContent({
                 </div>
 
                 {filteredInvoices.length > invoicePageSize && (
-                    <div className={`flex flex-col sm:flex-row items-center justify-between pt-4 border-t ${theme.isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-3 text-xs`}>
-                        <span className={theme.themeTextSub}>
-                            Menampilkan <span className={`font-bold ${theme.themeTextTitle}`}>{Math.min((invoicePage - 1) * invoicePageSize + 1, filteredInvoices.length)}</span> hingga <span className={`font-bold ${theme.themeTextTitle}`}>{Math.min(invoicePage * invoicePageSize, filteredInvoices.length)}</span> dari <span className={`font-bold ${theme.themeTextTitle}`}>{filteredInvoices.length}</span> tagihan
+                    <div className={`flex flex-col gap-3 pt-4 border-t ${theme.isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} text-xs`}>
+                        <span className={`text-center sm:text-left ${theme.themeTextSub}`}>
+                            Menampilkan <span className={`font-bold ${theme.themeTextTitle}`}>{Math.min((invoicePage - 1) * invoicePageSize + 1, filteredInvoices.length)}</span>–<span className={`font-bold ${theme.themeTextTitle}`}>{Math.min(invoicePage * invoicePageSize, filteredInvoices.length)}</span> dari <span className={`font-bold ${theme.themeTextTitle}`}>{filteredInvoices.length}</span> tagihan
                         </span>
-                        <div className="flex items-center space-x-1">
+                        <nav aria-label="Navigasi halaman tagihan" className="flex flex-wrap items-center justify-center sm:justify-end gap-1">
                             <button
                                 type="button"
                                 disabled={invoicePage === 1}
                                 onClick={() => setInvoicePage((p) => Math.max(p - 1, 1))}
-                                className={`px-3 py-1.5 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${theme.isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                                title="Halaman sebelumnya"
+                                className={`inline-flex items-center justify-center min-w-8 h-8 px-2 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${theme.isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
                             >
-                                Sebelumnya
+                                ‹
                             </button>
-                            {Array.from({ length: totalInvoicePages }, (_, idx) => idx + 1).map((page) => {
-                                const isCurrent = page === invoicePage;
-                                return (
+                            {visibleInvoicePages.map((page, index) => (
+                                page === 'ellipsis' ? (
+                                    <span key={`ellipsis-${index}`} className={`inline-flex items-center justify-center w-8 h-8 text-[11px] select-none ${theme.themeTextDesc}`} aria-hidden="true">…</span>
+                                ) : (
                                     <button
                                         key={page}
                                         type="button"
                                         onClick={() => setInvoicePage(page)}
-                                        className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all duration-150 cursor-pointer ${isCurrent
+                                        aria-current={page === invoicePage ? 'page' : undefined}
+                                        className={`inline-flex items-center justify-center min-w-8 h-8 px-2 rounded-lg border text-[11px] font-bold tabular-nums transition-all duration-150 cursor-pointer ${page === invoicePage
                                             ? 'bg-emerald-500 border-emerald-500 text-white'
                                             : (theme.isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-950')
                                         }`}
                                     >
                                         {page}
                                     </button>
-                                );
-                            })}
+                                )
+                            ))}
                             <button
                                 type="button"
                                 disabled={invoicePage === totalInvoicePages}
                                 onClick={() => setInvoicePage((p) => Math.min(p + 1, totalInvoicePages))}
-                                className={`px-3 py-1.5 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${theme.isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                                title="Halaman berikutnya"
+                                className={`inline-flex items-center justify-center min-w-8 h-8 px-2 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${theme.isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
                             >
-                                Berikutnya
+                                ›
                             </button>
-                        </div>
+                        </nav>
                     </div>
                 )}
 
                 <div className={`border rounded-xl p-4 space-y-3 ${theme.isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center space-x-2">
-                            <Activity className="w-4 h-4 text-amber-500" />
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <Activity className="w-4 h-4 text-amber-500 shrink-0" />
                             <h3 className={`text-xs font-bold uppercase tracking-wider ${theme.themeTextTitle}`}>Log Generate Tagihan Otomatis</h3>
                         </div>
-                        <span className={`text-[10px] ${theme.themeTextDesc}`}>Scheduler harian H-N jatuh tempo</span>
+                        <span className={`text-[10px] ${theme.themeTextDesc} shrink-0`}>Scheduler harian H-N jatuh tempo</span>
                     </div>
                     <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
                         {billingActivityLogs.length === 0 ? (
                             <p className={`text-xs text-center py-6 ${theme.themeTextDesc}`}>Belum ada riwayat generate otomatis.</p>
                         ) : billingActivityLogs.map((log) => (
                             <div key={log.id} className={`p-3 border rounded-xl text-xs ${themeInnerWidget}`}>
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="space-y-1">
+                                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="space-y-1 min-w-0 flex-1">
                                         <p className={`font-bold ${theme.themeTextTitle}`}>{log.message}</p>
                                         <p className={`text-[10px] ${theme.themeTextDesc}`}>
                                             {log.run_date?.substring?.(0, 10) || '-'}
@@ -766,7 +774,7 @@ function InvoicesPageContent({
             </div>
 
             <TransitionModal show={showDeferModal} themeCard={theme.themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
-                <div className={`flex justify-between items-center pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <div>
                         <h3 className={`text-sm font-bold ${theme.themeTextTitle}`}>Tunda Tagihan Pelanggan</h3>
                         <p className={`text-[10px] mt-0.5 ${theme.themeTextDesc}`}>

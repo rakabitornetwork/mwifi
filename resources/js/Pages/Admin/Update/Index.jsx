@@ -279,7 +279,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                 </p>
                             </div>
                         </div>
-                        <span className={`self-start shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full ${statusLabelClass}`}>
+                        <span className={`self-stretch sm:self-start w-full sm:w-auto text-center sm:text-left text-[10px] font-bold px-2.5 py-1 rounded-full ${statusLabelClass}`}>
                             {isCheckingRemote
                                 ? 'Memeriksa GitHub...'
                                 : updateInfo.update_available
@@ -348,8 +348,8 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                         </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                        <p className={`text-[10px] ${theme.themeTextSub}`}>
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 pt-1">
+                        <p className={`text-[10px] min-w-0 flex-1 ${theme.themeTextSub}`}>
                             Sebelum migrasi, cadangan otomatis disimpan di <span className="font-semibold">storage/app/backups/pre-update/</span>
                             {' '}(MySQL: database salinan baru di server). Cadangan manual tetap tersedia di menu <span className="font-semibold">Database</span>.
                             {updateInfo.repository?.github_url && (
@@ -361,7 +361,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                 </>
                             )}
                         </p>
-                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <div className="flex flex-row gap-2 w-full md:w-auto shrink-0 self-end md:self-auto">
                             <button
                                 type="button"
                                 onClick={() => refreshRemoteStatus(true)}

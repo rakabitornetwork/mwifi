@@ -229,17 +229,19 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
             </div>
 
             <div className={`mt-4 rounded-xl border p-3 space-y-3 ${themeInnerWidget}`}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <Database className="w-4 h-4 text-indigo-500" />
-                        <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Quota Bandwidth (Total Pemakaian)</p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-1 min-w-0 sm:flex-row sm:items-center sm:gap-2">
+                        <div className="flex items-center gap-2">
+                            <Database className="w-4 h-4 text-indigo-500 shrink-0" />
+                            <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Quota Bandwidth (Total Pemakaian)</p>
+                        </div>
                         {quota?.period && (
                             <span className={`text-[10px] ${themeTextDesc}`}>
                                 Periode {quota.period} · reset otomatis tiap tanggal 1
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                         {isLoadingQuota && (
                             <span className={`text-[10px] inline-flex items-center gap-1 ${themeTextSub}`}>
                                 <RefreshCw className="w-3 h-3 animate-spin" />

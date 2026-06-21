@@ -6,33 +6,9 @@ import TransitionModal from '../../../Components/Admin/TransitionModal';
 import CustomerDetailPanel from '../../../Components/Admin/CustomerDetailPanel';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
+import getVisiblePages from '../../../utils/getVisiblePages';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 500, 1000];
-
-function getVisiblePages(currentPage, totalPages) {
-    if (totalPages <= 7) {
-        return Array.from({ length: totalPages }, (_, index) => index + 1);
-    }
-
-    const pages = new Set([1, totalPages, currentPage]);
-    for (let page = currentPage - 1; page <= currentPage + 1; page += 1) {
-        if (page > 1 && page < totalPages) {
-            pages.add(page);
-        }
-    }
-
-    const sortedPages = [...pages].sort((a, b) => a - b);
-    const visiblePages = [];
-
-    sortedPages.forEach((page, index) => {
-        if (index > 0 && page - sortedPages[index - 1] > 1) {
-            visiblePages.push('ellipsis');
-        }
-        visiblePages.push(page);
-    });
-
-    return visiblePages;
-}
 
 function CustomersPageContent({
     customers = [],
@@ -459,14 +435,14 @@ function CustomersPageContent({
                                     />
                                 </th>
                                 <th className="py-3 px-2">Nama</th>
-                                <th className="py-3 px-2">Username</th>
-                                <th className="py-3 px-2">Telepon</th>
-                                <th className="py-3 px-2">Router</th>
+                                <th className="py-3 px-2 hidden sm:table-cell">Username</th>
+                                <th className="py-3 px-2 hidden lg:table-cell">Telepon</th>
+                                <th className="py-3 px-2 hidden md:table-cell">Router</th>
                                 <th className="py-3 px-2">Paket</th>
-                                <th className="py-3 px-2">ODP</th>
-                                <th className="py-3 px-2">Tgl Tagih</th>
+                                <th className="py-3 px-2 hidden xl:table-cell">ODP</th>
+                                <th className="py-3 px-2 hidden lg:table-cell">Tgl Tagih</th>
                                 <th className="py-3 px-2">Status</th>
-                                <th className="py-3 px-2 text-right">Aksi</th>
+                                <th className="py-3 px-2 text-right w-[1%] whitespace-nowrap">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-zinc-800/20 text-xs">
@@ -509,17 +485,20 @@ function CustomersPageContent({
                                             <button
                                                 type="button"
                                                 onClick={() => toggleCustomerDetail(cust.id)}
-                                                className="text-left hover:underline cursor-pointer"
+                                                className="text-left hover:underline cursor-pointer max-w-[120px] sm:max-w-none truncate block"
                                             >
                                                 {cust.name}
                                             </button>
+                                            <span className={`sm:hidden block text-[10px] font-mono font-normal ${themeTextDesc} truncate`}>
+                                                {cust.username}
+                                            </span>
                                         </td>
-                                        <td className="py-3 px-2 font-mono">{cust.username}</td>
-                                        <td className="py-3 px-2 font-mono text-[10px]">{cust.phone_number || '—'}</td>
-                                        <td className="py-3 px-2">{cust.router ? cust.router.name : '—'}</td>
-                                        <td className="py-3 px-2">{cust.package ? cust.package.name : '—'}</td>
-                                        <td className="py-3 px-2 font-mono text-[10px]">{cust.odp ? cust.odp.name : '—'}</td>
-                                        <td className="py-3 px-2">Tgl {cust.billing_date}</td>
+                                        <td className="py-3 px-2 font-mono hidden sm:table-cell">{cust.username}</td>
+                                        <td className="py-3 px-2 font-mono text-[10px] hidden lg:table-cell">{cust.phone_number || '—'}</td>
+                                        <td className="py-3 px-2 hidden md:table-cell">{cust.router ? cust.router.name : '—'}</td>
+                                        <td className="py-3 px-2 max-w-[100px] truncate">{cust.package ? cust.package.name : '—'}</td>
+                                        <td className="py-3 px-2 font-mono text-[10px] hidden xl:table-cell">{cust.odp ? cust.odp.name : '—'}</td>
+                                        <td className="py-3 px-2 hidden lg:table-cell">Tgl {cust.billing_date}</td>
                                         <td className="py-3 px-2">
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                                 cust.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
@@ -529,7 +508,8 @@ function CustomersPageContent({
                                                 {cust.status.toUpperCase()}
                                             </span>
                                         </td>
-                                        <td className="py-3 px-2 text-right space-x-1">
+                                        <td className="py-3 px-2 text-right w-[1%] whitespace-nowrap">
+                                            <div className="inline-flex flex-wrap gap-0.5 justify-end max-w-[72px] sm:max-w-none">
                                             <button
                                                 type="button"
                                                 onClick={() => toggleCustomerDetail(cust.id)}
@@ -554,6 +534,7 @@ function CustomersPageContent({
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
+                                            </div>
                                         </td>
                                     </tr>
                                     {expandedCustomerId === cust.id && (
@@ -670,8 +651,8 @@ function CustomersPageContent({
             </div>
 
             <TransitionModal show={showCustomerModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
-                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
-                    <h3 className={`text-sm font-bold ${themeTextTitle}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                    <h3 className={`text-sm font-bold min-w-0 flex-1 pr-2 ${themeTextTitle}`}>
                         {editingCustomer ? 'Edit Pelanggan PPPoE' : 'Tambah Pelanggan PPPoE'}
                     </h3>
                     <button type="button" onClick={() => setShowCustomerModal(false)} className="text-zinc-500 hover:text-white">
@@ -682,7 +663,7 @@ function CustomersPageContent({
                     <input type="hidden" name="id" value={editingCustomer ? editingCustomer.id : ''} />
                     <input type="hidden" name="service_type" value="pppoe" />
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Nama Lengkap</label>
                             <input required name="name" type="text" defaultValue={editingCustomer ? editingCustomer.name : ''} className={`p-2 border rounded-lg ${themeInput}`} />
@@ -693,7 +674,7 @@ function CustomersPageContent({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Password Portal</label>
                             <input required name="password" type="text" defaultValue={editingCustomer ? editingCustomer.password : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
@@ -725,7 +706,7 @@ function CustomersPageContent({
                         onSuccess={() => showToast('Koordinat GPS berhasil diambil.', 'success')}
                     />
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Router</label>
                             <select name="router_id" defaultValue={editingCustomer ? editingCustomer.router_id : (routers[0]?.id || '')} className={`p-2 border rounded-lg ${themeInput}`}>
@@ -756,7 +737,7 @@ function CustomersPageContent({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Status Akun</label>
                             <select name="status" defaultValue={editingCustomer ? editingCustomer.status : 'active'} className={`p-2 border rounded-lg ${themeInput}`}>
@@ -794,7 +775,7 @@ function CustomersPageContent({
             </TransitionModal>
 
             <TransitionModal show={showDeleteCustomerModal} themeCard={themeCard} maxWidth="md">
-                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className="text-sm font-bold text-rose-500">
                         Hapus Pelanggan
                     </h3>
@@ -876,7 +857,7 @@ function CustomersPageContent({
             </TransitionModal>
 
             <TransitionModal show={showBulkDeleteModal} themeCard={themeCard} maxWidth="md">
-                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className="text-sm font-bold text-rose-500">
                         Hapus Masal Pelanggan
                     </h3>
@@ -953,7 +934,7 @@ function CustomersPageContent({
 
             <TransitionModal show={showImportModal} themeCard={themeCard} maxWidth="md">
                 <form onSubmit={handleImportCsv} className="space-y-4 text-xs">
-                    <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                    <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                         <div className="flex items-center gap-2">
                             <Upload className="w-4 h-4 text-emerald-500" />
                             <h3 className={`text-sm font-bold ${themeTextTitle}`}>Impor Pelanggan CSV</h3>

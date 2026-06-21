@@ -29,6 +29,7 @@ import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useAdminToast } from '../../../hooks/useAdminToast';
 import { formatRupiah } from '../../../utils/formatRupiah';
+import getVisiblePages from '../../../utils/getVisiblePages';
 
 function HotspotPageContent({
     routers = [],
@@ -301,6 +302,7 @@ function HotspotPageContent({
     });
 
     const totalHotspotMemberPages = Math.ceil(filteredHotspotMembers.length / customerPageSize) || 1;
+    const visibleHotspotMemberPages = getVisiblePages(hotspotMemberPage, totalHotspotMemberPages);
     const paginatedHotspotMembers = filteredHotspotMembers.slice(
         (hotspotMemberPage - 1) * customerPageSize,
         hotspotMemberPage * customerPageSize,
@@ -352,12 +354,12 @@ function HotspotPageContent({
     return (
         <>
             <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3 gap-3`}>
-                    <div className="flex items-center space-x-2">
-                        <Radio className="w-5 h-5 text-emerald-500" />
-                        <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Hotspot & Voucher</h2>
+                <div className={`flex flex-col gap-3 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Radio className="w-5 h-5 text-emerald-500 shrink-0" />
+                        <h2 className={`text-sm font-bold truncate ${themeTextTitle}`}>Manajemen Hotspot & Voucher</h2>
                     </div>
-                    <div className="flex items-center space-x-2 w-full sm:w-auto">
+                    <div className="flex flex-wrap gap-2 w-full">
                         <button
                             type="button"
                             onClick={() => setHotspotSubTab('vouchers')}
@@ -553,7 +555,8 @@ function HotspotPageContent({
                                             <td className="py-3 px-2 font-mono text-[11px]">{resolveVoucherMacAddress(v)}</td>
                                             <td className="py-3 px-2 font-mono">{v.sold_at ? new Date(v.sold_at).toLocaleString('id-ID') : '-'}</td>
                                             <td className="py-3 px-2 font-mono text-zinc-500">{v.comment || '-'}</td>
-                                            <td className="py-3 px-2 text-right space-x-1">
+                                            <td className="py-3 px-2 text-right w-[1%] whitespace-nowrap">
+                                                <div className="inline-flex flex-wrap gap-0.5 justify-end">
                                                     {v.status === 'unused' && (
                                                         <button
                                                             type="button"
@@ -575,6 +578,7 @@ function HotspotPageContent({
                                                     >
                                                         <Trash2 className="w-4 h-4" />
                                                     </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -583,8 +587,8 @@ function HotspotPageContent({
                         </div>
 
                         {totalVoucherPages > 1 && (
-                            <div className="flex justify-between items-center pt-4 border-t border-zinc-800/10 text-xs">
-                                <span className={themeTextSub}>Halaman {voucherPage} dari {totalVoucherPages} ({filteredHotspotVouchers.length} voucher)</span>
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-zinc-800/10 text-xs">
+                                <span className={`text-center sm:text-left ${themeTextSub}`}>Halaman {voucherPage} dari {totalVoucherPages} ({filteredHotspotVouchers.length} voucher)</span>
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
@@ -743,8 +747,8 @@ function HotspotPageContent({
                                 const totalSalesPages = Math.ceil(hotspotSales.length / salesPageSize) || 1;
                                 if (totalSalesPages > 1) {
                                     return (
-                                        <div className="flex justify-between items-center pt-4 border-t border-zinc-800/10 text-xs">
-                                            <span className={themeTextSub}>Halaman {salesPage} dari {totalSalesPages} ({hotspotSales.length} transaksi)</span>
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-zinc-800/10 text-xs">
+                                            <span className={`text-center sm:text-left ${themeTextSub}`}>Halaman {salesPage} dari {totalSalesPages} ({hotspotSales.length} transaksi)</span>
                                             <div className="flex gap-2">
                                                 <button
                                                     type="button"
@@ -824,7 +828,8 @@ function HotspotPageContent({
                                                     {cust.status.toUpperCase()}
                                                 </span>
                                             </td>
-                                            <td className="py-3 px-2 text-right space-x-1">
+                                            <td className="py-3 px-2 text-right w-[1%] whitespace-nowrap">
+                                                <div className="inline-flex flex-wrap gap-0.5 justify-end">
                                                 <button
                                                     type="button"
                                                     onClick={() => openMemberModal(cust)}
@@ -841,6 +846,7 @@ function HotspotPageContent({
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -849,41 +855,46 @@ function HotspotPageContent({
                         </div>
 
                         {filteredHotspotMembers.length > customerPageSize && (
-                            <div className={`flex flex-col sm:flex-row items-center justify-between pt-4 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-3 text-xs`}>
-                                <span className={themeTextSub}>
-                                    Menampilkan <span className={`font-bold ${themeTextTitle}`}>{Math.min((hotspotMemberPage - 1) * customerPageSize + 1, filteredHotspotMembers.length)}</span> hingga <span className={`font-bold ${themeTextTitle}`}>{Math.min(hotspotMemberPage * customerPageSize, filteredHotspotMembers.length)}</span> dari <span className={`font-bold ${themeTextTitle}`}>{filteredHotspotMembers.length}</span> member
+                            <div className={`flex flex-col gap-3 pt-4 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} text-xs`}>
+                                <span className={`text-center sm:text-left ${themeTextSub}`}>
+                                    Menampilkan <span className={`font-bold ${themeTextTitle}`}>{Math.min((hotspotMemberPage - 1) * customerPageSize + 1, filteredHotspotMembers.length)}</span>–<span className={`font-bold ${themeTextTitle}`}>{Math.min(hotspotMemberPage * customerPageSize, filteredHotspotMembers.length)}</span> dari <span className={`font-bold ${themeTextTitle}`}>{filteredHotspotMembers.length}</span> member
                                 </span>
-                                <div className="flex items-center space-x-1">
+                                <nav aria-label="Navigasi halaman member hotspot" className="flex flex-wrap items-center justify-center sm:justify-end gap-1">
                                     <button
                                         type="button"
                                         disabled={hotspotMemberPage === 1}
                                         onClick={() => setHotspotMemberPage((p) => Math.max(p - 1, 1))}
-                                        className={`px-3 py-1.5 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                                        className={`inline-flex items-center justify-center min-w-8 h-8 px-2 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
                                     >
-                                        Sebelumnya
+                                        ‹
                                     </button>
-                                    {Array.from({ length: totalHotspotMemberPages }, (_, idx) => idx + 1).map((page) => (
-                                        <button
-                                            key={page}
-                                            type="button"
-                                            onClick={() => setHotspotMemberPage(page)}
-                                            className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all duration-150 cursor-pointer ${page === hotspotMemberPage
-                                                ? 'bg-emerald-500 border-emerald-500 text-white'
-                                                : (isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-950')
-                                            }`}
-                                        >
-                                            {page}
-                                        </button>
+                                    {visibleHotspotMemberPages.map((page, index) => (
+                                        page === 'ellipsis' ? (
+                                            <span key={`ellipsis-${index}`} className={`inline-flex items-center justify-center w-8 h-8 text-[11px] select-none ${themeTextDesc}`} aria-hidden="true">…</span>
+                                        ) : (
+                                            <button
+                                                key={page}
+                                                type="button"
+                                                onClick={() => setHotspotMemberPage(page)}
+                                                aria-current={page === hotspotMemberPage ? 'page' : undefined}
+                                                className={`inline-flex items-center justify-center min-w-8 h-8 px-2 rounded-lg border text-[11px] font-bold tabular-nums transition-all duration-150 cursor-pointer ${page === hotspotMemberPage
+                                                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                                                    : (isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-950')
+                                                }`}
+                                            >
+                                                {page}
+                                            </button>
+                                        )
                                     ))}
                                     <button
                                         type="button"
                                         disabled={hotspotMemberPage === totalHotspotMemberPages}
                                         onClick={() => setHotspotMemberPage((p) => Math.min(p + 1, totalHotspotMemberPages))}
-                                        className={`px-3 py-1.5 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                                        className={`inline-flex items-center justify-center min-w-8 h-8 px-2 border rounded-lg transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'}`}
                                     >
-                                        Berikutnya
+                                        ›
                                     </button>
-                                </div>
+                                </nav>
                             </div>
                         )}
                     </div>
@@ -891,7 +902,7 @@ function HotspotPageContent({
             </div>
 
             <TransitionModal show={showMemberModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
-                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>
                         {editingMember ? 'Edit Member Hotspot' : 'Tambah Member Hotspot'}
                     </h3>
@@ -903,7 +914,7 @@ function HotspotPageContent({
                     <input type="hidden" name="billing_date" value={editingMember?.billing_date || 1} />
                     <input type="hidden" name="odp_id" value="" />
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Nama Lengkap</label>
                             <input required name="name" type="text" defaultValue={editingMember ? editingMember.name : ''} className={`p-2 border rounded-lg ${themeInput}`} />
@@ -914,7 +925,7 @@ function HotspotPageContent({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Password Portal</label>
                             <input required name="password" type="text" defaultValue={editingMember ? editingMember.password : ''} className={`p-2 border rounded-lg font-mono ${themeInput}`} />
@@ -930,7 +941,7 @@ function HotspotPageContent({
                         <textarea required name="address" rows={2} defaultValue={editingMember ? editingMember.address : ''} className={`p-2 border rounded-lg ${themeInput}`} />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Router</label>
                             <select name="router_id" defaultValue={editingMember ? editingMember.router_id : (routers[0]?.id || '')} className={`p-2 border rounded-lg ${themeInput}`}>
@@ -972,7 +983,7 @@ function HotspotPageContent({
             </TransitionModal>
 
             <TransitionModal show={showDeleteMemberModal} themeCard={themeCard} maxWidth="md">
-                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className="text-sm font-bold text-rose-500">Hapus Member Hotspot</h3>
                     <button
                         type="button"
@@ -1052,7 +1063,7 @@ function HotspotPageContent({
             </TransitionModal>
 
             <TransitionModal show={showGenerateVoucherModal} themeCard={themeCard} maxWidth="md">
-                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Generate Voucher Hotspot (Bulk)</h3>
                     <button type="button" onClick={() => setShowGenerateVoucherModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
@@ -1183,7 +1194,7 @@ function HotspotPageContent({
             </TransitionModal>
 
             <TransitionModal show={showSellVoucherModal} themeCard={themeCard} maxWidth="sm">
-                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Konfirmasi Penjualan Voucher</h3>
                     <button type="button" onClick={() => { setShowSellVoucherModal(false); setSelectedVoucherForSale(null); }} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
@@ -1229,7 +1240,7 @@ function HotspotPageContent({
             </TransitionModal>
 
             <TransitionModal show={showPrintVouchersModal} themeCard={themeCard} maxWidth="md">
-                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Cetak Voucher Hotspot (Bulk)</h3>
                     <button type="button" onClick={() => setShowPrintVouchersModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
@@ -1327,7 +1338,7 @@ function HotspotPageContent({
             </TransitionModal>
 
             <TransitionModal show={showBulkDeleteVouchersModal} themeCard={themeCard} maxWidth="md">
-                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className="text-sm font-bold text-rose-500 flex items-center gap-1.5">
                         <Trash2 className="w-4.5 h-4.5" />
                         Hapus Voucher Massal (Batch)
