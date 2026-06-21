@@ -257,6 +257,31 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
         }
     }
 
+    public function deletePppProfile(string $name): bool
+    {
+        if (!$this->client) {
+            return false;
+        }
+
+        try {
+            $queryFind = (new Query('/ppp/profile/print'))
+                ->where('name', $name);
+            $profiles = $this->client->query($queryFind)->read();
+
+            if (empty($profiles) || !isset($profiles[0]['.id'])) {
+                return true;
+            }
+
+            $queryDelete = (new Query('/ppp/profile/remove'))
+                ->equal('.id', $profiles[0]['.id']);
+            $this->client->query($queryDelete)->read();
+
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
     public function getHotspotProfiles(): array
     {
         if (!$this->client) {
@@ -313,6 +338,31 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
             }
             
             $this->client->query($queryUpdate)->read();
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function deleteHotspotProfile(string $name): bool
+    {
+        if (!$this->client) {
+            return false;
+        }
+
+        try {
+            $queryFind = (new Query('/ip/hotspot/user-profile/print'))
+                ->where('name', $name);
+            $profiles = $this->client->query($queryFind)->read();
+
+            if (empty($profiles) || !isset($profiles[0]['.id'])) {
+                return true;
+            }
+
+            $queryDelete = (new Query('/ip/hotspot/user-profile/remove'))
+                ->equal('.id', $profiles[0]['.id']);
+            $this->client->query($queryDelete)->read();
+
             return true;
         } catch (Exception $e) {
             return false;

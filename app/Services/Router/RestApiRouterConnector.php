@@ -271,6 +271,36 @@ class RestApiRouterConnector implements RouterConnectorInterface
         }
     }
 
+    public function deletePppProfile(string $name): bool
+    {
+        try {
+            $responseFind = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ppp/profile", ['name' => $name]);
+
+            if (!$responseFind->successful() || empty($responseFind->json())) {
+                return true;
+            }
+
+            $profiles = $responseFind->json();
+            $id = $profiles[0]['.id'] ?? null;
+
+            if (!$id) {
+                return true;
+            }
+
+            $responseDelete = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->delete("{$this->baseUrl}/ppp/profile/{$id}");
+
+            return $responseDelete->successful();
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
     public function getHotspotProfiles(): array
     {
         try {
@@ -326,6 +356,36 @@ class RestApiRouterConnector implements RouterConnectorInterface
                 ->patch("{$this->baseUrl}/ip/hotspot/user/profile/{$id}", $filtered);
 
             return $responseUpdate->successful();
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function deleteHotspotProfile(string $name): bool
+    {
+        try {
+            $responseFind = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->get("{$this->baseUrl}/ip/hotspot/user/profile", ['name' => $name]);
+
+            if (!$responseFind->successful() || empty($responseFind->json())) {
+                return true;
+            }
+
+            $profiles = $responseFind->json();
+            $id = $profiles[0]['.id'] ?? null;
+
+            if (!$id) {
+                return true;
+            }
+
+            $responseDelete = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(5)
+                ->delete("{$this->baseUrl}/ip/hotspot/user/profile/{$id}");
+
+            return $responseDelete->successful();
         } catch (Exception $e) {
             return false;
         }

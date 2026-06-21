@@ -111,7 +111,29 @@ class MikrotikPackageFormOptionsService
     }
 
     /**
-     * @param  array<string, mixed>  $row
+     * Build RouterOS queue-type value (rx/tx) for PPP and Hotspot profiles.
+     */
+    public static function buildRouterOsQueueType(?string $rx, ?string $tx): ?string
+    {
+        $rx = trim((string) ($rx ?? ''));
+        $tx = trim((string) ($tx ?? ''));
+
+        if ($rx === '' && $tx === '') {
+            return null;
+        }
+
+        if ($tx === '') {
+            $tx = $rx;
+        }
+
+        if ($rx === '') {
+            $rx = $tx;
+        }
+
+        return "{$rx}/{$tx}";
+    }
+
+    /**
      * @param  array<int, string>  $keys
      */
     private static function field(array $row, array $keys): ?string

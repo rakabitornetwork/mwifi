@@ -65,6 +65,11 @@ class MikrotikPackageFormOptionsServiceTest extends TestCase
                 return true;
             }
 
+            public function deletePppProfile(string $name): bool
+            {
+                return true;
+            }
+
             public function kickActiveConnection(string $username): bool
             {
                 return true;
@@ -85,6 +90,11 @@ class MikrotikPackageFormOptionsServiceTest extends TestCase
             }
 
             public function updateHotspotProfile(string $name, array $data): bool
+            {
+                return true;
+            }
+
+            public function deleteHotspotProfile(string $name): bool
             {
                 return true;
             }
@@ -174,5 +184,13 @@ class MikrotikPackageFormOptionsServiceTest extends TestCase
         $this->assertContains('queue-parent', $options['parent_queues']);
         $this->assertSame(['cake', 'default', 'fq-codel'], $options['queue_types']);
         $this->assertNotContains('fq-codel/fq-codel', $options['queue_types']);
+    }
+
+    public function test_build_router_os_queue_type_uses_rx_tx_format(): void
+    {
+        $this->assertSame('fq-codel/fq-codel', MikrotikPackageFormOptionsService::buildRouterOsQueueType('fq-codel', 'fq-codel'));
+        $this->assertSame('fq-codel/cake', MikrotikPackageFormOptionsService::buildRouterOsQueueType('fq-codel', 'cake'));
+        $this->assertSame('fq-codel/fq-codel', MikrotikPackageFormOptionsService::buildRouterOsQueueType('fq-codel', null));
+        $this->assertNull(MikrotikPackageFormOptionsService::buildRouterOsQueueType(null, null));
     }
 }

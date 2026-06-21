@@ -65,8 +65,9 @@ interface RouterConnectorInterface
 
     public function updatePppProfile(string $name, array $data): bool;
 
+    public function deletePppProfile(string $name): bool;
+
     /**
-     * Forcefully disconnect an active session (useful for applying changes or isolating immediately).
      *
      * @param string $username
      * @return bool
@@ -84,8 +85,9 @@ interface RouterConnectorInterface
 
     public function updateHotspotProfile(string $name, array $data): bool;
 
+    public function deleteHotspotProfile(string $name): bool;
+
     /**
-     * Get all Hotspot Users.
      *
      * @return array
      */

@@ -358,7 +358,10 @@ class AdminActionController extends Controller
                     'name' => $data['mikrotik_profile'],
                     'rate-limit' => $data['bandwidth_limit'] ?? null,
                     'parent-queue' => $data['parent_queue'] ?? null,
-                    'queue-type' => $data['queue_type_rx'] ?? null,
+                    'queue-type' => \App\Services\Router\MikrotikPackageFormOptionsService::buildRouterOsQueueType(
+                        $data['queue_type_rx'] ?? null,
+                        $data['queue_type_tx'] ?? null
+                    ),
                     'address-pool' => $data['remote_address'] ?? null,
                 ];
 
@@ -409,7 +412,10 @@ class AdminActionController extends Controller
                     'remote-address' => $data['remote_address'] ?? null,
                     'dns-server' => $data['dns_server'] ?? null,
                     'parent-queue' => $data['parent_queue'] ?? null,
-                    'queue-type' => $data['queue_type_rx'] ?? null,
+                    'queue-type' => \App\Services\Router\MikrotikPackageFormOptionsService::buildRouterOsQueueType(
+                        $data['queue_type_rx'] ?? null,
+                        $data['queue_type_tx'] ?? null
+                    ),
                     'only-one' => $data['only_one'] ? 'yes' : 'no',
                 ];
 
@@ -434,8 +440,7 @@ class AdminActionController extends Controller
             $errors[] = "{$router->name} (" . $e->getMessage() . ")";
         }
 
-        // Set queue_type_tx same as queue_type_rx for database consistency
-        if (isset($data['queue_type_rx'])) {
+        if (empty($data['queue_type_tx']) && !empty($data['queue_type_rx'])) {
             $data['queue_type_tx'] = $data['queue_type_rx'];
         }
 
@@ -453,19 +458,54 @@ class AdminActionController extends Controller
      */
     public function deletePackage(Request $request)
     {
-        $request->validate([
-            'id' => 'required|exists:packages,id'
+        $data = $request->validate([
+            'id' => 'required|exists:packages,id',
+            'router_id' => 'required|exists:routers,id',
         ]);
 
-        $package = Package::findOrFail($request->input('id'));
-        
+        $package = Package::findOrFail($data['id']);
+
         if ($package->customers()->exists()) {
             return redirect()->back()->with('error', 'Gagal menghapus paket karena masih digunakan oleh pelanggan.');
         }
 
+        $router = Router::findOrFail($data['router_id']);
+        $profileName = $package->mikrotik_profile ?: $package->name;
+        $routerError = null;
+
+        if (strtolower($profileName) !== 'default') {
+            try {
+                $connector = \App\Services\Router\RouterService::getConnector($router);
+
+                if (($package->type ?? 'pppoe') === 'hotspot') {
+                    $deleted = $connector->deleteHotspotProfile($profileName);
+                    if (!$deleted) {
+                        throw new \Exception('Gagal menghapus profil hotspot di Mikrotik.');
+                    }
+                } else {
+                    $deleted = $connector->deletePppProfile($profileName);
+                    if (!$deleted) {
+                        throw new \Exception('Gagal menghapus profil PPP di Mikrotik.');
+                    }
+                }
+            } catch (\Exception $e) {
+                $routerError = "{$router->name} ({$e->getMessage()})";
+            }
+        }
+
         $package->delete();
 
-        return redirect()->back()->with('success', 'Paket internet berhasil dihapus.');
+        if ($routerError) {
+            return redirect()->back()->with(
+                'warning',
+                'Paket dihapus dari aplikasi, namun gagal menghapus profil di router: ' . $routerError
+            );
+        }
+
+        return redirect()->back()->with(
+            'success',
+            "Paket internet berhasil dihapus dari aplikasi dan router {$router->name}."
+        );
     }
 
     /**

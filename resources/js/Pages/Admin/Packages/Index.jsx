@@ -178,15 +178,22 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     };
 
     const handleDeletePackage = (packageId) => {
-        if (!confirm('Apakah Anda yakin ingin menghapus paket layanan ini?')) return;
+        if (!routerFilter) {
+            alert('Pilih router Mikrotik di halaman utama terlebih dahulu.');
+            return;
+        }
 
-        router.post('/admin/packages/delete', { id: packageId }, {
+        if (!confirm('Apakah Anda yakin ingin menghapus paket layanan ini? Profil akan dihapus dari RouterOS.')) return;
+
+        router.post('/admin/packages/delete', { id: packageId, router_id: routerFilter }, {
             onSuccess: (page) => {
                 const flash = page.props.flash || {};
                 if (flash.success) {
                     showToast(flash.success, 'success');
                 } else if (flash.error) {
                     showToast(flash.error, 'error');
+                } else if (flash.warning) {
+                    showToast(flash.warning, 'warning');
                 }
                 refreshRouterOsData(routerFilter);
             },
