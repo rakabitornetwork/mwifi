@@ -1076,7 +1076,7 @@ class AdminActionController extends Controller
         $config = \App\Services\WhatsAppService::configuration();
 
         if (!$config['enabled']) {
-            return redirect()->back()->with('error', 'Integrasi WhatsApp dinonaktifkan. Aktifkan di menu Pesan lalu simpan.');
+            return redirect()->back()->with('error', 'Integrasi WhatsApp dinonaktifkan. Aktifkan di menu WhatsApp & Telegram lalu simpan.');
         }
 
         $health = \App\Services\WhatsAppService::checkGatewayHealth();

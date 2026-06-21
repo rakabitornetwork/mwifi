@@ -522,7 +522,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                     <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Notifikasi WhatsApp</h3>
                     <p className={`text-[11px] leading-relaxed ${themeTextDesc}`}>
                         Gateway WhatsApp, template pesan tagihan, dan uji kirim dipindahkan ke menu{' '}
-                        <a href="/messaging" className={`font-semibold hover:underline ${isDarkMode ? 'text-violet-300' : 'text-violet-700'}`}>Pesan</a>.
+                        <a href="/messaging" className={`font-semibold hover:underline ${isDarkMode ? 'text-violet-300' : 'text-violet-700'}`}>WhatsApp & Telegram</a>.
                     </p>
                 </div>
             </div>

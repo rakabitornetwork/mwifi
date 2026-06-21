@@ -27,7 +27,7 @@ export const adminNavItems = [
     { tab: 'hotspot', icon: Radio, label: 'Manajemen Hotspot' },
     { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
     // Administrasi sistem
-    { tab: 'messaging', icon: MessageSquare, label: 'Pesan' },
+    { tab: 'messaging', icon: MessageSquare, label: 'WhatsApp & Telegram' },
     { tab: 'settings', icon: Settings, label: 'Pengaturan' },
     { tab: 'database', icon: Database, label: 'Database' },
     { tab: 'update', icon: GitBranch, label: 'Update' },

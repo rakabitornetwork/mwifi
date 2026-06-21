@@ -24,7 +24,7 @@ function MessagingPageContent({
         themeLabel,
     } = useAdminFormTheme();
 
-    const [messagingSubTab, setMessagingSubTab] = useState('templates');
+    const [messagingSubTab, setMessagingSubTab] = useState('gateway');
 
     const settingsMap = {};
     settings.forEach((s) => {
@@ -92,18 +92,18 @@ function MessagingPageContent({
                             <MessageSquare className="w-5 h-5 text-violet-500" />
                         </div>
                         <div>
-                            <h2 className={`text-sm font-bold tracking-tight ${themeTextTitle}`}>Pesan & Notifikasi</h2>
+                            <h2 className={`text-sm font-bold tracking-tight ${themeTextTitle}`}>WhatsApp & Telegram</h2>
                             <p className={`text-[11px] mt-0.5 ${themeTextSub}`}>
-                                WhatsApp gateway, template tagihan, dan kanal pesan lainnya.
+                                Template pesan, gateway WhatsApp, dan integrasi Telegram (segera).
                             </p>
                         </div>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                        <button type="button" onClick={() => setMessagingSubTab('templates')} className={subTabClass('templates')}>
-                            Template WhatsApp
-                        </button>
                         <button type="button" onClick={() => setMessagingSubTab('gateway')} className={subTabClass('gateway')}>
                             Gateway WhatsApp
+                        </button>
+                        <button type="button" onClick={() => setMessagingSubTab('templates')} className={subTabClass('templates')}>
+                            Template WhatsApp
                         </button>
                         <button type="button" disabled className={`${subTabClass('telegram')} opacity-50 cursor-not-allowed`} title="Segera hadir">
                             Telegram
@@ -111,22 +111,6 @@ function MessagingPageContent({
                     </div>
                 </div>
             </div>
-
-            {messagingSubTab === 'templates' && (
-                <WhatsAppTemplatesPanel
-                    templateDefinitions={templateDefinitions}
-                    templateDefaults={templateDefaults}
-                    settingsMap={settingsMap}
-                    themeInput={themeInput}
-                    themeLabel={themeLabel}
-                    themeTextTitle={themeTextTitle}
-                    themeTextSub={themeTextSub}
-                    themeTextDesc={themeTextDesc}
-                    themeCard={themeCard}
-                    isDarkMode={isDarkMode}
-                    showToast={showToast}
-                />
-            )}
 
             {messagingSubTab === 'gateway' && (
                 <WhatsAppGatewayPanel
@@ -139,6 +123,22 @@ function MessagingPageContent({
                     themeTextTitle={themeTextTitle}
                     themeTextSub={themeTextSub}
                     themeTextDesc={themeTextDesc}
+                    isDarkMode={isDarkMode}
+                    showToast={showToast}
+                />
+            )}
+
+            {messagingSubTab === 'templates' && (
+                <WhatsAppTemplatesPanel
+                    templateDefinitions={templateDefinitions}
+                    templateDefaults={templateDefaults}
+                    settingsMap={settingsMap}
+                    themeInput={themeInput}
+                    themeLabel={themeLabel}
+                    themeTextTitle={themeTextTitle}
+                    themeTextSub={themeTextSub}
+                    themeTextDesc={themeTextDesc}
+                    themeCard={themeCard}
                     isDarkMode={isDarkMode}
                     showToast={showToast}
                 />
@@ -169,7 +169,7 @@ function MessagingPageContent({
 
 export default function MessagingIndex(props) {
     return (
-        <AdminLayout title="Pesan">
+        <AdminLayout title="WhatsApp & Telegram">
             <MessagingPageContent {...props} />
         </AdminLayout>
     );
