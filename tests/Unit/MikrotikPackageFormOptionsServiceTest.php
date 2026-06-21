@@ -51,7 +51,7 @@ class MikrotikPackageFormOptionsServiceTest extends TestCase
                     'dns-server' => '8.8.8.8',
                     'rate-limit' => '20M/20M',
                     'parent-queue' => 'GLOBAL',
-                    'queue-type' => 'cake',
+                    'queue-type' => 'fq-codel/fq-codel',
                 ]];
             }
 
@@ -126,7 +126,7 @@ class MikrotikPackageFormOptionsServiceTest extends TestCase
 
             public function getQueueTypes(): array
             {
-                return [['name' => 'default'], ['name' => 'cake']];
+                return [['name' => 'default'], ['name' => 'cake'], ['name' => 'fq-codel']];
             }
 
             public function getInterfaceTrafficStats(): array
@@ -169,10 +169,10 @@ class MikrotikPackageFormOptionsServiceTest extends TestCase
 
         $this->assertSame(['Family-20M'], $options['ppp_profile_names']);
         $this->assertSame(['HS-1D'], $options['hotspot_profile_names']);
-        $this->assertContains('20M/20M', $options['bandwidth_limits']);
-        $this->assertContains('192.168.22.1', $options['local_addresses']);
         $this->assertContains('pool_ppp', $options['ip_pool_names']);
-        $this->assertContains('cake', $options['queue_types']);
-        $this->assertSame('20M/20M', $options['ppp_profile_details']['Family-20M']['bandwidth_limit']);
+        $this->assertContains('GLOBAL', $options['parent_queues']);
+        $this->assertContains('queue-parent', $options['parent_queues']);
+        $this->assertSame(['cake', 'default', 'fq-codel'], $options['queue_types']);
+        $this->assertNotContains('fq-codel/fq-codel', $options['queue_types']);
     }
 }

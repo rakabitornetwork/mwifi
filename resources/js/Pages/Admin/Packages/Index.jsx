@@ -12,7 +12,6 @@ const emptyPackageForm = {
     name: '',
     price: '',
     bandwidth_limit: '',
-    mikrotik_profile: '',
     local_address: '',
     remote_address: '',
     dns_server: '',
@@ -100,9 +99,6 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     const [routerOsCache, setRouterOsCache] = useState({});
     const [isLoadingRouterProfiles, setIsLoadingRouterProfiles] = useState(false);
     const [routerProfileError, setRouterProfileError] = useState(null);
-    const [modalRouterId, setModalRouterId] = useState('');
-    const [isLoadingModalOptions, setIsLoadingModalOptions] = useState(false);
-    const [modalOptionsError, setModalOptionsError] = useState(null);
     const [packageForm, setPackageForm] = useState(emptyPackageForm);
 
     const loadRouterOsData = async (routerId) => {
@@ -184,17 +180,12 @@ function PackagesPageContent({ packages = [], routers = [] }) {
             return;
         }
 
-        const initialRouterId = routerFilter || defaultRouterId;
-        setModalRouterId(initialRouterId);
-        setModalOptionsError(null);
-
         if (editingPackage) {
             setSelectedPackageType(editingPackage.type || 'pppoe');
             setPackageForm({
                 name: editingPackage.name || '',
                 price: editingPackage.price ?? '',
                 bandwidth_limit: editingPackage.bandwidth_limit || '',
-                mikrotik_profile: editingPackage.mikrotik_profile || '',
                 local_address: editingPackage.local_address || '',
                 remote_address: editingPackage.remote_address || '',
                 dns_server: editingPackage.dns_server || '',
@@ -208,32 +199,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
             setSelectedPackageType('pppoe');
             setPackageForm(emptyPackageForm);
         }
-    }, [showPackageModal, editingPackage, routerFilter, defaultRouterId]);
-
-    useEffect(() => {
-        if (!showPackageModal || !modalRouterId) {
-            return;
-        }
-
-        let cancelled = false;
-        setIsLoadingModalOptions(true);
-        setModalOptionsError(null);
-
-        loadRouterOsData(modalRouterId)
-            .catch((error) => {
-                if (cancelled) return;
-                setModalOptionsError(error?.message || 'Gagal memuat opsi RouterOS.');
-            })
-            .finally(() => {
-                if (!cancelled) {
-                    setIsLoadingModalOptions(false);
-                }
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, [showPackageModal, modalRouterId]);
+    }, [showPackageModal, editingPackage]);
 
     const filterRouterOs = routerFilter ? routerOsCache[routerFilter] : null;
     const routerProfiles = filterRouterOs?.all_profiles || [];
@@ -262,38 +228,10 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     }, [packages, routerFilter, isLoadingRouterProfiles, routerProfileError, profileSet]);
 
     const selectedRouter = routers.find((r) => String(r.id) === String(routerFilter));
-    const modalRouterOs = modalRouterId ? routerOsCache[modalRouterId] : null;
-    const modalFormOptions = modalRouterOs?.form_options || null;
-
-    const profileNameOptions = selectedPackageType === 'hotspot'
-        ? (modalFormOptions?.hotspot_profile_names || [])
-        : (modalFormOptions?.ppp_profile_names || []);
+    const modalFormOptions = filterRouterOs?.form_options || null;
 
     const updatePackageForm = (field, value) => {
         setPackageForm((prev) => ({ ...prev, [field]: value }));
-    };
-
-    const applyProfileDefaults = (profileName) => {
-        if (!profileName || !modalFormOptions) {
-            updatePackageForm('mikrotik_profile', profileName);
-            return;
-        }
-
-        const details = selectedPackageType === 'hotspot'
-            ? modalFormOptions.hotspot_profile_details?.[profileName]
-            : modalFormOptions.ppp_profile_details?.[profileName];
-
-        setPackageForm((prev) => ({
-            ...prev,
-            mikrotik_profile: profileName,
-            bandwidth_limit: details?.bandwidth_limit || prev.bandwidth_limit,
-            local_address: details?.local_address || prev.local_address,
-            remote_address: details?.remote_address || prev.remote_address,
-            dns_server: details?.dns_server || prev.dns_server,
-            parent_queue: details?.parent_queue || prev.parent_queue,
-            queue_type_rx: details?.queue_type_rx || prev.queue_type_rx,
-            queue_type_tx: details?.queue_type_tx || prev.queue_type_tx,
-        }));
     };
 
     const validityOptions = useMemo(() => {
@@ -304,11 +242,19 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     }, [packages]);
 
     const openAddModal = () => {
+        if (!routerFilter) {
+            alert('Pilih router Mikrotik di halaman utama terlebih dahulu.');
+            return;
+        }
         setEditingPackage(null);
         setShowPackageModal(true);
     };
 
     const openEditModal = (pkg) => {
+        if (!routerFilter) {
+            alert('Pilih router Mikrotik di halaman utama terlebih dahulu.');
+            return;
+        }
         setEditingPackage(pkg);
         setShowPackageModal(true);
     };
@@ -451,30 +397,20 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                     <button type="button" onClick={() => setShowPackageModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
                 <form onSubmit={handleSavePackage} className="space-y-3 text-xs">
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
-                        <select
-                            value={modalRouterId}
-                            onChange={(e) => setModalRouterId(e.target.value)}
-                            className={`p-2 border rounded-lg ${themeInput}`}
-                        >
-                            <option value="">— Pilih router —</option>
-                            {routers.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                    {r.name}{r.status ? '' : ' (nonaktif)'}
-                                </option>
-                            ))}
-                        </select>
-                        {isLoadingModalOptions && (
-                            <span className={`text-[10px] inline-flex items-center gap-1 ${themeTextSub}`}>
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                                Memuat opsi dari RouterOS...
-                            </span>
-                        )}
-                        {modalOptionsError && (
-                            <span className="text-[10px] text-amber-500">{modalOptionsError}</span>
-                        )}
-                    </div>
+                    {routerFilter && (
+                        <div className={`text-[10px] font-semibold ${routerProfileError ? 'text-amber-500' : themeTextSub}`}>
+                            Router: <span className={themeTextTitle}>{selectedRouter?.name || '—'}</span>
+                            {isLoadingRouterProfiles && (
+                                <span className="inline-flex items-center gap-1 ml-2">
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                    Memuat opsi RouterOS...
+                                </span>
+                            )}
+                            {routerProfileError && (
+                                <span className="block mt-1">{routerProfileError}</span>
+                            )}
+                        </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
@@ -531,65 +467,56 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                             className={`p-2 border rounded-lg font-mono ${themeInput}`}
                         />
                     </div>
-                    <RouterOsField
-                        label="Batas Kecepatan (Speed Limit)"
-                        name="bandwidth_limit"
-                        value={packageForm.bandwidth_limit}
-                        onChange={(value) => updatePackageForm('bandwidth_limit', value)}
-                        options={modalFormOptions?.bandwidth_limits || []}
-                        placeholder="e.g. 20M/20M"
-                        required
-                        themeInput={themeInput}
-                        themeLabel={themeLabel}
-                        allowEmpty={false}
-                    />
-                    <RouterOsField
-                        label="Nama Profile Mikrotik"
-                        name="mikrotik_profile"
-                        value={packageForm.mikrotik_profile}
-                        onChange={applyProfileDefaults}
-                        options={profileNameOptions}
-                        placeholder="e.g. Family-20M"
-                        required
-                        themeInput={themeInput}
-                        themeLabel={themeLabel}
-                        allowEmpty={false}
-                    />
+                    <div className="flex flex-col gap-1">
+                        <label className={`font-bold ${themeLabel}`}>Batas Kecepatan (Speed Limit)</label>
+                        <input
+                            required
+                            name="bandwidth_limit"
+                            type="text"
+                            value={packageForm.bandwidth_limit}
+                            onChange={(e) => updatePackageForm('bandwidth_limit', e.target.value)}
+                            placeholder="e.g. 20M/20M"
+                            className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                        />
+                    </div>
                     {selectedPackageType === 'pppoe' && (
                         <>
                             <div className="grid grid-cols-2 gap-3">
-                                <RouterOsField
-                                    label="Local Address"
-                                    name="local_address"
-                                    value={packageForm.local_address}
-                                    onChange={(value) => updatePackageForm('local_address', value)}
-                                    options={modalFormOptions?.local_addresses || []}
-                                    placeholder="e.g. 192.168.22.1"
-                                    themeInput={themeInput}
-                                    themeLabel={themeLabel}
-                                />
+                                <div className="flex flex-col gap-1">
+                                    <label className={`font-bold ${themeLabel}`}>Local Address</label>
+                                    <input
+                                        name="local_address"
+                                        type="text"
+                                        value={packageForm.local_address}
+                                        onChange={(e) => updatePackageForm('local_address', e.target.value)}
+                                        placeholder="e.g. 192.168.22.1"
+                                        className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                                    />
+                                </div>
                                 <RouterOsField
                                     label="Remote Address"
                                     name="remote_address"
                                     value={packageForm.remote_address}
                                     onChange={(value) => updatePackageForm('remote_address', value)}
-                                    options={modalFormOptions?.remote_addresses || modalFormOptions?.ip_pool_names || []}
+                                    options={modalFormOptions?.ip_pool_names || []}
                                     placeholder="e.g. pool_ppp"
                                     themeInput={themeInput}
                                     themeLabel={themeLabel}
+                                    disabled={isLoadingRouterProfiles}
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
-                                <RouterOsField
-                                    label="DNS Server"
-                                    name="dns_server"
-                                    value={packageForm.dns_server}
-                                    onChange={(value) => updatePackageForm('dns_server', value)}
-                                    options={modalFormOptions?.dns_servers || []}
-                                    placeholder="e.g. 8.8.8.8, 8.8.4.4"
-                                    themeInput={themeInput}
-                                    themeLabel={themeLabel}
-                                />
+                                <div className="flex flex-col gap-1">
+                                    <label className={`font-bold ${themeLabel}`}>DNS Server</label>
+                                    <input
+                                        name="dns_server"
+                                        type="text"
+                                        value={packageForm.dns_server}
+                                        onChange={(e) => updatePackageForm('dns_server', e.target.value)}
+                                        placeholder="e.g. 8.8.8.8, 8.8.4.4"
+                                        className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                                    />
+                                </div>
                                 <RouterOsField
                                     label="Parent Queue"
                                     name="parent_queue"
@@ -599,6 +526,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     placeholder="e.g. GLOBAL CONN"
                                     themeInput={themeInput}
                                     themeLabel={themeLabel}
+                                    disabled={isLoadingRouterProfiles}
                                 />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
@@ -608,9 +536,10 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     value={packageForm.queue_type_rx}
                                     onChange={(value) => updatePackageForm('queue_type_rx', value)}
                                     options={modalFormOptions?.queue_types || []}
-                                    placeholder="e.g. my-cake"
+                                    placeholder="e.g. fq-codel"
                                     themeInput={themeInput}
                                     themeLabel={themeLabel}
+                                    disabled={isLoadingRouterProfiles}
                                 />
                                 <RouterOsField
                                     label="Queue Type Tx"
@@ -618,9 +547,10 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     value={packageForm.queue_type_tx}
                                     onChange={(value) => updatePackageForm('queue_type_tx', value)}
                                     options={modalFormOptions?.queue_types || []}
-                                    placeholder="e.g. my-cake"
+                                    placeholder="e.g. fq-codel"
                                     themeInput={themeInput}
                                     themeLabel={themeLabel}
+                                    disabled={isLoadingRouterProfiles}
                                 />
                             </div>
                         </>
@@ -632,10 +562,11 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                 name="remote_address"
                                 value={packageForm.remote_address}
                                 onChange={(value) => updatePackageForm('remote_address', value)}
-                                options={modalFormOptions?.ip_pool_names || modalFormOptions?.remote_addresses || []}
+                                options={modalFormOptions?.ip_pool_names || []}
                                 placeholder="e.g. pool_hotspot"
                                 themeInput={themeInput}
                                 themeLabel={themeLabel}
+                                disabled={isLoadingRouterProfiles}
                             />
                             <RouterOsField
                                 label="Parent Queue"
@@ -646,6 +577,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                 placeholder="e.g. GLOBAL CONN"
                                 themeInput={themeInput}
                                 themeLabel={themeLabel}
+                                disabled={isLoadingRouterProfiles}
                             />
                         </div>
                     )}
