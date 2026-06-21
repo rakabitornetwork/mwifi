@@ -410,11 +410,53 @@ Sebagian besar integrasi dikonfigurasi dari menu **Pengaturan**:
 
 - Identitas & branding (logo, favicon, SEO)
 - Payment gateway (Tripay / Midtrans)
-- WhatsApp API
+- WhatsApp API (Baileys gateway port **3003**)
 - GenieACS (GPON/TR-069)
 - Billing (H-N generate, notifikasi admin)
 
 Konfigurasi pembaruan GitHub ada di file `config/update.php` (bukan `.env`).
+
+### WhatsApp via Baileys Gateway (port 3003)
+
+mwifi sudah terintegrasi dengan REST API Baileys (`POST /send-message`). Gateway khusus mwifi ada di folder `services/baileys-gateway/` dan **disarankan berjalan di port 3003** (agar tidak bentrok dengan instance lain di 3001/3002).
+
+**Di VPS (sekali setup):**
+
+```bash
+cd /path/to/mwifi/services/baileys-gateway
+cp .env.example .env
+# Edit .env: PORT=3003, DEFAULT_SESSION=mwifi_session, API_KEY= (opsional)
+
+npm install
+
+# Produksi dengan PM2
+npm install -g pm2   # jika belum ada
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup
+```
+
+**Hubungkan WhatsApp (scan QR) dari panel admin** — tidak perlu terminal VPS:
+
+1. Pastikan proses gateway Node/PM2 sudah berjalan (`pm2 status`).
+2. **Pengaturan → Konfigurasi WhatsApp Gateway** → isi URL & Session ID → **Simpan**.
+3. Di blok **Hubungkan WhatsApp**, klik ikon QR → scan dengan WhatsApp → **Perangkat Tertaut**.
+4. Status berubah **Terhubung** secara otomatis; lanjut uji kirim pesan.
+
+Alternatif lama: `npm start` di VPS dan scan QR di terminal (jika panel tidak dapat menjangkau gateway).
+
+**Di panel mwifi → Pengaturan → Konfigurasi WhatsApp Gateway** (semua disimpan di database, tidak perlu mengubah `.env` Laravel):
+
+| Field | Nilai |
+|-------|--------|
+| Aktifkan notifikasi | Centang |
+| Gateway URL | `http://127.0.0.1:3003` |
+| Session ID | `mwifi_session` |
+| API Key | Sama dengan `API_KEY` di `.env` proses gateway Node (opsional) |
+
+Gunakan tombol **uji kirim pesan** di panel yang sama setelah menyimpan pengaturan.
+
+Notifikasi otomatis terkirim saat: invoice terbit, pembayaran lunas, isolir/pulih, dan ringkasan generate tagihan ke admin (jika nomor admin diisi di pengaturan billing).
 
 ---
 

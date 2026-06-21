@@ -981,6 +981,76 @@ class AdminActionController extends Controller
         return redirect()->back()->with('success', $message);
     }
 
+    public function testWhatsAppGateway(Request $request)
+    {
+        $request->validate([
+            'phone' => 'required|string|max:30',
+            'message' => 'nullable|string|max:500',
+        ]);
+
+        $config = \App\Services\WhatsAppService::configuration();
+
+        if (!$config['enabled']) {
+            return redirect()->back()->with('error', 'Integrasi WhatsApp dinonaktifkan. Aktifkan di Pengaturan lalu simpan.');
+        }
+
+        $health = \App\Services\WhatsAppService::checkGatewayHealth();
+        if (!$health['ok']) {
+            return redirect()->back()->with('error', $health['message']);
+        }
+
+        $message = $request->input('message') ?: 'Tes notifikasi WhatsApp dari panel Pengaturan mwifi.';
+        $sent = \App\Services\WhatsAppService::sendText($request->input('phone'), $message);
+
+        if (!$sent) {
+            return redirect()->back()->with('error', 'Gagal mengirim pesan uji. Pastikan sesi WhatsApp gateway sudah terhubung (scan QR) dan cek log aplikasi.');
+        }
+
+        return redirect()->back()->with('success', 'Pesan uji WhatsApp berhasil dikirim.');
+    }
+
+    public function getWhatsAppSessionStatus(Request $request)
+    {
+        if ($request->user()?->customer) {
+            abort(403, 'Hanya administrator yang dapat mengelola sesi WhatsApp.');
+        }
+
+        $health = \App\Services\WhatsAppService::checkGatewayHealth();
+        if (!$health['ok']) {
+            return response()->json($health, 503);
+        }
+
+        $status = \App\Services\WhatsAppService::getSessionStatus();
+
+        return response()->json($status, $status['ok'] ? 200 : 503);
+    }
+
+    public function startWhatsAppSession(Request $request)
+    {
+        if ($request->user()?->customer) {
+            abort(403, 'Hanya administrator yang dapat mengelola sesi WhatsApp.');
+        }
+
+        $health = \App\Services\WhatsAppService::checkGatewayHealth();
+        if (!$health['ok']) {
+            return response()->json($health, 503);
+        }
+
+        $result = \App\Services\WhatsAppService::startSession();
+
+        if (!$result['ok']) {
+            return response()->json($result, 503);
+        }
+
+        $status = \App\Services\WhatsAppService::getSessionStatus();
+
+        return response()->json(array_merge($result, [
+            'has_qr' => $status['has_qr'] ?? false,
+            'qr_data_url' => $status['qr_data_url'] ?? null,
+            'last_error' => $status['last_error'] ?? null,
+        ]));
+    }
+
     public function saveAdminProfile(Request $request)
     {
         $user = $request->user();

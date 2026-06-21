@@ -70,4 +70,16 @@ return [
     */
     'php_cli_binary' => env('UPDATE_PHP_CLI'),
 
+    /*
+    | Cadangkan database otomatis sebelum migrate saat update dari menu.
+    | File disimpan permanen di storage/app/backups/pre-update/
+    */
+    'backup_database_before_update' => true,
+
+    /*
+    | Untuk MySQL/MariaDB: buat database salinan baru di server (mis. mwifi_snap_20260621_143000)
+    | sehingga database lama tetap ada utuh jika migrasi bermasalah.
+    */
+    'clone_mysql_database_before_update' => true,
+
 ];

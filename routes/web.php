@@ -99,6 +99,9 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/billing/defer/cancel', [\App\Http\Controllers\Admin\AdminActionController::class, 'cancelBillingDeferral']);
     Route::get('admin/invoices/{invoice}/print', [\App\Http\Controllers\Admin\AdminActionController::class, 'printInvoice']);
     Route::post('admin/settings/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveSettings']);
+    Route::post('admin/settings/whatsapp-test', [\App\Http\Controllers\Admin\AdminActionController::class, 'testWhatsAppGateway']);
+    Route::get('admin/settings/whatsapp-session', [\App\Http\Controllers\Admin\AdminActionController::class, 'getWhatsAppSessionStatus']);
+    Route::post('admin/settings/whatsapp-session/start', [\App\Http\Controllers\Admin\AdminActionController::class, 'startWhatsAppSession']);
     Route::post('admin/profile/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveAdminProfile']);
     Route::get('admin/server/resources', [\App\Http\Controllers\Admin\AdminActionController::class, 'getServerResources']);
 

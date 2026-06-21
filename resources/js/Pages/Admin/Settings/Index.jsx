@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import {
     Building2,
@@ -9,6 +9,8 @@ import {
     Mail,
     MapPin,
     Phone,
+    MessageSquare,
+    QrCode,
     Receipt,
     RefreshCw,
     Save,
@@ -52,6 +54,152 @@ function SettingsPageContent({ settings = [], routers = [] }) {
     const billingGenerateDaysBeforeDefault = Math.min(30, Math.max(1, parseInt(settingsMap['system.billing_generate_days_before'] || '5', 10) || 5));
     const billingNotifyAdminDefault = settingsMap['system.billing_notify_admin'] !== '0';
     const billingAdminPhoneDefault = settingsMap['system.billing_admin_phone'] || '';
+    const whatsappEnabledDefault = settingsMap['whatsapp.enabled'] !== '0';
+
+    const [waTestPhone, setWaTestPhone] = useState(billingAdminPhoneDefault);
+    const [isTestingWa, setIsTestingWa] = useState(false);
+    const [waSession, setWaSession] = useState({
+        status: 'unknown',
+        has_qr: false,
+        qr_data_url: null,
+        last_error: null,
+        session: settingsMap['whatsapp.session_id'] || 'mwifi_session',
+    });
+    const [isLoadingWaSession, setIsLoadingWaSession] = useState(false);
+    const [isPollingWaSession, setIsPollingWaSession] = useState(false);
+    const waSessionPollRef = useRef(null);
+
+    const waStatusLabel = {
+        open: 'Terhubung',
+        qr: 'Scan QR',
+        connecting: 'Menghubungkan...',
+        idle: 'Siap',
+        closed: 'Terputus',
+        logged_out: 'Logout — scan ulang',
+        error: 'Error',
+        unknown: 'Belum dicek',
+    };
+
+    const fetchWaSessionStatus = useCallback(async () => {
+        try {
+            const response = await fetch('/admin/settings/whatsapp-session', {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+                setWaSession((prev) => ({
+                    ...prev,
+                    status: 'error',
+                    last_error: data.message || 'Gagal memuat status sesi.',
+                    has_qr: false,
+                    qr_data_url: null,
+                }));
+
+                return false;
+            }
+
+            setWaSession((prev) => ({
+                status: data.status || 'unknown',
+                has_qr: Boolean(data.has_qr),
+                qr_data_url: data.qr_data_url || null,
+                last_error: data.last_error || null,
+                session: data.session || prev.session,
+            }));
+
+            return data.status === 'open';
+        } catch (error) {
+            setWaSession((prev) => ({
+                ...prev,
+                status: 'error',
+                last_error: error?.message || 'Gagal memuat status sesi.',
+                has_qr: false,
+                qr_data_url: null,
+            }));
+
+            return false;
+        }
+    }, []);
+
+    const stopWaSessionPolling = useCallback(() => {
+        if (waSessionPollRef.current) {
+            clearInterval(waSessionPollRef.current);
+            waSessionPollRef.current = null;
+        }
+        setIsPollingWaSession(false);
+    }, []);
+
+    const startWaSessionPolling = useCallback(() => {
+        stopWaSessionPolling();
+        setIsPollingWaSession(true);
+
+        const poll = async () => {
+            const connected = await fetchWaSessionStatus();
+            if (connected) {
+                stopWaSessionPolling();
+                showToast('WhatsApp berhasil terhubung.', 'success');
+            }
+        };
+
+        poll();
+        waSessionPollRef.current = setInterval(poll, 2500);
+    }, [fetchWaSessionStatus, showToast, stopWaSessionPolling]);
+
+    useEffect(() => () => stopWaSessionPolling(), [stopWaSessionPolling]);
+
+    const handleRefreshWaSession = async () => {
+        setIsLoadingWaSession(true);
+        await fetchWaSessionStatus();
+        setIsLoadingWaSession(false);
+    };
+
+    const handleStartWaSession = async () => {
+        setIsLoadingWaSession(true);
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+        try {
+            const response = await fetch('/admin/settings/whatsapp-session/start', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+                showToast(data.message || 'Gagal memulai sesi WhatsApp.', 'error');
+                return;
+            }
+
+            setWaSession({
+                status: data.status || 'connecting',
+                has_qr: Boolean(data.has_qr),
+                qr_data_url: data.qr_data_url || null,
+                last_error: data.last_error || null,
+                session: data.session || waSession.session,
+            });
+
+            if (data.status === 'open') {
+                showToast('WhatsApp sudah terhubung.', 'success');
+            } else {
+                showToast('Sesi dimulai. Scan QR di bawah dengan aplikasi WhatsApp.', 'info');
+                startWaSessionPolling();
+            }
+        } catch (error) {
+            showToast(error?.message || 'Gagal memulai sesi WhatsApp.', 'error');
+        } finally {
+            setIsLoadingWaSession(false);
+        }
+    };
 
     const savedIsolirProfile = settingsMap['mikrotik.isolir_profile'] || 'ISOLIR';
     const isolirProfileOptions = [...new Set([
@@ -83,6 +231,9 @@ function SettingsPageContent({ settings = [], routers = [] }) {
         const billingNotifyCheckbox = form.querySelector('input[name="system_billing_notify_admin_ui"]');
         formData.set('system[billing_notify_admin]', billingNotifyCheckbox?.checked ? '1' : '0');
 
+        const whatsappEnabledCheckbox = form.querySelector('input[name="whatsapp_enabled_ui"]');
+        formData.set('whatsapp[enabled]', whatsappEnabledCheckbox?.checked ? '1' : '0');
+
         router.post('/admin/settings/save', formData, {
             forceFormData: true,
             preserveScroll: true,
@@ -91,6 +242,22 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                 const messages = Object.values(errors).flat().filter(Boolean);
                 showToast(messages[0] || 'Gagal menyimpan pengaturan. Periksa kembali form Anda.', 'error');
             },
+        });
+    };
+
+    const handleTestWhatsApp = () => {
+        if (!waTestPhone.trim()) {
+            showToast('Isi nomor tujuan uji coba terlebih dahulu.', 'warning');
+            return;
+        }
+
+        setIsTestingWa(true);
+        router.post('/admin/settings/whatsapp-test', {
+            phone: waTestPhone,
+            message: 'Tes notifikasi WhatsApp dari panel Pengaturan mwifi.',
+        }, {
+            preserveScroll: true,
+            onFinish: () => setIsTestingWa(false),
         });
     };
 
@@ -510,17 +677,115 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                 <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
                     <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Konfigurasi WhatsApp Gateway</h3>
                     <div className="space-y-3 text-xs">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="whatsapp_enabled_ui"
+                                defaultChecked={whatsappEnabledDefault}
+                                className={`rounded text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}
+                            />
+                            <span className={`font-bold ${themeTextTitle}`}>Aktifkan notifikasi WhatsApp</span>
+                        </label>
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Gateway URL</label>
-                            <input name="whatsapp[api_url]" type="text" defaultValue={settingsMap['whatsapp.api_url'] || ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                            <input name="whatsapp[api_url]" type="text" placeholder="http://127.0.0.1:3003" defaultValue={settingsMap['whatsapp.api_url'] || 'http://127.0.0.1:3003'} className={`p-2 border rounded-lg ${themeInput}`} />
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Session ID</label>
-                            <input name="whatsapp[session_id]" type="text" defaultValue={settingsMap['whatsapp.session_id'] || ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                            <input name="whatsapp[session_id]" type="text" placeholder="mwifi_session" defaultValue={settingsMap['whatsapp.session_id'] || 'mwifi_session'} className={`p-2 border rounded-lg ${themeInput}`} />
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>API Key / Token (Opsional)</label>
                             <input name="whatsapp[api_key]" type="password" placeholder="Tetap kosong jika tidak diubah" className={`p-2 border rounded-lg ${themeInput}`} />
+                        </div>
+                        <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
+                            Semua pengaturan WhatsApp disimpan di database aplikasi (menu ini). Gateway Baileys disarankan di <span className="font-mono">http://127.0.0.1:3003</span>.
+                        </p>
+                        <div className={`rounded-xl border p-3 space-y-3 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
+                            <div className="flex items-center justify-between gap-2">
+                                <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Hubungkan WhatsApp</p>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                    waSession.status === 'open'
+                                        ? (isDarkMode ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
+                                        : waSession.status === 'qr'
+                                        ? (isDarkMode ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-50 text-amber-700')
+                                        : (isDarkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600')
+                                }`}>
+                                    {waStatusLabel[waSession.status] || waSession.status}
+                                </span>
+                            </div>
+                            <p className={`text-[10px] ${themeTextDesc}`}>
+                                Simpan pengaturan gateway terlebih dahulu, lalu mulai sesi dan scan QR dari sini — tidak perlu terminal VPS.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                <button
+                                    type="button"
+                                    onClick={handleStartWaSession}
+                                    disabled={isLoadingWaSession || isPollingWaSession}
+                                    title="Mulai sesi & tampilkan QR"
+                                    className="p-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg inline-flex items-center justify-center cursor-pointer"
+                                >
+                                    <QrCode className={`w-4 h-4 ${isLoadingWaSession ? 'animate-pulse' : ''}`} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleRefreshWaSession}
+                                    disabled={isLoadingWaSession}
+                                    title="Cek status sesi"
+                                    className={`p-2 border rounded-lg inline-flex items-center justify-center cursor-pointer disabled:opacity-50 ${isDarkMode ? 'border-zinc-700 text-zinc-200 hover:bg-zinc-800' : 'border-zinc-300 text-zinc-700 hover:bg-white'}`}
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${isLoadingWaSession ? 'animate-spin' : ''}`} />
+                                </button>
+                            </div>
+                            {isPollingWaSession && waSession.status !== 'open' && (
+                                <p className={`text-[10px] ${isDarkMode ? 'text-violet-300' : 'text-violet-700'}`}>
+                                    Menunggu scan QR... halaman akan otomatis mendeteksi saat terhubung.
+                                </p>
+                            )}
+                            {waSession.has_qr && waSession.qr_data_url && (
+                                <div className="flex flex-col items-center gap-2 pt-1">
+                                    <img
+                                        src={waSession.qr_data_url}
+                                        alt="QR WhatsApp"
+                                        className="w-56 h-56 rounded-lg border border-zinc-200 bg-white p-2"
+                                    />
+                                    <p className={`text-[10px] text-center ${themeTextDesc}`}>
+                                        WhatsApp → Perangkat Tertaut → Tautkan perangkat → Scan kode ini.
+                                    </p>
+                                </div>
+                            )}
+                            {waSession.status === 'open' && (
+                                <p className={`text-[10px] ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                                    Sesi <span className="font-mono">{waSession.session}</span> aktif. Notifikasi siap dikirim.
+                                </p>
+                            )}
+                            {waSession.last_error && waSession.status !== 'open' && (
+                                <p className={`text-[10px] ${isDarkMode ? 'text-rose-300' : 'text-rose-700'}`}>
+                                    {waSession.last_error}
+                                </p>
+                            )}
+                        </div>
+                        <div className={`rounded-xl border p-3 space-y-2 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Uji kirim pesan</p>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                    type="text"
+                                    value={waTestPhone}
+                                    onChange={(e) => setWaTestPhone(e.target.value)}
+                                    placeholder="08xxxxxxxxxx"
+                                    className={`flex-1 p-2 border rounded-lg ${themeInput}`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleTestWhatsApp}
+                                    disabled={isTestingWa}
+                                    title="Kirim pesan uji (gunakan pengaturan yang sudah disimpan)"
+                                    className="shrink-0 p-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg inline-flex items-center justify-center cursor-pointer"
+                                >
+                                    <MessageSquare className={`w-4 h-4 ${isTestingWa ? 'animate-pulse' : ''}`} />
+                                </button>
+                            </div>
+                            <p className={`text-[10px] ${themeTextDesc}`}>Simpan pengaturan terlebih dahulu sebelum uji coba.</p>
                         </div>
                     </div>
                 </div>

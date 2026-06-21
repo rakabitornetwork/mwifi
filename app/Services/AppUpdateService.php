@@ -223,6 +223,10 @@ class AppUpdateService
         $phpCli = $this->resolveCliPhpBinary();
         $onLog?->__invoke("Menggunakan PHP CLI: {$phpCli}", 'info');
 
+        if (config('update.backup_database_before_update', true)) {
+            $this->backupDatabaseBeforeMigrate($steps, $onLog);
+        }
+
         $this->runProcess([$phpCli, 'artisan', 'migrate', '--force'], 'Migrasi database', $steps, $onLog);
         $this->runProcess([$phpCli, 'artisan', 'optimize:clear'], 'Bersihkan cache', $steps, $onLog);
         $this->runProcess([$phpCli, 'artisan', 'optimize'], 'Optimasi aplikasi', $steps, $onLog);
@@ -243,6 +247,41 @@ class AppUpdateService
             'message' => $message,
             'steps' => $steps,
         ];
+    }
+
+    /**
+     * @param array<int, string>|null $steps
+     * @param callable(string, string): void|null $onLog
+     */
+    private function backupDatabaseBeforeMigrate(?array &$steps, ?callable $onLog = null): void
+    {
+        $onLog?->__invoke('Membuat cadangan database sebelum migrasi...', 'info');
+
+        $backup = app(DatabaseBackupService::class)->createPreUpdateBackup();
+
+        $onLog?->__invoke(
+            "File cadangan: {$backup['filename']} ({$backup['size_human']}) — {$backup['relative_path']}",
+            'success'
+        );
+
+        if (!empty($backup['mysql_snapshot_database'])) {
+            $source = $backup['mysql_source_database'] ?? 'aktif';
+            $onLog?->__invoke(
+                "Database salinan MySQL dibuat: {$backup['mysql_snapshot_database']} (database \"{$source}\" tetap utuh)",
+                'success'
+            );
+        } elseif (($backup['storage_path'] ?? null) !== null) {
+            $onLog?->__invoke(
+                'Salinan file SQLite disimpan — database aktif tidak diganti, hanya dicadangkan.',
+                'success'
+            );
+        }
+
+        $steps[] = 'Cadangan database: ' . $backup['filename'] . ' ✓';
+
+        if (!empty($backup['mysql_snapshot_database'])) {
+            $steps[] = 'Salinan MySQL: ' . $backup['mysql_snapshot_database'] . ' ✓';
+        }
     }
 
     /**

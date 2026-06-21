@@ -16,6 +16,8 @@ class DatabaseBackupService
 
     public const TEMP_BACKUP_PATH = 'backups/temp';
 
+    public const PRE_UPDATE_BACKUP_PATH = 'backups/pre-update';
+
     /**
      * @return array<string, mixed>
      */
@@ -47,7 +49,39 @@ class DatabaseBackupService
      */
     public function createBackup(): array
     {
-        $this->ensureTempBackupDirectory();
+        return $this->createBackupInDirectory(self::TEMP_BACKUP_PATH);
+    }
+
+    /**
+     * Cadangan permanen sebelum migrasi update — tidak dihapus otomatis.
+     * Untuk MySQL/MariaDB, opsional membuat database salinan baru di server.
+     *
+     * @return array<string, mixed>
+     */
+    public function createPreUpdateBackup(): array
+    {
+        $result = $this->createBackupInDirectory(self::PRE_UPDATE_BACKUP_PATH);
+
+        $clone = $this->cloneMysqlDatabaseSnapshot();
+        if ($clone !== null) {
+            $result['mysql_snapshot_database'] = $clone['database'];
+            $result['mysql_source_database'] = $clone['source_database'];
+        }
+
+        $info = $this->getDatabaseInfo();
+        if ($info['driver'] === 'sqlite') {
+            $result['storage_path'] = 'storage/app/' . self::PRE_UPDATE_BACKUP_PATH;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function createBackupInDirectory(string $directory): array
+    {
+        $this->ensureBackupDirectory($directory);
 
         $info = $this->getDatabaseInfo();
         $driver = $info['driver'];
@@ -56,22 +90,80 @@ class DatabaseBackupService
 
         if ($driver === 'sqlite') {
             $filename = "{$appSlug}_sqlite_{$timestamp}.sqlite";
-            $filename = $this->createSqliteBackup($filename);
+            $filename = $this->createSqliteBackup($filename, $directory);
         } elseif (in_array($driver, ['mysql', 'mariadb'], true)) {
             $filename = "{$appSlug}_mysql_{$timestamp}.sql";
-            $this->createMysqlBackup($filename, $info);
+            $this->createMysqlBackup($filename, $info, $directory);
         } else {
             throw new \RuntimeException("Driver database \"{$driver}\" belum didukung untuk backup.");
         }
 
-        $path = self::TEMP_BACKUP_PATH . '/' . $filename;
+        $path = $directory . '/' . $filename;
 
         return [
             'filename' => $filename,
             'absolute_path' => Storage::disk(self::DISK)->path($path),
+            'relative_path' => $path,
             'size' => Storage::disk(self::DISK)->size($path),
             'size_human' => $this->formatBytes(Storage::disk(self::DISK)->size($path)),
             'created_at' => now()->toDateTimeString(),
+        ];
+    }
+
+    /**
+     * Salin database MySQL/MariaDB aktif ke database baru di server yang sama.
+     *
+     * @return array{database: string, source_database: string}|null
+     */
+    public function cloneMysqlDatabaseSnapshot(): ?array
+    {
+        if (!config('update.clone_mysql_database_before_update', true)) {
+            return null;
+        }
+
+        $info = $this->getDatabaseInfo();
+        if (!in_array($info['driver'], ['mysql', 'mariadb'], true)) {
+            return null;
+        }
+
+        $connection = $this->connectionName();
+        $config = Config::get("database.connections.{$connection}", []);
+        $sourceDb = (string) ($config['database'] ?? '');
+
+        if ($sourceDb === '') {
+            return null;
+        }
+
+        $snapshotDb = $this->generateSnapshotDatabaseName($sourceDb);
+
+        DB::connection($connection)->statement(
+            'CREATE DATABASE IF NOT EXISTS `' . str_replace('`', '``', $snapshotDb) . '`'
+            . ' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+        );
+
+        $mysqldump = $this->findMysqlBinary('mysqldump');
+        $mysql = $this->findMysqlBinary('mysql');
+
+        if ($mysqldump !== null && $mysql !== null) {
+            $this->cloneMysqlViaCli($mysqldump, $mysql, $config, $sourceDb, $snapshotDb);
+        } else {
+            $tempName = 'clone_' . uniqid('', true) . '.sql';
+            $this->ensureBackupDirectory(self::TEMP_BACKUP_PATH);
+            $tempPath = Storage::disk(self::DISK)->path(self::TEMP_BACKUP_PATH . '/' . $tempName);
+
+            try {
+                $this->createPhpSqlDumpToPath($tempPath);
+                $this->importMysqlDumpToDatabase($tempPath, $snapshotDb, $config);
+            } finally {
+                if (File::exists($tempPath)) {
+                    File::delete($tempPath);
+                }
+            }
+        }
+
+        return [
+            'database' => $snapshotDb,
+            'source_database' => $sourceDb,
         ];
     }
 
@@ -269,14 +361,14 @@ class DatabaseBackupService
         throw new \RuntimeException('Format backup tidak dikenali.');
     }
 
-    private function createSqliteBackup(string $filename): string
+    private function createSqliteBackup(string $filename, string $directory = self::TEMP_BACKUP_PATH): string
     {
         $config = Config::get('database.connections.' . $this->connectionName(), []);
         $databasePath = $config['database'] ?? '';
 
         if ($databasePath !== ':memory:' && is_string($databasePath) && File::exists($databasePath)) {
             Storage::disk(self::DISK)->put(
-                self::TEMP_BACKUP_PATH . '/' . $filename,
+                $directory . '/' . $filename,
                 File::get($databasePath)
             );
 
@@ -284,32 +376,32 @@ class DatabaseBackupService
         }
 
         $sqlFilename = preg_replace('/\.sqlite$/', '.sql', $filename) ?: ($filename . '.sql');
-        $this->createPhpSqlDump($sqlFilename);
+        $this->createPhpSqlDump($sqlFilename, $directory);
 
         return $sqlFilename;
     }
 
-    private function createMysqlBackup(string $filename, array $info): void
+    private function createMysqlBackup(string $filename, array $info, string $directory = self::TEMP_BACKUP_PATH): void
     {
         $mysqldump = $this->findMysqlBinary('mysqldump');
 
         if ($mysqldump !== null) {
-            $this->createMysqlBackupViaCli($filename, $mysqldump, $info);
+            $this->createMysqlBackupViaCli($filename, $mysqldump, $info, $directory);
 
             return;
         }
 
-        $this->createPhpSqlDump($filename);
+        $this->createPhpSqlDump($filename, $directory);
     }
 
     /**
      * @param array<string, mixed> $info
      */
-    private function createMysqlBackupViaCli(string $filename, string $mysqldump, array $info): void
+    private function createMysqlBackupViaCli(string $filename, string $mysqldump, array $info, string $directory = self::TEMP_BACKUP_PATH): void
     {
         $connection = $this->connectionName();
         $config = Config::get("database.connections.{$connection}", []);
-        $target = Storage::disk(self::DISK)->path(self::TEMP_BACKUP_PATH . '/' . $filename);
+        $target = Storage::disk(self::DISK)->path($directory . '/' . $filename);
 
         $command = [
             $mysqldump,
@@ -339,10 +431,16 @@ class DatabaseBackupService
         File::put($target, $process->getOutput());
     }
 
-    private function createPhpSqlDump(string $filename): void
+    private function createPhpSqlDump(string $filename, string $directory = self::TEMP_BACKUP_PATH): void
     {
-        $sql = $this->buildPhpSqlDump();
-        Storage::disk(self::DISK)->put(self::TEMP_BACKUP_PATH . '/' . $filename, $sql);
+        $target = Storage::disk(self::DISK)->path($directory . '/' . $filename);
+        $this->createPhpSqlDumpToPath($target);
+    }
+
+    private function createPhpSqlDumpToPath(string $absolutePath): void
+    {
+        File::ensureDirectoryExists(dirname($absolutePath));
+        File::put($absolutePath, $this->buildPhpSqlDump());
     }
 
     private function buildPhpSqlDump(): string
@@ -601,9 +699,125 @@ class DatabaseBackupService
         return (string) $database;
     }
 
-    private function ensureTempBackupDirectory(): void
+    private function ensureBackupDirectory(string $directory): void
     {
-        Storage::disk(self::DISK)->makeDirectory(self::TEMP_BACKUP_PATH);
+        Storage::disk(self::DISK)->makeDirectory($directory);
+    }
+
+    private function generateSnapshotDatabaseName(string $sourceDb): string
+    {
+        $suffix = '_snap_' . now()->format('Ymd_His');
+        $base = preg_replace('/[^a-zA-Z0-9_]/', '_', $sourceDb) ?: 'mwifi';
+        $maxBaseLength = max(1, 64 - strlen($suffix));
+
+        return substr($base, 0, $maxBaseLength) . $suffix;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function cloneMysqlViaCli(
+        string $mysqldump,
+        string $mysql,
+        array $config,
+        string $sourceDb,
+        string $snapshotDb
+    ): void {
+        $dumpCommand = [
+            $mysqldump,
+            '--single-transaction',
+            '--quick',
+            '--lock-tables=false',
+            '--default-character-set=utf8mb4',
+            '--host=' . ($config['host'] ?? '127.0.0.1'),
+            '--port=' . ($config['port'] ?? '3306'),
+            '--user=' . ($config['username'] ?? 'root'),
+            $sourceDb,
+        ];
+
+        $importCommand = [
+            $mysql,
+            '--default-character-set=utf8mb4',
+            '--host=' . ($config['host'] ?? '127.0.0.1'),
+            '--port=' . ($config['port'] ?? '3306'),
+            '--user=' . ($config['username'] ?? 'root'),
+            $snapshotDb,
+        ];
+
+        $env = $_ENV;
+        if (!empty($config['password'])) {
+            $env['MYSQL_PWD'] = (string) $config['password'];
+        }
+
+        $dumpProcess = new Process($dumpCommand, null, $env);
+        $dumpProcess->setTimeout(600);
+        $dumpProcess->run();
+
+        if (!$dumpProcess->isSuccessful()) {
+            throw new \RuntimeException(
+                'Gagal menyalin database MySQL: ' . trim($dumpProcess->getErrorOutput() ?: $dumpProcess->getOutput())
+            );
+        }
+
+        $importProcess = new Process($importCommand, null, $env);
+        $importProcess->setInput($dumpProcess->getOutput());
+        $importProcess->setTimeout(600);
+        $importProcess->run();
+
+        if (!$importProcess->isSuccessful()) {
+            throw new \RuntimeException(
+                'Gagal mengimpor salinan database MySQL: ' . trim($importProcess->getErrorOutput() ?: $importProcess->getOutput())
+            );
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private function importMysqlDumpToDatabase(string $absolutePath, string $databaseName, array $config): void
+    {
+        $mysql = $this->findMysqlBinary('mysql');
+
+        if ($mysql !== null) {
+            $command = [
+                $mysql,
+                '--default-character-set=utf8mb4',
+                '--host=' . ($config['host'] ?? '127.0.0.1'),
+                '--port=' . ($config['port'] ?? '3306'),
+                '--user=' . ($config['username'] ?? 'root'),
+                $databaseName,
+            ];
+
+            $env = $_ENV;
+            if (!empty($config['password'])) {
+                $env['MYSQL_PWD'] = (string) $config['password'];
+            }
+
+            $process = new Process($command, null, $env);
+            $process->setInput(File::get($absolutePath));
+            $process->setTimeout(600);
+            $process->run();
+
+            if (!$process->isSuccessful()) {
+                throw new \RuntimeException(
+                    'Gagal mengimpor dump ke database salinan: ' . trim($process->getErrorOutput() ?: $process->getOutput())
+                );
+            }
+
+            return;
+        }
+
+        $connection = $this->connectionName();
+        $originalDatabase = (string) ($config['database'] ?? '');
+        Config::set("database.connections.{$connection}.database", $databaseName);
+        DB::purge($connection);
+
+        try {
+            $this->restoreSqlViaPhp($absolutePath);
+        } finally {
+            Config::set("database.connections.{$connection}.database", $originalDatabase);
+            DB::purge($connection);
+        }
     }
 
     private function formatBytes(int $bytes): string

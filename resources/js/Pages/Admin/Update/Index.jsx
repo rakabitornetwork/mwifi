@@ -71,9 +71,11 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
         }
 
         if (!confirm(
-            'Pembaruan akan menarik kode terbaru dari GitHub, lalu migrasi database dan optimasi cache.\n\n' +
+            'Pembaruan akan menarik kode terbaru dari GitHub, membuat cadangan database otomatis, lalu migrasi dan optimasi cache.\n\n' +
+            'Database lama tidak dihapus — file cadangan disimpan di storage/app/backups/pre-update/' +
+            ' (MySQL: salinan database baru juga dibuat di server).\n\n' +
             'Composer & NPM tidak dijalankan di server — pastikan vendor/public/build sudah di-commit dari lokal.\n\n' +
-            'Disarankan buat backup database dulu. Proses bisa memakan beberapa menit.\n\nLanjutkan?'
+            'Proses bisa memakan beberapa menit.\n\nLanjutkan?'
         )) return;
 
         setIsRunningUpdate(true);
@@ -261,7 +263,8 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
 
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                         <p className={`text-[10px] ${theme.themeTextSub}`}>
-                            Backup database dulu via menu <span className="font-semibold">Database</span>.
+                            Sebelum migrasi, cadangan otomatis disimpan di <span className="font-semibold">storage/app/backups/pre-update/</span>
+                            {' '}(MySQL: database salinan baru di server). Cadangan manual tetap tersedia di menu <span className="font-semibold">Database</span>.
                             {updateInfo.repository?.github_url && (
                                 <>
                                     {' · '}

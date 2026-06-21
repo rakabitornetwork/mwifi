@@ -7,7 +7,9 @@ use App\Models\Package;
 use App\Models\Router;
 use App\Models\User;
 use App\Services\AppUpdateService;
+use App\Services\DatabaseBackupService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AppUpdateTest extends TestCase
@@ -186,5 +188,17 @@ class AppUpdateTest extends TestCase
 
         $this->assertSame(PHP_BINARY, $binary);
         $this->assertStringNotContainsString('fpm', strtolower($binary));
+    }
+
+    public function test_pre_update_backup_creates_persistent_sqlite_file(): void
+    {
+        Storage::fake('local');
+
+        $backup = app(DatabaseBackupService::class)->createPreUpdateBackup();
+
+        $this->assertArrayHasKey('filename', $backup);
+        $this->assertArrayHasKey('relative_path', $backup);
+        Storage::disk('local')->assertExists($backup['relative_path']);
+        $this->assertStringContainsString('pre-update', $backup['relative_path']);
     }
 }

@@ -2,11 +2,29 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class WhatsAppService
 {
+    /**
+     * Konfigurasi WhatsApp dari tabel settings (panel Pengaturan), bukan .env.
+     *
+     * @return array{api_url: string, api_key: ?string, session_id: string, enabled: bool}
+     */
+    public static function configuration(): array
+    {
+        $apiUrl = rtrim((string) (setting('whatsapp.api_url') ?: 'http://127.0.0.1:3003'), '/');
+
+        return [
+            'api_url' => $apiUrl,
+            'api_key' => setting('whatsapp.api_key') ?: null,
+            'session_id' => (string) (setting('whatsapp.session_id') ?: 'mwifi_session'),
+            'enabled' => setting('whatsapp.enabled', '1') !== '0',
+        ];
+    }
+
     /**
      * Send a text message via the WhatsApp Baileys Gateway.
      *
@@ -16,33 +34,37 @@ class WhatsAppService
      */
     public static function sendText(string $to, string $message): bool
     {
-        $apiUrl = config('services.whatsapp.api_url', 'http://localhost:3000');
-        $apiKey = config('services.whatsapp.api_key');
-        $sessionId = config('services.whatsapp.session_id', 'mwifi_session');
+        $config = self::configuration();
+
+        if (!$config['enabled']) {
+            Log::info('WhatsApp notification skipped: integrasi dinonaktifkan di Pengaturan.');
+
+            return false;
+        }
+
+        if (empty($config['api_url'])) {
+            Log::warning('WhatsApp notification skipped: Gateway URL belum diisi di Pengaturan.');
+
+            return false;
+        }
+
+        $apiUrl = $config['api_url'];
+        $sessionId = $config['session_id'];
 
         // Normalize phone number to international format (replace leading 0 with 62)
         $to = preg_replace('/^0/', '62', trim($to));
-        
+
         // Strip out any non-digit characters
         $to = preg_replace('/[^0-9]/', '', $to);
 
         if (empty($to)) {
-            Log::warning("WhatsApp notification skipped: empty phone number.");
+            Log::warning('WhatsApp notification skipped: empty phone number.');
+
             return false;
         }
 
         try {
-            $headers = [
-                'Content-Type' => 'application/json',
-                'Accept' => 'application/json',
-            ];
-
-            if (!empty($apiKey)) {
-                $headers['Authorization'] = 'Bearer ' . $apiKey;
-            }
-
-            // Post request to the Baileys gateway API endpoint
-            $response = Http::withHeaders($headers)
+            $response = self::gatewayClient()
                 ->timeout(10)
                 ->post("{$apiUrl}/send-message", [
                     'session' => $sessionId,
@@ -52,14 +74,166 @@ class WhatsAppService
 
             if ($response->successful()) {
                 Log::info("WhatsApp message sent successfully to {$to}.");
+
                 return true;
             }
 
             Log::error("WhatsApp Gateway returned an error status ({$response->status()}): " . $response->body());
+
             return false;
         } catch (\Exception $e) {
-            Log::error("WhatsApp Gateway communication failure: " . $e->getMessage());
+            Log::error('WhatsApp Gateway communication failure: ' . $e->getMessage());
+
             return false;
         }
+    }
+
+    /**
+     * Cek ketersediaan gateway (health endpoint).
+     *
+     * @return array{ok: bool, message: string, status?: int}
+     */
+    public static function checkGatewayHealth(): array
+    {
+        $config = self::configuration();
+
+        if (empty($config['api_url'])) {
+            return ['ok' => false, 'message' => 'Gateway URL belum diisi di menu Pengaturan.'];
+        }
+
+        try {
+            $response = Http::timeout(5)->get("{$config['api_url']}/health");
+
+            if ($response->successful()) {
+                return ['ok' => true, 'message' => 'Gateway merespons dengan baik.'];
+            }
+
+            return [
+                'ok' => false,
+                'message' => "Gateway merespons HTTP {$response->status()}.",
+                'status' => $response->status(),
+            ];
+        } catch (\Exception $e) {
+            return [
+                'ok' => false,
+                'message' => 'Gateway tidak dapat dijangkau: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Status sesi WhatsApp (termasuk QR untuk scan dari panel admin).
+     *
+     * @return array{
+     *     ok: bool,
+     *     message: string,
+     *     session?: string,
+     *     status?: string,
+     *     has_qr?: bool,
+     *     qr_data_url?: string|null,
+     *     last_error?: string|null
+     * }
+     */
+    public static function getSessionStatus(): array
+    {
+        $config = self::configuration();
+
+        if (empty($config['api_url'])) {
+            return ['ok' => false, 'message' => 'Gateway URL belum diisi di menu Pengaturan.'];
+        }
+
+        $sessionId = rawurlencode($config['session_id']);
+
+        try {
+            $response = self::gatewayClient()->get("{$config['api_url']}/session/{$sessionId}/status");
+
+            if ($response->status() === 401) {
+                return ['ok' => false, 'message' => 'API Key gateway tidak valid.'];
+            }
+
+            if (!$response->successful()) {
+                return [
+                    'ok' => false,
+                    'message' => "Gateway merespons HTTP {$response->status()}.",
+                ];
+            }
+
+            $data = $response->json();
+
+            return [
+                'ok' => true,
+                'message' => 'Status sesi berhasil dimuat.',
+                'session' => $data['session'] ?? $config['session_id'],
+                'status' => $data['status'] ?? 'unknown',
+                'has_qr' => (bool) ($data['has_qr'] ?? false),
+                'qr_data_url' => $data['qr_data_url'] ?? null,
+                'last_error' => $data['last_error'] ?? null,
+            ];
+        } catch (\Exception $e) {
+            return [
+                'ok' => false,
+                'message' => 'Tidak dapat membaca status sesi: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Mulai / lanjutkan koneksi sesi WhatsApp di gateway.
+     *
+     * @return array{ok: bool, message: string, session?: string, status?: string}
+     */
+    public static function startSession(): array
+    {
+        $config = self::configuration();
+
+        if (empty($config['api_url'])) {
+            return ['ok' => false, 'message' => 'Gateway URL belum diisi di menu Pengaturan.'];
+        }
+
+        $sessionId = rawurlencode($config['session_id']);
+
+        try {
+            $response = self::gatewayClient()->post("{$config['api_url']}/session/{$sessionId}/start");
+
+            if ($response->status() === 401) {
+                return ['ok' => false, 'message' => 'API Key gateway tidak valid.'];
+            }
+
+            if (!$response->successful()) {
+                $message = $response->json('message') ?: "Gateway merespons HTTP {$response->status()}.";
+
+                return ['ok' => false, 'message' => $message];
+            }
+
+            $data = $response->json();
+
+            return [
+                'ok' => true,
+                'message' => $data['message'] ?? 'Sesi WhatsApp dimulai.',
+                'session' => $data['session'] ?? $config['session_id'],
+                'status' => $data['status'] ?? 'connecting',
+            ];
+        } catch (\Exception $e) {
+            return [
+                'ok' => false,
+                'message' => 'Gagal memulai sesi WhatsApp: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    private static function gatewayClient(): PendingRequest
+    {
+        $config = self::configuration();
+
+        $client = Http::withHeaders([
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ])->timeout(20);
+
+        if (!empty($config['api_key'])) {
+            $client = $client->withToken($config['api_key']);
+        }
+
+        return $client;
     }
 }
