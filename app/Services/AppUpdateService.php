@@ -90,6 +90,15 @@ class AppUpdateService
 
         $remoteVersionInfo = $this->getLatestGitHubVersion($owner, $repo, $isRepo && $git['ok']);
         $localVersionInfo = $this->resolveLocalVersionInfo($isRepo && $git['ok']);
+        $branchInSync = !empty($local['commit'])
+            && !empty($remote['commit'])
+            && $local['commit'] === $remote['commit'];
+        $buildStatus = $this->resolveBuildStatus(
+            $localVersionInfo,
+            $remoteVersionInfo,
+            $updateAvailable,
+            $branchInSync,
+        );
 
         return [
             'enabled' => (bool) config('update.enabled', true),
@@ -108,6 +117,7 @@ class AppUpdateService
                 'commits_since_tag' => $localVersionInfo['commits_since_tag'],
             ]),
             'remote' => $remote,
+            'branch_in_sync' => $branchInSync,
             'update_available' => $updateAvailable,
             'behind_count' => $behindCount,
             'release' => [
@@ -116,11 +126,48 @@ class AppUpdateService
                 'source' => $localVersionInfo['source'],
                 'tag' => $localVersionInfo['tag'],
                 'commits_since_tag' => $localVersionInfo['commits_since_tag'],
+                'build_label' => $localVersionInfo['label'],
+                'build_base_version' => $localVersionInfo['version'],
+                'build_commits_since_release' => $localVersionInfo['commits_since_tag'],
+                'build_status' => $buildStatus,
+                'latest_release_version' => $remoteVersionInfo['version'],
+                'latest_release_source' => $remoteVersionInfo['source'],
                 'is_latest' => $remoteReadable ? !$updateAvailable : null,
                 'remote_version' => $remoteVersionInfo['version'],
                 'remote_version_source' => $remoteVersionInfo['source'],
             ],
         ];
+    }
+
+    /**
+     * @param  array{version: string, tag: ?string, commits_since_tag: int}  $localVersionInfo
+     * @param  array{version: ?string, source: ?string}  $remoteVersionInfo
+     */
+    private function resolveBuildStatus(
+        array $localVersionInfo,
+        array $remoteVersionInfo,
+        bool $updateAvailable,
+        bool $branchInSync,
+    ): string {
+        if ($updateAvailable) {
+            return 'behind_github';
+        }
+
+        if (!$branchInSync) {
+            return 'unknown';
+        }
+
+        if ($localVersionInfo['commits_since_tag'] > 0) {
+            return 'ahead_of_release';
+        }
+
+        $localTag = $localVersionInfo['tag'];
+        $remoteTag = $remoteVersionInfo['version'];
+        if ($localTag !== null && $remoteTag !== null && $localTag === $remoteTag) {
+            return 'on_release';
+        }
+
+        return 'unknown';
     }
 
     /**

@@ -50,8 +50,11 @@ class AppUpdateTest extends TestCase
         $this->assertArrayHasKey('version', $status['release']);
         $this->assertArrayHasKey('is_latest', $status['release']);
         $this->assertArrayHasKey('remote_version', $status['release']);
+        $this->assertArrayHasKey('build_status', $status['release']);
+        $this->assertArrayHasKey('latest_release_version', $status['release']);
         $this->assertSame('1.2', $status['release']['version']);
         $this->assertSame('git_tag', $status['release']['source']);
+        $this->assertContains($status['release']['build_status'], ['on_release', 'ahead_of_release', 'behind_github', 'unknown']);
         $this->assertSame('https://github.com/rakabitornetwork/mwifi', $status['repository']['github_url']);
     }
 
@@ -123,7 +126,10 @@ class AppUpdateTest extends TestCase
                 'version',
                 'is_latest',
                 'remote_version',
+                'build_status',
+                'latest_release_version',
             ],
+            'branch_in_sync',
         ]);
     }
 

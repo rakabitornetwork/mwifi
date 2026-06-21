@@ -7,7 +7,7 @@ import CustomerDetailPanel from '../../../Components/Admin/CustomerDetailPanel';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 500, 1000];
 
 function getVisiblePages(currentPage, totalPages) {
     if (totalPages <= 7) {
@@ -59,7 +59,15 @@ function CustomersPageContent({
     const themeLabel = isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
 
     const [searchTerm, setSearchTerm] = useState('');
-    const [sortBy, setSortBy] = useState('name_asc');
+    const [routerFilter, setRouterFilter] = useState(() => {
+        const activeRouter = routers.find((router) => router.status);
+        if (activeRouter) {
+            return String(activeRouter.id);
+        }
+
+        return routers[0] ? String(routers[0].id) : '';
+    });
+    const [pageSize, setPageSize] = useState(10);
     const [customerPage, setCustomerPage] = useState(1);
     const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
     const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
@@ -82,28 +90,9 @@ function CustomersPageContent({
 
     const pppoePackages = packages.filter((p) => p.type === 'pppoe');
 
-    const sortOptions = [
-        { value: 'name_asc', label: 'Nama (A → Z)' },
-        { value: 'name_desc', label: 'Nama (Z → A)' },
-        { value: 'username_asc', label: 'Username (A → Z)' },
-        { value: 'username_desc', label: 'Username (Z → A)' },
-        { value: 'phone_asc', label: 'Telepon (A → Z)' },
-        { value: 'phone_desc', label: 'Telepon (Z → A)' },
-        { value: 'router_asc', label: 'Router (A → Z)' },
-        { value: 'router_desc', label: 'Router (Z → A)' },
-        { value: 'package_asc', label: 'Paket (A → Z)' },
-        { value: 'package_desc', label: 'Paket (Z → A)' },
-        { value: 'odp_asc', label: 'ODP (A → Z)' },
-        { value: 'odp_desc', label: 'ODP (Z → A)' },
-        { value: 'billing_date_asc', label: 'Tgl Tagih (kecil → besar)' },
-        { value: 'billing_date_desc', label: 'Tgl Tagih (besar → kecil)' },
-        { value: 'status_asc', label: 'Status (A → Z)' },
-        { value: 'status_desc', label: 'Status (Z → A)' },
-    ];
-
     useEffect(() => {
         setCustomerPage(1);
-    }, [searchTerm, sortBy]);
+    }, [searchTerm, routerFilter, pageSize]);
 
     useEffect(() => {
         if (showCustomerModal) {
@@ -122,67 +111,70 @@ function CustomersPageContent({
 
     const isPppoeCustomer = (cust) => cust?.service_type !== 'hotspot';
 
-    const filteredCustomers = customers.filter((cust) => {
-        if (!isPppoeCustomer(cust)) return false;
+    const selectedRouter = routers.find((router) => String(router.id) === String(routerFilter));
+
+    const routerScopedCustomers = customers.filter((cust) => {
+        if (!isPppoeCustomer(cust)) {
+            return false;
+        }
+
+        if (!routerFilter) {
+            return true;
+        }
+
+        return String(cust.router_id) === String(routerFilter);
+    });
+
+    const routerCustomerCounts = customers.reduce((counts, cust) => {
+        if (!isPppoeCustomer(cust)) {
+            return counts;
+        }
+
+        const routerId = cust.router_id ?? 'none';
+        counts[routerId] = (counts[routerId] || 0) + 1;
+
+        return counts;
+    }, {});
+
+    const packageCustomerCounts = routerScopedCustomers.reduce((counts, cust) => {
+        const packageId = cust.package_id ?? 'none';
+        counts[packageId] = (counts[packageId] || 0) + 1;
+
+        return counts;
+    }, {});
+
+    const filteredCustomers = routerScopedCustomers.filter((cust) => {
         const term = searchTerm.toLowerCase();
         return (
             cust.name.toLowerCase().includes(term) ||
             cust.username.toLowerCase().includes(term) ||
             (cust.phone_number && cust.phone_number.toLowerCase().includes(term)) ||
-            (cust.router && cust.router.name.toLowerCase().includes(term)) ||
-            (cust.package && cust.package.name.toLowerCase().includes(term))
+            (cust.package && cust.package.name.toLowerCase().includes(term)) ||
+            (cust.odp && cust.odp.name.toLowerCase().includes(term))
         );
     });
 
-    const getCustomerSortValue = (cust, field) => {
-        switch (field) {
-            case 'name':
-                return cust.name || '';
-            case 'username':
-                return cust.username || '';
-            case 'phone':
-                return cust.phone_number || '';
-            case 'router':
-                return cust.router?.name || '';
-            case 'package':
-                return cust.package?.name || '';
-            case 'odp':
-                return cust.odp?.name || '';
-            case 'billing_date':
-                return Number(cust.billing_date) || 0;
-            case 'status':
-                return cust.status || '';
-            default:
-                return '';
-        }
-    };
-
     const sortedCustomers = [...filteredCustomers].sort((a, b) => {
-        const separator = sortBy.lastIndexOf('_');
-        const field = sortBy.slice(0, separator);
-        const direction = sortBy.slice(separator + 1);
+        const packageCountA = packageCustomerCounts[a.package_id ?? 'none'] || 0;
+        const packageCountB = packageCustomerCounts[b.package_id ?? 'none'] || 0;
 
-        const aVal = getCustomerSortValue(a, field);
-        const bVal = getCustomerSortValue(b, field);
-
-        if (field === 'billing_date') {
-            return direction === 'asc' ? aVal - bVal : bVal - aVal;
+        if (packageCountB !== packageCountA) {
+            return packageCountB - packageCountA;
         }
 
-        const compared = String(aVal).localeCompare(String(bVal), 'id', { sensitivity: 'base' });
-        return direction === 'asc' ? compared : -compared;
+        return String(a.name || '').localeCompare(String(b.name || ''), 'id', { sensitivity: 'base' });
     });
 
-    const totalCustomerPages = Math.ceil(sortedCustomers.length / PAGE_SIZE) || 1;
+    const totalCustomerPages = Math.ceil(sortedCustomers.length / pageSize) || 1;
     const paginatedCustomers = sortedCustomers.slice(
-        (customerPage - 1) * PAGE_SIZE,
-        customerPage * PAGE_SIZE
+        (customerPage - 1) * pageSize,
+        customerPage * pageSize
     );
 
     const paginationRangeStart = sortedCustomers.length === 0
         ? 0
-        : (customerPage - 1) * PAGE_SIZE + 1;
-    const paginationRangeEnd = Math.min(customerPage * PAGE_SIZE, sortedCustomers.length);
+        : (customerPage - 1) * pageSize + 1;
+    const paginationRangeEnd = Math.min(customerPage * pageSize, sortedCustomers.length);
     const visiblePages = getVisiblePages(customerPage, totalCustomerPages);
     const paginationNavButton = isDarkMode
         ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-400'
@@ -326,9 +318,16 @@ function CustomersPageContent({
         <>
             <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
                 <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3 gap-3`}>
-                    <div className="flex items-center space-x-2">
-                        <Users className="w-5 h-5 text-emerald-500" />
-                        <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Pelanggan PPPoE</h2>
+                    <div className="flex items-start gap-2 min-w-0">
+                        <Users className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                            <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Pelanggan PPPoE</h2>
+                            {selectedRouter && (
+                                <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
+                                    Router: {selectedRouter.name} · {routerScopedCustomers.length} pelanggan
+                                </p>
+                            )}
+                        </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
                         {selectedCustomerIds.length > 0 && (
@@ -363,28 +362,30 @@ function CustomersPageContent({
                     </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex flex-col lg:flex-row gap-2">
+                    <select
+                        value={routerFilter}
+                        onChange={(e) => setRouterFilter(e.target.value)}
+                        className={`lg:w-56 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                    >
+                        {routers.length === 0 ? (
+                            <option value="">Belum ada router</option>
+                        ) : routers.map((routerItem) => (
+                            <option key={routerItem.id} value={routerItem.id}>
+                                {routerItem.name} ({routerCustomerCounts[routerItem.id] || 0})
+                            </option>
+                        ))}
+                    </select>
                     <div className="relative flex-1">
                         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
                         <input
                             type="text"
-                            placeholder="Cari nama, username, telepon, router, paket..."
+                            placeholder="Cari nama, username, telepon, paket, ODP..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
                         />
                     </div>
-                    <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        className={`sm:w-56 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
-                    >
-                        {sortOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                                Urut: {option.label}
-                            </option>
-                        ))}
-                    </select>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -415,9 +416,11 @@ function CustomersPageContent({
                             {paginatedCustomers.length === 0 ? (
                                 <tr>
                                     <td colSpan={11} className={`py-8 text-center ${themeTextDesc}`}>
-                                        {searchTerm.trim()
-                                            ? 'Tidak ada pelanggan PPPoE yang cocok dengan pencarian.'
-                                            : 'Belum ada pelanggan PPPoE terdaftar.'}
+                                        {!routerFilter
+                                            ? 'Pilih router Mikrotik terlebih dahulu.'
+                                            : searchTerm.trim()
+                                                ? `Tidak ada pelanggan PPPoE di ${selectedRouter?.name || 'router ini'} yang cocok dengan pencarian.`
+                                                : `Belum ada pelanggan PPPoE di ${selectedRouter?.name || 'router ini'}.`}
                                     </td>
                                 </tr>
                             ) : paginatedCustomers.map((cust) => (
@@ -516,6 +519,20 @@ function CustomersPageContent({
                 {sortedCustomers.length > 0 && (
                     <div className={`flex flex-col lg:flex-row lg:items-center lg:justify-between pt-4 mt-1 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-4`}>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
+                            <label className={`flex items-center gap-2 text-[11px] ${themeTextSub}`}>
+                                <span>Tampilkan</span>
+                                <select
+                                    value={pageSize}
+                                    onChange={(e) => setPageSize(Number(e.target.value))}
+                                    className={`px-2 py-1 border rounded-lg text-[11px] font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                                >
+                                    {PAGE_SIZE_OPTIONS.map((size) => (
+                                        <option key={size} value={size}>{size}</option>
+                                    ))}
+                                </select>
+                                <span>entri</span>
+                            </label>
+                            <span className={`hidden sm:block w-px h-3.5 ${isDarkMode ? 'bg-zinc-800' : 'bg-zinc-200'}`} aria-hidden="true" />
                             <p className={`text-[11px] leading-relaxed ${themeTextSub}`}>
                                 Menampilkan{' '}
                                 <span className={`font-semibold tabular-nums ${themeTextTitle}`}>
