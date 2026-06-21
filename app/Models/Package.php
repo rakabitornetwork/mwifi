@@ -11,6 +11,7 @@ class Package extends Model
 
     protected $casts = [
         'price' => 'decimal:2',
+        'only_one' => 'boolean',
     ];
 
     public function customers(): HasMany

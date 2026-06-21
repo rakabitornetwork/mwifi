@@ -8,11 +8,22 @@ export function AdminToastProvider({ children }) {
     const { flash } = usePage().props;
 
     const showToast = useCallback((message, type = 'success') => {
-        const id = Date.now() + Math.random().toString(36).substr(2, 9);
-        setToasts((prev) => [...prev, { id, message, type }]);
-        setTimeout(() => {
-            setToasts((prev) => prev.filter((toast) => toast.id !== id));
-        }, 5000);
+        if (!message) {
+            return;
+        }
+
+        setToasts((prev) => {
+            if (prev.some((toast) => toast.message === message && toast.type === type)) {
+                return prev;
+            }
+
+            const id = Date.now() + Math.random().toString(36).substr(2, 9);
+            setTimeout(() => {
+                setToasts((current) => current.filter((toast) => toast.id !== id));
+            }, 5000);
+
+            return [...prev, { id, message, type }];
+        });
     }, []);
 
     useEffect(() => {
@@ -28,7 +39,7 @@ export function AdminToastProvider({ children }) {
         if (flash?.info) {
             showToast(flash.info, 'info');
         }
-    }, [flash, showToast]);
+    }, [flash?.success, flash?.error, flash?.warning, flash?.info, showToast]);
 
     return (
         <AdminToastContext.Provider value={{ toasts, setToasts, showToast }}>

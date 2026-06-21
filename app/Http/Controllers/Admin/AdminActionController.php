@@ -328,6 +328,7 @@ class AdminActionController extends Controller
             'parent_queue' => 'nullable|string|max:100',
             'queue_type_rx' => 'nullable|string|max:100',
             'queue_type_tx' => 'nullable|string|max:100',
+            'only_one' => 'nullable|boolean',
             'description' => 'nullable|string',
             'use_validation_script' => 'nullable|boolean',
             'lock_mac' => 'nullable|boolean',
@@ -335,6 +336,7 @@ class AdminActionController extends Controller
 
         $data['use_validation_script'] = isset($data['use_validation_script']) ? (bool)$data['use_validation_script'] : false;
         $data['lock_mac'] = isset($data['lock_mac']) ? (bool)$data['lock_mac'] : false;
+        $data['only_one'] = array_key_exists('only_one', $data) ? (bool) $data['only_one'] : true;
 
         $id = $data['id'] ?? null;
         $routerId = (int) $data['router_id'];
@@ -408,6 +410,7 @@ class AdminActionController extends Controller
                     'dns-server' => $data['dns_server'] ?? null,
                     'parent-queue' => $data['parent_queue'] ?? null,
                     'queue-type' => $data['queue_type_rx'] ?? null,
+                    'only-one' => $data['only_one'] ? 'yes' : 'no',
                 ];
 
                 // Filter out null and empty string values to prevent RouterOS REST API 400 Bad Request

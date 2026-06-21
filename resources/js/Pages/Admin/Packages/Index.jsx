@@ -4,6 +4,7 @@ import { Edit, Layers, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
+import { useAdminToast } from '../../../hooks/useAdminToast';
 import { formatRupiah } from '../../../utils/formatRupiah';
 
 const HOTSPOT_VALIDITY_PRESETS = ['1h', '2h', '6h', '12h', '1d', '7d', '30d'];
@@ -18,6 +19,7 @@ const emptyPackageForm = {
     parent_queue: '',
     queue_type_rx: '',
     queue_type_tx: '',
+    only_one: true,
     validity: '',
     description: '',
 };
@@ -77,6 +79,7 @@ function RouterOsField({
 
 function PackagesPageContent({ packages = [], routers = [] }) {
     const theme = useAdminFormTheme();
+    const { showToast } = useAdminToast();
     const {
         isDarkMode,
         themeCard,
@@ -101,12 +104,12 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     const [routerProfileError, setRouterProfileError] = useState(null);
     const [packageForm, setPackageForm] = useState(emptyPackageForm);
 
-    const loadRouterOsData = async (routerId) => {
+    const loadRouterOsData = async (routerId, { force = false } = {}) => {
         if (!routerId) {
             return null;
         }
 
-        if (routerOsCache[routerId]) {
+        if (!force && routerOsCache[routerId]) {
             return routerOsCache[routerId];
         }
 
@@ -126,6 +129,24 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         return data;
     };
 
+    const refreshRouterOsData = async (routerId) => {
+        if (!routerId) {
+            return null;
+        }
+
+        setIsLoadingRouterProfiles(true);
+        setRouterProfileError(null);
+
+        try {
+            return await loadRouterOsData(routerId, { force: true });
+        } catch (error) {
+            setRouterProfileError(error?.message || 'Gagal memuat profil dari router.');
+            return null;
+        } finally {
+            setIsLoadingRouterProfiles(false);
+        }
+    };
+
     const handleSavePackage = (e) => {
         e.preventDefault();
         const payload = {
@@ -136,10 +157,22 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         };
 
         router.post('/admin/packages/save', payload, {
-            onSuccess: () => {
+            onSuccess: (page) => {
+                const flash = page.props.flash || {};
+                if (flash.success) {
+                    showToast(flash.success, 'success');
+                } else if (flash.warning) {
+                    showToast(flash.warning, 'warning');
+                }
+
                 setShowPackageModal(false);
                 setEditingPackage(null);
                 setPackageForm(emptyPackageForm);
+                refreshRouterOsData(routerFilter);
+            },
+            onError: (errors) => {
+                const messages = Object.values(errors).flat().filter(Boolean);
+                showToast(messages[0] || 'Gagal menyimpan paket layanan.', 'error');
             },
         });
     };
@@ -147,7 +180,20 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     const handleDeletePackage = (packageId) => {
         if (!confirm('Apakah Anda yakin ingin menghapus paket layanan ini?')) return;
 
-        router.post('/admin/packages/delete', { id: packageId });
+        router.post('/admin/packages/delete', { id: packageId }, {
+            onSuccess: (page) => {
+                const flash = page.props.flash || {};
+                if (flash.success) {
+                    showToast(flash.success, 'success');
+                } else if (flash.error) {
+                    showToast(flash.error, 'error');
+                }
+                refreshRouterOsData(routerFilter);
+            },
+            onError: () => {
+                showToast('Gagal menghapus paket layanan.', 'error');
+            },
+        });
     };
 
     useEffect(() => {
@@ -193,6 +239,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                 parent_queue: editingPackage.parent_queue || '',
                 queue_type_rx: editingPackage.queue_type_rx || '',
                 queue_type_tx: editingPackage.queue_type_tx || '',
+                only_one: editingPackage.only_one !== false && editingPackage.only_one !== 0,
                 validity: editingPackage.validity || '',
                 description: editingPackage.description || '',
             });
@@ -553,6 +600,21 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     themeLabel={themeLabel}
                                     disabled={isLoadingRouterProfiles}
                                 />
+                            </div>
+                            <div className={`flex flex-col gap-1 p-2.5 rounded-lg border ${isDarkMode ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-zinc-50'}`}>
+                                <label className="inline-flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="only_one"
+                                        checked={Boolean(packageForm.only_one)}
+                                        onChange={(e) => updatePackageForm('only_one', e.target.checked)}
+                                        className="rounded border-zinc-600 text-emerald-500 focus:ring-emerald-500"
+                                    />
+                                    <span className={`font-bold ${themeLabel}`}>Only One</span>
+                                </label>
+                                <p className={`text-[10px] leading-relaxed ${themeTextSub}`}>
+                                    Batasi setiap pengguna PPPoE hanya satu sesi aktif pada saat yang sama (setara opsi Only One di RouterOS).
+                                </p>
                             </div>
                         </>
                     )}
