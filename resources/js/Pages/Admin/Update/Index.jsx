@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
-import { ArrowUpCircle, GitBranch, RefreshCw, Tag } from 'lucide-react';
+import { ArrowUpCircle, RefreshCw, Tag } from 'lucide-react';
+import GitHubBrandIcon from '../../../Components/Icons/GitHubBrandIcon';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
@@ -270,8 +271,8 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                 <div className="p-4 sm:p-5 space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div className="flex items-start gap-3 min-w-0">
-                            <div className={`p-2 rounded-xl shrink-0 ${theme.isDarkMode ? 'bg-violet-500/10 border border-violet-500/20' : 'bg-violet-50 border border-violet-100'}`}>
-                                <GitBranch className="w-5 h-5 text-violet-500" />
+                            <div className={`p-2 rounded-xl shrink-0 ${theme.isDarkMode ? 'bg-zinc-800/80 border border-zinc-700/60' : 'bg-zinc-100 border border-zinc-200'}`}>
+                                <GitHubBrandIcon className={`w-5 h-5 ${theme.isDarkMode ? 'text-white' : 'text-zinc-900'}`} />
                             </div>
                             <div className="min-w-0">
                                 <h2 className={`text-sm font-bold tracking-tight ${theme.themeTextTitle}`}>Pembaruan Aplikasi</h2>
