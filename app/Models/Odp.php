@@ -20,4 +20,27 @@ class Odp extends Model
     {
         return $this->hasMany(Customer::class);
     }
+
+    public function syncUsedPorts(): void
+    {
+        $count = $this->customers()->count();
+
+        if ((int) $this->used_ports !== $count) {
+            $this->forceFill(['used_ports' => $count])->saveQuietly();
+        }
+    }
+
+    /**
+     * @param  array<int|string|null>  $ids
+     */
+    public static function syncUsedPortsForIds(array $ids): void
+    {
+        $ids = array_values(array_unique(array_filter($ids, fn ($id) => $id !== null && $id !== '')));
+
+        if ($ids === []) {
+            return;
+        }
+
+        static::query()->whereIn('id', $ids)->get()->each->syncUsedPorts();
+    }
 }

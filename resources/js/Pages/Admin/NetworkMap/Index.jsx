@@ -272,7 +272,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                         <p class="text-zinc-500 font-semibold mt-0.5">${odp.description || 'No description'}</p>
                         <div class="flex items-center gap-1.5 mt-1 pt-1 border-t border-zinc-100 font-bold text-[10px]">
                             <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                            <span>Port: ${odp.used_ports} / ${odp.total_ports} Terpakai</span>
+                            <span>Port: ${odp.customers_count ?? odp.used_ports ?? 0} / ${odp.total_ports} Terpakai</span>
                         </div>
                     </div>
                 `);
@@ -394,7 +394,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                                 </div>
                             ) : (
                                 filteredOdps.map((odp) => {
-                                    const connectedCount = customers.filter((c) => c.odp_id === odp.id).length;
+                                    const connectedCount = odp.customers_count ?? customers.filter((c) => c.odp_id === odp.id).length;
                                     const isFull = connectedCount >= odp.total_ports;
                                     return (
                                         <div

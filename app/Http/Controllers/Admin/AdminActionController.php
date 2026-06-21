@@ -178,7 +178,14 @@ class AdminActionController extends Controller
             $data['service_start_date'] = now()->toDateString();
         }
 
+        $oldOdpId = $customer?->odp_id;
+
         Customer::updateOrCreate(['id' => $id], $data);
+
+        $newOdpId = $data['odp_id'] ?? null;
+        if ($oldOdpId != $newOdpId) {
+            \App\Models\Odp::syncUsedPortsForIds([$oldOdpId, $newOdpId]);
+        }
 
         return redirect()->back()->with('success', 'Data pelanggan berhasil disimpan.');
     }
@@ -195,6 +202,7 @@ class AdminActionController extends Controller
 
         $customer = Customer::findOrFail($data['id']);
         $mode = $data['mode'];
+        $odpId = $customer->odp_id;
 
         try {
             if ($mode === 'total' && $customer->router) {
@@ -221,6 +229,8 @@ class AdminActionController extends Controller
             // Delete Customer
             $customer->delete();
 
+            \App\Models\Odp::syncUsedPortsForIds([$odpId]);
+
             return redirect()->back()->with('success', 'Pelanggan berhasil dihapus.');
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Gagal menghapus pelanggan: ' . $e->getMessage());
@@ -243,11 +253,16 @@ class AdminActionController extends Controller
 
         $deletedCount = 0;
         $failedCount = 0;
+        $affectedOdpIds = [];
 
         foreach ($ids as $id) {
             $customer = Customer::find($id);
             if (!$customer) {
                 continue;
+            }
+
+            if ($customer->odp_id) {
+                $affectedOdpIds[] = $customer->odp_id;
             }
 
             try {
@@ -279,6 +294,8 @@ class AdminActionController extends Controller
                 \Illuminate\Support\Facades\Log::error("Gagal menghapus customer ID {$id} saat bulk delete: " . $e->getMessage());
             }
         }
+
+        \App\Models\Odp::syncUsedPortsForIds($affectedOdpIds);
 
         if ($failedCount > 0) {
             return redirect()->back()->with('success', "Berhasil menghapus {$deletedCount} pelanggan. Gagal menghapus {$failedCount} pelanggan.");

@@ -31,7 +31,7 @@ class AdminPageController extends Controller
             'invoices' => BillingService::appendNextBillingToInvoices(
                 Invoice::with(['customer.package', 'payments'])->orderByDesc('created_at')->get()
             ),
-            'odps' => Odp::all(),
+            'odps' => Odp::withCount('customers')->get(),
             'billingActivityLogs' => BillingActivityLog::orderByDesc('created_at')->limit(50)->get(),
             'monthlyRevenue' => BillingService::summarizeMonthlyRevenue(),
             'todayRevenue' => BillingService::summarizeTodayRevenue(),
@@ -96,14 +96,14 @@ class AdminPageController extends Controller
             'customers' => $customers,
             'routers' => Router::all(),
             'packages' => Package::all(),
-            'odps' => Odp::all(),
+            'odps' => Odp::withCount('customers')->get(),
         ]);
     }
 
     public function networkMap(): Response
     {
         return Inertia::render('Admin/NetworkMap/Index', [
-            'odps' => Odp::all(),
+            'odps' => Odp::withCount('customers')->get(),
             'customers' => Customer::with(['odp', 'package', 'router'])->get(),
         ]);
     }

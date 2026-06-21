@@ -436,7 +436,7 @@ function DashboardContent({
                                     </div>
                                     {(() => {
                                         const totalPorts = odps.reduce((acc, o) => acc + parseInt(o.total_ports || 0, 10), 0);
-                                        const usedPorts = odps.reduce((acc, o) => acc + parseInt(o.used_ports || 0, 10), 0);
+                                        const usedPorts = odps.reduce((acc, o) => acc + parseInt(o.customers_count ?? o.used_ports ?? 0, 10), 0);
                                         const percent = totalPorts > 0 ? Math.round((usedPorts / totalPorts) * 100) : 0;
                                         return (
                                             <div className="space-y-1.5 pt-1.5 border-t border-zinc-200/50 dark:border-zinc-800/50">
