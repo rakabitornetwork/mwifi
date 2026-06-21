@@ -353,16 +353,26 @@ async function refreshLinkedProfilePicture(meta, sock, sessionLabel) {
     }
 }
 
-function scheduleProfileRefresh(meta, sock, sessionLabel) {
-    for (const delay of [2500, 7000, 15000]) {
+function scheduleProfilePictureFetch(meta, sock, sessionLabel) {
+    const delays = [
+        INIT_QUERY_GRACE_MS,
+        INIT_QUERY_GRACE_MS + 8000,
+        INIT_QUERY_GRACE_MS + 20000,
+    ];
+
+    for (const delay of delays) {
         setTimeout(() => {
             if (meta.status === 'open' && meta.sock) {
-                ensureLinkedProfile(meta, meta.sock, sessionLabel, true).catch((err) => {
-                    console.error(`[${sessionLabel}] Delayed profile refresh failed:`, err.message);
+                refreshLinkedProfilePicture(meta, meta.sock, sessionLabel).catch((err) => {
+                    console.error(`[${sessionLabel}] Delayed profile picture fetch failed:`, err.message);
                 });
             }
         }, delay);
     }
+}
+
+function markInitGracePeriod(meta) {
+    meta.initReadyAt = Date.now() + INIT_QUERY_GRACE_MS;
 }
 
 async function ensureLinkedProfile(meta, sock, sessionLabel, force = false) {
@@ -370,21 +380,28 @@ async function ensureLinkedProfile(meta, sock, sessionLabel, force = false) {
         return;
     }
 
+    applyLinkedIdentityFromCreds(meta, sock);
+
     const now = Date.now();
-    const hasCompleteProfile = Boolean(meta.profile?.has_picture && meta.profile?.name);
-    const age = meta.profileFetchedAt ? now - meta.profileFetchedAt : Number.POSITIVE_INFINITY;
+    const hasPicture = Boolean(meta.profile?.has_picture);
+    const pictureAge = meta.profilePictureFetchedAt ? now - meta.profilePictureFetchedAt : Number.POSITIVE_INFINITY;
+    const initReady = !meta.initReadyAt || now >= meta.initReadyAt;
+
+    if (!force && !initReady) {
+        return;
+    }
 
     if (!force) {
-        if (hasCompleteProfile && age < 60000) {
+        if (hasPicture && pictureAge < 60000) {
             return;
         }
 
-        if (!hasCompleteProfile && age < 2500) {
+        if (!hasPicture && pictureAge < 5000) {
             return;
         }
     }
 
-    await refreshLinkedProfile(meta, sock, sessionLabel);
+    await refreshLinkedProfilePicture(meta, sock, sessionLabel);
 }
 
 async function connectSession(sessionId) {
@@ -406,12 +423,21 @@ async function connectSession(sessionId) {
 
     const sock = makeWASocket({
         version,
-        auth: state,
+        auth: {
+            creds: state.creds,
+            keys: makeCacheableSignalKeyStore(state.keys, logger),
+        },
         logger,
         printQRInTerminal: false,
         browser: ['mwifi', 'Chrome', '1.0.0'],
         syncFullHistory: false,
         markOnlineOnConnect: false,
+        fireInitQueries: true,
+        generateHighQualityLinkPreview: false,
+        defaultQueryTimeoutMs: 60000,
+        connectTimeoutMs: 60000,
+        retryRequestDelayMs: 2000,
+        getMessage: async () => undefined,
     });
 
     meta.sock = sock;
@@ -420,9 +446,7 @@ async function connectSession(sessionId) {
         saveCreds();
 
         if (meta.status === 'open') {
-            ensureLinkedProfile(meta, sock, id, true).catch((err) => {
-                console.error(`[${id}] Profile refresh after creds update failed:`, err.message);
-            });
+            applyLinkedIdentityFromCreds(meta, sock);
         }
     });
 
@@ -440,11 +464,10 @@ async function connectSession(sessionId) {
             meta.status = 'open';
             meta.qr = null;
             meta.lastError = null;
-            console.log(`[${id}] WhatsApp connected.`);
-            ensureLinkedProfile(meta, sock, id, true).catch((err) => {
-                console.error(`[${id}] Initial profile refresh failed:`, err.message);
-            });
-            scheduleProfileRefresh(meta, sock, id);
+            markInitGracePeriod(meta);
+            console.log(`[${id}] WhatsApp connected. Waiting ${INIT_QUERY_GRACE_MS}ms before profile picture fetch.`);
+            applyLinkedIdentityFromCreds(meta, sock);
+            scheduleProfilePictureFetch(meta, sock, id);
         }
 
         if (connection === 'close') {
