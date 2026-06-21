@@ -71,6 +71,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
         profile: null,
     });
     const [waAvatarBroken, setWaAvatarBroken] = useState(false);
+    const [isLoadingWaSession, setIsLoadingWaSession] = useState(false);
     const [isPollingWaSession, setIsPollingWaSession] = useState(false);
     const waSessionPollRef = useRef(null);
 
