@@ -196,6 +196,8 @@ class AdminActionController extends Controller
      */
     public function importCustomersCsv(Request $request, LegacyCsvImportService $importService)
     {
+        set_time_limit(300);
+
         $data = $request->validate([
             'csv_file' => 'required|file|max:10240',
             'router_id' => 'required|exists:routers,id',

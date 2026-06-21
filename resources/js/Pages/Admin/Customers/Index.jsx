@@ -292,23 +292,39 @@ function CustomersPageContent({
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                     Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                 },
                 body: formData,
             });
 
-            const payload = await response.json();
-            setImportResult(payload.result ?? null);
+            const rawBody = await response.text();
+            let payload = null;
+            try {
+                payload = rawBody ? JSON.parse(rawBody) : null;
+            } catch {
+                throw new Error(
+                    response.status === 419
+                        ? 'Sesi login kedaluwarsa. Muat ulang halaman lalu coba lagi.'
+                        : `Server mengembalikan respons tidak valid (HTTP ${response.status}).`
+                );
+            }
 
-            if (payload.success) {
+            if (!response.ok && !payload?.message) {
+                throw new Error(`Permintaan impor gagal (HTTP ${response.status}).`);
+            }
+
+            setImportResult(payload?.result ?? null);
+
+            if (payload?.success) {
                 showToast(payload.message, 'success');
                 if (!payload.dry_run) {
                     router.reload({ only: ['customers', 'packages'] });
                 }
             } else {
-                showToast(payload.message || 'Impor gagal.', 'error');
+                showToast(payload?.message || 'Impor gagal.', 'error');
             }
-        } catch {
-            showToast('Gagal menghubungi server saat impor CSV.', 'error');
+        } catch (error) {
+            showToast(error?.message || 'Gagal menghubungi server saat impor CSV.', 'error');
         } finally {
             setIsImporting(false);
         }

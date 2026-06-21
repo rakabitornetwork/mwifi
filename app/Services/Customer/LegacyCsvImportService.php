@@ -20,6 +20,15 @@ class LegacyCsvImportService
     /** @var array<string, int|null> */
     private array $odpCache = [];
 
+    /** @var array<string, string> */
+    private array $passwordHashCache = [];
+
+    /** @var array<string, Customer> */
+    private array $existingCustomersByUsername = [];
+
+    /** @var array<string, User> */
+    private array $existingUsersByEmail = [];
+
     /**
      * @return array{
      *     total: int,
@@ -56,6 +65,7 @@ class LegacyCsvImportService
     public function import(string $filePath, int $routerId, bool $dryRun = false, bool $skipExisting = false): array
     {
         $this->validateFormat($filePath);
+        $this->bootLookupCaches();
 
         $handle = fopen($filePath, 'r');
         if ($handle === false) {
@@ -93,7 +103,7 @@ class LegacyCsvImportService
                         throw new \RuntimeException('Baris tanpa username (Login).');
                     }
 
-                    $existing = Customer::where('username', $username)->first();
+                    $existing = $this->existingCustomersByUsername[$username] ?? null;
                     if ($existing && $skipExisting) {
                         $result['skipped']++;
                         continue;
@@ -107,9 +117,11 @@ class LegacyCsvImportService
 
                     if ($existing) {
                         $existing->update($customerData);
+                        $this->existingCustomersByUsername[$username] = $existing->fresh(['user']);
                         $result['updated']++;
                     } else {
-                        Customer::create($customerData);
+                        $customer = Customer::create($customerData);
+                        $this->existingCustomersByUsername[$username] = $customer;
                         $result['created']++;
                     }
                 } catch (\Throwable $e) {
@@ -249,7 +261,7 @@ class LegacyCsvImportService
             }
         }
 
-        $existingByEmail = User::where('email', $email)->first();
+        $existingByEmail = $this->existingUsersByEmail[strtolower($email)] ?? null;
         if ($existingByEmail) {
             $existingByEmail->update([
                 'name' => $customerData['name'],
@@ -258,11 +270,40 @@ class LegacyCsvImportService
             return $existingByEmail;
         }
 
-        return User::create([
+        $user = User::create([
             'name' => $customerData['name'],
             'email' => $email,
-            'password' => Hash::make($customerData['password']),
+            'password' => $this->hashedPassword($customerData['password']),
         ]);
+        $this->existingUsersByEmail[strtolower($email)] = $user;
+
+        return $user;
+    }
+
+    private function bootLookupCaches(): void
+    {
+        $this->passwordHashCache = [];
+        $this->packageCache = [];
+        $this->odpCache = [];
+        $this->existingCustomersByUsername = Customer::query()
+            ->with('user')
+            ->get()
+            ->keyBy('username')
+            ->all();
+
+        $this->existingUsersByEmail = User::query()
+            ->get()
+            ->keyBy(fn (User $user) => strtolower($user->email))
+            ->all();
+    }
+
+    private function hashedPassword(string $password): string
+    {
+        if (!isset($this->passwordHashCache[$password])) {
+            $this->passwordHashCache[$password] = Hash::make($password);
+        }
+
+        return $this->passwordHashCache[$password];
     }
 
     private function uniqueEmail(string $email, int $exceptUserId): string
