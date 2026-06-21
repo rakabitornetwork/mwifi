@@ -126,6 +126,13 @@ export default function AdminSidebar({
                         </div>
                     )}
                     <div className="truncate min-w-0 flex flex-col gap-0 leading-tight">
+                        <p className="flex items-center gap-1.5 mb-1 leading-none">
+                            <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.95)]" />
+                            </span>
+                            <span className="text-[10px] font-semibold text-emerald-300 tracking-wide">Online</span>
+                        </p>
                         <p className={`text-xs font-semibold ${sidebarTextTitle} truncate`}>{auth.user.name}</p>
                         <Link
                             href="/profile"
@@ -135,13 +142,6 @@ export default function AdminSidebar({
                         >
                             {auth.user.profile_title || 'Super Admin'}
                         </Link>
-                        <p className="flex items-center gap-1.5 mt-1 leading-none">
-                            <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
-                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.95)]" />
-                            </span>
-                            <span className="text-[10px] font-semibold text-emerald-300 tracking-wide">Online</span>
-                        </p>
                     </div>
                 </div>
                 <button
