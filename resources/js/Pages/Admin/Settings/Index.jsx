@@ -85,9 +85,10 @@ function SettingsPageContent({ settings = [], routers = [] }) {
         unknown: 'Belum dicek',
     };
 
-    const fetchWaSessionStatus = useCallback(async () => {
+    const fetchWaSessionStatus = useCallback(async (forceRefresh = false) => {
         try {
-            const response = await fetch('/admin/settings/whatsapp-session', {
+            const query = forceRefresh ? '?refresh=1' : '';
+            const response = await fetch(`/admin/settings/whatsapp-session${query}`, {
                 headers: {
                     Accept: 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
@@ -144,9 +145,10 @@ function SettingsPageContent({ settings = [], routers = [] }) {
         setIsPollingWaSession(true);
 
         const poll = async () => {
-            const connected = await fetchWaSessionStatus();
+            const connected = await fetchWaSessionStatus(false);
             if (connected) {
                 stopWaSessionPolling();
+                await fetchWaSessionStatus(true);
                 showToast('WhatsApp berhasil terhubung.', 'success');
             }
         };
@@ -163,9 +165,41 @@ function SettingsPageContent({ settings = [], routers = [] }) {
 
     const handleRefreshWaSession = async () => {
         setIsLoadingWaSession(true);
-        await fetchWaSessionStatus();
-        setIsLoadingWaSession(false);
+
+        try {
+            if (waSession.status === 'open') {
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                const response = await fetch('/admin/settings/whatsapp-session/refresh-profile', {
+                    method: 'POST',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                const data = await response.json();
+
+                if (response.ok && data.ok) {
+                    setWaSession((prev) => ({
+                        ...prev,
+                        status: data.status || prev.status,
+                        profile: data.profile || prev.profile,
+                        last_error: null,
+                    }));
+                    showToast('Profil WhatsApp diperbarui.', 'success');
+                    return;
+                }
+            }
+
+            await fetchWaSessionStatus(true);
+        } finally {
+            setIsLoadingWaSession(false);
+        }
     };
+
+    const linkedWaDisplayName = waSession.profile?.name
+        || (waSession.profile?.id ? `+${waSession.profile.id}` : 'Perangkat tertaut');
 
     const handleStartWaSession = async () => {
         setIsLoadingWaSession(true);
@@ -784,7 +818,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                                     type="button"
                                     onClick={handleRefreshWaSession}
                                     disabled={isLoadingWaSession}
-                                    title="Cek status sesi"
+                                    title="Cek status / perbarui profil"
                                     className={`p-2 border rounded-lg inline-flex items-center justify-center cursor-pointer disabled:opacity-50 ${isDarkMode ? 'border-zinc-700 text-zinc-200 hover:bg-zinc-800' : 'border-zinc-300 text-zinc-700 hover:bg-white'}`}
                                 >
                                     <RefreshCw className={`w-4 h-4 ${isLoadingWaSession ? 'animate-spin' : ''}`} />
@@ -823,9 +857,9 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                                         )}
                                         <div className="min-w-0">
                                             <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-emerald-100' : 'text-emerald-950'}`}>
-                                                {waSession.profile?.name || 'Perangkat tertaut'}
+                                                {linkedWaDisplayName}
                                             </p>
-                                            {waSession.profile?.id && (
+                                            {waSession.profile?.name && waSession.profile?.id && (
                                                 <p className={`text-[10px] font-mono truncate ${isDarkMode ? 'text-emerald-300/80' : 'text-emerald-800/70'}`}>
                                                     +{waSession.profile.id}
                                                 </p>

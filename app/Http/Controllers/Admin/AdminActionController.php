@@ -1020,9 +1020,26 @@ class AdminActionController extends Controller
             return response()->json($health, 503);
         }
 
-        $status = \App\Services\WhatsAppService::getSessionStatus();
+        $forceRefresh = $request->boolean('refresh');
+        $status = \App\Services\WhatsAppService::getSessionStatus($forceRefresh);
 
         return response()->json($status, $status['ok'] ? 200 : 503);
+    }
+
+    public function refreshWhatsAppSessionProfile(Request $request)
+    {
+        if ($request->user()?->customer) {
+            abort(403, 'Hanya administrator yang dapat mengelola sesi WhatsApp.');
+        }
+
+        $health = \App\Services\WhatsAppService::checkGatewayHealth();
+        if (!$health['ok']) {
+            return response()->json($health, 503);
+        }
+
+        $result = \App\Services\WhatsAppService::refreshSessionProfile();
+
+        return response()->json($result, $result['ok'] ? 200 : 503);
     }
 
     public function startWhatsAppSession(Request $request)
@@ -1042,7 +1059,7 @@ class AdminActionController extends Controller
             return response()->json($result, 503);
         }
 
-        $status = \App\Services\WhatsAppService::getSessionStatus();
+        $status = \App\Services\WhatsAppService::getSessionStatus(true);
 
         return response()->json(array_merge($result, [
             'has_qr' => $status['has_qr'] ?? false,

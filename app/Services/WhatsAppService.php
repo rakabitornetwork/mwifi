@@ -156,7 +156,7 @@ class WhatsAppService
      *     profile?: array{id?: string, name?: string|null, picture_data_url?: string|null}|null
      * }
      */
-    public static function getSessionStatus(): array
+    public static function getSessionStatus(bool $forceRefresh = false): array
     {
         $config = self::configuration();
 
@@ -167,7 +167,9 @@ class WhatsAppService
         $sessionId = rawurlencode($config['session_id']);
 
         try {
-            $response = self::gatewayClient()->get("{$config['api_url']}/session/{$sessionId}/status");
+            $response = self::gatewayClient()->get("{$config['api_url']}/session/{$sessionId}/status", [
+                'refresh' => $forceRefresh ? '1' : '0',
+            ]);
 
             if ($response->status() === 401) {
                 return ['ok' => false, 'message' => 'API Key gateway tidak valid.'];
@@ -240,6 +242,46 @@ class WhatsAppService
             return [
                 'ok' => false,
                 'message' => 'Gagal memulai sesi WhatsApp: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    public static function refreshSessionProfile(): array
+    {
+        $config = self::configuration();
+
+        if (empty($config['api_url'])) {
+            return ['ok' => false, 'message' => 'Gateway URL belum diisi di menu Pengaturan.'];
+        }
+
+        $sessionId = rawurlencode($config['session_id']);
+
+        try {
+            $response = self::gatewayClient()->post("{$config['api_url']}/session/{$sessionId}/profile/refresh");
+
+            if ($response->status() === 401) {
+                return ['ok' => false, 'message' => 'API Key gateway tidak valid.'];
+            }
+
+            if (!$response->successful()) {
+                $message = $response->json('message') ?: "Gateway merespons HTTP {$response->status()}.";
+
+                return ['ok' => false, 'message' => $message];
+            }
+
+            $data = $response->json();
+
+            return [
+                'ok' => true,
+                'message' => 'Profil WhatsApp diperbarui.',
+                'session' => $data['session'] ?? $config['session_id'],
+                'status' => $data['status'] ?? 'open',
+                'profile' => $data['profile'] ?? null,
+            ];
+        } catch (\Exception $e) {
+            return [
+                'ok' => false,
+                'message' => 'Gagal memperbarui profil WhatsApp: ' . $e->getMessage(),
             ];
         }
     }

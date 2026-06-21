@@ -4,11 +4,14 @@ const express = require('express');
 const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 const QRCode = require('qrcode');
+const axios = require('axios');
 const {
     default: makeWASocket,
     useMultiFileAuthState,
     DisconnectReason,
     fetchLatestBaileysVersion,
+    jidNormalizedUser,
+    jidDecode,
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 
@@ -19,7 +22,7 @@ const SESSIONS_DIR = path.resolve(process.env.SESSIONS_DIR || './sessions');
 
 fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
-/** @type {Map<string, { sock: import('@whiskeysockets/baileys').WASocket | null, status: string, qr: string | null, lastError: string | null, profile: { id: string, name: string | null, picture_data_url: string | null } | null }>} */
+/** @type {Map<string, { sock: import('@whiskeysockets/baileys').WASocket | null, status: string, qr: string | null, lastError: string | null, profile: { id: string, name: string | null, picture_data_url: string | null } | null, profileFetchedAt: number }>} */
 const sessions = new Map();
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
@@ -58,41 +61,141 @@ function normalizePhone(to) {
 function getSessionMeta(sessionId) {
     const id = sanitizeSessionId(sessionId);
     if (!sessions.has(id)) {
-        sessions.set(id, { sock: null, status: 'idle', qr: null, lastError: null, profile: null });
+        sessions.set(id, { sock: null, status: 'idle', qr: null, lastError: null, profile: null, profileFetchedAt: 0 });
     }
     return { id, meta: sessions.get(id) };
 }
 
+function resolveLinkedIdentity(sock) {
+    const me = sock?.authState?.creds?.me || {};
+    const user = sock?.user || {};
+
+    const jidCandidates = [me.id, user.id].filter(Boolean);
+    let phoneJid = null;
+    let lidJid = null;
+
+    for (const candidate of jidCandidates) {
+        const decoded = jidDecode(candidate);
+        if (!decoded?.user) {
+            continue;
+        }
+
+        if (decoded.server === 's.whatsapp.net' || decoded.server === 'c.us') {
+            phoneJid = jidNormalizedUser(candidate);
+            break;
+        }
+
+        if (decoded.server === 'lid') {
+            lidJid = candidate;
+        }
+    }
+
+    const pictureJids = [...new Set([phoneJid, lidJid, ...jidCandidates.map((jid) => jidNormalizedUser(jid)).filter(Boolean)])];
+    const phone = phoneJid ? (jidDecode(phoneJid)?.user || null) : (lidJid ? jidDecode(lidJid)?.user : null);
+    const name = String(me.name || user.name || user.verifiedName || '').trim() || null;
+
+    return {
+        phone,
+        name,
+        pictureJids,
+    };
+}
+
+async function downloadImageAsDataUrl(url) {
+    const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 20000,
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            Origin: 'https://web.whatsapp.com',
+            Referer: 'https://web.whatsapp.com/',
+            Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        },
+        maxRedirects: 5,
+        validateStatus: (status) => status >= 200 && status < 400,
+    });
+
+    if (!response.data || response.data.byteLength === 0) {
+        return null;
+    }
+
+    const mime = response.headers['content-type'] || 'image/jpeg';
+
+    return `data:${mime};base64,${Buffer.from(response.data).toString('base64')}`;
+}
+
+async function fetchProfilePictureDataUrl(sock, pictureJids) {
+    const types = ['image', 'preview'];
+
+    for (const jid of pictureJids) {
+        if (!jid) {
+            continue;
+        }
+
+        for (const type of types) {
+            try {
+                const pictureUrl = await sock.profilePictureUrl(jid, type, 20000);
+                if (!pictureUrl) {
+                    continue;
+                }
+
+                const dataUrl = await downloadImageAsDataUrl(pictureUrl);
+                if (dataUrl) {
+                    return dataUrl;
+                }
+            } catch (error) {
+                console.warn(`[profile] picture fetch failed for ${jid} (${type}): ${error.message}`);
+            }
+        }
+    }
+
+    return null;
+}
+
 async function refreshLinkedProfile(meta, sock, sessionLabel) {
-    if (!sock?.user?.id) {
+    const identity = resolveLinkedIdentity(sock);
+
+    if (!identity.phone && !identity.name && identity.pictureJids.length === 0) {
         meta.profile = null;
         return;
     }
 
-    const jid = sock.user.id;
     let pictureDataUrl = null;
 
-    try {
-        const pictureUrl = await sock.profilePictureUrl(jid, 'image');
-        if (pictureUrl) {
-            const response = await fetch(pictureUrl);
-            if (response.ok) {
-                const buffer = Buffer.from(await response.arrayBuffer());
-                const mime = response.headers.get('content-type') || 'image/jpeg';
-                pictureDataUrl = `data:${mime};base64,${buffer.toString('base64')}`;
-            }
-        }
-    } catch {
-        pictureDataUrl = null;
+    if (sock && identity.pictureJids.length > 0) {
+        pictureDataUrl = await fetchProfilePictureDataUrl(sock, identity.pictureJids);
     }
 
     meta.profile = {
-        id: jid.replace(/@.*/, ''),
-        name: sock.user.name || sock.user.verifiedName || null,
+        id: identity.phone,
+        name: identity.name,
         picture_data_url: pictureDataUrl,
     };
+    meta.profileFetchedAt = Date.now();
 
-    console.log(`[${sessionLabel}] Linked profile loaded: ${meta.profile.name || meta.profile.id}`);
+    console.log(
+        `[${sessionLabel}] Linked profile: name=${meta.profile.name || '-'} phone=${meta.profile.id || '-'} photo=${pictureDataUrl ? 'yes' : 'no'}`
+    );
+}
+
+async function ensureLinkedProfile(meta, sock, sessionLabel, force = false) {
+    if (!sock || meta.status !== 'open') {
+        return;
+    }
+
+    const now = Date.now();
+    const hasCompleteProfile = Boolean(meta.profile?.picture_data_url && meta.profile?.name);
+    const recentlyFetched = meta.profileFetchedAt && (now - meta.profileFetchedAt) < 8000;
+
+    if (!force && hasCompleteProfile && recentlyFetched) {
+        return;
+    }
+
+    if (!force && recentlyFetched) {
+        return;
+    }
+
+    await refreshLinkedProfile(meta, sock, sessionLabel);
 }
 
 async function connectSession(sessionId) {
@@ -123,7 +226,15 @@ async function connectSession(sessionId) {
 
     meta.sock = sock;
 
-    sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('creds.update', (creds) => {
+        saveCreds(creds);
+
+        if (meta.status === 'open' && creds?.me) {
+            ensureLinkedProfile(meta, sock, id, true).catch((err) => {
+                console.error(`[${id}] Profile refresh after creds update failed:`, err.message);
+            });
+        }
+    });
 
     sock.ev.on('connection.update', (update) => {
         const { connection, lastDisconnect, qr } = update;
@@ -140,9 +251,11 @@ async function connectSession(sessionId) {
             meta.qr = null;
             meta.lastError = null;
             console.log(`[${id}] WhatsApp connected.`);
-            refreshLinkedProfile(meta, sock, id).catch((err) => {
-                console.error(`[${id}] Failed to load linked profile:`, err.message);
-            });
+            setTimeout(() => {
+                ensureLinkedProfile(meta, sock, id, true).catch((err) => {
+                    console.error(`[${id}] Failed to load linked profile:`, err.message);
+                });
+            }, 2500);
         }
 
         if (connection === 'close') {
@@ -187,9 +300,10 @@ app.get('/health', (_req, res) => {
 app.get('/session/:sessionId/status', authMiddleware, async (req, res) => {
     const { id, meta } = getSessionMeta(req.params.sessionId);
 
-    if (meta.status === 'open' && meta.sock && !meta.profile) {
+    if (meta.status === 'open' && meta.sock) {
+        const force = req.query.refresh === '1';
         try {
-            await refreshLinkedProfile(meta, meta.sock, id);
+            await ensureLinkedProfile(meta, meta.sock, id, force);
         } catch (error) {
             console.error(`[${id}] Profile refresh on status failed:`, error.message);
         }
@@ -228,6 +342,32 @@ app.post('/session/:sessionId/start', authMiddleware, async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/session/:sessionId/profile/refresh', authMiddleware, async (req, res) => {
+    const { id, meta } = getSessionMeta(req.params.sessionId);
+
+    if (meta.status !== 'open' || !meta.sock) {
+        return res.status(503).json({
+            success: false,
+            message: 'WhatsApp session is not connected.',
+            session: id,
+            status: meta.status,
+        });
+    }
+
+    try {
+        await ensureLinkedProfile(meta, meta.sock, id, true);
+
+        return res.json({
+            success: true,
+            session: id,
+            status: meta.status,
+            profile: meta.profile,
+        });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
     }
 });
 

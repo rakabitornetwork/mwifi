@@ -20,7 +20,7 @@ class WhatsAppSessionTest extends TestCase
     {
         Http::fake([
             'http://127.0.0.1:3003/health' => Http::response(['success' => true], 200),
-            'http://127.0.0.1:3003/session/mwifi_session/status' => Http::response([
+            'http://127.0.0.1:3003/session/mwifi_session/status*' => Http::response([
                 'success' => true,
                 'session' => 'mwifi_session',
                 'status' => 'qr',
@@ -53,13 +53,14 @@ class WhatsAppSessionTest extends TestCase
                 'status' => 'connecting',
                 'message' => 'Session starting.',
             ], 200),
-            'http://127.0.0.1:3003/session/mwifi_session/status' => Http::response([
+            'http://127.0.0.1:3003/session/mwifi_session/status*' => Http::response([
                 'success' => true,
                 'session' => 'mwifi_session',
                 'status' => 'qr',
                 'has_qr' => true,
                 'qr_data_url' => 'data:image/png;base64,xyz',
                 'last_error' => null,
+                'profile' => null,
             ], 200),
         ]);
 
