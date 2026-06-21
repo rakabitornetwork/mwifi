@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\BillingService;
 use App\Services\BrandingService;
 use App\Services\HotspotVoucherService;
+use App\Services\MessageTemplateService;
 use App\Services\SettingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -1002,6 +1003,69 @@ class AdminActionController extends Controller
         return redirect()->back()->with('success', $message);
     }
 
+    /**
+     * Save WhatsApp gateway & message template settings.
+     */
+    public function saveMessagingSettings(Request $request)
+    {
+        $templateKeys = array_keys(MessageTemplateService::definitions());
+        $templateRules = [];
+        foreach ($templateKeys as $key) {
+            $shortKey = str_replace('whatsapp.', '', $key);
+            $templateRules['whatsapp.' . $shortKey] = 'nullable|string|max:8000';
+        }
+
+        $request->validate(array_merge([
+            'whatsapp.bulk_batch_size' => 'nullable|integer|min:1|max:100',
+            'whatsapp.bulk_window_seconds' => 'nullable|integer|min:6|max:7200',
+        ], $templateRules));
+
+        $encryptedKeys = ['whatsapp.api_key'];
+        $flatSettings = Arr::dot($request->except(['_token']));
+
+        foreach ($flatSettings as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+
+            if ($value === '' && in_array($key, $encryptedKeys, true)) {
+                continue;
+            }
+
+            if (SettingService::isBrokenUploadPath($value)) {
+                continue;
+            }
+
+            $isEncrypted = in_array($key, $encryptedKeys, true);
+            SettingService::set($key, $value, null, $isEncrypted);
+        }
+
+        SettingService::cleanupLegacyDuplicateKeys();
+
+        return redirect()->back()->with('success', 'Pengaturan pesan berhasil diperbarui.');
+    }
+
+    public function previewMessagingTemplate(Request $request)
+    {
+        $definitions = MessageTemplateService::definitions();
+
+        $request->validate([
+            'key' => 'required|string|in:' . implode(',', array_keys($definitions)),
+            'template' => 'nullable|string|max:8000',
+        ]);
+
+        $key = $request->input('key');
+        $template = $request->input('template');
+        $content = is_string($template) && trim($template) !== ''
+            ? $template
+            : MessageTemplateService::get($key);
+
+        return response()->json([
+            'ok' => true,
+            'preview' => MessageTemplateService::renderContent($content, MessageTemplateService::sampleVariables($key)),
+        ]);
+    }
+
     public function testWhatsAppGateway(Request $request)
     {
         $request->validate([
@@ -1012,7 +1076,7 @@ class AdminActionController extends Controller
         $config = \App\Services\WhatsAppService::configuration();
 
         if (!$config['enabled']) {
-            return redirect()->back()->with('error', 'Integrasi WhatsApp dinonaktifkan. Aktifkan di Pengaturan lalu simpan.');
+            return redirect()->back()->with('error', 'Integrasi WhatsApp dinonaktifkan. Aktifkan di menu Pesan lalu simpan.');
         }
 
         $health = \App\Services\WhatsAppService::checkGatewayHealth();

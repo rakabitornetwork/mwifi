@@ -244,31 +244,25 @@ class BillingService
         array $createdInvoices,
         float $totalAmount
     ): string {
-        $lines = [
-            "*[{$brandName}] Generate Tagihan Otomatis*",
-            '',
-            'Tanggal: *' . $runDate->format('d-m-Y') . '*',
-            'Jadwal: *H-' . $daysBeforeDue . ' sebelum jatuh tempo*',
-            'Invoice baru: *' . count($createdInvoices) . '*',
-            '',
-        ];
+        $invoiceLines = [];
 
         foreach (array_slice($createdInvoices, 0, 10) as $invoice) {
-            $lines[] = '- *' . $invoice['invoice_number'] . '* — ' . $invoice['customer_name']
-                . ' (' . $invoice['billing_period'] . ') Rp '
-                . number_format((float) $invoice['total_amount'], 0, ',', '.');
+            $invoiceLines[] = '- *' . $invoice['invoice_number'] . '* — ' . $invoice['customer_name']
+                . ' (' . $invoice['billing_period'] . ') ' . self::formatWhatsAppMoney((float) $invoice['total_amount']);
         }
 
         if (count($createdInvoices) > 10) {
-            $lines[] = '- ... dan ' . (count($createdInvoices) - 10) . ' invoice lainnya';
+            $invoiceLines[] = '- ... dan ' . (count($createdInvoices) - 10) . ' invoice lainnya';
         }
 
-        $lines[] = '';
-        $lines[] = 'Total: *Rp ' . number_format($totalAmount, 0, ',', '.') . '*';
-        $lines[] = '';
-        $lines[] = 'Detail lengkap tersedia di panel admin tab Invoice.';
-
-        return implode("\n", $lines);
+        return MessageTemplateService::render('whatsapp.template.admin_scheduler', [
+            'brand_name' => $brandName,
+            'run_date' => $runDate->format('d-m-Y'),
+            'days_before' => (string) $daysBeforeDue,
+            'invoice_count' => (string) count($createdInvoices),
+            'invoice_list' => implode("\n", $invoiceLines),
+            'total' => self::formatWhatsAppMoney($totalAmount),
+        ]);
     }
 
     /**
@@ -312,11 +306,18 @@ class BillingService
 
             try {
                 $dueDateFormatted = $dueDate->format('d-m-Y');
-                $brandName = BrandingService::companyName();
-                $prorataLine = $billing['is_prorated']
-                    ? "\n- Prorata: *{$billing['days_billed']} hari* / " . self::PRORATA_BASE_DAYS . " hari"
-                    : '';
-                $message = "Yth. Bapak/Ibu {$customer->name},\n\nTagihan internet {$brandName} Anda untuk periode *{$period}* telah terbit.\n\n*Detail Tagihan*:\n- No. Invoice: *{$invNumber}*\n- Layanan: " . strtoupper($customer->service_type) . " ({$customer->username})\n- Subtotal: *Rp " . number_format($amount, 0, ',', '.') . "*{$prorataLine}\n- Total Tagihan: *Rp " . number_format($total, 0, ',', '.') . "*\n- Jatuh Tempo: *{$dueDateFormatted}*\n\nSilakan melakukan pembayaran melalui Portal Pelanggan sebelum jatuh tempo untuk menghindari isolir otomatis. Terima kasih.";
+                $message = MessageTemplateService::render('whatsapp.template.invoice_new', [
+                    'customer_name' => $customer->name,
+                    'brand_name' => BrandingService::companyName(),
+                    'period' => $period,
+                    'invoice_number' => $invNumber,
+                    'service_type' => strtoupper($customer->service_type),
+                    'username' => $customer->username,
+                    'subtotal' => self::formatWhatsAppMoney($amount),
+                    'prorata_line' => self::buildProrataLine($billing['is_prorated'], (int) $billing['days_billed']),
+                    'total' => self::formatWhatsAppMoney($total),
+                    'due_date' => $dueDateFormatted,
+                ]);
 
                 if (class_exists(\App\Services\WhatsAppService::class)) {
                     \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
@@ -652,8 +653,14 @@ class BillingService
                 }
 
                 try {
-                    $brandName = BrandingService::companyName();
-                    $message = "Yth. Bapak/Ibu {$customer->name},\n\nLayanan internet {$brandName} Anda dengan username *{$customer->username}* telah di-isolir otomatis karena tagihan {$invoice->invoice_number} sebesar Rp " . number_format($invoice->total_amount, 0, ',', '.') . " melewati jatuh tempo (" . $invoice->due_date->format('d-m-Y') . ").\n\nSilakan lakukan pembayaran segera melalui Portal Pelanggan agar internet otomatis aktif kembali.";
+                    $message = MessageTemplateService::render('whatsapp.template.isolation', [
+                        'customer_name' => $customer->name,
+                        'brand_name' => BrandingService::companyName(),
+                        'username' => $customer->username,
+                        'invoice_number' => $invoice->invoice_number,
+                        'total' => self::formatWhatsAppMoney((float) $invoice->total_amount),
+                        'due_date' => $invoice->due_date->format('d-m-Y'),
+                    ]);
                     if (class_exists(\App\Services\WhatsAppService::class)) {
                         \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
                     }
@@ -1476,8 +1483,16 @@ class BillingService
             try {
                 $periodLabel = implode(' + ', $periods);
                 $dueDateFormatted = $dueDate->format('d-m-Y');
-                $brandName = BrandingService::companyName();
-                $message = "Yth. Bapak/Ibu {$customer->name},\n\nTagihan internet {$brandName} *akumulasi* periode *{$periodLabel}* telah terbit.\n\n*Detail Tagihan*:\n- No. Invoice: *{$invNumber}*\n- Layanan: PPPoE ({$customer->username})\n- Subtotal: *Rp " . number_format($amount, 0, ',', '.') . "*\n- Total Tagihan: *Rp " . number_format($total, 0, ',', '.') . "*\n- Jatuh Tempo: *{$dueDateFormatted}*\n\nSilakan lakukan pembayaran sebelum jatuh tempo. Terima kasih.";
+                $message = MessageTemplateService::render('whatsapp.template.invoice_accumulated_new', [
+                    'customer_name' => $customer->name,
+                    'brand_name' => BrandingService::companyName(),
+                    'period_label' => $periodLabel,
+                    'invoice_number' => $invNumber,
+                    'username' => $customer->username,
+                    'subtotal' => self::formatWhatsAppMoney($amount),
+                    'total' => self::formatWhatsAppMoney($total),
+                    'due_date' => $dueDateFormatted,
+                ]);
 
                 if (class_exists(\App\Services\WhatsAppService::class)) {
                     \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
@@ -1590,24 +1605,37 @@ class BillingService
             return null;
         }
 
-        $brandName = BrandingService::companyName();
-        $dueDateFormatted = $invoice->due_date?->format('d-m-Y') ?? '-';
-        $period = $invoice->billing_period ?? '-';
-
         if ($invoice->is_accumulated) {
             $periods = $invoice->accumulated_periods;
             $periodLabel = is_array($periods) && $periods !== []
                 ? implode(' + ', $periods)
-                : $period;
+                : ($invoice->billing_period ?? '-');
 
-            return "Yth. Bapak/Ibu {$customer->name},\n\nTagihan internet {$brandName} *akumulasi* periode *{$periodLabel}*.\n\n*Detail Tagihan*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Layanan: " . strtoupper($customer->service_type) . " ({$customer->username})\n- Subtotal: *Rp " . number_format((float) $invoice->amount, 0, ',', '.') . "*\n- Total Tagihan: *Rp " . number_format((float) $invoice->total_amount, 0, ',', '.') . "*\n- Jatuh Tempo: *{$dueDateFormatted}*\n\nSilakan lakukan pembayaran sebelum jatuh tempo melalui Portal Pelanggan. Terima kasih.";
+            return MessageTemplateService::render('whatsapp.template.invoice_accumulated', [
+                'customer_name' => $customer->name,
+                'brand_name' => BrandingService::companyName(),
+                'period_label' => $periodLabel,
+                'invoice_number' => $invoice->invoice_number,
+                'service_type' => strtoupper($customer->service_type),
+                'username' => $customer->username,
+                'subtotal' => self::formatWhatsAppMoney((float) $invoice->amount),
+                'total' => self::formatWhatsAppMoney((float) $invoice->total_amount),
+                'due_date' => $invoice->due_date?->format('d-m-Y') ?? '-',
+            ]);
         }
 
-        $prorataLine = $invoice->is_prorated
-            ? "\n- Prorata: *{$invoice->days_billed} hari* / " . self::PRORATA_BASE_DAYS . ' hari'
-            : '';
-
-        return "Yth. Bapak/Ibu {$customer->name},\n\nTagihan internet {$brandName} Anda untuk periode *{$period}*.\n\n*Detail Tagihan*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Layanan: " . strtoupper($customer->service_type) . " ({$customer->username})\n- Subtotal: *Rp " . number_format((float) $invoice->amount, 0, ',', '.') . "*{$prorataLine}\n- Total Tagihan: *Rp " . number_format((float) $invoice->total_amount, 0, ',', '.') . "*\n- Jatuh Tempo: *{$dueDateFormatted}*\n\nSilakan melakukan pembayaran melalui Portal Pelanggan sebelum jatuh tempo untuk menghindari isolir otomatis. Terima kasih.";
+        return MessageTemplateService::render('whatsapp.template.invoice_unpaid', [
+            'customer_name' => $customer->name,
+            'brand_name' => BrandingService::companyName(),
+            'period' => $invoice->billing_period ?? '-',
+            'invoice_number' => $invoice->invoice_number,
+            'service_type' => strtoupper($customer->service_type),
+            'username' => $customer->username,
+            'subtotal' => self::formatWhatsAppMoney((float) $invoice->amount),
+            'prorata_line' => self::buildProrataLine((bool) $invoice->is_prorated, (int) $invoice->days_billed),
+            'total' => self::formatWhatsAppMoney((float) $invoice->total_amount),
+            'due_date' => $invoice->due_date?->format('d-m-Y') ?? '-',
+        ]);
     }
 
     public static function buildPaidInvoiceWhatsAppMessage(Invoice $invoice, bool $includeReactivationNote = false): ?string
@@ -1620,17 +1648,41 @@ class BillingService
         }
 
         $payment = $invoice->payments->sortByDesc('created_at')->first();
-        $brandName = BrandingService::companyName();
         $amountPaid = $payment ? (float) $payment->amount_paid : (float) $invoice->total_amount;
         $gateway = $payment?->gateway_name ?? 'manual';
         $method = $payment?->payment_method ?? ($gateway === 'manual' ? 'Cash / Tunai' : ucfirst($gateway));
         $paidAt = self::formatDisplayDateTime($invoice->paid_at ?? $payment?->created_at);
+        $templateKey = $includeReactivationNote
+            ? 'whatsapp.template.payment_reactivated'
+            : 'whatsapp.template.payment_received';
 
-        $footer = $includeReactivationNote
-            ? "\n\nLayanan internet Anda otomatis aktif kembali secara instan. Terima kasih atas kepercayaan Anda."
-            : "\n\nTerima kasih atas kepercayaan Anda.";
+        return MessageTemplateService::render($templateKey, [
+            'brand_name' => BrandingService::companyName(),
+            'invoice_number' => $invoice->invoice_number,
+            'customer_name' => $customer->name,
+            'username' => $customer->username,
+            'period' => $invoice->billing_period ?? '-',
+            'payment_method' => $method,
+            'amount_paid' => self::formatWhatsAppMoney($amountPaid),
+            'paid_at' => $paidAt,
+            'footer_note' => $includeReactivationNote
+                ? "\n\nLayanan internet Anda otomatis aktif kembali secara instan. Terima kasih atas kepercayaan Anda."
+                : "\n\nTerima kasih atas kepercayaan Anda.",
+        ]);
+    }
 
-        return "Terima Kasih!\n\nPembayaran tagihan {$brandName} Anda telah berhasil diterima.\n\n*Detail Pembayaran*:\n- No. Invoice: *{$invoice->invoice_number}*\n- Pelanggan: *{$customer->name}* ({$customer->username})\n- Periode: *{$invoice->billing_period}*\n- Metode Bayar: {$method}\n- Jumlah Bayar: *Rp " . number_format($amountPaid, 0, ',', '.') . "*\n- Tanggal Bayar: {$paidAt}{$footer}";
+    public static function formatWhatsAppMoney(float $amount): string
+    {
+        return 'Rp ' . number_format($amount, 0, ',', '.');
+    }
+
+    public static function buildProrataLine(bool $isProrated, int $daysBilled): string
+    {
+        if (!$isProrated) {
+            return '';
+        }
+
+        return "\n- Prorata: *{$daysBilled} hari* / " . self::PRORATA_BASE_DAYS . ' hari';
     }
 
     public static function formatDisplayDateTime(mixed $value = null): string

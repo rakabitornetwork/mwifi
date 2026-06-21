@@ -16,6 +16,8 @@ use App\Models\Setting;
 use App\Services\AppUpdateService;
 use App\Services\BillingService;
 use App\Services\DatabaseBackupService;
+use App\Services\MessageTemplateService;
+use App\Services\SettingService;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -166,6 +168,16 @@ class AdminPageController extends Controller
         return Inertia::render('Admin/Settings/Index', [
             'settings' => Setting::all(),
             'routers' => Router::all(),
+        ]);
+    }
+
+    public function messaging(): Response
+    {
+        return Inertia::render('Admin/Messaging/Index', [
+            'settings' => Setting::where('group', 'whatsapp')->get(),
+            'billingAdminPhone' => SettingService::get('system.billing_admin_phone', ''),
+            'templateDefinitions' => MessageTemplateService::definitions(),
+            'templateDefaults' => MessageTemplateService::defaults(),
         ]);
     }
 

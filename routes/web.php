@@ -58,6 +58,7 @@ Route::middleware('auth')->group(function () {
     Route::get('invoices', [AdminPageController::class, 'invoices']);
     Route::get('hotspot', [AdminPageController::class, 'hotspot']);
     Route::get('settings', [AdminPageController::class, 'settings']);
+    Route::get('messaging', [AdminPageController::class, 'messaging']);
     Route::get('database', [AdminPageController::class, 'database']);
     Route::get('update', [AdminPageController::class, 'update']);
     Route::get('profile', [AdminPageController::class, 'profile']);
@@ -100,6 +101,8 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/billing/defer/cancel', [\App\Http\Controllers\Admin\AdminActionController::class, 'cancelBillingDeferral']);
     Route::get('admin/invoices/{invoice}/print', [\App\Http\Controllers\Admin\AdminActionController::class, 'printInvoice']);
     Route::post('admin/settings/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveSettings']);
+    Route::post('admin/messaging/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveMessagingSettings']);
+    Route::post('admin/messaging/template-preview', [\App\Http\Controllers\Admin\AdminActionController::class, 'previewMessagingTemplate']);
     Route::post('admin/settings/whatsapp-test', [\App\Http\Controllers\Admin\AdminActionController::class, 'testWhatsAppGateway']);
     Route::get('admin/settings/whatsapp-session', [\App\Http\Controllers\Admin\AdminActionController::class, 'getWhatsAppSessionStatus']);
     Route::get('admin/settings/whatsapp-session/avatar', [\App\Http\Controllers\Admin\AdminActionController::class, 'getWhatsAppSessionAvatar']);
