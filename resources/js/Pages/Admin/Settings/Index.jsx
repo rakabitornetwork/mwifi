@@ -70,7 +70,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
         session: settingsMap['whatsapp.session_id'] || 'mwifi_session',
         profile: null,
     });
-    const [isLoadingWaSession, setIsLoadingWaSession] = useState(false);
+    const [waAvatarBroken, setWaAvatarBroken] = useState(false);
     const [isPollingWaSession, setIsPollingWaSession] = useState(false);
     const waSessionPollRef = useRef(null);
 
@@ -117,6 +117,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                 session: data.session || prev.session,
                 profile: data.profile || null,
             }));
+            setWaAvatarBroken(false);
 
             return data.status === 'open';
         } catch (error) {
@@ -187,6 +188,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                         profile: data.profile || prev.profile,
                         last_error: null,
                     }));
+                    setWaAvatarBroken(false);
                     showToast('Profil WhatsApp diperbarui.', 'success');
                     return;
                 }
@@ -200,6 +202,23 @@ function SettingsPageContent({ settings = [], routers = [] }) {
 
     const linkedWaDisplayName = waSession.profile?.name
         || (waSession.profile?.id ? `+${waSession.profile.id}` : 'Perangkat tertaut');
+
+    const waProfileImageSrc = (() => {
+        const profile = waSession.profile;
+        if (!profile) {
+            return null;
+        }
+
+        if (profile.avatar_url) {
+            const cacheKey = profile.picture_updated_at || waSession.session || '1';
+
+            return `${profile.avatar_url}?t=${cacheKey}`;
+        }
+
+        return profile.picture_data_url || null;
+    })();
+
+    const showWaProfileImage = Boolean(waProfileImageSrc) && !waAvatarBroken;
 
     const handleStartWaSession = async () => {
         setIsLoadingWaSession(true);
@@ -844,10 +863,11 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                             {waSession.status === 'open' && (
                                 <div className="space-y-2">
                                     <div className={`flex items-center gap-3 rounded-xl border p-3 ${isDarkMode ? 'border-emerald-500/25 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/80'}`}>
-                                        {waSession.profile?.picture_data_url ? (
+                                        {showWaProfileImage ? (
                                             <img
-                                                src={waSession.profile.picture_data_url}
+                                                src={waProfileImageSrc}
                                                 alt="Foto profil WhatsApp"
+                                                onError={() => setWaAvatarBroken(true)}
                                                 className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm shrink-0"
                                             />
                                         ) : (

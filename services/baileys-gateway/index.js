@@ -5,6 +5,7 @@ const pino = require('pino');
 const qrcode = require('qrcode-terminal');
 const QRCode = require('qrcode');
 const axios = require('axios');
+const fsPromises = fs.promises;
 const {
     default: makeWASocket,
     useMultiFileAuthState,
@@ -12,6 +13,9 @@ const {
     fetchLatestBaileysVersion,
     jidNormalizedUser,
     jidDecode,
+    getBinaryNodeChild,
+    S_WHATSAPP_NET,
+    makeCacheableSignalKeyStore,
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 
@@ -22,10 +26,12 @@ const SESSIONS_DIR = path.resolve(process.env.SESSIONS_DIR || './sessions');
 
 fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
-/** @type {Map<string, { sock: import('@whiskeysockets/baileys').WASocket | null, status: string, qr: string | null, lastError: string | null, profile: { id: string, name: string | null, picture_data_url: string | null } | null, profileFetchedAt: number }>} */
+/** @type {Map<string, { sock: import('@whiskeysockets/baileys').WASocket | null, status: string, qr: string | null, lastError: string | null, profile: { id: string | null, name: string | null, picture_data_url: string | null, has_picture: boolean, picture_updated_at: number | null } | null, profileFetchedAt: number, profilePictureFetchedAt: number, profileFetchInFlight: boolean, initReadyAt: number, credsState: import('@whiskeysockets/baileys').AuthenticationState | null, profileAvatarPath: string | null }>} */
 const sessions = new Map();
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
+
+const INIT_QUERY_GRACE_MS = parseInt(process.env.INIT_QUERY_GRACE_MS || '12000', 10);
 
 function authMiddleware(req, res, next) {
     if (!API_KEY) {
@@ -61,38 +67,81 @@ function normalizePhone(to) {
 function getSessionMeta(sessionId) {
     const id = sanitizeSessionId(sessionId);
     if (!sessions.has(id)) {
-        sessions.set(id, { sock: null, status: 'idle', qr: null, lastError: null, profile: null, profileFetchedAt: 0 });
+        sessions.set(id, {
+            sock: null,
+            status: 'idle',
+            qr: null,
+            lastError: null,
+            profile: null,
+            profileFetchedAt: 0,
+            profilePictureFetchedAt: 0,
+            profileFetchInFlight: false,
+            initReadyAt: 0,
+            credsState: null,
+            profileAvatarPath: null,
+        });
     }
     return { id, meta: sessions.get(id) };
 }
 
-function resolveLinkedIdentity(sock) {
-    const me = sock?.authState?.creds?.me || {};
+function getAvatarFilePath(sessionLabel) {
+    return path.join(SESSIONS_DIR, sessionLabel, 'linked-avatar.jpg');
+}
+
+function bufferToDataUrl(buffer, mime = 'image/jpeg') {
+    return `data:${mime};base64,${Buffer.from(buffer).toString('base64')}`;
+}
+
+function resolveLinkedIdentity(sock, credsState = null) {
+    const me = sock?.authState?.creds?.me || credsState?.creds?.me || {};
     const user = sock?.user || {};
 
-    const jidCandidates = [me.id, user.id].filter(Boolean);
     let phoneJid = null;
-    let lidJid = null;
 
-    for (const candidate of jidCandidates) {
-        const decoded = jidDecode(candidate);
-        if (!decoded?.user) {
-            continue;
-        }
+    if (me.phoneNumber) {
+        phoneJid = jidNormalizedUser(me.phoneNumber);
+    }
 
-        if (decoded.server === 's.whatsapp.net' || decoded.server === 'c.us') {
-            phoneJid = jidNormalizedUser(candidate);
-            break;
-        }
+    const idCandidates = [me.id, user.id, me.lid, me.phoneNumber].filter(Boolean);
 
-        if (decoded.server === 'lid') {
-            lidJid = candidate;
+    if (!phoneJid) {
+        for (const candidate of idCandidates) {
+            if (!candidate || String(candidate).endsWith('@lid')) {
+                continue;
+            }
+
+            const decoded = jidDecode(candidate);
+            if (decoded?.server === 's.whatsapp.net' || decoded?.server === 'c.us') {
+                phoneJid = jidNormalizedUser(candidate);
+                break;
+            }
         }
     }
 
-    const pictureJids = [...new Set([phoneJid, lidJid, ...jidCandidates.map((jid) => jidNormalizedUser(jid)).filter(Boolean)])];
-    const phone = phoneJid ? (jidDecode(phoneJid)?.user || null) : (lidJid ? jidDecode(lidJid)?.user : null);
-    const name = String(me.name || user.name || user.verifiedName || '').trim() || null;
+    const lidJid = me.lid
+        || idCandidates.find((candidate) => String(candidate).endsWith('@lid'))
+        || null;
+
+    const pictureJids = [...new Set(
+        [phoneJid, me.phoneNumber, lidJid, me.id, user.id]
+            .filter(Boolean)
+            .map((jid) => jidNormalizedUser(jid))
+            .filter(Boolean)
+    )];
+
+    const phone = phoneJid
+        ? (jidDecode(phoneJid)?.user || null)
+        : (me.phoneNumber ? (jidDecode(me.phoneNumber)?.user || null) : null);
+    const name = String(
+        me.name
+        || user.name
+        || user.notify
+        || user.verifiedName
+        || me.notify
+        || me.verifiedName
+        || sock?.authState?.creds?.pushName
+        || ''
+    ).trim() || null;
 
     return {
         phone,
@@ -101,31 +150,90 @@ function resolveLinkedIdentity(sock) {
     };
 }
 
-async function downloadImageAsDataUrl(url) {
-    const response = await axios.get(url, {
-        responseType: 'arraybuffer',
-        timeout: 20000,
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            Origin: 'https://web.whatsapp.com',
-            Referer: 'https://web.whatsapp.com/',
-            Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-        },
-        maxRedirects: 5,
-        validateStatus: (status) => status >= 200 && status < 400,
-    });
+function applyLinkedIdentityFromCreds(meta, sock) {
+    const identity = resolveLinkedIdentity(sock, meta.credsState);
 
-    if (!response.data || response.data.byteLength === 0) {
+    meta.profile = {
+        id: identity.phone,
+        name: identity.name,
+        picture_data_url: meta.profile?.picture_data_url ?? null,
+        has_picture: meta.profile?.has_picture ?? false,
+        picture_updated_at: meta.profile?.picture_updated_at ?? null,
+    };
+    meta.profileFetchedAt = Date.now();
+}
+
+async function queryProfilePictureBuffer(sock, { targetJid = null, type = 'image' } = {}) {
+    if (!sock?.query) {
         return null;
     }
 
-    const mime = response.headers['content-type'] || 'image/jpeg';
+    const attrs = {
+        to: S_WHATSAPP_NET,
+        type: 'get',
+        xmlns: 'w:profile:picture',
+    };
 
-    return `data:${mime};base64,${Buffer.from(response.data).toString('base64')}`;
+    if (targetJid) {
+        attrs.target = jidNormalizedUser(targetJid);
+    }
+
+    const result = await sock.query({
+        tag: 'iq',
+        attrs,
+        content: [{ tag: 'picture', attrs: { type } }],
+    }, 20000);
+
+    const child = getBinaryNodeChild(result, 'picture');
+    if (!child) {
+        return null;
+    }
+
+    if (Buffer.isBuffer(child.content) || child.content instanceof Uint8Array) {
+        const mime = child.attrs?.mimetype || 'image/jpeg';
+
+        return {
+            buffer: Buffer.from(child.content),
+            mime,
+        };
+    }
+
+    if (child.attrs?.url) {
+        const response = await axios.get(child.attrs.url, {
+            responseType: 'arraybuffer',
+            timeout: 20000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                Origin: 'https://web.whatsapp.com',
+                Referer: 'https://web.whatsapp.com/',
+            },
+            validateStatus: (status) => status >= 200 && status < 400,
+        });
+
+        if (response.data?.byteLength > 0) {
+            return {
+                buffer: Buffer.from(response.data),
+                mime: response.headers['content-type'] || 'image/jpeg',
+            };
+        }
+    }
+
+    return null;
 }
 
-async function fetchProfilePictureDataUrl(sock, pictureJids) {
+async function fetchProfilePictureBuffer(sock, pictureJids) {
     const types = ['image', 'preview'];
+
+    try {
+        for (const type of types) {
+            const ownPicture = await queryProfilePictureBuffer(sock, { type });
+            if (ownPicture?.buffer?.length) {
+                return ownPicture;
+            }
+        }
+    } catch (error) {
+        console.warn(`[profile] own picture query failed: ${error.message}`);
+    }
 
     for (const jid of pictureJids) {
         if (!jid) {
@@ -134,17 +242,39 @@ async function fetchProfilePictureDataUrl(sock, pictureJids) {
 
         for (const type of types) {
             try {
+                const targeted = await queryProfilePictureBuffer(sock, { targetJid: jid, type });
+                if (targeted?.buffer?.length) {
+                    return targeted;
+                }
+            } catch (error) {
+                console.warn(`[profile] picture query failed for ${jid} (${type}): ${error.message}`);
+            }
+
+            try {
                 const pictureUrl = await sock.profilePictureUrl(jid, type, 20000);
                 if (!pictureUrl) {
                     continue;
                 }
 
-                const dataUrl = await downloadImageAsDataUrl(pictureUrl);
-                if (dataUrl) {
-                    return dataUrl;
+                const response = await axios.get(pictureUrl, {
+                    responseType: 'arraybuffer',
+                    timeout: 20000,
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                        Origin: 'https://web.whatsapp.com',
+                        Referer: 'https://web.whatsapp.com/',
+                    },
+                    validateStatus: (status) => status >= 200 && status < 400,
+                });
+
+                if (response.data?.byteLength > 0) {
+                    return {
+                        buffer: Buffer.from(response.data),
+                        mime: response.headers['content-type'] || 'image/jpeg',
+                    };
                 }
             } catch (error) {
-                console.warn(`[profile] picture fetch failed for ${jid} (${type}): ${error.message}`);
+                console.warn(`[profile] picture url fetch failed for ${jid} (${type}): ${error.message}`);
             }
         }
     }
@@ -152,30 +282,87 @@ async function fetchProfilePictureDataUrl(sock, pictureJids) {
     return null;
 }
 
-async function refreshLinkedProfile(meta, sock, sessionLabel) {
-    const identity = resolveLinkedIdentity(sock);
+async function saveAvatarFile(sessionLabel, buffer, mime = 'image/jpeg') {
+    const filePath = getAvatarFilePath(sessionLabel);
+    await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+    await fsPromises.writeFile(filePath, buffer);
 
-    if (!identity.phone && !identity.name && identity.pictureJids.length === 0) {
-        meta.profile = null;
+    return filePath;
+}
+
+async function refreshLinkedProfilePicture(meta, sock, sessionLabel) {
+    if (!sock || meta.profileFetchInFlight) {
         return;
     }
 
-    let pictureDataUrl = null;
-
-    if (sock && identity.pictureJids.length > 0) {
-        pictureDataUrl = await fetchProfilePictureDataUrl(sock, identity.pictureJids);
+    if (meta.initReadyAt && Date.now() < meta.initReadyAt) {
+        return;
     }
 
-    meta.profile = {
-        id: identity.phone,
-        name: identity.name,
-        picture_data_url: pictureDataUrl,
-    };
-    meta.profileFetchedAt = Date.now();
+    meta.profileFetchInFlight = true;
 
-    console.log(
-        `[${sessionLabel}] Linked profile: name=${meta.profile.name || '-'} phone=${meta.profile.id || '-'} photo=${pictureDataUrl ? 'yes' : 'no'}`
-    );
+    try {
+        const identity = resolveLinkedIdentity(sock, meta.credsState);
+        applyLinkedIdentityFromCreds(meta, sock);
+
+        let pictureDataUrl = meta.profile?.picture_data_url ?? null;
+        let hasPicture = meta.profile?.has_picture ?? false;
+        let pictureUpdatedAt = meta.profile?.picture_updated_at ?? null;
+        let avatarPath = meta.profileAvatarPath;
+
+        const picture = await fetchProfilePictureBuffer(sock, identity.pictureJids);
+        if (picture?.buffer?.length) {
+            avatarPath = await saveAvatarFile(sessionLabel, picture.buffer, picture.mime);
+            meta.profileAvatarPath = avatarPath;
+            pictureDataUrl = bufferToDataUrl(picture.buffer, picture.mime);
+            hasPicture = true;
+            pictureUpdatedAt = Date.now();
+        } else if (avatarPath && fs.existsSync(avatarPath)) {
+            const cached = await fsPromises.readFile(avatarPath);
+            if (cached.length > 0) {
+                pictureDataUrl = bufferToDataUrl(cached);
+                hasPicture = true;
+            }
+        } else {
+            const defaultAvatar = getAvatarFilePath(sessionLabel);
+            if (fs.existsSync(defaultAvatar)) {
+                const cached = await fsPromises.readFile(defaultAvatar);
+                if (cached.length > 0) {
+                    avatarPath = defaultAvatar;
+                    meta.profileAvatarPath = defaultAvatar;
+                    pictureDataUrl = bufferToDataUrl(cached);
+                    hasPicture = true;
+                }
+            }
+        }
+
+        meta.profile = {
+            id: identity.phone,
+            name: identity.name,
+            picture_data_url: pictureDataUrl,
+            has_picture: hasPicture,
+            picture_updated_at: pictureUpdatedAt,
+        };
+        meta.profilePictureFetchedAt = Date.now();
+
+        console.log(
+            `[${sessionLabel}] Linked profile: name=${meta.profile.name || '-'} phone=${meta.profile.id || '-'} photo=${hasPicture ? 'yes' : 'no'}`
+        );
+    } finally {
+        meta.profileFetchInFlight = false;
+    }
+}
+
+function scheduleProfileRefresh(meta, sock, sessionLabel) {
+    for (const delay of [2500, 7000, 15000]) {
+        setTimeout(() => {
+            if (meta.status === 'open' && meta.sock) {
+                ensureLinkedProfile(meta, meta.sock, sessionLabel, true).catch((err) => {
+                    console.error(`[${sessionLabel}] Delayed profile refresh failed:`, err.message);
+                });
+            }
+        }, delay);
+    }
 }
 
 async function ensureLinkedProfile(meta, sock, sessionLabel, force = false) {
@@ -184,15 +371,17 @@ async function ensureLinkedProfile(meta, sock, sessionLabel, force = false) {
     }
 
     const now = Date.now();
-    const hasCompleteProfile = Boolean(meta.profile?.picture_data_url && meta.profile?.name);
-    const recentlyFetched = meta.profileFetchedAt && (now - meta.profileFetchedAt) < 8000;
+    const hasCompleteProfile = Boolean(meta.profile?.has_picture && meta.profile?.name);
+    const age = meta.profileFetchedAt ? now - meta.profileFetchedAt : Number.POSITIVE_INFINITY;
 
-    if (!force && hasCompleteProfile && recentlyFetched) {
-        return;
-    }
+    if (!force) {
+        if (hasCompleteProfile && age < 60000) {
+            return;
+        }
 
-    if (!force && recentlyFetched) {
-        return;
+        if (!hasCompleteProfile && age < 2500) {
+            return;
+        }
     }
 
     await refreshLinkedProfile(meta, sock, sessionLabel);
@@ -212,6 +401,7 @@ async function connectSession(sessionId) {
     fs.mkdirSync(authDir, { recursive: true });
 
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
+    meta.credsState = state;
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -226,10 +416,10 @@ async function connectSession(sessionId) {
 
     meta.sock = sock;
 
-    sock.ev.on('creds.update', (creds) => {
-        saveCreds(creds);
+    sock.ev.on('creds.update', () => {
+        saveCreds();
 
-        if (meta.status === 'open' && creds?.me) {
+        if (meta.status === 'open') {
             ensureLinkedProfile(meta, sock, id, true).catch((err) => {
                 console.error(`[${id}] Profile refresh after creds update failed:`, err.message);
             });
@@ -251,11 +441,10 @@ async function connectSession(sessionId) {
             meta.qr = null;
             meta.lastError = null;
             console.log(`[${id}] WhatsApp connected.`);
-            setTimeout(() => {
-                ensureLinkedProfile(meta, sock, id, true).catch((err) => {
-                    console.error(`[${id}] Failed to load linked profile:`, err.message);
-                });
-            }, 2500);
+            ensureLinkedProfile(meta, sock, id, true).catch((err) => {
+                console.error(`[${id}] Initial profile refresh failed:`, err.message);
+            });
+            scheduleProfileRefresh(meta, sock, id);
         }
 
         if (connection === 'close') {
@@ -369,6 +558,21 @@ app.post('/session/:sessionId/profile/refresh', authMiddleware, async (req, res)
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
+});
+
+app.get('/session/:sessionId/profile/avatar', authMiddleware, (req, res) => {
+    const { id, meta } = getSessionMeta(req.params.sessionId);
+    const avatarPath = meta.profileAvatarPath || getAvatarFilePath(id);
+
+    if (!fs.existsSync(avatarPath)) {
+        return res.status(404).json({ success: false, message: 'Avatar not available.' });
+    }
+
+    return res.sendFile(avatarPath, {
+        headers: {
+            'Cache-Control': 'private, max-age=300',
+        },
+    });
 });
 
 app.post('/send-message', authMiddleware, async (req, res) => {

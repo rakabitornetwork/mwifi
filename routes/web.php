@@ -101,6 +101,7 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/settings/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveSettings']);
     Route::post('admin/settings/whatsapp-test', [\App\Http\Controllers\Admin\AdminActionController::class, 'testWhatsAppGateway']);
     Route::get('admin/settings/whatsapp-session', [\App\Http\Controllers\Admin\AdminActionController::class, 'getWhatsAppSessionStatus']);
+    Route::get('admin/settings/whatsapp-session/avatar', [\App\Http\Controllers\Admin\AdminActionController::class, 'getWhatsAppSessionAvatar']);
     Route::post('admin/settings/whatsapp-session/start', [\App\Http\Controllers\Admin\AdminActionController::class, 'startWhatsAppSession']);
     Route::post('admin/settings/whatsapp-session/refresh-profile', [\App\Http\Controllers\Admin\AdminActionController::class, 'refreshWhatsAppSessionProfile']);
     Route::post('admin/profile/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveAdminProfile']);

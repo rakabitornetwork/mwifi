@@ -74,4 +74,23 @@ class WhatsAppSessionTest extends TestCase
             'has_qr' => true,
         ]);
     }
+
+    public function test_admin_can_proxy_whatsapp_session_avatar(): void
+    {
+        Http::fake([
+            'http://127.0.0.1:3003/health' => Http::response(['success' => true], 200),
+            'http://127.0.0.1:3003/session/mwifi_session/profile/avatar' => Http::response(
+                'fake-image-bytes',
+                200,
+                ['Content-Type' => 'image/jpeg']
+            ),
+        ]);
+
+        $response = $this->actingAs($this->adminUser())
+            ->get('/admin/settings/whatsapp-session/avatar');
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'image/jpeg');
+        $this->assertSame('fake-image-bytes', $response->getContent());
+    }
 }

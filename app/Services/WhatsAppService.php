@@ -184,6 +184,14 @@ class WhatsAppService
 
             $data = $response->json();
 
+            $profile = $data['profile'] ?? null;
+            if (($data['status'] ?? '') === 'open') {
+                $profile = is_array($profile) ? $profile : [];
+                $profile['avatar_url'] = url('/admin/settings/whatsapp-session/avatar');
+            } elseif (is_array($profile) && ($profile['has_picture'] ?? false)) {
+                $profile['avatar_url'] = url('/admin/settings/whatsapp-session/avatar');
+            }
+
             return [
                 'ok' => true,
                 'message' => 'Status sesi berhasil dimuat.',
@@ -192,7 +200,7 @@ class WhatsAppService
                 'has_qr' => (bool) ($data['has_qr'] ?? false),
                 'qr_data_url' => $data['qr_data_url'] ?? null,
                 'last_error' => $data['last_error'] ?? null,
-                'profile' => $data['profile'] ?? null,
+                'profile' => $profile,
             ];
         } catch (\Exception $e) {
             return [
@@ -271,12 +279,20 @@ class WhatsAppService
 
             $data = $response->json();
 
+            $profile = $data['profile'] ?? null;
+            if (($data['status'] ?? '') === 'open') {
+                $profile = is_array($profile) ? $profile : [];
+                $profile['avatar_url'] = url('/admin/settings/whatsapp-session/avatar');
+            } elseif (is_array($profile) && ($profile['has_picture'] ?? false)) {
+                $profile['avatar_url'] = url('/admin/settings/whatsapp-session/avatar');
+            }
+
             return [
                 'ok' => true,
                 'message' => 'Profil WhatsApp diperbarui.',
                 'session' => $data['session'] ?? $config['session_id'],
                 'status' => $data['status'] ?? 'open',
-                'profile' => $data['profile'] ?? null,
+                'profile' => $profile,
             ];
         } catch (\Exception $e) {
             return [
@@ -284,6 +300,24 @@ class WhatsAppService
                 'message' => 'Gagal memperbarui profil WhatsApp: ' . $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * @return \Illuminate\Http\Client\Response
+     */
+    public static function fetchSessionAvatarResponse()
+    {
+        $config = self::configuration();
+
+        if (empty($config['api_url'])) {
+            throw new \RuntimeException('Gateway URL belum diisi.');
+        }
+
+        $sessionId = rawurlencode($config['session_id']);
+
+        return self::gatewayClient()
+            ->withHeaders(['Accept' => 'image/*'])
+            ->get("{$config['api_url']}/session/{$sessionId}/profile/avatar");
     }
 
     private static function gatewayClient(): PendingRequest

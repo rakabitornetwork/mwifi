@@ -1042,6 +1042,34 @@ class AdminActionController extends Controller
         return response()->json($result, $result['ok'] ? 200 : 503);
     }
 
+    public function getWhatsAppSessionAvatar(Request $request)
+    {
+        if ($request->user()?->customer) {
+            abort(403, 'Hanya administrator yang dapat mengelola sesi WhatsApp.');
+        }
+
+        $config = \App\Services\WhatsAppService::configuration();
+
+        if (empty($config['api_url'])) {
+            abort(404);
+        }
+
+        try {
+            $response = \App\Services\WhatsAppService::fetchSessionAvatarResponse();
+
+            if (!$response->successful()) {
+                abort(404);
+            }
+
+            return response($response->body(), 200, [
+                'Content-Type' => $response->header('Content-Type') ?: 'image/jpeg',
+                'Cache-Control' => 'private, max-age=300',
+            ]);
+        } catch (\Throwable) {
+            abort(404);
+        }
+    }
+
     public function startWhatsAppSession(Request $request)
     {
         if ($request->user()?->customer) {
