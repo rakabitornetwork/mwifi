@@ -212,15 +212,58 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
         }
     };
 
+    const hasUpdate = Boolean(updateInfo.update_available) && !isCheckingRemote;
+    const mainCardShell = hasUpdate
+        ? (theme.isDarkMode
+            ? 'border border-amber-500/45 bg-gradient-to-br from-amber-950/90 via-orange-950/70 to-rose-950/60 shadow-xl shadow-amber-500/15 ring-1 ring-amber-400/20'
+            : 'border border-amber-300/90 bg-gradient-to-br from-amber-100 via-orange-50 to-rose-100 shadow-xl shadow-amber-300/40 ring-1 ring-amber-400/30')
+        : isCheckingRemote
+            ? (theme.isDarkMode
+                ? 'border border-violet-500/35 bg-gradient-to-br from-violet-950/80 via-indigo-950/60 to-violet-900/50 shadow-lg shadow-violet-500/10'
+                : 'border border-violet-200 bg-gradient-to-br from-violet-100 via-indigo-50 to-violet-50 shadow-md shadow-violet-200/50')
+            : (theme.isDarkMode
+                ? 'border border-emerald-500/30 bg-gradient-to-br from-emerald-950/70 via-teal-950/50 to-violet-950/40 shadow-lg shadow-emerald-500/10'
+                : 'border border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-teal-50/80 to-violet-50 shadow-md shadow-emerald-200/40');
+
+    const mainCardAccent = hasUpdate
+        ? 'h-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500'
+        : isCheckingRemote
+            ? (theme.isDarkMode
+                ? 'h-1 bg-gradient-to-r from-violet-500 via-indigo-400 to-violet-500 animate-pulse'
+                : 'h-1 bg-gradient-to-r from-violet-500 via-indigo-400 to-violet-500 animate-pulse')
+            : (theme.isDarkMode
+                ? 'h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-violet-500'
+                : 'h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-violet-400');
+
+    const localVersionCard = theme.isDarkMode
+        ? 'border border-emerald-500/35 bg-gradient-to-br from-emerald-500/20 via-teal-500/10 to-emerald-950/30'
+        : 'border border-emerald-300/80 bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-50/90';
+
+    const remoteVersionCard = hasUpdate
+        ? (theme.isDarkMode
+            ? 'border border-amber-400/50 bg-gradient-to-br from-amber-500/25 via-orange-500/20 to-rose-600/15 ring-1 ring-amber-400/25'
+            : 'border border-amber-400/70 bg-gradient-to-br from-amber-200/90 via-orange-100 to-rose-100 ring-1 ring-amber-300/50')
+        : (theme.isDarkMode
+            ? 'border border-violet-500/30 bg-gradient-to-br from-violet-500/15 via-indigo-500/10 to-violet-950/25'
+            : 'border border-violet-200 bg-gradient-to-br from-violet-100 via-indigo-50 to-violet-50/90');
+
+    const updateActionButton = hasUpdate && canRunAppUpdate
+        ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-400 hover:via-orange-400 hover:to-rose-400 shadow-lg shadow-orange-500/30'
+        : 'bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-md shadow-violet-500/20';
+
     return (
         <div className="max-w-3xl mx-auto space-y-4 pb-2">
-            <div className={`${theme.themeCard} border rounded-2xl overflow-hidden`}>
-                <div className={`h-0.5 ${theme.isDarkMode ? 'bg-gradient-to-r from-violet-500/70 via-indigo-400/50 to-violet-500/70' : 'bg-gradient-to-r from-violet-400 via-indigo-300 to-violet-400'}`} />
+            <div className={`rounded-2xl overflow-hidden transition-all duration-300 ${mainCardShell}`}>
+                <div className={mainCardAccent} />
                 <div className="p-4 sm:p-5 space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div className="flex items-start gap-3 min-w-0">
-                            <div className={`p-2 rounded-xl shrink-0 ${theme.isDarkMode ? 'bg-violet-500/10 border border-violet-500/20' : 'bg-violet-50 border border-violet-100'}`}>
-                                <GitBranch className="w-5 h-5 text-violet-500" />
+                            <div className={`p-2 rounded-xl shrink-0 border ${
+                                hasUpdate
+                                    ? (theme.isDarkMode ? 'bg-gradient-to-br from-amber-500/25 to-orange-600/20 border-amber-400/40' : 'bg-gradient-to-br from-amber-200 to-orange-100 border-amber-300')
+                                    : (theme.isDarkMode ? 'bg-violet-500/15 border-violet-500/25' : 'bg-violet-50 border-violet-100')
+                            }`}>
+                                <GitBranch className={`w-5 h-5 ${hasUpdate ? 'text-amber-500' : 'text-violet-500'}`} />
                             </div>
                             <div className="min-w-0">
                                 <h2 className={`text-sm font-bold tracking-tight ${theme.themeTextTitle}`}>Pembaruan Aplikasi</h2>
@@ -231,10 +274,10 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                         </div>
                         <span className={`self-start shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full ${
                             isCheckingRemote
-                                ? (theme.isDarkMode ? 'bg-violet-500/15 text-violet-300 border border-violet-500/20' : 'bg-violet-50 text-violet-700 border border-violet-200')
-                                : updateInfo.update_available
-                                ? (theme.isDarkMode ? 'bg-amber-500/15 text-amber-300 border border-amber-500/20' : 'bg-amber-50 text-amber-700 border border-amber-200')
-                                : (theme.isDarkMode ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border border-emerald-200')
+                                ? (theme.isDarkMode ? 'bg-violet-500/20 text-violet-200 border border-violet-400/30' : 'bg-violet-100 text-violet-800 border border-violet-300')
+                                : hasUpdate
+                                ? (theme.isDarkMode ? 'bg-gradient-to-r from-amber-500/30 to-orange-500/25 text-amber-100 border border-amber-400/40 shadow-sm shadow-amber-500/20' : 'bg-gradient-to-r from-amber-200 to-orange-200 text-amber-950 border border-amber-400/60 shadow-sm')
+                                : (theme.isDarkMode ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/15 text-emerald-200 border border-emerald-400/30' : 'bg-gradient-to-r from-emerald-100 to-teal-100 text-emerald-800 border border-emerald-300')
                         }`}>
                             {isCheckingRemote
                                 ? 'Memeriksa GitHub...'
@@ -245,20 +288,16 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className={`rounded-xl border p-3 ${theme.isDarkMode ? 'border-emerald-500/25 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/90'}`}>
+                        <div className={`rounded-xl p-3 transition-colors duration-300 ${localVersionCard}`}>
                             <p className={`text-[10px] font-bold uppercase tracking-wide ${theme.isDarkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>Versi lokal</p>
                             <p className={`text-base font-black font-mono mt-1 ${theme.isDarkMode ? 'text-emerald-100' : 'text-emerald-950'}`}>{updateInfo.local?.commit_short || '—'}</p>
                             <p className={`text-[10px] mt-1 line-clamp-2 ${theme.isDarkMode ? 'text-emerald-300/80' : 'text-emerald-800/70'}`}>{updateInfo.local?.commit_message || '—'}</p>
                         </div>
-                        <div className={`rounded-xl border p-3 ${
-                            updateInfo.update_available
-                                ? (theme.isDarkMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-300 bg-amber-50/90')
-                                : (theme.isDarkMode ? 'border-violet-500/25 bg-violet-500/5' : 'border-violet-200 bg-violet-50/90')
-                        }`}>
+                        <div className={`rounded-xl p-3 transition-all duration-300 ${remoteVersionCard}`}>
                             <p className={`text-[10px] font-bold uppercase tracking-wide ${
-                                updateInfo.update_available
-                                    ? (theme.isDarkMode ? 'text-amber-400' : 'text-amber-700')
-                                    : (theme.isDarkMode ? 'text-violet-400' : 'text-violet-700')
+                                hasUpdate
+                                    ? (theme.isDarkMode ? 'text-amber-300' : 'text-amber-800')
+                                    : (theme.isDarkMode ? 'text-violet-300' : 'text-violet-700')
                             }`}>
                                 Versi GitHub
                                 {updateInfo.remote?.source === 'git' && (
@@ -269,8 +308,8 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                 )}
                             </p>
                             <p className={`text-base font-black font-mono mt-1 ${
-                                updateInfo.update_available
-                                    ? (theme.isDarkMode ? 'text-amber-100' : 'text-amber-950')
+                                hasUpdate
+                                    ? (theme.isDarkMode ? 'text-amber-50' : 'text-amber-950')
                                     : (theme.isDarkMode ? 'text-violet-100' : 'text-violet-950')
                             }`}>
                                 {isCheckingRemote && !updateInfo.remote?.commit_short ? (
@@ -283,8 +322,8 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                 )}
                             </p>
                             <p className={`text-[10px] mt-1 line-clamp-2 ${
-                                updateInfo.update_available
-                                    ? (theme.isDarkMode ? 'text-amber-300/80' : 'text-amber-800/70')
+                                hasUpdate
+                                    ? (theme.isDarkMode ? 'text-amber-200/90' : 'text-amber-900/80')
                                     : (theme.isDarkMode ? 'text-violet-300/80' : 'text-violet-800/70')
                             }`}>{updateInfo.remote?.commit_message || updateInfo.remote?.error || 'Belum dapat memuat versi remote.'}</p>
                         </div>
@@ -318,7 +357,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                 onClick={handleRunUpdate}
                                 disabled={isRunningUpdate || isCheckingRemote || !canRunAppUpdate}
                                 title={isRunningUpdate ? 'Memperbarui...' : 'Update Sekarang'}
-                                className="p-2.5 disabled:opacity-45 disabled:cursor-not-allowed bg-violet-600 hover:bg-violet-700 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shadow-sm transition-colors"
+                                className={`p-2.5 disabled:opacity-45 disabled:cursor-not-allowed text-white rounded-xl cursor-pointer inline-flex items-center justify-center transition-all duration-300 ${updateActionButton}`}
                             >
                                 {isRunningUpdate ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowUpCircle className="w-4 h-4" />}
                             </button>
