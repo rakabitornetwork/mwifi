@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
-import { Bot, FileText, MessageSquare, Save, Server } from 'lucide-react';
+import { MessageSquare, Save } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
+import WhatsAppBrandIcon from '../../../Components/Icons/WhatsAppBrandIcon';
+import TelegramBrandIcon from '../../../Components/Icons/TelegramBrandIcon';
 import WhatsAppGatewayPanel from '../../../Components/Admin/Messaging/WhatsAppGatewayPanel';
 import WhatsAppTemplatesPanel from '../../../Components/Admin/Messaging/WhatsAppTemplatesPanel';
 
@@ -100,15 +102,15 @@ function MessagingPageContent({
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                         <button type="button" onClick={() => setMessagingSubTab('gateway')} className={subTabClass('gateway')}>
-                            <Server className="w-3.5 h-3.5 shrink-0" />
+                            <WhatsAppBrandIcon className="w-3.5 h-3.5 shrink-0 text-[#25D366]" />
                             Gateway WhatsApp
                         </button>
                         <button type="button" onClick={() => setMessagingSubTab('templates')} className={subTabClass('templates')}>
-                            <FileText className="w-3.5 h-3.5 shrink-0" />
+                            <WhatsAppBrandIcon className="w-3.5 h-3.5 shrink-0 text-[#25D366]" />
                             Template WhatsApp
                         </button>
                         <button type="button" disabled className={`${subTabClass('telegram')} opacity-50 cursor-not-allowed`} title="Segera hadir">
-                            <Bot className="w-3.5 h-3.5 shrink-0" />
+                            <TelegramBrandIcon className="w-3.5 h-3.5 shrink-0 text-[#229ED9]" />
                             Telegram
                         </button>
                     </div>
@@ -149,7 +151,7 @@ function MessagingPageContent({
 
             {messagingSubTab === 'telegram' && (
                 <div className={`${themeCard} border rounded-2xl p-8 text-center`}>
-                    <Bot className={`w-8 h-8 mx-auto mb-2 ${isDarkMode ? 'text-zinc-600' : 'text-zinc-300'}`} />
+                    <TelegramBrandIcon className={`w-8 h-8 mx-auto mb-2 text-[#229ED9] opacity-60`} />
                     <p className={`text-sm font-bold ${themeTextTitle}`}>Telegram — Segera hadir</p>
                     <p className={`text-[11px] mt-1 ${themeTextDesc}`}>Pengaturan bot Telegram akan ditambahkan di halaman ini.</p>
                 </div>
