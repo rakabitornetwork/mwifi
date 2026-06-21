@@ -113,24 +113,24 @@ export default function AdminSidebar({
             </div>
 
             <div className={`shrink-0 p-3 ${themeSidebarBottom} transition-colors duration-200`}>
-                <div className="flex items-center space-x-2.5 mb-2.5 px-1.5">
+                <div className="flex items-center gap-3 mb-2.5 px-1.5">
                     {auth.user.avatar_url ? (
                         <img
                             src={auth.user.avatar_url}
                             alt={auth.user.name}
-                            className="w-7 h-7 rounded-md object-cover shrink-0 border border-white/18"
+                            className="w-11 h-11 rounded-lg object-cover shrink-0 border border-white/18"
                         />
                     ) : (
-                        <div className="w-7 h-7 rounded-md bg-white/12 text-white border border-white/18 flex items-center justify-center font-bold text-xs shrink-0">
+                        <div className="w-11 h-11 rounded-lg bg-white/12 text-white border border-white/18 flex items-center justify-center font-bold text-sm shrink-0">
                             {auth.user.initials || '?'}
                         </div>
                     )}
-                    <div className="truncate min-w-0">
-                        <p className={`text-xs font-semibold ${sidebarTextTitle} truncate leading-none mb-0.5`}>{auth.user.name}</p>
+                    <div className="truncate min-w-0 flex flex-col gap-0 leading-tight">
+                        <p className={`text-xs font-semibold ${sidebarTextTitle} truncate`}>{auth.user.name}</p>
                         <Link
                             href="/profile"
                             onClick={onNavClick}
-                            className={`text-[10px] ${sidebarTextSub} font-medium tracking-wide uppercase text-left hover:underline cursor-pointer transition-colors ${isDarkMode ? 'hover:text-white' : 'hover:text-indigo-900'}`}
+                            className={`text-[10px] ${sidebarTextSub} font-medium tracking-wide uppercase text-left hover:underline cursor-pointer transition-colors leading-tight ${isDarkMode ? 'hover:text-white' : 'hover:text-indigo-900'}`}
                             title="Buka pengaturan profil"
                         >
                             {auth.user.profile_title || 'Super Admin'}
