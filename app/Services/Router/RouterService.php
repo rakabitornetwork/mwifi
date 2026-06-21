@@ -8,13 +8,6 @@ use Exception;
 
 class RouterService
 {
-    /**
-     * Get a connected router instance.
-     *
-     * @param Router|int $router
-     * @return RouterConnectorInterface
-     * @throws Exception
-     */
     public static function getConnector($router): RouterConnectorInterface
     {
         if (!$router instanceof Router) {
@@ -50,5 +43,19 @@ class RouterService
         }
 
         return $connector;
+    }
+
+    /**
+     * Match a PPP active session row to a customer username (name or user field).
+     */
+    public static function matchesPppUsername(array $active, string $username): bool
+    {
+        foreach (['name', 'user'] as $field) {
+            if (isset($active[$field]) && strcasecmp((string) $active[$field], $username) === 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

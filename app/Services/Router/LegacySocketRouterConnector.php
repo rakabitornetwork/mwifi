@@ -164,22 +164,28 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
         }
 
         try {
-            // Find active connection by username
-            $queryFind = (new Query('/ppp/active/print'))
-                ->where('name', $username);
-            $actives = $this->client->query($queryFind)->read();
+            $query = new Query('/ppp/active/print');
+            $actives = $this->client->query($query)->read();
+            $matched = array_values(array_filter(
+                $actives,
+                fn (array $active) => RouterService::matchesPppUsername($active, $username)
+            ));
 
-            if (empty($actives) || !isset($actives[0]['.id'])) {
-                return true; // Already not active
+            if ($matched === []) {
+                return true;
             }
 
-            $id = $actives[0]['.id'];
+            foreach ($matched as $active) {
+                if (!isset($active['.id'])) {
+                    continue;
+                }
 
-            // Remove active session to force reconnection
-            $queryKick = (new Query('/ppp/active/remove'))
-                ->equal('.id', $id);
-            
-            $this->client->query($queryKick)->read();
+                $queryKick = (new Query('/ppp/active/remove'))
+                    ->equal('.id', $active['.id']);
+
+                $this->client->query($queryKick)->read();
+            }
+
             return true;
         } catch (Exception $e) {
             return false;

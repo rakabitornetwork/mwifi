@@ -7,7 +7,10 @@ import {
     Plus,
     Printer,
     Radio,
+    RefreshCw,
+    Save,
     Search,
+    ShoppingCart,
     Trash2,
     Users,
     X,
@@ -438,10 +441,10 @@ function HotspotPageContent({
                                         setGenerateComment('');
                                         setGenerateServerDnsName('');
                                     }}
-                                    className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                                    title="Generate Voucher"
+                                    className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shadow-xs"
                                 >
-                                    <Plus className="w-3.5 h-3.5" />
-                                    <span>Generate Voucher</span>
+                                    <Plus className="w-4 h-4" />
                                 </button>
 
                                 <button
@@ -452,33 +455,38 @@ function HotspotPageContent({
                                         setPrintComment('');
                                         setPrintLoginUrl('http://10.0.0.1');
                                     }}
-                                    className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                                    title="Cetak Massal"
+                                    className="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shadow-xs"
                                 >
-                                    <Printer className="w-3.5 h-3.5" />
-                                    <span>Cetak Massal</span>
+                                    <Printer className="w-4 h-4" />
                                 </button>
 
-                                <select
-                                    id="sync-router-select"
-                                    defaultValue=""
-                                    onChange={(e) => {
-                                        if (e.target.value) {
-                                            handleSyncHotspot(e.target.value);
-                                            e.target.value = '';
-                                        }
-                                    }}
-                                    className={`p-1.5 border rounded-xl text-xs font-bold cursor-pointer ${
+                                <div className="relative inline-flex items-center justify-center" title={isSyncingHotspot ? 'Sinkronisasi...' : 'Sync Profil Hotspot'}>
+                                    <select
+                                        id="sync-router-select"
+                                        defaultValue=""
+                                        onChange={(e) => {
+                                            if (e.target.value) {
+                                                handleSyncHotspot(e.target.value);
+                                                e.target.value = '';
+                                            }
+                                        }}
+                                        disabled={isSyncingHotspot}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                                    >
+                                        <option value="" disabled>Sync Profil Hotspot</option>
+                                        {routers.map((r) => (
+                                            <option key={r.id} value={r.id}>{r.name}</option>
+                                        ))}
+                                    </select>
+                                    <div className={`w-9 h-9 flex items-center justify-center rounded-xl border ${
                                         isDarkMode
-                                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20'
-                                            : 'bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100'
-                                    }`}
-                                    disabled={isSyncingHotspot}
-                                >
-                                    <option value="" disabled>{isSyncingHotspot ? 'Singkronisasi...' : 'Sync Profil Hotspot'}</option>
-                                    {routers.map((r) => (
-                                        <option key={r.id} value={r.id}>{r.name}</option>
-                                    ))}
-                                </select>
+                                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                                            : 'bg-amber-50 border-amber-200 text-amber-600'
+                                    }`}>
+                                        <RefreshCw className={`w-4 h-4 ${isSyncingHotspot ? 'animate-spin' : ''}`} />
+                                    </div>
+                                </div>
 
                                 <button
                                     type="button"
@@ -487,10 +495,10 @@ function HotspotPageContent({
                                         setBulkDeleteVouchersRouterId('');
                                         setBulkDeleteVouchersComment('');
                                     }}
-                                    className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-xs"
+                                    title="Hapus Massal"
+                                    className="p-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shadow-xs"
                                 >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                    <span>Hapus Massal</span>
+                                    <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
@@ -545,8 +553,7 @@ function HotspotPageContent({
                                             <td className="py-3 px-2 font-mono text-[11px]">{resolveVoucherMacAddress(v)}</td>
                                             <td className="py-3 px-2 font-mono">{v.sold_at ? new Date(v.sold_at).toLocaleString('id-ID') : '-'}</td>
                                             <td className="py-3 px-2 font-mono text-zinc-500">{v.comment || '-'}</td>
-                                            <td className="py-3 px-2 text-right">
-                                                <div className="flex justify-end gap-2">
+                                            <td className="py-3 px-2 text-right space-x-1">
                                                     {v.status === 'unused' && (
                                                         <button
                                                             type="button"
@@ -554,20 +561,20 @@ function HotspotPageContent({
                                                                 setSelectedVoucherForSale(v);
                                                                 setShowSellVoucherModal(true);
                                                             }}
-                                                            className="px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                                                            title="Jual Voucher"
+                                                            className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
                                                         >
-                                                            Jual
+                                                            <ShoppingCart className="w-4 h-4" />
                                                         </button>
                                                     )}
                                                     <button
                                                         type="button"
                                                         onClick={() => handleDeleteVoucher(v.id)}
-                                                        className="p-1 text-zinc-400 hover:text-rose-500 cursor-pointer"
+                                                        className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
                                                         title="Hapus Voucher"
                                                     >
-                                                        <Trash2 className="w-4.5 h-4.5" />
+                                                        <Trash2 className="w-4 h-4" />
                                                     </button>
-                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -772,10 +779,10 @@ function HotspotPageContent({
                             <button
                                 type="button"
                                 onClick={() => openMemberModal()}
-                                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer shrink-0"
+                                title="Tambah Member Hotspot"
+                                className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shrink-0"
                             >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>Tambah Member Hotspot</span>
+                                <Plus className="w-4 h-4" />
                             </button>
                         </div>
 
@@ -817,18 +824,20 @@ function HotspotPageContent({
                                                     {cust.status.toUpperCase()}
                                                 </span>
                                             </td>
-                                            <td className="py-3 px-2 text-right space-x-2">
+                                            <td className="py-3 px-2 text-right space-x-1">
                                                 <button
                                                     type="button"
                                                     onClick={() => openMemberModal(cust)}
-                                                    className="inline-block p-1 text-zinc-400 hover:text-emerald-500 cursor-pointer"
+                                                    title="Edit"
+                                                    className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
                                                 >
                                                     <Edit className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     type="button"
                                                     onClick={() => handleDeleteMember(cust)}
-                                                    className="inline-block p-1 text-zinc-400 hover:text-rose-500 cursor-pointer"
+                                                    title="Hapus"
+                                                    className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -956,8 +965,8 @@ function HotspotPageContent({
                     </div>
 
                     <div className="flex justify-end pt-3 gap-2">
-                        <button type="button" onClick={() => setShowMemberModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
-                        <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold">Simpan</button>
+                        <button type="button" onClick={() => setShowMemberModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
+                        <button type="submit" title="Simpan" className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg inline-flex items-center justify-center"><Save className="w-4 h-4" /></button>
                     </div>
                 </form>
             </TransitionModal>
@@ -1026,16 +1035,18 @@ function HotspotPageContent({
                             setShowDeleteMemberModal(false);
                             setTimeout(() => setMemberToDelete(null), 300);
                         }}
-                        className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                        title="Batal"
+                        className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
                     >
-                        Batal
+                        <X className="w-4 h-4" />
                     </button>
                     <button
                         type="button"
                         onClick={confirmDeleteMember}
-                        className={`px-4 py-2 rounded-lg font-bold text-white transition-colors cursor-pointer ${deleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                        title="Konfirmasi Hapus"
+                        className={`p-2 rounded-lg text-white transition-colors cursor-pointer inline-flex items-center justify-center ${deleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
                     >
-                        Konfirmasi Hapus
+                        <Trash2 className="w-4 h-4" />
                     </button>
                 </div>
             </TransitionModal>
@@ -1163,9 +1174,9 @@ function HotspotPageContent({
                     </div>
 
                     <div className="flex justify-end pt-3 gap-2">
-                        <button type="button" onClick={() => setShowGenerateVoucherModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
-                        <button type="submit" disabled={isGeneratingVouchers} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold cursor-pointer disabled:opacity-50">
-                            {isGeneratingVouchers ? 'Generating...' : 'Generate'}
+                        <button type="button" onClick={() => setShowGenerateVoucherModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
+                        <button type="submit" disabled={isGeneratingVouchers} title={isGeneratingVouchers ? 'Generating...' : 'Generate'} className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50">
+                            <Plus className={`w-4 h-4 ${isGeneratingVouchers ? 'animate-pulse' : ''}`} />
                         </button>
                     </div>
                 </form>
@@ -1208,9 +1219,9 @@ function HotspotPageContent({
                         </div>
 
                         <div className="flex justify-end pt-3 gap-2">
-                            <button type="button" onClick={() => { setShowSellVoucherModal(false); setSelectedVoucherForSale(null); }} className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
-                            <button type="submit" disabled={isSellingVoucher} className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold cursor-pointer disabled:opacity-50">
-                                {isSellingVoucher ? 'Memproses...' : 'Catat Penjualan'}
+                            <button type="button" onClick={() => { setShowSellVoucherModal(false); setSelectedVoucherForSale(null); }} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
+                            <button type="submit" disabled={isSellingVoucher} title={isSellingVoucher ? 'Memproses...' : 'Catat Penjualan'} className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50">
+                                <ShoppingCart className={`w-4 h-4 ${isSellingVoucher ? 'animate-pulse' : ''}`} />
                             </button>
                         </div>
                     </form>
@@ -1309,8 +1320,8 @@ function HotspotPageContent({
                         </select>
                     </div>
                     <div className="flex justify-end pt-3 gap-2">
-                        <button type="button" onClick={() => setShowPrintVouchersModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
-                        <button type="submit" className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-bold cursor-pointer">Cetak</button>
+                        <button type="button" onClick={() => setShowPrintVouchersModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
+                        <button type="submit" title="Cetak" className="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"><Printer className="w-4 h-4" /></button>
                     </div>
                 </form>
             </TransitionModal>
@@ -1363,8 +1374,8 @@ function HotspotPageContent({
                         <p>Tindakan ini akan menghapus seluruh data voucher pada batch terpilih dari database lokal dan menghapus user hotspot terkait dari MikroTik.</p>
                     </div>
                     <div className="flex justify-end pt-3 gap-2">
-                        <button type="button" onClick={() => setShowBulkDeleteVouchersModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
-                        <button type="submit" className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-bold cursor-pointer">Hapus Massal</button>
+                        <button type="button" onClick={() => setShowBulkDeleteVouchersModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
+                        <button type="submit" title="Hapus Massal" className="p-2 bg-rose-500 hover:bg-rose-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"><Trash2 className="w-4 h-4" /></button>
                     </div>
                 </form>
             </TransitionModal>

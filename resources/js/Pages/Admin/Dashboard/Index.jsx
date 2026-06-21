@@ -4,6 +4,8 @@ import {
     ResponsiveContainer,
     AreaChart,
     Area,
+    BarChart,
+    Bar,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -20,10 +22,14 @@ import {
     Sliders,
     Layers,
     MessageSquare,
+    Power,
+    Radar,
     RefreshCw,
+    TrendingUp,
 } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
+import { formatRupiah } from '../../../utils/formatRupiah';
 
 function formatTimeAgo(isoString) {
     if (!isoString) return '-';
@@ -43,6 +49,7 @@ function DashboardContent({
     invoices = [],
     billingActivityLogs = [],
     odps = [],
+    monthlyRevenue = {},
 }) {
     const theme = useAdminTheme();
     const { showToast } = useAdminToast();
@@ -253,6 +260,51 @@ function DashboardContent({
 
     const activeOntDevices = ontDevices.filter((dev) => dev.status !== 'offline' && dev.username !== 'unknown_ont');
 
+    const revenueSeries = monthlyRevenue?.series ?? [];
+    const currentRevenue = monthlyRevenue?.current_month ?? {};
+    const previousRevenue = monthlyRevenue?.previous_month ?? {};
+    const revenueChangePercent = Number(monthlyRevenue?.change_percent ?? 0);
+    const revenueTrendLabel = revenueChangePercent > 0
+        ? `+${revenueChangePercent}% vs bulan lalu`
+        : revenueChangePercent < 0
+        ? `${revenueChangePercent}% vs bulan lalu`
+        : 'Sama dengan bulan lalu';
+
+    const unpaidTotal = invoices
+        .filter((inv) => inv.status === 'unpaid')
+        .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
+    const unpaidCount = invoices.filter((inv) => inv.status === 'unpaid').length;
+
+    const revenueCards = [
+        {
+            label: `Bulan Ini · ${currentRevenue.label || '-'}`,
+            value: formatRupiah(currentRevenue.total || 0),
+            sub: `${currentRevenue.invoice_count || 0} pembayaran · ${revenueTrendLabel}`,
+            cardClass: 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/20 text-white shadow-md shadow-emerald-500/10',
+            labelClass: 'text-emerald-100/90',
+            valueClass: 'text-white',
+            subClass: 'text-emerald-100/75',
+        },
+        {
+            label: `Bulan Lalu · ${previousRevenue.label || '-'}`,
+            value: formatRupiah(previousRevenue.total || 0),
+            sub: `${previousRevenue.invoice_count || 0} pembayaran lunas`,
+            cardClass: 'bg-gradient-to-br from-indigo-500 to-violet-600 border-indigo-400/20 text-white shadow-md shadow-indigo-500/10',
+            labelClass: 'text-indigo-100/90',
+            valueClass: 'text-white',
+            subClass: 'text-indigo-100/75',
+        },
+        {
+            label: 'Belum Tertagih (Aktif)',
+            value: formatRupiah(unpaidTotal),
+            sub: `${unpaidCount} invoice belum bayar`,
+            cardClass: 'bg-gradient-to-br from-rose-500 to-red-600 border-rose-400/20 text-white shadow-md shadow-rose-500/10',
+            labelClass: 'text-rose-100/90',
+            valueClass: 'text-white',
+            subClass: 'text-rose-100/75',
+        },
+    ];
+
     return (
         <>
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -271,6 +323,73 @@ function DashboardContent({
                         </div>
                     );
                 })}
+            </div>
+
+            <div className={`${themeCard} border rounded-2xl p-4 shadow-xs space-y-4`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-200/50 dark:border-zinc-800/40">
+                    <div className="flex items-center space-x-2">
+                        <TrendingUp className="w-4 h-4 text-emerald-500" />
+                        <h3 className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Pendapatan Bulanan</h3>
+                    </div>
+                    <span className={`text-[10px] ${themeTextDesc}`}>Berdasarkan invoice lunas (tanggal bayar)</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {revenueCards.map((card) => (
+                        <div
+                            key={card.label}
+                            className={`rounded-xl border p-3.5 flex flex-col justify-between transition-all duration-200 hover:scale-[1.02] ${card.cardClass}`}
+                        >
+                            <p className={`text-[10px] font-bold uppercase tracking-wide ${card.labelClass}`}>
+                                {card.label}
+                            </p>
+                            <div className="mt-2">
+                                <p className={`text-xl sm:text-2xl font-extrabold tracking-tight leading-none ${card.valueClass}`}>
+                                    {card.value}
+                                </p>
+                                <p className={`text-[10px] font-bold mt-1.5 ${card.subClass}`}>
+                                    {card.sub}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="space-y-1.5">
+                    <p className={`text-[10px] font-bold ${themeTextSub}`}>Tren 6 Bulan Terakhir</p>
+                    <div className="h-48 w-full">
+                        {revenueSeries.length === 0 ? (
+                            <div className={`h-full flex items-center justify-center text-[10px] font-bold uppercase ${themeTextDesc}`}>
+                                Belum ada data pendapatan
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                <BarChart data={revenueSeries} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} />
+                                    <XAxis dataKey="label" stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={9} tickLine={false} />
+                                    <YAxis
+                                        stroke={isDarkMode ? '#a1a1aa' : '#71717a'}
+                                        fontSize={9}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickFormatter={(value) => `${Math.round(value / 1000)}k`}
+                                    />
+                                    <Tooltip
+                                        formatter={(value) => [formatRupiah(value), 'Pendapatan']}
+                                        labelFormatter={(label) => `Periode ${label}`}
+                                        contentStyle={{
+                                            backgroundColor: isDarkMode ? '#18181b' : '#ffffff',
+                                            borderColor: isDarkMode ? '#27272a' : '#e4e4e7',
+                                            borderRadius: '8px',
+                                            fontSize: '10px',
+                                        }}
+                                    />
+                                    <Bar dataKey="total" name="Pendapatan" fill="#10b981" radius={[6, 6, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        )}
+                    </div>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -374,7 +493,8 @@ function DashboardContent({
                                     type="button"
                                     onClick={fetchOntDevices}
                                     disabled={isLoadingOnt}
-                                    className={`p-1 rounded-lg transition-colors cursor-pointer ${isDarkMode ? 'hover:bg-zinc-900 text-zinc-400 hover:text-white' : 'hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900'} ${isLoadingOnt ? 'animate-spin' : ''}`}
+                                    title="Refresh daftar ONT"
+                                    className={`p-1 rounded-lg transition-colors cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'hover:bg-zinc-900 text-zinc-400 hover:text-white' : 'hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900'} ${isLoadingOnt ? 'animate-spin' : ''}`}
                                 >
                                     <RefreshCw className="w-3 h-3" />
                                 </button>
@@ -411,9 +531,10 @@ function DashboardContent({
                                                 <button
                                                     type="button"
                                                     onClick={() => handleRebootOnt(dev.id)}
-                                                    className={`px-1.5 py-0.5 rounded text-[10px] sm:text-[11px] font-bold border transition-colors cursor-pointer ${isDarkMode ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 hover:border-zinc-700 text-zinc-300' : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-600 shadow-2xs'}`}
+                                                    title="Reboot ONT"
+                                                    className={`p-1.5 rounded border transition-colors cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 hover:border-zinc-700 text-zinc-300' : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-600 shadow-2xs'}`}
                                                 >
-                                                    Reboot
+                                                    <Power className="w-3.5 h-3.5" />
                                                 </button>
                                                 <span className={`inline-block w-[85px] text-center px-1 py-0.5 rounded font-mono text-[11px] sm:text-xs font-bold border whitespace-nowrap shrink-0 ${rxColor}`}>
                                                     {dev.rx}
@@ -469,16 +590,18 @@ function DashboardContent({
                                 type="button"
                                 onClick={() => handleSyncRouter()}
                                 disabled={isSyncingRouter !== null}
-                                className={`px-2 py-1 border rounded-lg transition-all duration-150 cursor-pointer disabled:opacity-50 ${isDarkMode ? 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white' : 'bg-white border-zinc-200 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 shadow-xs'}`}
+                                title={isSyncingRouter !== null ? 'Sinkronisasi...' : 'Sync Router'}
+                                className={`p-2 border rounded-lg transition-all duration-150 cursor-pointer inline-flex items-center justify-center disabled:opacity-50 ${isDarkMode ? 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white' : 'bg-white border-zinc-200 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 shadow-xs'}`}
                             >
-                                {isSyncingRouter !== null ? 'Syncing...' : 'Sync Router'}
+                                <RefreshCw className={`w-4 h-4 ${isSyncingRouter !== null ? 'animate-spin' : ''}`} />
                             </button>
                             <button
                                 type="button"
                                 onClick={handleScanOlt}
-                                className={`px-2 py-1 border rounded-lg transition-all duration-150 cursor-pointer ${isDarkMode ? 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white' : 'bg-white border-zinc-200 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 shadow-xs'}`}
+                                title="Scan OLT"
+                                className={`p-2 border rounded-lg transition-all duration-150 cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white' : 'bg-white border-zinc-200 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 shadow-xs'}`}
                             >
-                                Scan OLT
+                                <Radar className="w-4 h-4" />
                             </button>
                         </div>
                     </div>

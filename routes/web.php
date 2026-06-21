@@ -89,6 +89,7 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/odps/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteOdp']);
 
     Route::post('admin/invoices/pay-manual', [\App\Http\Controllers\Admin\AdminActionController::class, 'payInvoiceManual']);
+    Route::post('admin/invoices/pay-manual-bulk', [\App\Http\Controllers\Admin\AdminActionController::class, 'payInvoicesManualBulk']);
     Route::post('admin/invoices/restore-canceled', [\App\Http\Controllers\Admin\AdminActionController::class, 'restoreCanceledInvoice']);
     Route::post('admin/invoices/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteInvoice']);
     Route::post('admin/invoices/void-payment', [\App\Http\Controllers\Admin\AdminActionController::class, 'voidInvoicePayment']);

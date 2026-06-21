@@ -111,7 +111,7 @@ class BillingService
             $dueDate = self::resolveDueDateForPeriod($customer, $period);
             $generateOn = $dueDate->copy()->subDays($daysBeforeDue);
 
-            if ($today->equalTo($generateOn)) {
+            if ($today->gte($generateOn) && $today->lte($dueDate)) {
                 return [
                     'period' => $period,
                     'due_date' => $dueDate,
@@ -482,6 +482,65 @@ class BillingService
     }
 
     /**
+     * Monthly revenue summary from paid invoices (paid_at).
+     *
+     * @return array{
+     *     current_month: array{period: string, label: string, total: float, invoice_count: int},
+     *     previous_month: array{period: string, label: string, total: float, invoice_count: int},
+     *     change_percent: float,
+     *     series: array<int, array{period: string, label: string, total: float, invoice_count: int}>
+     * }
+     */
+    public static function summarizeMonthlyRevenue(int $months = 6, ?Carbon $today = null): array
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay()->locale('id');
+        $months = max(2, min(12, $months));
+
+        $summarizeMonth = function (Carbon $monthStart): array {
+            $rangeStart = $monthStart->copy()->startOfDay();
+            $rangeEnd = $monthStart->copy()->endOfMonth()->endOfDay();
+
+            $paid = Invoice::query()
+                ->where('status', 'paid')
+                ->whereNotNull('paid_at')
+                ->whereBetween('paid_at', [$rangeStart, $rangeEnd])
+                ->get(['total_amount']);
+
+            return [
+                'period' => $monthStart->format('Y-m'),
+                'label' => $monthStart->translatedFormat('M Y'),
+                'total' => round((float) $paid->sum('total_amount'), 2),
+                'invoice_count' => $paid->count(),
+            ];
+        };
+
+        $currentMonth = $summarizeMonth($today->copy()->startOfMonth());
+        $previousMonth = $summarizeMonth($today->copy()->subMonth()->startOfMonth());
+
+        $series = [];
+        for ($i = $months - 1; $i >= 0; $i--) {
+            $series[] = $summarizeMonth($today->copy()->subMonths($i)->startOfMonth());
+        }
+
+        $changePercent = 0.0;
+        if ($previousMonth['total'] > 0) {
+            $changePercent = round(
+                (($currentMonth['total'] - $previousMonth['total']) / $previousMonth['total']) * 100,
+                1
+            );
+        } elseif ($currentMonth['total'] > 0) {
+            $changePercent = 100.0;
+        }
+
+        return [
+            'current_month' => $currentMonth,
+            'previous_month' => $previousMonth,
+            'change_percent' => $changePercent,
+            'series' => $series,
+        ];
+    }
+
+    /**
      * Generate invoices for all eligible PPPoE customers in a billing period (manual / CLI).
      *
      * @param string|null $period Format YYYY-MM (e.g., "2026-06"). Defaults to current month.
@@ -526,6 +585,22 @@ class BillingService
     }
 
     /**
+     * Only customers whose package name starts with a digit are auto-isolated.
+     */
+    public static function isCustomerEligibleForAutoIsolation(Customer $customer): bool
+    {
+        $customer->loadMissing('package');
+
+        $packageName = trim((string) ($customer->package?->name ?? ''));
+
+        if ($packageName === '') {
+            return false;
+        }
+
+        return preg_match('/^\d/u', $packageName) === 1;
+    }
+
+    /**
      * Check for past due invoices and automatically isolate unpaid customers.
      *
      * @return int Number of isolated customers.
@@ -540,13 +615,17 @@ class BillingService
             ->whereHas('customer', function ($query) {
                 $query->where('status', 'active');
             })
-            ->with(['customer', 'customer.router'])
+            ->with(['customer', 'customer.router', 'customer.package'])
             ->get();
 
         foreach ($invoices as $invoice) {
             $customer = $invoice->customer;
 
-            if ($customer && self::customerHasPendingDeferral($customer)) {
+            if (!$customer || !self::isCustomerEligibleForAutoIsolation($customer)) {
+                continue;
+            }
+
+            if (self::customerHasPendingDeferral($customer)) {
                 continue;
             }
 
@@ -594,6 +673,65 @@ class BillingService
     }
 
     /**
+     * Whether the customer still has unpaid invoices past due date.
+     */
+    public static function customerHasPastDueUnpaidInvoices(Customer $customer, ?int $excludeInvoiceId = null): bool
+    {
+        $query = Invoice::where('customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->where('due_date', '<', Carbon::today());
+
+        if ($excludeInvoiceId !== null) {
+            $query->where('id', '!=', $excludeInvoiceId);
+        }
+
+        return $query->exists();
+    }
+
+    /**
+     * Restore package profile on MikroTik and disconnect active PPP session.
+     */
+    public static function reactivateCustomerOnRouter(Customer $customer): bool
+    {
+        $customer->loadMissing(['router', 'package']);
+
+        if (!$customer->package) {
+            return false;
+        }
+
+        if (in_array($customer->status, ['isolated', 'inactive', 'suspended'], true)) {
+            $customer->update(['status' => 'active']);
+        }
+
+        $router = $customer->router;
+        if (!$router) {
+            return false;
+        }
+
+        try {
+            $connector = RouterService::getConnector($router);
+
+            $success = $connector->updateSecret($customer->username, [
+                'profile' => $customer->package->mikrotik_profile,
+                'disabled' => 'no',
+            ]);
+
+            if ($success) {
+                $connector->kickActiveConnection($customer->username);
+                Log::info("Customer {$customer->username} successfully reactivated on router {$router->name}");
+            } else {
+                Log::warning("Failed to restore PPPoE profile for {$customer->username} on router {$router->name}");
+            }
+
+            return $success;
+        } catch (Exception $e) {
+            Log::error("Failed to reactivate customer {$customer->username} on router: " . $e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
      * Process invoice payment, mark it paid, and reactivate the customer if isolated.
      */
     public static function processPaidInvoice(Invoice $invoice, string $gateway, string $reference, float $amountPaid, float $fee = 0, ?array $payload = null): bool
@@ -620,26 +758,8 @@ class BillingService
             ]);
 
             $customer = $invoice->customer;
-            if ($customer && in_array($customer->status, ['isolated', 'inactive'])) {
-                $customer->update(['status' => 'active']);
-
-                $router = $customer->router;
-                $package = $customer->package;
-
-                if ($router && $router->status && $package) {
-                    $connector = RouterService::getConnector($router);
-
-                    $success = $connector->updateSecret($customer->username, [
-                        'profile' => $package->mikrotik_profile
-                    ]);
-
-                    if ($success) {
-                        $connector->kickActiveConnection($customer->username);
-                        Log::info("Customer {$customer->username} successfully reactivated on router {$router->name}");
-                    } else {
-                        Log::warning("Failed to restore PPPoE profile for {$customer->username} on router {$router->name}");
-                    }
-                }
+            if ($customer && !self::customerHasPastDueUnpaidInvoices($customer, $invoice->id)) {
+                self::reactivateCustomerOnRouter($customer);
             }
 
             try {
@@ -689,7 +809,13 @@ class BillingService
             $customer = $invoice->customer;
             $dueDate = $invoice->due_date ? Carbon::parse($invoice->due_date)->startOfDay() : null;
 
-            if ($customer && $dueDate && $dueDate->lt(Carbon::today()) && $customer->status === 'active') {
+            if (
+                $customer
+                && self::isCustomerEligibleForAutoIsolation($customer)
+                && $dueDate
+                && $dueDate->lt(Carbon::today())
+                && $customer->status === 'active'
+            ) {
                 $customer->update(['status' => 'isolated']);
 
                 $router = $customer->router;
@@ -922,11 +1048,9 @@ class BillingService
         $periods = $deferral->periods ?? [];
 
         DB::transaction(function () use ($deferral, $customer, $periods, &$restoredCount, &$createdCount): void {
-            if (count($periods) === 1) {
-                $result = self::restoreInvoicesForDeferralPeriods($customer, $periods);
-                $restoredCount = $result['restored_count'];
-                $createdCount = $result['created_count'];
-            }
+            $result = self::restoreInvoicesForDeferralPeriods($customer, $periods);
+            $restoredCount = $result['restored_count'];
+            $createdCount = $result['created_count'];
 
             $deferral->update(['status' => 'cancelled']);
         });
@@ -1110,20 +1234,6 @@ class BillingService
             ->update(['status' => 'canceled']);
     }
 
-    private static function findMultiPeriodDeferralForInvoice(Invoice $invoice): ?BillingDeferral
-    {
-        return BillingDeferral::query()
-            ->where('customer_id', $invoice->customer_id)
-            ->whereIn('status', ['pending', 'cancelled'])
-            ->orderByDesc('created_at')
-            ->get()
-            ->first(function (BillingDeferral $deferral) use ($invoice) {
-                $periods = $deferral->periods ?? [];
-
-                return count($periods) > 1 && in_array($invoice->billing_period, $periods, true);
-            });
-    }
-
     /**
      * Restore a single canceled invoice back to unpaid (enables Bayar Manual).
      */
@@ -1138,21 +1248,6 @@ class BillingService
         if ($invoice->customer && self::isPeriodDeferredForCustomer($invoice->customer, $invoice->billing_period)) {
             throw new \RuntimeException(
                 'Invoice ini ditunda oleh penundaan tagihan aktif. Batalkan penundaan di panel atas jika ingin memulihkan tagihan periode ini.'
-            );
-        }
-
-        $multiPeriodDeferral = self::findMultiPeriodDeferralForInvoice($invoice);
-        if ($multiPeriodDeferral && $invoice->customer) {
-            $dueDate = Carbon::parse($multiPeriodDeferral->combined_due_date)->startOfDay();
-            if ($dueDate->lte(Carbon::today())) {
-                $dueDate = Carbon::now()->addDays(7)->startOfDay();
-            }
-
-            return self::consolidatePeriodInvoices(
-                $invoice->customer,
-                $multiPeriodDeferral->periods ?? [],
-                $dueDate,
-                $multiPeriodDeferral->status === 'pending' ? $multiPeriodDeferral : null
             );
         }
 
@@ -1227,14 +1322,16 @@ class BillingService
     private static function restoreInvoicesForDeferralPeriods(Customer $customer, array $periods): array
     {
         $restoredCount = 0;
-        $createdCount = 0;
 
         foreach ($periods as $period) {
-            $result = self::restoreOrCreateInvoiceForPeriod($customer, $period);
-            if ($result === 'restored') {
+            $canceled = Invoice::query()
+                ->where('customer_id', $customer->id)
+                ->where('billing_period', $period)
+                ->where('status', 'canceled')
+                ->first();
+
+            if ($canceled && self::restoreCanceledInvoiceRecord($canceled)) {
                 $restoredCount++;
-            } elseif ($result === 'created') {
-                $createdCount++;
             }
         }
 
@@ -1257,7 +1354,7 @@ class BillingService
 
         return [
             'restored_count' => $restoredCount,
-            'created_count' => $createdCount,
+            'created_count' => 0,
         ];
     }
 
@@ -1287,49 +1384,6 @@ class BillingService
         $invoice->update($updates);
 
         return true;
-    }
-
-    /**
-     * Restore a canceled invoice or create a new one for a billing period.
-     *
-     * @return 'restored'|'created'|'skipped'
-     */
-    private static function restoreOrCreateInvoiceForPeriod(Customer $customer, string $period): string
-    {
-        $canceled = Invoice::query()
-            ->where('customer_id', $customer->id)
-            ->where('billing_period', $period)
-            ->where('status', 'canceled')
-            ->first();
-
-        if ($canceled) {
-            if (self::restoreCanceledInvoiceRecord($canceled)) {
-                return 'restored';
-            }
-
-            return 'skipped';
-        }
-
-        $alreadyBillable = Invoice::query()
-            ->where('customer_id', $customer->id)
-            ->where('billing_period', $period)
-            ->whereIn('status', ['unpaid', 'paid'])
-            ->exists();
-
-        if ($alreadyBillable) {
-            return 'skipped';
-        }
-
-        $dueDate = self::resolveDueDateForPeriod($customer, $period);
-        if ($dueDate->isPast() || $dueDate->isToday()) {
-            $dueDate = Carbon::now()->addDays(7)->startOfDay();
-        }
-
-        if (self::createInvoiceForCustomer($customer, $period, $dueDate) === null) {
-            return 'skipped';
-        }
-
-        return 'created';
     }
 
     public static function customerHasPendingDeferral(Customer $customer): bool

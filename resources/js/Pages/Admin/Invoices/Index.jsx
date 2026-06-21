@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Activity, CalendarClock, CreditCard, PauseCircle, RefreshCw, Search, Trash2, X } from 'lucide-react';
+import { Activity, CalendarClock, CreditCard, PauseCircle, RefreshCw, RotateCcw, Search, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
@@ -69,6 +69,7 @@ function InvoicesPageContent({
 }) {
     const theme = useAdminTheme();
     const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
     const [invoicePage, setInvoicePage] = useState(1);
     const invoicePageSize = 10;
     const [showDeferModal, setShowDeferModal] = useState(false);
@@ -80,6 +81,8 @@ function InvoicesPageContent({
     const [deferPreviewLoading, setDeferPreviewLoading] = useState(false);
     const [deferPreviewError, setDeferPreviewError] = useState('');
     const [isSubmittingDefer, setIsSubmittingDefer] = useState(false);
+    const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
+    const [isSubmittingBulkPay, setIsSubmittingBulkPay] = useState(false);
 
     const themeInnerWidget = theme.isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeInput = theme.isDarkMode
@@ -92,7 +95,7 @@ function InvoicesPageContent({
 
     useEffect(() => {
         setInvoicePage(1);
-    }, [searchTerm]);
+    }, [searchTerm, statusFilter]);
 
     useEffect(() => {
         if (!showDeferModal || !deferCustomerId) {
@@ -244,6 +247,10 @@ function InvoicesPageContent({
     };
 
     const filteredInvoices = invoices.filter((inv) => {
+        if (statusFilter !== 'all' && inv.status !== statusFilter) {
+            return false;
+        }
+
         const term = searchTerm.trim().toLowerCase();
         if (!term) {
             return true;
@@ -270,11 +277,66 @@ function InvoicesPageContent({
         );
     });
 
+    const unpaidInvoicesCount = invoices.filter((inv) => inv.status === 'unpaid').length;
+
     const totalInvoicePages = Math.ceil(filteredInvoices.length / invoicePageSize) || 1;
     const paginatedInvoices = filteredInvoices.slice(
         (invoicePage - 1) * invoicePageSize,
         invoicePage * invoicePageSize
     );
+
+    const unpaidOnPage = paginatedInvoices.filter((inv) => inv.status === 'unpaid');
+    const selectedUnpaidInvoices = invoices.filter(
+        (inv) => selectedInvoiceIds.includes(inv.id) && inv.status === 'unpaid'
+    );
+    const selectedUnpaidCount = selectedUnpaidInvoices.length;
+    const bulkPayTotalAmount = selectedUnpaidInvoices.reduce(
+        (sum, inv) => sum + Number(inv.total_amount || 0),
+        0
+    );
+
+    const toggleSelectInvoice = (invoiceId) => {
+        setSelectedInvoiceIds((prev) => (
+            prev.includes(invoiceId)
+                ? prev.filter((id) => id !== invoiceId)
+                : [...prev, invoiceId]
+        ));
+    };
+
+    const toggleSelectAllUnpaidOnPage = () => {
+        const pageIds = unpaidOnPage.map((inv) => inv.id);
+        const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedInvoiceIds.includes(id));
+
+        if (allSelected) {
+            setSelectedInvoiceIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+            return;
+        }
+
+        setSelectedInvoiceIds((prev) => [...new Set([...prev, ...pageIds])]);
+    };
+
+    const handleBulkPayManual = () => {
+        if (selectedUnpaidCount === 0) {
+            return;
+        }
+
+        const idsToPay = selectedUnpaidInvoices.map((inv) => inv.id);
+
+        if (!confirm(
+            `Konfirmasi pembayaran manual massal untuk ${selectedUnpaidCount} invoice?\n\n` +
+            `Total: ${formatRupiah(bulkPayTotalAmount)}\n\n` +
+            'Invoice tidak akan dicetak otomatis. Gunakan tombol Bayar Manual per baris jika perlu cetak.'
+        )) {
+            return;
+        }
+
+        setIsSubmittingBulkPay(true);
+        router.post('/admin/invoices/pay-manual-bulk', { invoice_ids: idsToPay }, {
+            preserveScroll: true,
+            onSuccess: () => setSelectedInvoiceIds([]),
+            onFinish: () => setIsSubmittingBulkPay(false),
+        });
+    };
 
     return (
         <>
@@ -287,33 +349,67 @@ function InvoicesPageContent({
                     <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                         <button
                             type="button"
-                            onClick={() => setShowDeferModal(true)}
-                            className="px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+                            onClick={handleBulkPayManual}
+                            disabled={selectedUnpaidCount === 0 || isSubmittingBulkPay}
+                            title={
+                                isSubmittingBulkPay
+                                    ? 'Memproses pembayaran...'
+                                    : selectedUnpaidCount > 0
+                                    ? `Bayar Manual Massal (${selectedUnpaidCount})`
+                                    : 'Bayar Manual Massal'
+                            }
+                            className="p-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-45 disabled:cursor-not-allowed text-white rounded-xl cursor-pointer inline-flex items-center justify-center"
                         >
-                            <PauseCircle className="w-3.5 h-3.5" />
-                            <span>Tunda Tagihan</span>
+                            <Wallet className={`w-4 h-4 ${isSubmittingBulkPay ? 'animate-pulse' : ''}`} />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowDeferModal(true)}
+                            title="Tunda Tagihan"
+                            className="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center"
+                        >
+                            <PauseCircle className="w-4 h-4" />
                         </button>
                         <button
                             type="button"
                             onClick={handleGenerateInvoices}
-                            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+                            title="Generate Tagihan Bulan Ini"
+                            className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center"
                         >
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            <span>Generate Tagihan Bulan Ini</span>
+                            <RefreshCw className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
 
-                <div className="relative">
-                    <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${theme.themeTextDesc}`} />
-                    <input
-                        type="text"
-                        placeholder="Cari invoice / pelanggan..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
-                    />
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                        <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${theme.themeTextDesc}`} />
+                        <input
+                            type="text"
+                            placeholder="Cari invoice / pelanggan..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                        />
+                    </div>
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className={`sm:w-48 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                    >
+                        <option value="all">Semua status</option>
+                        <option value="unpaid">Belum Bayar ({unpaidInvoicesCount})</option>
+                        <option value="paid">Lunas</option>
+                        <option value="canceled">Dibatalkan</option>
+                        <option value="expired">Kedaluwarsa</option>
+                    </select>
                 </div>
+                {statusFilter === 'unpaid' && (
+                    <p className={`text-[10px] ${theme.themeTextSub}`}>
+                        Menampilkan <span className="font-bold text-rose-500">{filteredInvoices.length}</span> invoice belum bayar
+                        {searchTerm.trim() ? ' yang cocok dengan pencarian' : ''}.
+                    </p>
+                )}
 
                 {pendingDeferrals.length > 0 && (
                     <div className={`border rounded-xl p-4 space-y-3 ${theme.isDarkMode ? 'border-indigo-500/20 bg-indigo-950/20' : 'border-indigo-200 bg-indigo-50/70'}`}>
@@ -354,9 +450,10 @@ function InvoicesPageContent({
                                         <button
                                             type="button"
                                             onClick={() => handleCancelDeferral(deferral)}
-                                            className="shrink-0 px-2 py-1 border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 rounded-lg text-[10px] font-bold cursor-pointer"
+                                            title="Batalkan Penundaan"
+                                            className="shrink-0 inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
                                         >
-                                            Batalkan Penundaan
+                                            <XCircle className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>
@@ -365,51 +462,20 @@ function InvoicesPageContent({
                     </div>
                 )}
 
-                <div className={`border rounded-xl p-4 space-y-3 ${theme.isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center space-x-2">
-                            <Activity className="w-4 h-4 text-amber-500" />
-                            <h3 className={`text-xs font-bold uppercase tracking-wider ${theme.themeTextTitle}`}>Log Generate Tagihan Otomatis</h3>
-                        </div>
-                        <span className={`text-[10px] ${theme.themeTextDesc}`}>Scheduler harian H-N jatuh tempo</span>
-                    </div>
-                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                        {billingActivityLogs.length === 0 ? (
-                            <p className={`text-xs text-center py-6 ${theme.themeTextDesc}`}>Belum ada riwayat generate otomatis.</p>
-                        ) : billingActivityLogs.map((log) => (
-                            <div key={log.id} className={`p-3 border rounded-xl text-xs ${themeInnerWidget}`}>
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="space-y-1">
-                                        <p className={`font-bold ${theme.themeTextTitle}`}>{log.message}</p>
-                                        <p className={`text-[10px] ${theme.themeTextDesc}`}>
-                                            {log.run_date?.substring?.(0, 10) || '-'}
-                                            {log.meta?.invoice_count > 0 ? ` · ${log.meta.invoice_count} invoice` : ''}
-                                            {log.meta?.admin_notified ? ' · WA admin terkirim' : (log.meta?.invoice_count > 0 ? ' · WA admin belum terkirim' : '')}
-                                        </p>
-                                        {Array.isArray(log.meta?.invoices) && log.meta.invoices.length > 0 && (
-                                            <ul className={`text-[10px] ${theme.themeTextSub} space-y-0.5 pt-1`}>
-                                                {log.meta.invoices.slice(0, 5).map((item, idx) => (
-                                                    <li key={idx}>
-                                                        {item.invoice_number} — {item.customer_name} · {formatRupiah(item.total_amount || 0)}
-                                                    </li>
-                                                ))}
-                                                {log.meta.invoices.length > 5 && (
-                                                    <li className={theme.themeTextDesc}>+ {log.meta.invoices.length - 5} invoice lainnya</li>
-                                                )}
-                                            </ul>
-                                        )}
-                                    </div>
-                                    <span className={`text-[10px] ${theme.themeTextSub} font-mono whitespace-nowrap`}>{formatTimeAgo(log.created_at)}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${theme.themeTextSub}`}>
+                                <th className="py-3 px-2 w-8">
+                                    <input
+                                        type="checkbox"
+                                        checked={unpaidOnPage.length > 0 && unpaidOnPage.every((inv) => selectedInvoiceIds.includes(inv.id))}
+                                        disabled={unpaidOnPage.length === 0}
+                                        onChange={toggleSelectAllUnpaidOnPage}
+                                        className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer disabled:opacity-40 ${theme.isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
+                                        title="Pilih semua belum bayar di halaman ini"
+                                    />
+                                </th>
                                 <th className="py-3 px-2">No. Invoice</th>
                                 <th className="py-3 px-2">Pelanggan</th>
                                 <th className="py-3 px-2">Periode</th>
@@ -424,14 +490,24 @@ function InvoicesPageContent({
                         <tbody className="divide-y divide-zinc-800/20 text-xs">
                             {paginatedInvoices.length === 0 ? (
                                 <tr>
-                                    <td colSpan={9} className={`py-8 text-center text-xs ${theme.themeTextDesc}`}>
+                                    <td colSpan={10} className={`py-8 text-center text-xs ${theme.themeTextDesc}`}>
                                         {searchTerm.trim()
                                             ? 'Tidak ada invoice yang cocok dengan pencarian.'
                                             : 'Belum ada data tagihan.'}
                                     </td>
                                 </tr>
                             ) : paginatedInvoices.map((inv) => (
-                                <tr key={inv.id} className={`${theme.themeTextSub} hover:bg-zinc-900/10`}>
+                                <tr key={inv.id} className={`${theme.themeTextSub} hover:bg-zinc-900/10 ${selectedInvoiceIds.includes(inv.id) ? 'bg-emerald-500/5' : ''}`}>
+                                    <td className="py-3 px-2 w-8">
+                                        {inv.status === 'unpaid' ? (
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedInvoiceIds.includes(inv.id)}
+                                                onChange={() => toggleSelectInvoice(inv.id)}
+                                                className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer ${theme.isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
+                                            />
+                                        ) : null}
+                                    </td>
                                     <td className={`py-3 px-2 font-mono font-bold ${theme.themeTextTitle}`}>{inv.invoice_number}</td>
                                     <td className="py-3 px-2">{inv.customer ? inv.customer.name : 'Unknown'}</td>
                                     <td className="py-3 px-2 font-mono">
@@ -500,15 +576,15 @@ function InvoicesPageContent({
                                             <span className={theme.themeTextDesc}>-</span>
                                         )}
                                     </td>
-                                    <td className="py-3 px-2 text-right">
-                                        <div className="flex flex-col items-end gap-1">
+                                    <td className="py-3 px-2 text-right space-x-1">
                                             {inv.status === 'unpaid' ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => handlePayManual(inv.id)}
-                                                    className="px-2 py-0.5 border border-emerald-500/30 text-[10px] text-emerald-500 hover:bg-emerald-500/10 rounded cursor-pointer font-bold"
+                                                    title="Bayar Manual"
+                                                    className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
                                                 >
-                                                    Bayar Manual
+                                                    <Wallet className="w-4 h-4" />
                                                 </button>
                                             ) : inv.status === 'canceled' && inv.is_deferred_by_pending ? (
                                                 <span className={`text-[10px] ${theme.themeTextDesc}`}>Menunggu akumulasi</span>
@@ -516,17 +592,19 @@ function InvoicesPageContent({
                                                 <button
                                                     type="button"
                                                     onClick={() => handleRestoreCanceled(inv.id, inv.invoice_number)}
-                                                    className="px-2 py-0.5 border border-indigo-500/30 text-[10px] text-indigo-500 hover:bg-indigo-500/10 rounded cursor-pointer font-bold"
+                                                    title="Pulihkan"
+                                                    className="inline-block p-1 text-indigo-500 hover:text-indigo-400 cursor-pointer transition-colors"
                                                 >
-                                                    Pulihkan
+                                                    <RotateCcw className="w-4 h-4" />
                                                 </button>
                                             ) : isManualPaidInvoice(inv) ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => handleVoidPayment(inv.id, inv.invoice_number)}
-                                                    className="px-2 py-0.5 border border-rose-500/30 text-[10px] text-rose-500 hover:bg-rose-500/10 rounded cursor-pointer font-bold"
+                                                    title="Batalkan Pembayaran"
+                                                    className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
                                                 >
-                                                    Batalkan
+                                                    <Undo2 className="w-4 h-4" />
                                                 </button>
                                             ) : (
                                                 <span className={`text-[10px] ${theme.themeTextDesc}`}>—</span>
@@ -535,13 +613,12 @@ function InvoicesPageContent({
                                                 <button
                                                     type="button"
                                                     onClick={() => handleDeleteInvoice(inv.id, inv.invoice_number, inv.status === 'canceled' && inv.is_deferred_by_pending ? 'Ditunda' : invoiceStatusMeta(inv.status).label)}
-                                                    className="inline-flex items-center gap-1 px-2 py-0.5 border border-zinc-500/30 text-[10px] text-zinc-500 hover:bg-zinc-500/10 rounded cursor-pointer font-bold"
+                                                    title="Hapus"
+                                                    className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
                                                 >
-                                                    <Trash2 className="w-3 h-3" />
-                                                    Hapus
+                                                    <Trash2 className="w-4 h-4" />
                                                 </button>
                                             )}
-                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -590,6 +667,47 @@ function InvoicesPageContent({
                         </div>
                     </div>
                 )}
+
+                <div className={`border rounded-xl p-4 space-y-3 ${theme.isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center space-x-2">
+                            <Activity className="w-4 h-4 text-amber-500" />
+                            <h3 className={`text-xs font-bold uppercase tracking-wider ${theme.themeTextTitle}`}>Log Generate Tagihan Otomatis</h3>
+                        </div>
+                        <span className={`text-[10px] ${theme.themeTextDesc}`}>Scheduler harian H-N jatuh tempo</span>
+                    </div>
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        {billingActivityLogs.length === 0 ? (
+                            <p className={`text-xs text-center py-6 ${theme.themeTextDesc}`}>Belum ada riwayat generate otomatis.</p>
+                        ) : billingActivityLogs.map((log) => (
+                            <div key={log.id} className={`p-3 border rounded-xl text-xs ${themeInnerWidget}`}>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-1">
+                                        <p className={`font-bold ${theme.themeTextTitle}`}>{log.message}</p>
+                                        <p className={`text-[10px] ${theme.themeTextDesc}`}>
+                                            {log.run_date?.substring?.(0, 10) || '-'}
+                                            {log.meta?.invoice_count > 0 ? ` · ${log.meta.invoice_count} invoice` : ''}
+                                            {log.meta?.admin_notified ? ' · WA admin terkirim' : (log.meta?.invoice_count > 0 ? ' · WA admin belum terkirim' : '')}
+                                        </p>
+                                        {Array.isArray(log.meta?.invoices) && log.meta.invoices.length > 0 && (
+                                            <ul className={`text-[10px] ${theme.themeTextSub} space-y-0.5 pt-1`}>
+                                                {log.meta.invoices.slice(0, 5).map((item, idx) => (
+                                                    <li key={idx}>
+                                                        {item.invoice_number} — {item.customer_name} · {formatRupiah(item.total_amount || 0)}
+                                                    </li>
+                                                ))}
+                                                {log.meta.invoices.length > 5 && (
+                                                    <li className={theme.themeTextDesc}>+ {log.meta.invoices.length - 5} invoice lainnya</li>
+                                                )}
+                                            </ul>
+                                        )}
+                                    </div>
+                                    <span className={`text-[10px] ${theme.themeTextSub} font-mono whitespace-nowrap`}>{formatTimeAgo(log.created_at)}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
 
             <TransitionModal show={showDeferModal} themeCard={theme.themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
@@ -698,16 +816,18 @@ function InvoicesPageContent({
                         <button
                             type="button"
                             onClick={resetDeferModal}
-                            className={`px-3 py-2 rounded-lg border text-xs font-bold cursor-pointer ${theme.isDarkMode ? 'border-zinc-700 text-zinc-300' : 'border-zinc-200 text-zinc-600'}`}
+                            title="Batal"
+                            className={`p-2 rounded-lg border cursor-pointer inline-flex items-center justify-center ${theme.isDarkMode ? 'border-zinc-700 text-zinc-300' : 'border-zinc-200 text-zinc-600'}`}
                         >
-                            Batal
+                            <X className="w-4 h-4" />
                         </button>
                         <button
                             type="submit"
                             disabled={isSubmittingDefer || !deferCustomerId || !deferDueDate || !deferPreview || !!deferPreviewError}
-                            className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold cursor-pointer"
+                            title={isSubmittingDefer ? 'Menyimpan...' : 'Aktifkan Penundaan'}
+                            className="p-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white cursor-pointer inline-flex items-center justify-center"
                         >
-                            {isSubmittingDefer ? 'Menyimpan...' : 'Aktifkan Penundaan'}
+                            <PauseCircle className={`w-4 h-4 ${isSubmittingDefer ? 'animate-pulse' : ''}`} />
                         </button>
                     </div>
                 </form>

@@ -31,6 +31,7 @@ class AdminPageController extends Controller
             ),
             'odps' => Odp::all(),
             'billingActivityLogs' => BillingActivityLog::orderByDesc('created_at')->limit(50)->get(),
+            'monthlyRevenue' => BillingService::summarizeMonthlyRevenue(),
         ]);
     }
 

@@ -118,9 +118,8 @@ function ProfilePageContent() {
             </div>
 
             <div className="flex justify-end">
-                <button type="submit" className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center space-x-2 cursor-pointer shadow-md">
+                <button type="submit" title="Simpan Profil" className="p-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shadow-md">
                     <Save className="w-4 h-4" />
-                    <span>Simpan Profil</span>
                 </button>
             </div>
         </form>

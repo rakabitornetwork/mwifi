@@ -214,13 +214,21 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className={`rounded-xl border p-3 ${theme.isDarkMode ? 'border-zinc-800 bg-zinc-900/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
-                            <p className={`text-[10px] font-bold uppercase tracking-wide ${theme.themeTextSub}`}>Versi lokal</p>
-                            <p className={`text-base font-black font-mono mt-1 ${theme.themeTextTitle}`}>{updateInfo.local?.commit_short || '—'}</p>
-                            <p className={`text-[10px] mt-1 line-clamp-2 ${theme.themeTextSub}`}>{updateInfo.local?.commit_message || '—'}</p>
+                        <div className={`rounded-xl border p-3 ${theme.isDarkMode ? 'border-emerald-500/25 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/90'}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wide ${theme.isDarkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>Versi lokal</p>
+                            <p className={`text-base font-black font-mono mt-1 ${theme.isDarkMode ? 'text-emerald-100' : 'text-emerald-950'}`}>{updateInfo.local?.commit_short || '—'}</p>
+                            <p className={`text-[10px] mt-1 line-clamp-2 ${theme.isDarkMode ? 'text-emerald-300/80' : 'text-emerald-800/70'}`}>{updateInfo.local?.commit_message || '—'}</p>
                         </div>
-                        <div className={`rounded-xl border p-3 ${updateInfo.update_available ? (theme.isDarkMode ? 'border-violet-500/20 bg-violet-500/5' : 'border-violet-200 bg-violet-50/50') : (theme.isDarkMode ? 'border-zinc-800 bg-zinc-900/30' : 'border-zinc-200 bg-zinc-50/80')}`}>
-                            <p className={`text-[10px] font-bold uppercase tracking-wide ${theme.themeTextSub}`}>
+                        <div className={`rounded-xl border p-3 ${
+                            updateInfo.update_available
+                                ? (theme.isDarkMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-300 bg-amber-50/90')
+                                : (theme.isDarkMode ? 'border-violet-500/25 bg-violet-500/5' : 'border-violet-200 bg-violet-50/90')
+                        }`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wide ${
+                                updateInfo.update_available
+                                    ? (theme.isDarkMode ? 'text-amber-400' : 'text-amber-700')
+                                    : (theme.isDarkMode ? 'text-violet-400' : 'text-violet-700')
+                            }`}>
                                 Versi GitHub
                                 {updateInfo.remote?.source === 'git' && (
                                     <span className={`ml-1 font-normal normal-case ${theme.themeTextDesc}`}>(origin/{updateInfo.repository?.branch || 'main'})</span>
@@ -229,7 +237,11 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                     <span className={`ml-1 font-normal normal-case ${theme.themeTextDesc}`}>(GitHub API)</span>
                                 )}
                             </p>
-                            <p className={`text-base font-black font-mono mt-1 ${theme.themeTextTitle}`}>
+                            <p className={`text-base font-black font-mono mt-1 ${
+                                updateInfo.update_available
+                                    ? (theme.isDarkMode ? 'text-amber-100' : 'text-amber-950')
+                                    : (theme.isDarkMode ? 'text-violet-100' : 'text-violet-950')
+                            }`}>
                                 {isCheckingRemote && !updateInfo.remote?.commit_short ? (
                                     <span className="inline-flex items-center gap-1.5 text-sm font-bold">
                                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -239,7 +251,11 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                     updateInfo.remote?.commit_short || '—'
                                 )}
                             </p>
-                            <p className={`text-[10px] mt-1 line-clamp-2 ${theme.themeTextSub}`}>{updateInfo.remote?.commit_message || updateInfo.remote?.error || 'Belum dapat memuat versi remote.'}</p>
+                            <p className={`text-[10px] mt-1 line-clamp-2 ${
+                                updateInfo.update_available
+                                    ? (theme.isDarkMode ? 'text-amber-300/80' : 'text-amber-800/70')
+                                    : (theme.isDarkMode ? 'text-violet-300/80' : 'text-violet-800/70')
+                            }`}>{updateInfo.remote?.commit_message || updateInfo.remote?.error || 'Belum dapat memuat versi remote.'}</p>
                         </div>
                     </div>
 
@@ -260,19 +276,19 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                 type="button"
                                 onClick={() => refreshRemoteStatus(true)}
                                 disabled={isCheckingRemote || isRunningUpdate}
-                                className="w-full sm:w-auto px-4 py-2.5 disabled:opacity-45 border rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer transition-colors border-violet-300/60 text-violet-700 hover:bg-violet-50 dark:border-violet-500/30 dark:text-violet-200 dark:hover:bg-violet-500/10"
+                                title={isCheckingRemote ? 'Memeriksa...' : 'Cek Ulang'}
+                                className="p-2.5 disabled:opacity-45 border rounded-xl cursor-pointer inline-flex items-center justify-center transition-colors border-violet-300/60 text-violet-700 hover:bg-violet-50 dark:border-violet-500/30 dark:text-violet-200 dark:hover:bg-violet-500/10"
                             >
-                                <RefreshCw className={`w-3.5 h-3.5 ${isCheckingRemote ? 'animate-spin' : ''}`} />
-                                <span>{isCheckingRemote ? 'Memeriksa...' : 'Cek Ulang'}</span>
+                                <RefreshCw className={`w-4 h-4 ${isCheckingRemote ? 'animate-spin' : ''}`} />
                             </button>
                             <button
                                 type="button"
                                 onClick={handleRunUpdate}
                                 disabled={isRunningUpdate || isCheckingRemote || !canRunAppUpdate}
-                                className="w-full sm:w-auto px-5 py-2.5 disabled:opacity-45 disabled:cursor-not-allowed bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-colors"
+                                title={isRunningUpdate ? 'Memperbarui...' : 'Update Sekarang'}
+                                className="p-2.5 disabled:opacity-45 disabled:cursor-not-allowed bg-violet-600 hover:bg-violet-700 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shadow-sm transition-colors"
                             >
-                                {isRunningUpdate ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ArrowUpCircle className="w-3.5 h-3.5" />}
-                                <span>{isRunningUpdate ? 'Memperbarui...' : 'Update Sekarang'}</span>
+                                {isRunningUpdate ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowUpCircle className="w-4 h-4" />}
                             </button>
                         </div>
                     </div>

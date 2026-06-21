@@ -1,3 +1,4 @@
+import { Edit } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatRupiah';
 
 function formatDate(value) {
@@ -58,9 +59,10 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                 <button
                     type="button"
                     onClick={() => onEdit?.(customer)}
-                    className="self-start px-3 py-1.5 rounded-lg border border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 text-[10px] font-bold cursor-pointer"
+                    title="Edit Pelanggan"
+                    className="self-start inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
                 >
-                    Edit Pelanggan
+                    <Edit className="w-4 h-4" />
                 </button>
             </div>
 

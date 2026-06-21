@@ -457,7 +457,7 @@ class AdminActionController extends Controller
             'invoice_id' => 'required|exists:invoices,id'
         ]);
 
-        $invoice = Invoice::findOrFail($request->input('invoice_id'));
+        $invoice = Invoice::with(['customer.package', 'customer.router'])->findOrFail($request->input('invoice_id'));
 
         $success = BillingService::processPaidInvoice(
             $invoice,
@@ -476,6 +476,64 @@ class AdminActionController extends Controller
         }
 
         return redirect()->back()->with('error', 'Gagal memproses pembayaran manual.');
+    }
+
+    /**
+     * Accept manual cash payment for multiple unpaid invoices (no auto-print).
+     */
+    public function payInvoicesManualBulk(Request $request)
+    {
+        $data = $request->validate([
+            'invoice_ids' => 'required|array|min:1',
+            'invoice_ids.*' => 'integer|exists:invoices,id',
+        ]);
+
+        $invoices = Invoice::with(['customer.package', 'customer.router'])
+            ->whereIn('id', $data['invoice_ids'])
+            ->get();
+
+        $paidCount = 0;
+        $skippedCount = 0;
+        $failedCount = 0;
+        $batchRef = 'ADMIN-CASH-BULK-' . time();
+
+        foreach ($invoices as $invoice) {
+            if ($invoice->status !== 'unpaid') {
+                $skippedCount++;
+                continue;
+            }
+
+            $success = BillingService::processPaidInvoice(
+                $invoice,
+                'manual',
+                $batchRef . '-' . $invoice->id,
+                (float) $invoice->total_amount,
+                0,
+                ['payment_method' => 'Cash / Tunai (Massal)']
+            );
+
+            if ($success) {
+                $paidCount++;
+            } else {
+                $failedCount++;
+            }
+        }
+
+        if ($paidCount === 0 && $failedCount === 0) {
+            return redirect()->back()->with('warning', 'Tidak ada invoice belum bayar yang diproses.');
+        }
+
+        $message = "{$paidCount} tagihan berhasil dibayar secara manual.";
+        if ($skippedCount > 0) {
+            $message .= " {$skippedCount} invoice dilewati (bukan status belum bayar).";
+        }
+        if ($failedCount > 0) {
+            $message .= " {$failedCount} invoice gagal diproses.";
+        }
+
+        $flashType = $failedCount > 0 && $paidCount === 0 ? 'error' : ($failedCount > 0 ? 'warning' : 'success');
+
+        return redirect()->back()->with($flashType, $message);
     }
 
     /**

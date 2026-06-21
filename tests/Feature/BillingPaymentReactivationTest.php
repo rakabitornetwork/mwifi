@@ -1,0 +1,163 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Customer;
+use App\Models\Invoice;
+use App\Models\Package;
+use App\Models\Router;
+use App\Models\User;
+use App\Services\BillingService;
+use Carbon\Carbon;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class BillingPaymentReactivationTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private function makeIsolatedCustomer(): array
+    {
+        $user = User::factory()->create();
+        $router = Router::create([
+            'name' => 'Router Test',
+            'host' => '127.0.0.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'protocol_type' => 'legacy_socket',
+            'status' => false,
+        ]);
+        $package = Package::create([
+            'name' => 'Paket 150K',
+            'type' => 'pppoe',
+            'price' => 150000,
+            'bandwidth_limit' => '20M/20M',
+            'mikrotik_profile' => '20M',
+        ]);
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'router_id' => $router->id,
+            'package_id' => $package->id,
+            'service_type' => 'pppoe',
+            'username' => 'cust_' . uniqid(),
+            'password' => 'pass',
+            'name' => 'Pelanggan Isolir',
+            'phone_number' => '6281234567890',
+            'address' => 'Alamat test',
+            'status' => 'isolated',
+            'billing_date' => 25,
+            'service_start_date' => '2026-01-01',
+        ]);
+
+        return compact('customer', 'package');
+    }
+
+    public function test_payment_reactivates_isolated_customer_when_no_other_past_due_invoices(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-25'));
+
+        ['customer' => $customer] = $this->makeIsolatedCustomer();
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-0001-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-20',
+            'status' => 'unpaid',
+        ]);
+
+        $success = BillingService::processPaidInvoice(
+            $invoice,
+            'manual',
+            'ADMIN-CASH-TEST',
+            150000,
+            0,
+            ['payment_method' => 'Cash / Tunai']
+        );
+
+        $this->assertTrue($success);
+        $this->assertSame('paid', $invoice->fresh()->status);
+        $this->assertSame('active', $customer->fresh()->status);
+    }
+
+    public function test_payment_does_not_reactivate_while_other_past_due_invoices_remain(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-25'));
+
+        ['customer' => $customer] = $this->makeIsolatedCustomer();
+
+        $older = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202605-0001-TEST',
+            'billing_period' => '2026-05',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-05-25',
+            'status' => 'unpaid',
+        ]);
+
+        $newer = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-0002-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-20',
+            'status' => 'unpaid',
+        ]);
+
+        BillingService::processPaidInvoice(
+            $newer,
+            'manual',
+            'ADMIN-CASH-TEST-2',
+            150000
+        );
+
+        $this->assertSame('paid', $newer->fresh()->status);
+        $this->assertSame('unpaid', $older->fresh()->status);
+        $this->assertSame('isolated', $customer->fresh()->status);
+    }
+
+    public function test_payment_reactivates_when_db_status_active_but_overdue_cleared(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-25'));
+
+        ['customer' => $customer] = $this->makeIsolatedCustomer();
+        $customer->update(['status' => 'active']);
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-0003-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-20',
+            'status' => 'unpaid',
+        ]);
+
+        BillingService::processPaidInvoice(
+            $invoice,
+            'manual',
+            'ADMIN-CASH-TEST-3',
+            150000
+        );
+
+        $this->assertSame('active', $customer->fresh()->status);
+        $this->assertTrue(BillingService::customerHasPastDueUnpaidInvoices($customer->fresh()) === false);
+    }
+}

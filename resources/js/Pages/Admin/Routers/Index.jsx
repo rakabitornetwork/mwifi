@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Edit, Plus, Wifi, X } from 'lucide-react';
+import { Edit, PlugZap, Plus, RefreshCw, Save, Wifi, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
@@ -106,10 +106,10 @@ function RoutersPageContent({ routers = [] }) {
                     <button
                         type="button"
                         onClick={openCreateModal}
-                        className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+                        title="Tambah Router"
+                        className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center"
                     >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Tambah Router</span>
+                        <Plus className="w-4 h-4" />
                     </button>
                 </div>
 
@@ -137,27 +137,30 @@ function RoutersPageContent({ routers = [] }) {
                                             {routerItem.status ? 'Aktif' : 'Non-Aktif'}
                                         </span>
                                     </td>
-                                    <td className="py-3 px-2 flex items-center justify-end gap-2">
+                                    <td className="py-3 px-2 text-right space-x-1">
                                         <button
                                             type="button"
                                             onClick={() => handleTestConnection(routerItem.id)}
                                             disabled={isTestingRouter === routerItem.id}
-                                            className="px-2 py-0.5 border border-zinc-500/30 text-[10px] text-zinc-400 hover:text-white rounded cursor-pointer font-bold disabled:opacity-50"
+                                            title={isTestingRouter === routerItem.id ? 'Memeriksa koneksi...' : 'Tes Koneksi'}
+                                            className="inline-block p-1 text-amber-500 hover:text-amber-400 cursor-pointer transition-colors disabled:opacity-50"
                                         >
-                                            {isTestingRouter === routerItem.id ? 'Loading...' : 'Tes Koneksi'}
+                                            <PlugZap className={`w-4 h-4 ${isTestingRouter === routerItem.id ? 'animate-pulse' : ''}`} />
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => handleSyncRouter(routerItem.id)}
                                             disabled={isSyncingRouter === routerItem.id}
-                                            className="px-2 py-0.5 border border-emerald-500/30 text-[10px] text-emerald-400 hover:text-emerald-300 hover:border-emerald-500/50 rounded cursor-pointer font-bold disabled:opacity-50"
+                                            title={isSyncingRouter === routerItem.id ? 'Sinkronisasi...' : 'Sync Pelanggan'}
+                                            className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors disabled:opacity-50"
                                         >
-                                            {isSyncingRouter === routerItem.id ? 'Syncing...' : 'Sync Pelanggan'}
+                                            <RefreshCw className={`w-4 h-4 ${isSyncingRouter === routerItem.id ? 'animate-spin' : ''}`} />
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => openEditModal(routerItem)}
-                                            className="p-1 text-zinc-400 hover:text-emerald-500 cursor-pointer flex items-center justify-center"
+                                            title="Edit"
+                                            className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
                                         >
                                             <Edit className="w-4 h-4" />
                                         </button>
@@ -224,12 +227,13 @@ function RoutersPageContent({ routers = [] }) {
                         <button
                             type="button"
                             onClick={closeRouterModal}
-                            className={`px-4 py-2 border rounded-lg cursor-pointer transition-colors ${theme.isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                            title="Batal"
+                            className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center transition-colors ${theme.isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
                         >
-                            Batal
+                            <X className="w-4 h-4" />
                         </button>
-                        <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold">
-                            Simpan
+                        <button type="submit" title="Simpan" className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg inline-flex items-center justify-center">
+                            <Save className="w-4 h-4" />
                         </button>
                     </div>
                 </form>

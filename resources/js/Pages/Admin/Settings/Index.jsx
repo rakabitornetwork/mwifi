@@ -571,9 +571,8 @@ function SettingsPageContent({ settings = [], routers = [] }) {
             </div>
 
             <div className="flex justify-end">
-                <button type="submit" className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center space-x-2 cursor-pointer shadow-md">
+                <button type="submit" title="Simpan Seluruh Pengaturan" className="p-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shadow-md">
                     <Save className="w-4 h-4" />
-                    <span>Simpan Seluruh Pengaturan</span>
                 </button>
             </div>
         </form>

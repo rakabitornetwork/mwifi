@@ -173,10 +173,10 @@ function DatabasePageContent({ databaseInfo = {} }) {
                             type="button"
                             onClick={handleCreateBackup}
                             disabled={isCreatingBackup}
-                            className="shrink-0 w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-xl text-xs font-bold inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm transition-colors"
+                            title={isCreatingBackup ? 'Memproses...' : 'Unduh Backup'}
+                            className="shrink-0 p-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shadow-sm transition-colors"
                         >
-                            {isCreatingBackup ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                            <span>{isCreatingBackup ? 'Memproses...' : 'Unduh Backup'}</span>
+                            {isCreatingBackup ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                         </button>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
@@ -269,14 +269,14 @@ function DatabasePageContent({ databaseInfo = {} }) {
                             <button
                                 type="submit"
                                 disabled={isRestoringDatabase || restoreConfirmText !== 'RESTORE'}
-                                className={`shrink-0 px-3 py-2 disabled:opacity-45 rounded-lg text-[10px] font-bold inline-flex items-center gap-1.5 cursor-pointer transition-all duration-200 shadow-sm ${
+                                title={isRestoringDatabase ? 'Memulihkan...' : 'Pulihkan'}
+                                className={`shrink-0 p-2 disabled:opacity-45 rounded-lg cursor-pointer inline-flex items-center justify-center transition-all duration-200 shadow-sm ${
                                     theme.isDarkMode
                                         ? 'bg-indigo-500/30 hover:bg-indigo-500/40 text-indigo-50 ring-1 ring-white/10'
                                         : 'bg-indigo-600/85 hover:bg-indigo-600 text-white'
                                 }`}
                             >
-                                {isRestoringDatabase ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
-                                Pulihkan
+                                {isRestoringDatabase ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
                             </button>
                         </div>
                     </div>
@@ -331,14 +331,14 @@ function DatabasePageContent({ databaseInfo = {} }) {
                             <button
                                 type="submit"
                                 disabled={isResettingDatabase || resetConfirmText !== 'RESET'}
-                                className={`shrink-0 px-3 py-2 disabled:opacity-45 rounded-lg text-[10px] font-bold inline-flex items-center gap-1.5 cursor-pointer transition-all duration-200 shadow-sm ${
+                                title={isResettingDatabase ? 'Mereset...' : 'Reset Database'}
+                                className={`shrink-0 p-2 disabled:opacity-45 rounded-lg cursor-pointer inline-flex items-center justify-center transition-all duration-200 shadow-sm ${
                                     theme.isDarkMode
                                         ? 'bg-rose-500/30 hover:bg-rose-500/40 text-rose-50 ring-1 ring-white/10'
                                         : 'bg-rose-600/85 hover:bg-rose-600 text-white'
                                 }`}
                             >
-                                {isResettingDatabase ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                                Reset
+                                {isResettingDatabase ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                             </button>
                         </div>
                     </div>

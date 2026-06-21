@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Edit, Layers, Plus, Trash2, X } from 'lucide-react';
+import { Edit, Layers, Plus, Save, Trash2, X } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
@@ -69,10 +69,10 @@ function PackagesPageContent({ packages = [] }) {
                     <button
                         type="button"
                         onClick={openAddModal}
-                        className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+                        title="Tambah Paket"
+                        className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center"
                     >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Tambah Paket</span>
+                        <Plus className="w-4 h-4" />
                     </button>
                 </div>
 
@@ -117,25 +117,23 @@ function PackagesPageContent({ packages = [] }) {
                                             : '-'
                                         }
                                     </td>
-                                    <td className="py-3 px-2 text-right">
-                                        <div className="flex justify-end gap-1.5">
-                                            <button
-                                                type="button"
-                                                onClick={() => openEditModal(pkg)}
-                                                className="p-1 text-zinc-400 hover:text-emerald-500 cursor-pointer"
-                                                title="Edit Paket"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeletePackage(pkg.id)}
-                                                className="p-1 text-zinc-400 hover:text-rose-500 cursor-pointer"
-                                                title="Hapus Paket"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
+                                    <td className="py-3 px-2 text-right space-x-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => openEditModal(pkg)}
+                                            className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
+                                            title="Edit Paket"
+                                        >
+                                            <Edit className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDeletePackage(pkg.id)}
+                                            className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
+                                            title="Hapus Paket"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
@@ -233,8 +231,8 @@ function PackagesPageContent({ packages = [] }) {
                         <textarea name="description" rows={2} defaultValue={editingPackage ? editingPackage.description : ''} className={`p-2 border rounded-lg ${themeInput}`} />
                     </div>
                     <div className="flex justify-end pt-3 gap-2">
-                        <button type="button" onClick={() => setShowPackageModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
-                        <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold cursor-pointer">Simpan</button>
+                        <button type="button" onClick={() => setShowPackageModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
+                        <button type="submit" title="Simpan" className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"><Save className="w-4 h-4" /></button>
                     </div>
                 </form>
             </TransitionModal>

@@ -168,29 +168,41 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function kickActiveConnection(string $username): bool
     {
         try {
-            // Find active session by name to get ID
             $responseFind = Http::withBasicAuth($this->username, $this->password)
                 ->withoutVerifying()
                 ->timeout(5)
-                ->get("{$this->baseUrl}/ppp/active", ['name' => $username]);
+                ->get("{$this->baseUrl}/ppp/active");
 
-            if (!$responseFind->successful() || empty($responseFind->json())) {
-                return true; // Connection already inactive
-            }
-
-            $actives = $responseFind->json();
-            $id = $actives[0]['.id'] ?? null;
-
-            if (!$id) {
+            if (!$responseFind->successful()) {
                 return false;
             }
 
-            $responseDelete = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
-                ->delete("{$this->baseUrl}/ppp/active/{$id}");
+            $matched = array_values(array_filter(
+                $responseFind->json() ?? [],
+                fn (array $active) => RouterService::matchesPppUsername($active, $username)
+            ));
 
-            return $responseDelete->successful();
+            if ($matched === []) {
+                return true;
+            }
+
+            foreach ($matched as $active) {
+                $id = $active['.id'] ?? null;
+                if (!$id) {
+                    continue;
+                }
+
+                $responseDelete = Http::withBasicAuth($this->username, $this->password)
+                    ->withoutVerifying()
+                    ->timeout(5)
+                    ->delete("{$this->baseUrl}/ppp/active/{$id}");
+
+                if (!$responseDelete->successful()) {
+                    return false;
+                }
+            }
+
+            return true;
         } catch (Exception $e) {
             return false;
         }

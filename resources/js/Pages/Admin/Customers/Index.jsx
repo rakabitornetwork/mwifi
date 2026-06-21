@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
-import { ChevronDown, ChevronUp, Edit, Eye, Plus, Search, Trash2, Users, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit, Eye, Plus, Save, Search, Trash2, Users, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import CustomerDetailPanel from '../../../Components/Admin/CustomerDetailPanel';
@@ -34,6 +34,7 @@ function CustomersPageContent({
     const themeLabel = isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
 
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortBy, setSortBy] = useState('name_asc');
     const [customerPage, setCustomerPage] = useState(1);
     const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
     const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
@@ -49,9 +50,28 @@ function CustomersPageContent({
 
     const pppoePackages = packages.filter((p) => p.type === 'pppoe');
 
+    const sortOptions = [
+        { value: 'name_asc', label: 'Nama (A → Z)' },
+        { value: 'name_desc', label: 'Nama (Z → A)' },
+        { value: 'username_asc', label: 'Username (A → Z)' },
+        { value: 'username_desc', label: 'Username (Z → A)' },
+        { value: 'phone_asc', label: 'Telepon (A → Z)' },
+        { value: 'phone_desc', label: 'Telepon (Z → A)' },
+        { value: 'router_asc', label: 'Router (A → Z)' },
+        { value: 'router_desc', label: 'Router (Z → A)' },
+        { value: 'package_asc', label: 'Paket (A → Z)' },
+        { value: 'package_desc', label: 'Paket (Z → A)' },
+        { value: 'odp_asc', label: 'ODP (A → Z)' },
+        { value: 'odp_desc', label: 'ODP (Z → A)' },
+        { value: 'billing_date_asc', label: 'Tgl Tagih (kecil → besar)' },
+        { value: 'billing_date_desc', label: 'Tgl Tagih (besar → kecil)' },
+        { value: 'status_asc', label: 'Status (A → Z)' },
+        { value: 'status_desc', label: 'Status (Z → A)' },
+    ];
+
     useEffect(() => {
         setCustomerPage(1);
-    }, [searchTerm]);
+    }, [searchTerm, sortBy]);
 
     useEffect(() => {
         if (showCustomerModal) {
@@ -82,8 +102,47 @@ function CustomersPageContent({
         );
     });
 
-    const totalCustomerPages = Math.ceil(filteredCustomers.length / PAGE_SIZE) || 1;
-    const paginatedCustomers = filteredCustomers.slice(
+    const getCustomerSortValue = (cust, field) => {
+        switch (field) {
+            case 'name':
+                return cust.name || '';
+            case 'username':
+                return cust.username || '';
+            case 'phone':
+                return cust.phone_number || '';
+            case 'router':
+                return cust.router?.name || '';
+            case 'package':
+                return cust.package?.name || '';
+            case 'odp':
+                return cust.odp?.name || '';
+            case 'billing_date':
+                return Number(cust.billing_date) || 0;
+            case 'status':
+                return cust.status || '';
+            default:
+                return '';
+        }
+    };
+
+    const sortedCustomers = [...filteredCustomers].sort((a, b) => {
+        const separator = sortBy.lastIndexOf('_');
+        const field = sortBy.slice(0, separator);
+        const direction = sortBy.slice(separator + 1);
+
+        const aVal = getCustomerSortValue(a, field);
+        const bVal = getCustomerSortValue(b, field);
+
+        if (field === 'billing_date') {
+            return direction === 'asc' ? aVal - bVal : bVal - aVal;
+        }
+
+        const compared = String(aVal).localeCompare(String(bVal), 'id', { sensitivity: 'base' });
+        return direction === 'asc' ? compared : -compared;
+    });
+
+    const totalCustomerPages = Math.ceil(sortedCustomers.length / PAGE_SIZE) || 1;
+    const paginatedCustomers = sortedCustomers.slice(
         (customerPage - 1) * PAGE_SIZE,
         customerPage * PAGE_SIZE
     );
@@ -130,10 +189,10 @@ function CustomersPageContent({
     };
 
     const toggleSelectAllCustomers = () => {
-        if (selectedCustomerIds.length === filteredCustomers.length) {
+        if (selectedCustomerIds.length === sortedCustomers.length) {
             setSelectedCustomerIds([]);
         } else {
-            setSelectedCustomerIds(filteredCustomers.map((c) => c.id));
+            setSelectedCustomerIds(sortedCustomers.map((c) => c.id));
         }
     };
 
@@ -172,32 +231,45 @@ function CustomersPageContent({
                                     setBulkDeleteMode('local_only');
                                     setShowBulkDeleteModal(true);
                                 }}
-                                className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer animate-pulse"
+                                title={`Hapus Terpilih (${selectedCustomerIds.length})`}
+                                className="p-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center animate-pulse"
                             >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>Hapus Terpilih ({selectedCustomerIds.length})</span>
+                                <Trash2 className="w-4 h-4" />
                             </button>
                         )}
                         <button
                             type="button"
                             onClick={() => openCustomerModal()}
-                            className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+                            title="Tambah Pelanggan PPPoE"
+                            className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center"
                         >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Tambah Pelanggan PPPoE</span>
+                            <Plus className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
 
-                <div className="relative">
-                    <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
-                    <input
-                        type="text"
-                        placeholder="Cari nama, username, telepon, router, paket..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
-                    />
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                        <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
+                        <input
+                            type="text"
+                            placeholder="Cari nama, username, telepon, router, paket..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                        />
+                    </div>
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className={`sm:w-56 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                    >
+                        {sortOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                                Urut: {option.label}
+                            </option>
+                        ))}
+                    </select>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -208,7 +280,7 @@ function CustomersPageContent({
                                 <th className="py-3 px-2 w-8">
                                     <input
                                         type="checkbox"
-                                        checked={filteredCustomers.length > 0 && selectedCustomerIds.length === filteredCustomers.length}
+                                        checked={sortedCustomers.length > 0 && selectedCustomerIds.length === sortedCustomers.length}
                                         onChange={toggleSelectAllCustomers}
                                         className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
                                     />
@@ -286,7 +358,7 @@ function CustomersPageContent({
                                             <button
                                                 type="button"
                                                 onClick={() => toggleCustomerDetail(cust.id)}
-                                                className={`inline-block p-1 cursor-pointer ${expandedCustomerId === cust.id ? 'text-sky-500' : 'text-zinc-400 hover:text-sky-500'}`}
+                                                className={`inline-block p-1 cursor-pointer transition-colors ${expandedCustomerId === cust.id ? 'text-sky-400' : 'text-sky-500 hover:text-sky-400'}`}
                                                 title="Detail lengkap"
                                             >
                                                 <Eye className="w-4 h-4" />
@@ -294,7 +366,7 @@ function CustomersPageContent({
                                             <button
                                                 type="button"
                                                 onClick={() => openCustomerModal(cust)}
-                                                className="inline-block p-1 text-zinc-400 hover:text-emerald-500 cursor-pointer"
+                                                className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
                                                 title="Edit"
                                             >
                                                 <Edit className="w-4 h-4" />
@@ -302,7 +374,7 @@ function CustomersPageContent({
                                             <button
                                                 type="button"
                                                 onClick={() => handleDeleteCustomer(cust)}
-                                                className="inline-block p-1 text-zinc-400 hover:text-rose-500 cursor-pointer"
+                                                className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
                                                 title="Hapus"
                                             >
                                                 <Trash2 className="w-4 h-4" />
@@ -326,10 +398,10 @@ function CustomersPageContent({
                     </table>
                 </div>
 
-                {filteredCustomers.length > PAGE_SIZE && (
+                {sortedCustomers.length > PAGE_SIZE && (
                     <div className={`flex flex-col sm:flex-row items-center justify-between pt-4 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-3 text-xs`}>
                         <span className={themeTextSub}>
-                            Menampilkan <span className={`font-bold ${themeTextTitle}`}>{Math.min((customerPage - 1) * PAGE_SIZE + 1, filteredCustomers.length)}</span> hingga <span className={`font-bold ${themeTextTitle}`}>{Math.min(customerPage * PAGE_SIZE, filteredCustomers.length)}</span> dari <span className={`font-bold ${themeTextTitle}`}>{filteredCustomers.length}</span> pelanggan
+                            Menampilkan <span className={`font-bold ${themeTextTitle}`}>{Math.min((customerPage - 1) * PAGE_SIZE + 1, sortedCustomers.length)}</span> hingga <span className={`font-bold ${themeTextTitle}`}>{Math.min(customerPage * PAGE_SIZE, sortedCustomers.length)}</span> dari <span className={`font-bold ${themeTextTitle}`}>{sortedCustomers.length}</span> pelanggan
                         </span>
                         <div className="flex items-center space-x-1">
                             <button
@@ -487,8 +559,8 @@ function CustomersPageContent({
                     </div>
 
                     <div className="flex justify-end pt-3 gap-2">
-                        <button type="button" onClick={() => setShowCustomerModal(false)} className={`px-4 py-2 border rounded-lg cursor-pointer transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}>Batal</button>
-                        <button type="submit" className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg font-bold">Simpan</button>
+                        <button type="button" onClick={() => setShowCustomerModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
+                        <button type="submit" title="Simpan" className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg inline-flex items-center justify-center"><Save className="w-4 h-4" /></button>
                     </div>
                 </form>
             </TransitionModal>
@@ -559,16 +631,18 @@ function CustomersPageContent({
                             setShowDeleteCustomerModal(false);
                             setTimeout(() => setCustomerToDelete(null), 300);
                         }}
-                        className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                        title="Batal"
+                        className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
                     >
-                        Batal
+                        <X className="w-4 h-4" />
                     </button>
                     <button
                         type="button"
                         onClick={confirmDeleteCustomer}
-                        className={`px-4 py-2 rounded-lg font-bold text-white transition-colors cursor-pointer ${deleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                        title="Konfirmasi Hapus"
+                        className={`p-2 rounded-lg text-white transition-colors cursor-pointer inline-flex items-center justify-center ${deleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
                     >
-                        Konfirmasi Hapus
+                        <Trash2 className="w-4 h-4" />
                     </button>
                 </div>
             </TransitionModal>
@@ -633,16 +707,18 @@ function CustomersPageContent({
                     <button
                         type="button"
                         onClick={() => setShowBulkDeleteModal(false)}
-                        className={`px-4 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                        title="Batal"
+                        className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
                     >
-                        Batal
+                        <X className="w-4 h-4" />
                     </button>
                     <button
                         type="button"
                         onClick={confirmBulkDeleteCustomer}
-                        className={`px-4 py-2 rounded-lg font-bold text-white transition-colors cursor-pointer ${bulkDeleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
+                        title="Konfirmasi Hapus Masal"
+                        className={`p-2 rounded-lg text-white transition-colors cursor-pointer inline-flex items-center justify-center ${bulkDeleteMode === 'total' ? 'bg-rose-500 hover:bg-rose-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}
                     >
-                        Konfirmasi Hapus Masal
+                        <Trash2 className="w-4 h-4" />
                     </button>
                 </div>
             </TransitionModal>

@@ -105,7 +105,23 @@ class BillingScheduledInvoiceTest extends TestCase
         $this->assertTrue($schedule['due_date']->equalTo(Carbon::create(2026, 6, 1)));
     }
 
-    public function test_no_schedule_on_wrong_day(): void
+    public function test_generate_scheduled_invoices_catches_up_after_generate_day(): void
+    {
+        $customer = $this->makeCustomer(25);
+        $customer->update([
+            'service_start_date' => '2026-06-21',
+            'created_at' => '2026-06-21 14:24:40',
+        ]);
+
+        $count = BillingService::generateScheduledInvoices(Carbon::parse('2026-06-21'));
+
+        $this->assertSame(1, $count);
+        $this->assertTrue(
+            Invoice::where('customer_id', $customer->id)->where('billing_period', '2026-06')->exists()
+        );
+    }
+
+    public function test_no_schedule_before_generate_window(): void
     {
         $customer = $this->makeCustomer(20);
         $today = Carbon::create(2026, 6, 14);
