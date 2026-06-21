@@ -34,14 +34,14 @@ function DetailItem({ label, value, mono = false, themeTextTitle, themeTextSub, 
     );
 }
 
-function QuotaCard({ label, usedBytes, limitBytes, accent, themeTextTitle, themeTextDesc, isDarkMode }) {
+function QuotaCard({ label, usedBytes, limitBytes, gradient }) {
     const pct = quotaUsagePercent(usedBytes, limitBytes);
 
     return (
-        <div className={`rounded-lg border p-2.5 ${isDarkMode ? accent.dark : accent.light}`}>
-            <p className={`text-[10px] font-bold uppercase tracking-wide ${accent.text}`}>{label}</p>
-            <p className={`text-sm font-black font-mono mt-1 ${themeTextTitle}`}>{formatBytes(usedBytes)}</p>
-            <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
+        <div className={`rounded-lg border p-2.5 text-white shadow-md ${gradient}`}>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-white/80">{label}</p>
+            <p className="text-sm font-black font-mono mt-1 text-white">{formatBytes(usedBytes)}</p>
+            <p className="text-[10px] mt-0.5 text-white/70">
                 {limitBytes
                     ? (pct !== null ? `${pct.toFixed(1)}% dari kuota ${formatBytes(limitBytes)}` : `Kuota ${formatBytes(limitBytes)}`)
                     : 'Tidak ada batas kuota di RouterOS'}
@@ -265,40 +265,19 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                         label="Total Quota Terpakai"
                         usedBytes={totalBytes}
                         limitBytes={null}
-                        accent={{
-                            text: 'text-indigo-600 dark:text-indigo-400',
-                            light: 'border-indigo-200 bg-indigo-50/80',
-                            dark: 'border-indigo-500/20 bg-indigo-500/5',
-                        }}
-                        themeTextTitle={themeTextTitle}
-                        themeTextDesc={themeTextDesc}
-                        isDarkMode={isDarkMode}
+                        gradient="bg-gradient-to-br from-indigo-500 to-violet-600 border-indigo-400/20 shadow-indigo-500/10"
                     />
                     <QuotaCard
                         label="Download Terpakai"
                         usedBytes={downloadBytes}
                         limitBytes={quota?.download_limit_bytes}
-                        accent={{
-                            text: 'text-sky-600 dark:text-sky-400',
-                            light: 'border-sky-200 bg-sky-50/80',
-                            dark: 'border-sky-500/20 bg-sky-500/5',
-                        }}
-                        themeTextTitle={themeTextTitle}
-                        themeTextDesc={themeTextDesc}
-                        isDarkMode={isDarkMode}
+                        gradient="bg-gradient-to-br from-sky-500 to-blue-600 border-sky-400/20 shadow-sky-500/10"
                     />
                     <QuotaCard
                         label="Upload Terpakai"
                         usedBytes={uploadBytes}
                         limitBytes={quota?.upload_limit_bytes}
-                        accent={{
-                            text: 'text-violet-600 dark:text-violet-400',
-                            light: 'border-violet-200 bg-violet-50/80',
-                            dark: 'border-violet-500/20 bg-violet-500/5',
-                        }}
-                        themeTextTitle={themeTextTitle}
-                        themeTextDesc={themeTextDesc}
-                        isDarkMode={isDarkMode}
+                        gradient="bg-gradient-to-br from-violet-500 to-fuchsia-600 border-violet-400/20 shadow-violet-500/10"
                     />
                 </div>
             </div>
