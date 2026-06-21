@@ -156,14 +156,35 @@ function applyLinkedIdentityFromCreds(meta, sock) {
     meta.profile = {
         id: identity.phone,
         name: identity.name,
-        picture_data_url: meta.profile?.picture_data_url ?? null,
+        picture_data_url: null,
         has_picture: meta.profile?.has_picture ?? false,
         picture_updated_at: meta.profile?.picture_updated_at ?? null,
     };
     meta.profileFetchedAt = Date.now();
 }
 
-async function queryProfilePictureBuffer(sock, { targetJid = null, type = 'image' } = {}) {
+function syncProfilePictureFromCache(meta, sessionLabel) {
+    const avatarPath = meta.profileAvatarPath || getAvatarFilePath(sessionLabel);
+
+    if (!fs.existsSync(avatarPath)) {
+        return;
+    }
+
+    const stats = fs.statSync(avatarPath);
+    if (stats.size <= 0) {
+        return;
+    }
+
+    meta.profileAvatarPath = avatarPath;
+    meta.profile = {
+        ...(meta.profile || {}),
+        picture_data_url: null,
+        has_picture: true,
+        picture_updated_at: meta.profile?.picture_updated_at ?? Math.floor(stats.mtimeMs),
+    };
+}
+
+async function queryProfilePictureBuffer(sock, { targetJid = null, type = 'image', timeoutMs = 8000 } = {}) {
     if (!sock?.query) {
         return null;
     }
@@ -182,7 +203,7 @@ async function queryProfilePictureBuffer(sock, { targetJid = null, type = 'image
         tag: 'iq',
         attrs,
         content: [{ tag: 'picture', attrs: { type } }],
-    }, 20000);
+    }, timeoutMs);
 
     const child = getBinaryNodeChild(result, 'picture');
     if (!child) {
@@ -201,7 +222,7 @@ async function queryProfilePictureBuffer(sock, { targetJid = null, type = 'image
     if (child.attrs?.url) {
         const response = await axios.get(child.attrs.url, {
             responseType: 'arraybuffer',
-            timeout: 20000,
+            timeout: timeoutMs,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                 Origin: 'https://web.whatsapp.com',
@@ -221,12 +242,12 @@ async function queryProfilePictureBuffer(sock, { targetJid = null, type = 'image
     return null;
 }
 
-async function fetchProfilePictureBuffer(sock, pictureJids) {
+async function fetchProfilePictureBuffer(sock, pictureJids, { timeoutMs = 8000 } = {}) {
     const types = ['image', 'preview'];
 
     try {
         for (const type of types) {
-            const ownPicture = await queryProfilePictureBuffer(sock, { type });
+            const ownPicture = await queryProfilePictureBuffer(sock, { type, timeoutMs });
             if (ownPicture?.buffer?.length) {
                 return ownPicture;
             }
@@ -242,7 +263,7 @@ async function fetchProfilePictureBuffer(sock, pictureJids) {
 
         for (const type of types) {
             try {
-                const targeted = await queryProfilePictureBuffer(sock, { targetJid: jid, type });
+                const targeted = await queryProfilePictureBuffer(sock, { targetJid: jid, type, timeoutMs });
                 if (targeted?.buffer?.length) {
                     return targeted;
                 }
@@ -251,14 +272,14 @@ async function fetchProfilePictureBuffer(sock, pictureJids) {
             }
 
             try {
-                const pictureUrl = await sock.profilePictureUrl(jid, type, 20000);
+                const pictureUrl = await sock.profilePictureUrl(jid, type, timeoutMs);
                 if (!pictureUrl) {
                     continue;
                 }
 
                 const response = await axios.get(pictureUrl, {
                     responseType: 'arraybuffer',
-                    timeout: 20000,
+                    timeout: timeoutMs,
                     headers: {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                         Origin: 'https://web.whatsapp.com',
@@ -290,12 +311,13 @@ async function saveAvatarFile(sessionLabel, buffer, mime = 'image/jpeg') {
     return filePath;
 }
 
-async function refreshLinkedProfilePicture(meta, sock, sessionLabel) {
+async function refreshLinkedProfilePicture(meta, sock, sessionLabel, { forceNetwork = false } = {}) {
     if (!sock || meta.profileFetchInFlight) {
         return;
     }
 
-    if (meta.initReadyAt && Date.now() < meta.initReadyAt) {
+    if (!forceNetwork && meta.initReadyAt && Date.now() < meta.initReadyAt) {
+        syncProfilePictureFromCache(meta, sessionLabel);
         return;
     }
 
@@ -305,41 +327,35 @@ async function refreshLinkedProfilePicture(meta, sock, sessionLabel) {
         const identity = resolveLinkedIdentity(sock, meta.credsState);
         applyLinkedIdentityFromCreds(meta, sock);
 
-        let pictureDataUrl = meta.profile?.picture_data_url ?? null;
-        let hasPicture = meta.profile?.has_picture ?? false;
+        let hasPicture = Boolean(meta.profile?.has_picture);
         let pictureUpdatedAt = meta.profile?.picture_updated_at ?? null;
         let avatarPath = meta.profileAvatarPath;
 
-        const picture = await fetchProfilePictureBuffer(sock, identity.pictureJids);
-        if (picture?.buffer?.length) {
-            avatarPath = await saveAvatarFile(sessionLabel, picture.buffer, picture.mime);
-            meta.profileAvatarPath = avatarPath;
-            pictureDataUrl = bufferToDataUrl(picture.buffer, picture.mime);
-            hasPicture = true;
-            pictureUpdatedAt = Date.now();
-        } else if (avatarPath && fs.existsSync(avatarPath)) {
-            const cached = await fsPromises.readFile(avatarPath);
-            if (cached.length > 0) {
-                pictureDataUrl = bufferToDataUrl(cached);
+        syncProfilePictureFromCache(meta, sessionLabel);
+        hasPicture = Boolean(meta.profile?.has_picture);
+        avatarPath = meta.profileAvatarPath;
+
+        const shouldFetchFromNetwork = forceNetwork || !hasPicture;
+
+        if (shouldFetchFromNetwork) {
+            const picture = await fetchProfilePictureBuffer(sock, identity.pictureJids, { timeoutMs: 8000 });
+            if (picture?.buffer?.length) {
+                avatarPath = await saveAvatarFile(sessionLabel, picture.buffer, picture.mime);
+                meta.profileAvatarPath = avatarPath;
                 hasPicture = true;
+                pictureUpdatedAt = Date.now();
             }
-        } else {
-            const defaultAvatar = getAvatarFilePath(sessionLabel);
-            if (fs.existsSync(defaultAvatar)) {
-                const cached = await fsPromises.readFile(defaultAvatar);
-                if (cached.length > 0) {
-                    avatarPath = defaultAvatar;
-                    meta.profileAvatarPath = defaultAvatar;
-                    pictureDataUrl = bufferToDataUrl(cached);
-                    hasPicture = true;
-                }
-            }
+        }
+
+        if (!hasPicture) {
+            syncProfilePictureFromCache(meta, sessionLabel);
+            hasPicture = Boolean(meta.profile?.has_picture);
         }
 
         meta.profile = {
             id: identity.phone,
             name: identity.name,
-            picture_data_url: pictureDataUrl,
+            picture_data_url: null,
             has_picture: hasPicture,
             picture_updated_at: pictureUpdatedAt,
         };
@@ -363,7 +379,7 @@ function scheduleProfilePictureFetch(meta, sock, sessionLabel) {
     for (const delay of delays) {
         setTimeout(() => {
             if (meta.status === 'open' && meta.sock) {
-                refreshLinkedProfilePicture(meta, meta.sock, sessionLabel).catch((err) => {
+                refreshLinkedProfilePicture(meta, meta.sock, sessionLabel, { forceNetwork: false }).catch((err) => {
                     console.error(`[${sessionLabel}] Delayed profile picture fetch failed:`, err.message);
                 });
             }
@@ -381,27 +397,20 @@ async function ensureLinkedProfile(meta, sock, sessionLabel, force = false) {
     }
 
     applyLinkedIdentityFromCreds(meta, sock);
+    syncProfilePictureFromCache(meta, sessionLabel);
 
-    const now = Date.now();
-    const hasPicture = Boolean(meta.profile?.has_picture);
-    const pictureAge = meta.profilePictureFetchedAt ? now - meta.profilePictureFetchedAt : Number.POSITIVE_INFINITY;
-    const initReady = !meta.initReadyAt || now >= meta.initReadyAt;
-
-    if (!force && !initReady) {
+    if (!force) {
         return;
     }
 
-    if (!force) {
-        if (hasPicture && pictureAge < 60000) {
-            return;
-        }
+    const now = Date.now();
+    const pictureAge = meta.profilePictureFetchedAt ? now - meta.profilePictureFetchedAt : Number.POSITIVE_INFINITY;
 
-        if (!hasPicture && pictureAge < 5000) {
-            return;
-        }
+    if (pictureAge < 15000) {
+        return;
     }
 
-    await refreshLinkedProfilePicture(meta, sock, sessionLabel);
+    await refreshLinkedProfilePicture(meta, sock, sessionLabel, { forceNetwork: true });
 }
 
 async function connectSession(sessionId) {
@@ -513,11 +522,15 @@ app.get('/session/:sessionId/status', authMiddleware, async (req, res) => {
     const { id, meta } = getSessionMeta(req.params.sessionId);
 
     if (meta.status === 'open' && meta.sock) {
-        const force = req.query.refresh === '1';
-        try {
-            await ensureLinkedProfile(meta, meta.sock, id, force);
-        } catch (error) {
-            console.error(`[${id}] Profile refresh on status failed:`, error.message);
+        applyLinkedIdentityFromCreds(meta, meta.sock);
+        syncProfilePictureFromCache(meta, id);
+
+        if (req.query.profile === '1') {
+            try {
+                await refreshLinkedProfilePicture(meta, meta.sock, id, { forceNetwork: true });
+            } catch (error) {
+                console.error(`[${id}] Profile refresh on status failed:`, error.message);
+            }
         }
     }
 
@@ -570,7 +583,7 @@ app.post('/session/:sessionId/profile/refresh', authMiddleware, async (req, res)
     }
 
     try {
-        await ensureLinkedProfile(meta, meta.sock, id, true);
+        await refreshLinkedProfilePicture(meta, meta.sock, id, { forceNetwork: true });
 
         return res.json({
             success: true,

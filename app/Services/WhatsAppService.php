@@ -163,7 +163,7 @@ class WhatsAppService
      *     profile?: array{id?: string, name?: string|null, picture_data_url?: string|null}|null
      * }
      */
-    public static function getSessionStatus(bool $forceRefresh = false): array
+    public static function getSessionStatus(bool $forceRefresh = false, bool $refreshProfile = false): array
     {
         $config = self::configuration();
 
@@ -174,9 +174,11 @@ class WhatsAppService
         $sessionId = rawurlencode($config['session_id']);
 
         try {
-            $response = self::gatewayClient()->get("{$config['api_url']}/session/{$sessionId}/status", [
-                'refresh' => $forceRefresh ? '1' : '0',
-            ]);
+            $response = self::gatewayClient()
+                ->timeout(8)
+                ->get("{$config['api_url']}/session/{$sessionId}/status", array_filter([
+                    'profile' => $refreshProfile ? '1' : null,
+                ]));
 
             if ($response->status() === 401) {
                 return ['ok' => false, 'message' => 'API Key gateway tidak valid.'];
@@ -272,7 +274,9 @@ class WhatsAppService
         $sessionId = rawurlencode($config['session_id']);
 
         try {
-            $response = self::gatewayClient()->post("{$config['api_url']}/session/{$sessionId}/profile/refresh");
+            $response = self::gatewayClient()
+                ->timeout(15)
+                ->post("{$config['api_url']}/session/{$sessionId}/profile/refresh");
 
             if ($response->status() === 401) {
                 return ['ok' => false, 'message' => 'API Key gateway tidak valid.'];

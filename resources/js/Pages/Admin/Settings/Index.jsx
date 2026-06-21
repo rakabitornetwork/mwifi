@@ -160,7 +160,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
             const connected = await fetchWaSessionStatus(false);
             if (connected) {
                 stopWaSessionPolling();
-                await fetchWaSessionStatus(true);
+                await fetchWaSessionStatus(false);
                 showToast('WhatsApp berhasil terhubung.', 'success');
             }
         };
@@ -179,33 +179,8 @@ function SettingsPageContent({ settings = [], routers = [] }) {
         setIsLoadingWaSession(true);
 
         try {
-            if (waSession.status === 'open') {
-                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-                const response = await fetch('/admin/settings/whatsapp-session/refresh-profile', {
-                    method: 'POST',
-                    headers: {
-                        Accept: 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken,
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
-                const data = await response.json();
-
-                if (response.ok && data.ok) {
-                    setWaSession((prev) => ({
-                        ...prev,
-                        status: data.status || prev.status,
-                        profile: data.profile || prev.profile,
-                        last_error: null,
-                    }));
-                    setWaAvatarBroken(false);
-                    showToast('Profil WhatsApp diperbarui.', 'success');
-                    return;
-                }
-            }
-
             await fetchWaSessionStatus(true);
+            showToast('Status WhatsApp diperbarui.', 'success');
         } finally {
             setIsLoadingWaSession(false);
         }
@@ -865,7 +840,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                                     type="button"
                                     onClick={handleRefreshWaSession}
                                     disabled={isLoadingWaSession}
-                                    title="Cek status / perbarui profil"
+                                    title="Cek status WhatsApp"
                                     className={`p-2 border rounded-lg inline-flex items-center justify-center cursor-pointer disabled:opacity-50 ${isDarkMode ? 'border-zinc-700 text-zinc-200 hover:bg-zinc-800' : 'border-zinc-300 text-zinc-700 hover:bg-white'}`}
                                 >
                                     <RefreshCw className={`w-4 h-4 ${isLoadingWaSession ? 'animate-spin' : ''}`} />

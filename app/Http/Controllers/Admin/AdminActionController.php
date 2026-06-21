@@ -1017,13 +1017,17 @@ class AdminActionController extends Controller
             abort(403, 'Hanya administrator yang dapat mengelola sesi WhatsApp.');
         }
 
-        $health = \App\Services\WhatsAppService::checkGatewayHealth();
-        if (!$health['ok']) {
-            return response()->json($health, 503);
+        if (!$request->boolean('refresh')) {
+            $health = \App\Services\WhatsAppService::checkGatewayHealth();
+            if (!$health['ok']) {
+                return response()->json($health, 503);
+            }
         }
 
-        $forceRefresh = $request->boolean('refresh');
-        $status = \App\Services\WhatsAppService::getSessionStatus($forceRefresh);
+        $status = \App\Services\WhatsAppService::getSessionStatus(
+            $request->boolean('refresh'),
+            $request->boolean('profile')
+        );
 
         return response()->json($status, $status['ok'] ? 200 : 503);
     }
@@ -1032,11 +1036,6 @@ class AdminActionController extends Controller
     {
         if ($request->user()?->customer) {
             abort(403, 'Hanya administrator yang dapat mengelola sesi WhatsApp.');
-        }
-
-        $health = \App\Services\WhatsAppService::checkGatewayHealth();
-        if (!$health['ok']) {
-            return response()->json($health, 503);
         }
 
         $result = \App\Services\WhatsAppService::refreshSessionProfile();
