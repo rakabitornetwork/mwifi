@@ -391,7 +391,7 @@ function DashboardContent({
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="md:col-span-2 space-y-1.5">
                                 <div className="flex justify-between items-center text-[10px] text-zinc-500 font-bold">
-                                    <span>Beban Resource CPU & RAM (Real-time)</span>
+                                    <span>Beban Resource CPU & RAM (Real-time) Mikrotik</span>
                                     <span className="font-mono text-emerald-500">Interval: 15s</span>
                                 </div>
                                 <div className="h-44 w-full">
