@@ -497,6 +497,22 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
         }
     }
 
+    public function getSimpleQueueStats(): array
+    {
+        if (!$this->client) {
+            return [];
+        }
+
+        try {
+            $query = (new Query('/queue/simple/print'))
+                ->equal('stats', '');
+
+            return $this->client->query($query)->read();
+        } catch (Exception $e) {
+            return $this->getSimpleQueues();
+        }
+    }
+
     public function getQueueTypes(): array
     {
         if (!$this->client) {

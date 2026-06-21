@@ -134,6 +134,11 @@ class MikrotikPackageFormOptionsServiceTest extends TestCase
                 return [['name' => 'queue-parent']];
             }
 
+            public function getSimpleQueueStats(): array
+            {
+                return [];
+            }
+
             public function getQueueTypes(): array
             {
                 return [['name' => 'default'], ['name' => 'cake'], ['name' => 'fq-codel']];

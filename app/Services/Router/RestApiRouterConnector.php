@@ -526,6 +526,27 @@ class RestApiRouterConnector implements RouterConnectorInterface
         }
     }
 
+    public function getSimpleQueueStats(): array
+    {
+        try {
+            $response = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(8)
+                ->post("{$this->baseUrl}/queue/simple/print", ['stats' => '']);
+
+            if ($response->successful()) {
+                $payload = $response->json();
+                if (is_array($payload) && $payload !== []) {
+                    return $payload;
+                }
+            }
+
+            return $this->getSimpleQueues();
+        } catch (Exception $e) {
+            return $this->getSimpleQueues();
+        }
+    }
+
     public function getQueueTypes(): array
     {
         try {

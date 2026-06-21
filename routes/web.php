@@ -82,6 +82,7 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/customers/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveCustomer']);
     Route::post('admin/customers/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteCustomer']);
     Route::post('admin/customers/bulk-delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'bulkDeleteCustomer']);
+    Route::get('admin/customers/bandwidth-quota', [\App\Http\Controllers\Admin\AdminActionController::class, 'getCustomerBandwidthQuota']);
     Route::post('admin/packages/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'savePackage']);
     Route::post('admin/packages/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deletePackage']);
 

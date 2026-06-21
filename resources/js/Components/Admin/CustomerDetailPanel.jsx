@@ -1,5 +1,7 @@
-import { Edit } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Database, Edit, RefreshCw } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatRupiah';
+import { formatBytes, quotaUsagePercent } from '../../utils/formatBytes';
 
 function formatDate(value) {
     if (!value) return '—';
@@ -32,6 +34,24 @@ function DetailItem({ label, value, mono = false, themeTextTitle, themeTextSub, 
     );
 }
 
+function QuotaCard({ label, usedBytes, limitBytes, accent, themeTextTitle, themeTextDesc, isDarkMode }) {
+    const pct = quotaUsagePercent(usedBytes, limitBytes);
+
+    return (
+        <div className={`rounded-lg border p-2.5 ${isDarkMode ? accent.dark : accent.light}`}>
+            <p className={`text-[10px] font-bold uppercase tracking-wide ${accent.text}`}>{label}</p>
+            <p className={`text-sm font-black font-mono mt-1 ${themeTextTitle}`}>{formatBytes(usedBytes)}</p>
+            <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
+                {limitBytes
+                    ? (pct !== null ? `${pct.toFixed(1)}% dari kuota ${formatBytes(limitBytes)}` : `Kuota ${formatBytes(limitBytes)}`)
+                    : 'Tidak ada batas kuota di RouterOS'}
+            </p>
+        </div>
+    );
+}
+
+const QUOTA_POLL_MS = 30000;
+
 export default function CustomerDetailPanel({ customer, theme, onEdit }) {
     const {
         isDarkMode,
@@ -40,12 +60,63 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
         themeTextDesc,
     } = theme;
 
+    const [quota, setQuota] = useState(null);
+    const [isLoadingQuota, setIsLoadingQuota] = useState(true);
+    const [quotaError, setQuotaError] = useState(null);
+
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const status = statusMeta(customer.status);
     const hasGps = customer.latitude != null && customer.longitude != null && customer.latitude !== '' && customer.longitude !== '';
     const mapsUrl = hasGps
         ? `https://www.google.com/maps?q=${customer.latitude},${customer.longitude}`
         : null;
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadQuota = async () => {
+            try {
+                const res = await fetch(`/admin/customers/bandwidth-quota?customer_id=${customer.id}`, {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Gagal memuat quota bandwidth.');
+                }
+
+                if (!cancelled) {
+                    setQuota(data);
+                    setQuotaError(null);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setQuotaError(error?.message || 'Gagal memuat quota bandwidth.');
+                }
+            } finally {
+                if (!cancelled) {
+                    setIsLoadingQuota(false);
+                }
+            }
+        };
+
+        setIsLoadingQuota(true);
+        loadQuota();
+        const intervalId = setInterval(loadQuota, QUOTA_POLL_MS);
+
+        return () => {
+            cancelled = true;
+            clearInterval(intervalId);
+        };
+    }, [customer.id]);
+
+    const downloadBytes = quota?.download_bytes ?? 0;
+    const uploadBytes = quota?.upload_bytes ?? 0;
+    const totalBytes = quota?.total_bytes ?? (downloadBytes + uploadBytes);
+    const isOnline = !!quota?.online;
 
     return (
         <div className={`border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-3 py-4 sm:px-4`}>
@@ -98,6 +169,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                         themeTextTitle={themeTextTitle}
                         themeTextSub={themeTextSub}
                     />
+                    <DetailItem label="Batas Kecepatan Paket" value={customer.package?.bandwidth_limit} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                     <DetailItem label="Titik ODP" value={customer.odp?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                 </div>
 
@@ -153,6 +225,88 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                             </p>
                         </div>
                     ) : null}
+                </div>
+            </div>
+
+            <div className={`mt-4 rounded-xl border p-3 space-y-3 ${themeInnerWidget}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <Database className="w-4 h-4 text-indigo-500" />
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Quota Bandwidth (Total Pemakaian)</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {isLoadingQuota && (
+                            <span className={`text-[10px] inline-flex items-center gap-1 ${themeTextSub}`}>
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                                Memuat...
+                            </span>
+                        )}
+                        <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${
+                            isOnline
+                                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+                        }`}>
+                            {isOnline ? 'Online' : 'Offline'}
+                        </span>
+                    </div>
+                </div>
+
+                {quotaError && (
+                    <p className="text-[10px] text-amber-500">{quotaError}</p>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+                    <QuotaCard
+                        label="Total Quota Terpakai"
+                        usedBytes={totalBytes}
+                        limitBytes={null}
+                        accent={{
+                            text: 'text-indigo-600 dark:text-indigo-400',
+                            light: 'border-indigo-200 bg-indigo-50/80',
+                            dark: 'border-indigo-500/20 bg-indigo-500/5',
+                        }}
+                        themeTextTitle={themeTextTitle}
+                        themeTextDesc={themeTextDesc}
+                        isDarkMode={isDarkMode}
+                    />
+                    <QuotaCard
+                        label="Download Terpakai"
+                        usedBytes={downloadBytes}
+                        limitBytes={quota?.download_limit_bytes}
+                        accent={{
+                            text: 'text-sky-600 dark:text-sky-400',
+                            light: 'border-sky-200 bg-sky-50/80',
+                            dark: 'border-sky-500/20 bg-sky-500/5',
+                        }}
+                        themeTextTitle={themeTextTitle}
+                        themeTextDesc={themeTextDesc}
+                        isDarkMode={isDarkMode}
+                    />
+                    <QuotaCard
+                        label="Upload Terpakai"
+                        usedBytes={uploadBytes}
+                        limitBytes={quota?.upload_limit_bytes}
+                        accent={{
+                            text: 'text-violet-600 dark:text-violet-400',
+                            light: 'border-violet-200 bg-violet-50/80',
+                            dark: 'border-violet-500/20 bg-violet-500/5',
+                        }}
+                        themeTextTitle={themeTextTitle}
+                        themeTextDesc={themeTextDesc}
+                        isDarkMode={isDarkMode}
+                    />
+                    <div className={`rounded-lg border p-2.5 ${isDarkMode ? 'border-zinc-700 bg-zinc-900/40' : 'border-zinc-200 bg-white/80'}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Sumber Data</p>
+                        <p className={`text-xs font-mono mt-1 ${themeTextTitle}`}>
+                            {quota?.source === 'simple-queue' && 'Simple Queue (RouterOS)'}
+                            {quota?.source === 'ppp-active' && 'Sesi PPP Aktif (RouterOS)'}
+                            {quota?.source === 'hotspot-user' && 'User Hotspot (RouterOS)'}
+                            {!quota?.source && !isLoadingQuota && 'Belum ada data quota'}
+                        </p>
+                        <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
+                            Akumulasi byte upload/download, bukan kecepatan real-time.
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>

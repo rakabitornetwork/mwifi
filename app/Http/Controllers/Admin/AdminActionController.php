@@ -305,6 +305,66 @@ class AdminActionController extends Controller
     }
 
     /**
+     * Cumulative upload/download quota (bytes) for one customer from RouterOS.
+     */
+    public function getCustomerBandwidthQuota(Request $request)
+    {
+        $data = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+        ]);
+
+        $customer = Customer::with('router')->findOrFail($data['customer_id']);
+
+        if (!$customer->router) {
+            return response()->json(['error' => 'Pelanggan belum memiliki router.'], 422);
+        }
+
+        try {
+            $connector = \App\Services\Router\RouterService::getConnector($customer->router);
+            $quotaMap = \App\Services\Router\MikrotikQuotaService::fetchForConnector($connector);
+            $quota = \App\Services\Router\MikrotikQuotaService::resolveForUsername($quotaMap, $customer->username);
+
+            $online = false;
+            foreach ($connector->getActiveConnections() as $session) {
+                if (!is_array($session)) {
+                    continue;
+                }
+
+                if (\App\Services\Router\RouterService::matchesPppUsername($session, $customer->username)) {
+                    $online = true;
+                    break;
+                }
+            }
+
+            if (!$quota) {
+                return response()->json([
+                    'online' => $online,
+                    'download_bytes' => 0,
+                    'upload_bytes' => 0,
+                    'total_bytes' => 0,
+                    'download_limit_bytes' => null,
+                    'upload_limit_bytes' => null,
+                    'source' => null,
+                ]);
+            }
+
+            return response()->json([
+                'online' => $online,
+                'download_bytes' => (int) ($quota['download_bytes'] ?? 0),
+                'upload_bytes' => (int) ($quota['upload_bytes'] ?? 0),
+                'total_bytes' => (int) ($quota['total_bytes'] ?? 0),
+                'download_limit_bytes' => $quota['download_limit_bytes'] ?? null,
+                'upload_limit_bytes' => $quota['upload_limit_bytes'] ?? null,
+                'source' => $quota['source'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Gagal membaca quota bandwidth: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Create or update an Internet Package.
      */
     public function savePackage(Request $request)

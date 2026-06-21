@@ -139,6 +139,13 @@ interface RouterConnectorInterface
     public function getSimpleQueues(): array;
 
     /**
+     * Simple queues including live byte counters (stats).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getSimpleQueueStats(): array;
+
+    /**
      * Get all Queue Types.
      *
      * @return array

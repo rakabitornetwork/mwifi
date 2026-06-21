@@ -1,13 +1,13 @@
-import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{J as t,M as n,t as r}from"./vendor-C7SPhWNM.js";import{F as i,b as a,k as o,mt as s,p as c,t as l,u,y as d}from"./vendor-core-BoQqcFet.js";import{n as f,r as p,t as m}from"./AdminLayout-DpC-eNXe.js";import{t as h}from"./TransitionModal-Bv9Czx9D.js";import{t as g}from"./formatRupiah-BPNt29Go.js";import{n as _,t as v}from"./GpsCoordinateFields-Bo2N1IO6.js";var y=e(t(),1),b=e(r(),1);function x(e){return e==null?``:String(e).replace(/&/g,`&amp;`).replace(/</g,`&lt;`).replace(/>/g,`&gt;`).replace(/"/g,`&quot;`)}function S(e){if(!e)return{down:0,up:0};let t=String(e).split(`/`),n=e=>{let t=String(e||``).trim().toUpperCase(),n=parseFloat(t);return Number.isNaN(n)?0:t.includes(`G`)?n*1e3:t.includes(`K`)?n/1e3:n};return{down:n(t[0]),up:n(t[1]??t[0])}}function C(e){let t=Number(e)||0;return t>=1e6?`${(t/1e6).toFixed(1)} Mbps`:t>=1e3?`${Math.round(t/1e3)} Kbps`:`${Math.round(t)} bps`}function w(e,t){if(!t)return{};let n=e?.ont||{},r=[t,String(t).split(`@`)[0],String(t).toLowerCase(),String(t).split(`@`)[0].toLowerCase()];for(let e of r)if(e&&n[e])return n[e];let i=String(t).toLowerCase(),a=i.split(`@`)[0];for(let[e,t]of Object.entries(n)){let n=String(e).toLowerCase(),r=n.split(`@`)[0];if(n===i||r===a)return t}return(e?.ont_devices||[]).find(e=>{let t=String(e.username||``).toLowerCase();return!t||t===`unknown_ont`?!1:t===i||t.split(`@`)[0]===a})||{}}function T(e,t=`neutral`){return`<span class="map-popup-badge map-popup-badge--${t}">${x(e)}</span>`}function E(e,t,n=``){return`
+import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{J as t,M as n,t as r}from"./vendor-C7SPhWNM.js";import{F as i,b as a,k as o,mt as s,p as c,t as l,u,y as d}from"./vendor-core-BoQqcFet.js";import{n as f,r as p,t as m}from"./AdminLayout-DpC-eNXe.js";import{t as h}from"./TransitionModal-Bv9Czx9D.js";import{t as g}from"./formatRupiah-BPNt29Go.js";import{n as _,t as v}from"./GpsCoordinateFields-Bo2N1IO6.js";var y=e(t(),1),b=e(r(),1);function x(e){if(!e)return{down:0,up:0};let t=String(e).split(`/`),n=e=>{let t=String(e||``).trim().toUpperCase(),n=parseFloat(t);return Number.isNaN(n)?0:t.includes(`G`)?n*1e3:t.includes(`K`)?n/1e3:n};return{down:n(t[0]),up:n(t[1]??t[0])}}function S(e,t){if(!t)return{};let n=e?.ont||{},r=[t,String(t).split(`@`)[0],String(t).toLowerCase(),String(t).split(`@`)[0].toLowerCase()];for(let e of r)if(e&&n[e])return n[e];let i=String(t).toLowerCase(),a=i.split(`@`)[0];for(let[e,t]of Object.entries(n)){let n=String(e).toLowerCase(),r=n.split(`@`)[0];if(n===i||r===a)return t}return(e?.ont_devices||[]).find(e=>{let t=String(e.username||``).toLowerCase();return!t||t===`unknown_ont`?!1:t===i||t.split(`@`)[0]===a})||{}}function C(e,t){let n=t?.username;if(!n)return{};let r=e?.traffic_by_router?.[String(t.router_id)]||e?.traffic_by_router?.[t.router_id]||e?.traffic||{},i=[n,String(n).split(`@`)[0],String(n).toLowerCase(),String(n).split(`@`)[0].toLowerCase()];for(let e of i)if(e&&r[e])return r[e];let a=String(n).toLowerCase(),o=a.split(`@`)[0];for(let[e,t]of Object.entries(r)){let n=String(e).toLowerCase(),r=n.split(`@`)[0];if(n===a||r===o)return t}return{}}function w(e){return e==null?``:String(e).replace(/&/g,`&amp;`).replace(/</g,`&lt;`).replace(/>/g,`&gt;`).replace(/"/g,`&quot;`)}function T(e,t=`neutral`){return`<span class="map-popup-badge map-popup-badge--${t}">${w(e)}</span>`}function E(e,t,n=``){return`
         <div class="map-popup-stat">
-            <span class="map-popup-stat-label">${x(e)}</span>
+            <span class="map-popup-stat-label">${w(e)}</span>
             <span class="map-popup-stat-value ${n}">${t}</span>
         </div>
     `}function D(e,t,n){return`
         <section class="map-popup-card">
             <div class="map-popup-card-head">
                 <span class="map-popup-card-icon">${t}</span>
-                <span class="map-popup-card-title">${x(e)}</span>
+                <span class="map-popup-card-title">${w(e)}</span>
             </div>
             ${n}
         </section>
@@ -46,17 +46,17 @@ import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{J as t,M as n,t as r}f
                 </svg>
             </div>
             <p class="map-speedometer-label">${e}</p>
-            <p class="map-speedometer-value">${C(t)}</p>
+            <p class="map-speedometer-value">${j(t)}</p>
         </div>
-    `}function j(e,t){let n=t?.username;if(!n)return{};let r=e?.traffic_by_router?.[String(t.router_id)]||e?.traffic_by_router?.[t.router_id]||e?.traffic||{},i=[n,String(n).split(`@`)[0],String(n).toLowerCase(),String(n).split(`@`)[0].toLowerCase()];for(let e of i)if(e&&r[e])return r[e];let a=String(n).toLowerCase(),o=a.split(`@`)[0];for(let[e,t]of Object.entries(r)){let n=String(e).toLowerCase(),r=n.split(`@`)[0];if(n===a||r===o)return t}return{}}function M(){let e=window.matchMedia(`(max-width: 639px)`).matches;return{maxWidth:e?292:400,minWidth:e?268:340,maxHeight:Math.min(Math.round(window.innerHeight*.48),380),autoPanPadding:e?[32,20]:[48,48],className:`customer-detail-popup`}}function N(e,t={}){let n=w(t,e.username),r=j(t,e),i=t&&(Object.keys(t.ont||{}).length>0||(t.ont_devices||[]).length>0),a=e.package||{},o=S(a.bandwidth_limit),s=!!r.online,c=O(e.status),l=e.odp?.name||`-`,u=n.rx||(i?`Tidak tersedia`:`Memuat...`),d=n.status||`offline`,f=e=>e==null||e===``?`—`:x(e),p=x(String(e.name||`?`).charAt(0).toUpperCase()),m=x(String(e.service_type||`pppoe`).toUpperCase());return`
+    `}function j(e){let t=Number(e)||0;return t>=1e6?`${(t/1e6).toFixed(1)} Mbps`:t>=1e3?`${Math.round(t/1e3)} Kbps`:`${Math.round(t)} bps`}function M(){let e=window.matchMedia(`(max-width: 639px)`).matches;return{maxWidth:e?292:400,minWidth:e?268:340,maxHeight:Math.min(Math.round(window.innerHeight*.48),380),autoPanPadding:e?[32,20]:[48,48],className:`customer-detail-popup`}}function N(e,t={}){let n=S(t,e.username),r=C(t,e),i=t&&(Object.keys(t.ont||{}).length>0||(t.ont_devices||[]).length>0),a=e.package||{},o=x(a.bandwidth_limit),s=!!r.online,c=O(e.status),l=e.odp?.name||`-`,u=n.rx||(i?`Tidak tersedia`:`Memuat...`),d=n.status||`offline`,f=e=>e==null||e===``?`—`:w(e),p=w(String(e.name||`?`).charAt(0).toUpperCase()),m=w(String(e.service_type||`pppoe`).toUpperCase());return`
         <div class="map-popup-customer" data-customer-id="${e.id}">
             <header class="map-popup-hero">
                 <div class="map-popup-hero-glow"></div>
                 <div class="map-popup-hero-row">
                     <div class="map-popup-avatar">${p}</div>
                     <div class="map-popup-hero-text">
-                        <h3 class="map-popup-name">${x(e.name)}</h3>
-                        <p class="map-popup-sub">${x(e.username)} · ${m}</p>
+                        <h3 class="map-popup-name">${w(e.name)}</h3>
+                        <p class="map-popup-sub">${w(e.username)} · ${m}</p>
                     </div>
                 </div>
                 <div class="map-popup-badges">
@@ -71,13 +71,13 @@ import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{J as t,M as n,t as r}f
                         ${E(`Paket`,f(a.name))}
                         ${E(`Harga / bulan`,a.price?g(a.price):`—`,`map-popup-stat-value--accent`)}
                         ${E(`Bandwidth`,f(a.bandwidth_limit))}
-                        ${E(`Titik ODP`,x(l))}
+                        ${E(`Titik ODP`,w(l))}
                     </div>
                 `)}
 
                 ${D(`ONT & Jaringan`,`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>`,`
                     <div class="map-popup-stats-grid">
-                        ${E(`Redaman`,x(u),k(d))}
+                        ${E(`Redaman`,w(u),k(d))}
                         ${E(`Suhu ONT`,f(n.temperature))}
                         ${E(`Perangkat WiFi`,n.connected_devices!==null&&n.connected_devices!==void 0?`${n.connected_devices} unit`:`—`)}
                         ${E(`Product Class`,f(n.product_class||n.model))}
@@ -106,7 +106,7 @@ import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{J as t,M as n,t as r}f
 
                 <footer class="map-popup-footer">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
-                    <span>${x(e.address)}</span>
+                    <span>${w(e.address)}</span>
                 </footer>
             </div>
         </div>
