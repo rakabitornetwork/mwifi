@@ -22,10 +22,12 @@ export function AdminThemeProvider({ children }) {
             themeTextTitle: isDarkMode ? 'text-white' : 'text-zinc-900',
             themeTextSub: isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
             themeTextDesc: isDarkMode ? 'text-zinc-500' : 'text-zinc-400',
-            themeHeader: isDarkMode ? 'noc-navbar noc-navbar-dark' : 'noc-navbar noc-navbar-light',
+            themeHeader: isDarkMode ? 'noc-navbar noc-navbar-dark noc-brand-bar' : 'noc-navbar noc-navbar-light noc-brand-bar',
+            themeHeaderTextTitle: 'text-white',
+            themeHeaderBtn: 'border-white/22 bg-white/10 text-white/90 hover:bg-white/18 hover:text-white hover:border-white/32 shadow-sm',
             themeMainPanel: isDarkMode ? 'bg-zinc-950' : 'bg-zinc-50',
             themeFooterBar: isDarkMode ? 'bg-zinc-950 border-zinc-800/80' : 'bg-zinc-50 border-zinc-200',
-            themeHeaderBorder: isDarkMode ? 'border-transparent' : 'border-transparent',
+            themeHeaderBorder: 'border-transparent',
         };
     }, [isDarkMode]);
 

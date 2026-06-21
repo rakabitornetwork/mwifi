@@ -124,24 +124,24 @@ function AdminLayoutShell({ title, children }) {
                 </div>
 
                 <div className={`flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden ${theme.themeMainPanel}`}>
-                    <header className={`h-14 ${theme.themeHeaderBorder} ${theme.themeHeader} flex items-center justify-between px-4 sm:px-6 z-10 transition-colors duration-250`}>
+                    <header className={`h-14 ${theme.themeHeader} flex items-center justify-between px-4 sm:px-6 z-10 transition-colors duration-250`}>
                         <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
                             <button
                                 type="button"
                                 onClick={() => setIsMobileMenuOpen(true)}
-                                className={`p-1.5 rounded-lg border md:hidden cursor-pointer shrink-0 ${theme.isDarkMode ? 'bg-slate-900/70 border-indigo-500/25 text-slate-300 hover:text-white' : 'bg-white/95 border-indigo-300 text-indigo-800 hover:bg-indigo-100 shadow-sm'}`}
+                                className={`p-1.5 rounded-lg border md:hidden cursor-pointer shrink-0 transition-colors ${theme.themeHeaderBtn}`}
                                 aria-label="Buka menu navigasi"
                                 aria-expanded={isMobileMenuOpen}
                             >
                                 <Menu className="w-4 h-4" />
                             </button>
-                            <h1 className={`text-xs sm:text-sm font-bold truncate ${theme.themeTextTitle}`}>{pageTitle}</h1>
+                            <h1 className={`text-xs sm:text-sm font-bold truncate ${theme.themeHeaderTextTitle}`}>{pageTitle}</h1>
                         </div>
 
                         <button
                             type="button"
                             onClick={theme.toggleTheme}
-                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${theme.isDarkMode ? 'bg-slate-900/75 border-slate-700/70 text-slate-300 hover:text-white hover:border-indigo-400/35' : 'bg-indigo-100 border-indigo-300 text-indigo-800 hover:bg-indigo-200 shadow-sm'}`}
+                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${theme.themeHeaderBtn}`}
                             aria-label="Ganti tema"
                         >
                             {theme.isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}

@@ -10,24 +10,53 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-/* NOC shell — solid sidebar + smooth navbar */
+/* NOC shell — unified premium brand gradient (sidebar + header) */
+:root {
+    --noc-brand-grad-angle: 168deg;
+    --noc-brand-grad-light: linear-gradient(
+        var(--noc-brand-grad-angle),
+        #1a73e8 0%,
+        #1565d8 20%,
+        #1159c6 40%,
+        #0d4db3 60%,
+        #09419a 80%,
+        #06357f 100%
+    );
+    --noc-brand-grad-dark: linear-gradient(
+        var(--noc-brand-grad-angle),
+        #0c52b0 0%,
+        #0a489d 24%,
+        #083d87 48%,
+        #063370 72%,
+        #042858 88%,
+        #021a3a 100%
+    );
+}
+
 .noc-sidebar {
     color: #eff6ff;
     box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
 }
 
 .noc-sidebar-light {
-    background: linear-gradient(168deg, #1877F2 0%, #146CE0 26%, #0F5FD0 54%, #0A4DA8 100%);
+    background: var(--noc-brand-grad-light);
 }
 
 .noc-sidebar-dark {
-    background: linear-gradient(168deg, #0A4DA8 0%, #084298 30%, #063A7A 58%, #031A3A 100%);
+    background: var(--noc-brand-grad-dark);
+}
+
+.noc-brand-bar {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .noc-sidebar-logo {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.08));
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
 }
 
 .noc-sidebar-footer {
@@ -40,31 +69,13 @@
     flex-shrink: 0;
 }
 
-.noc-navbar {
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-}
-
-.noc-navbar-light {
-    background: linear-gradient(
-        118deg,
-        #c7d2fe 0%,
-        #bfdbfe 16%,
-        #ddd6fe 38%,
-        #e0e7ff 58%,
-        #ede9fe 76%,
-        #f5f3ff 100%
-    );
-    border-bottom: 1px solid rgba(212, 212, 216, 0.95);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82);
+.noc-navbar-light,
+.noc-navbar-dark {
+    background: var(--noc-brand-grad-light);
 }
 
 .noc-navbar-dark {
-    background: linear-gradient(112deg, #0f172a 0%, rgba(49, 46, 129, 0.32) 38%, #1e293b 72%, #111827 100%);
-    border-bottom: 1px solid rgba(99, 102, 241, 0.22);
-    box-shadow:
-        0 1px 0 rgba(255, 255, 255, 0.05) inset,
-        0 10px 28px -20px rgba(15, 23, 42, 0.85);
+    background: var(--noc-brand-grad-dark);
 }
 
 /* Efek garis putus-putus berjalan ke arah pelanggan (offset diatur via rAF di Dashboard) */

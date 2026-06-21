@@ -59,7 +59,7 @@ export default function AdminSidebar({
         <div className="flex flex-col h-full min-h-0 w-full">
             <div className="flex-1 min-h-0 overflow-y-auto">
                 <div
-                    className={`h-14 px-4 border-b ${sidebarBorder} flex items-center shrink-0 ${showCloseButton ? 'justify-between gap-2' : 'space-x-2.5'}`}
+                    className={`h-14 px-4 noc-brand-bar flex items-center shrink-0 ${showCloseButton ? 'justify-between gap-2' : 'space-x-2.5'}`}
                     key={`sidebar-brand-${branding.version}`}
                 >
                     <div className="flex items-center space-x-2.5 min-w-0">
