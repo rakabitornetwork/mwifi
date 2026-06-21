@@ -1,10 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { ArrowUpCircle, GitBranch, RefreshCw } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
+function toTerminalSessionLabel(name) {
+    const slug = String(name || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    return slug ? `${slug}-update` : 'app-update';
+}
+
 function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
+    const { branding = {} } = usePage().props;
+    const companyName = branding.company_name || branding.display_name || branding.app_name || 'mWiFi';
+    const terminalSessionLabel = toTerminalSessionLabel(companyName);
     const theme = useAdminTheme();
     const { showToast } = useAdminToast();
     const [updateInfo, setUpdateInfo] = useState(initialUpdateInfo);
@@ -305,7 +318,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                         <span className="w-2.5 h-2.5 rounded-full bg-amber-400/90" />
                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/90" />
                         <span className="ml-2 text-[10px] font-mono text-zinc-500 truncate">
-                            mwifi-update — bash
+                            {terminalSessionLabel} — bash
                             {updateTerminalStatus === 'running' && (
                                 <span className="ml-2 text-violet-400 animate-pulse">running</span>
                             )}

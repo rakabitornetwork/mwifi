@@ -10,6 +10,10 @@ class WhatsAppService
 {
     private static ?float $lastBulkSentAt = null;
 
+    private static ?float $bulkWindowStartedAt = null;
+
+    private static int $bulkSentInWindow = 0;
+
     public static function defaultTestMessage(): string
     {
         return 'Tes notifikasi WhatsApp dari ' . BrandingService::companyName() . '.';
@@ -22,13 +26,16 @@ class WhatsAppService
      *     session_id: string,
      *     enabled: bool,
      *     bulk_delay_enabled: bool,
-     *     bulk_delay_seconds: int,
-     *     bulk_delay_jitter_seconds: int
+     *     bulk_batch_size: int,
+     *     bulk_window_seconds: int
      * }
      */
     public static function configuration(): array
     {
         $apiUrl = rtrim((string) (setting('whatsapp.api_url') ?: 'http://127.0.0.1:3003'), '/');
+
+        $legacyWindow = (int) (setting('whatsapp.bulk_delay_seconds') ?: 0);
+        $windowSeconds = (int) (setting('whatsapp.bulk_window_seconds') ?: ($legacyWindow > 0 ? $legacyWindow : 300));
 
         return [
             'api_url' => $apiUrl,
@@ -36,8 +43,8 @@ class WhatsAppService
             'session_id' => (string) (setting('whatsapp.session_id') ?: 'mwifi_session'),
             'enabled' => setting('whatsapp.enabled', '1') !== '0',
             'bulk_delay_enabled' => setting('whatsapp.bulk_delay_enabled', '1') !== '0',
-            'bulk_delay_seconds' => max(1, min(120, (int) (setting('whatsapp.bulk_delay_seconds') ?: 4))),
-            'bulk_delay_jitter_seconds' => max(0, min(60, (int) (setting('whatsapp.bulk_delay_jitter_seconds') ?: 3))),
+            'bulk_batch_size' => max(1, min(100, (int) (setting('whatsapp.bulk_batch_size') ?: 5))),
+            'bulk_window_seconds' => max(6, min(7200, $windowSeconds)),
         ];
     }
 
@@ -94,7 +101,7 @@ class WhatsAppService
 
             if ($response->successful()) {
                 Log::info("WhatsApp message sent successfully to {$to}.");
-                self::$lastBulkSentAt = microtime(true);
+                self::recordBulkSend($config);
 
                 return true;
             }
@@ -337,7 +344,7 @@ class WhatsAppService
     }
 
     /**
-     * @param array{bulk_delay_enabled: bool, bulk_delay_seconds: int, bulk_delay_jitter_seconds: int} $config
+     * @param array{bulk_delay_enabled: bool, bulk_batch_size: int, bulk_window_seconds: int} $config
      */
     private static function waitForBulkDelay(array $config): void
     {
@@ -345,19 +352,71 @@ class WhatsAppService
             return;
         }
 
-        $baseSeconds = (int) ($config['bulk_delay_seconds'] ?? 4);
-        $jitterSeconds = (int) ($config['bulk_delay_jitter_seconds'] ?? 0);
-        $requiredGap = $baseSeconds + ($jitterSeconds > 0 ? random_int(0, $jitterSeconds) : 0);
+        $batchSize = max(1, (int) ($config['bulk_batch_size'] ?? 5));
+        $windowSeconds = max(6, (int) ($config['bulk_window_seconds'] ?? 300));
+        $minGapSeconds = $windowSeconds / $batchSize;
 
-        if (self::$lastBulkSentAt !== null) {
-            $elapsed = microtime(true) - self::$lastBulkSentAt;
-            $waitSeconds = $requiredGap - $elapsed;
+        $now = microtime(true);
+
+        if (self::$bulkWindowStartedAt === null || ($now - self::$bulkWindowStartedAt) >= $windowSeconds) {
+            self::$bulkWindowStartedAt = $now;
+            self::$bulkSentInWindow = 0;
+        }
+
+        if (self::$bulkSentInWindow >= $batchSize) {
+            $waitSeconds = (self::$bulkWindowStartedAt + $windowSeconds) - $now;
 
             if ($waitSeconds > 0) {
-                Log::debug(sprintf('WhatsApp bulk delay: waiting %.1f seconds before next message.', $waitSeconds));
-                usleep((int) round($waitSeconds * 1_000_000));
+                Log::debug(sprintf(
+                    'WhatsApp bulk: kuota %d pesan per %d detik tercapai, menunggu %.1f detik.',
+                    $batchSize,
+                    $windowSeconds,
+                    $waitSeconds
+                ));
+                self::sleepSeconds($waitSeconds);
+            }
+
+            self::$bulkWindowStartedAt = microtime(true);
+            self::$bulkSentInWindow = 0;
+            $now = microtime(true);
+        }
+
+        if (self::$lastBulkSentAt !== null && self::$bulkSentInWindow > 0) {
+            $elapsed = $now - self::$lastBulkSentAt;
+            $waitSeconds = $minGapSeconds - $elapsed;
+
+            if ($waitSeconds > 0) {
+                Log::debug(sprintf(
+                    'WhatsApp bulk: jeda %.1f detik sebelum pesan berikutnya (%d pesan / %d detik).',
+                    $waitSeconds,
+                    $batchSize,
+                    $windowSeconds
+                ));
+                self::sleepSeconds($waitSeconds);
             }
         }
+    }
+
+    /**
+     * @param array{bulk_batch_size: int, bulk_window_seconds: int} $config
+     */
+    private static function recordBulkSend(array $config): void
+    {
+        $now = microtime(true);
+        $windowSeconds = max(6, (int) ($config['bulk_window_seconds'] ?? 300));
+
+        if (self::$bulkWindowStartedAt === null || ($now - self::$bulkWindowStartedAt) >= $windowSeconds) {
+            self::$bulkWindowStartedAt = $now;
+            self::$bulkSentInWindow = 0;
+        }
+
+        self::$bulkSentInWindow++;
+        self::$lastBulkSentAt = $now;
+    }
+
+    private static function sleepSeconds(float $seconds): void
+    {
+        usleep((int) round($seconds * 1_000_000));
     }
 
     /**
@@ -366,5 +425,7 @@ class WhatsAppService
     public static function resetBulkDelayState(): void
     {
         self::$lastBulkSentAt = null;
+        self::$bulkWindowStartedAt = null;
+        self::$bulkSentInWindow = 0;
     }
 }

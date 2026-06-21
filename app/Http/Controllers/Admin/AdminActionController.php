@@ -913,6 +913,8 @@ class AdminActionController extends Controller
             'system.billing_generate_days_before' => 'nullable|integer|min:1|max:30',
             'system.billing_notify_admin' => 'nullable|in:0,1',
             'system.billing_admin_phone' => 'nullable|string|max:30',
+            'whatsapp.bulk_batch_size' => 'nullable|integer|min:1|max:100',
+            'whatsapp.bulk_window_seconds' => 'nullable|integer|min:6|max:7200',
             'mikrotik.isolir_profile' => 'nullable|string|max:64',
             'mikrotik.isolir_source_router_id' => 'nullable|exists:routers,id',
             'system.logo' => ['nullable', 'file', 'max:2048', $this->brandingImageRule('Logo', ['jpg', 'jpeg', 'png', 'webp', 'svg'])],

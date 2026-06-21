@@ -54,8 +54,8 @@ class DatabaseSeeder extends Seeder
             ['group' => 'whatsapp', 'key' => 'whatsapp.api_key', 'value' => '', 'is_encrypted' => true],
             ['group' => 'whatsapp', 'key' => 'whatsapp.session_id', 'value' => 'mwifi_session', 'is_encrypted' => false],
             ['group' => 'whatsapp', 'key' => 'whatsapp.bulk_delay_enabled', 'value' => '1', 'is_encrypted' => false],
-            ['group' => 'whatsapp', 'key' => 'whatsapp.bulk_delay_seconds', 'value' => '4', 'is_encrypted' => false],
-            ['group' => 'whatsapp', 'key' => 'whatsapp.bulk_delay_jitter_seconds', 'value' => '3', 'is_encrypted' => false],
+            ['group' => 'whatsapp', 'key' => 'whatsapp.bulk_batch_size', 'value' => '5', 'is_encrypted' => false],
+            ['group' => 'whatsapp', 'key' => 'whatsapp.bulk_window_seconds', 'value' => '300', 'is_encrypted' => false],
             ['group' => 'genieacs', 'key' => 'genieacs.api_url', 'value' => 'http://localhost:7557', 'is_encrypted' => false],
         ];
 

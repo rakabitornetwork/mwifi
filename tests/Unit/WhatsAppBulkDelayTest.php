@@ -38,19 +38,19 @@ class WhatsAppBulkDelayTest extends TestCase
             'value' => '1',
             'is_encrypted' => false,
         ]);
-        Setting::updateOrCreate(['key' => 'whatsapp.bulk_delay_seconds'], [
+        Setting::updateOrCreate(['key' => 'whatsapp.bulk_batch_size'], [
             'group' => 'whatsapp',
-            'value' => '1',
+            'value' => '2',
             'is_encrypted' => false,
         ]);
-        Setting::updateOrCreate(['key' => 'whatsapp.bulk_delay_jitter_seconds'], [
+        Setting::updateOrCreate(['key' => 'whatsapp.bulk_window_seconds'], [
             'group' => 'whatsapp',
-            'value' => '0',
+            'value' => '6',
             'is_encrypted' => false,
         ]);
     }
 
-    public function test_bulk_delay_waits_between_consecutive_messages(): void
+    public function test_bulk_delay_spaces_messages_within_batch_window(): void
     {
         Http::fake([
             'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
@@ -63,7 +63,7 @@ class WhatsAppBulkDelayTest extends TestCase
 
         $elapsed = microtime(true) - $start;
 
-        $this->assertGreaterThanOrEqual(0.9, $elapsed);
+        $this->assertGreaterThanOrEqual(2.9, $elapsed);
     }
 
     public function test_skip_bulk_delay_sends_without_waiting(): void

@@ -56,8 +56,17 @@ function SettingsPageContent({ settings = [], routers = [] }) {
     const billingAdminPhoneDefault = settingsMap['system.billing_admin_phone'] || '';
     const whatsappEnabledDefault = settingsMap['whatsapp.enabled'] !== '0';
     const whatsappBulkDelayEnabledDefault = settingsMap['whatsapp.bulk_delay_enabled'] !== '0';
-    const whatsappBulkDelaySecondsDefault = Math.min(120, Math.max(1, parseInt(settingsMap['whatsapp.bulk_delay_seconds'] || '4', 10) || 4));
-    const whatsappBulkDelayJitterDefault = Math.min(60, Math.max(0, parseInt(settingsMap['whatsapp.bulk_delay_jitter_seconds'] || '3', 10) || 3));
+    const storedSecondsToMinutes = (value, fallbackSeconds) => {
+        const seconds = parseInt(value ?? String(fallbackSeconds), 10);
+        const safeSeconds = Number.isFinite(seconds) ? seconds : fallbackSeconds;
+
+        return Math.round((safeSeconds / 60) * 100) / 100;
+    };
+    const whatsappBulkBatchSizeDefault = Math.min(100, Math.max(1, parseInt(settingsMap['whatsapp.bulk_batch_size'] || '5', 10) || 5));
+    const whatsappBulkWindowMinutesDefault = storedSecondsToMinutes(
+        settingsMap['whatsapp.bulk_window_seconds'] ?? settingsMap['whatsapp.bulk_delay_seconds'],
+        300
+    );
     const appName = branding.app_name || settingsMap['system.app_name'] || 'mWiFi';
     const companyName = branding.company_name || settingsMap['system.company_name'] || branding.display_name || appName;
 
@@ -302,6 +311,21 @@ function SettingsPageContent({ settings = [], routers = [] }) {
 
         const whatsappBulkDelayCheckbox = form.querySelector('input[name="whatsapp_bulk_delay_enabled_ui"]');
         formData.set('whatsapp[bulk_delay_enabled]', whatsappBulkDelayCheckbox?.checked ? '1' : '0');
+
+        const bulkBatchSizeInput = form.querySelector('input[name="whatsapp_bulk_batch_size_ui"]');
+        const bulkWindowMinutesInput = form.querySelector('input[name="whatsapp_bulk_window_minutes_ui"]');
+        const minutesToStoredSeconds = (minutes, { minSeconds = 6, maxSeconds = 7200 } = {}) => {
+            const parsed = parseFloat(minutes);
+            const seconds = Math.round((Number.isFinite(parsed) ? parsed : 0) * 60);
+
+            return String(Math.min(maxSeconds, Math.max(minSeconds, seconds)));
+        };
+
+        formData.set(
+            'whatsapp[bulk_batch_size]',
+            String(Math.min(100, Math.max(1, parseInt(bulkBatchSizeInput?.value, 10) || 5)))
+        );
+        formData.set('whatsapp[bulk_window_seconds]', minutesToStoredSeconds(bulkWindowMinutesInput?.value, { minSeconds: 6 }));
 
         router.post('/admin/settings/save', formData, {
             forceFormData: true,
@@ -776,34 +800,36 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                                     defaultChecked={whatsappBulkDelayEnabledDefault}
                                     className={`rounded text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}
                                 />
-                                <span className={`font-bold ${themeTextTitle}`}>Aktifkan jeda antar pesan</span>
+                                <span className={`font-bold ${themeTextTitle}`}>Aktifkan pembatasan pengiriman massal</span>
                             </label>
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Jeda minimum (detik)</label>
+                                    <label className={`font-bold ${themeLabel}`}>Jumlah pesan</label>
                                     <input
-                                        name="whatsapp[bulk_delay_seconds]"
+                                        name="whatsapp_bulk_batch_size_ui"
                                         type="number"
                                         min={1}
-                                        max={120}
-                                        defaultValue={whatsappBulkDelaySecondsDefault}
+                                        max={100}
+                                        step={1}
+                                        defaultValue={whatsappBulkBatchSizeDefault}
                                         className={`p-2 border rounded-lg ${themeInput}`}
                                     />
                                 </div>
                                 <div className="flex flex-col gap-1">
-                                    <label className={`font-bold ${themeLabel}`}>Acak tambahan (0–N detik)</label>
+                                    <label className={`font-bold ${themeLabel}`}>Periode waktu (menit)</label>
                                     <input
-                                        name="whatsapp[bulk_delay_jitter_seconds]"
+                                        name="whatsapp_bulk_window_minutes_ui"
                                         type="number"
-                                        min={0}
-                                        max={60}
-                                        defaultValue={whatsappBulkDelayJitterDefault}
+                                        min={0.1}
+                                        max={120}
+                                        step={0.1}
+                                        defaultValue={whatsappBulkWindowMinutesDefault}
                                         className={`p-2 border rounded-lg ${themeInput}`}
                                     />
                                 </div>
                             </div>
                             <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
-                                Dipakai saat generate tagihan massal, isolir otomatis, dan notifikasi beruntun. Contoh: jeda 4 detik + acak 0–3 detik → tiap pesan berjarak ±4–7 detik. Uji kirim tunggal tidak dijeda.
+                                Dipakai saat generate tagihan massal, isolir otomatis, dan notifikasi beruntun. Contoh: 5 pesan per 3 menit → maksimal 5 pesan tiap 3 menit, dengan jeda rata ±36 detik antar pesan. Setelah kuota habis, sistem menunggu sisa periode sebelum gelombang berikutnya. Uji kirim tunggal tidak dijeda.
                             </p>
                         </div>
                         <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
