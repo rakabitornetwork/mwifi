@@ -216,13 +216,15 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
     const hasUpdate = Boolean(updateInfo.update_available) && !isCheckingRemote;
 
     const release = updateInfo.release ?? {};
-    const releaseVersion = release.version || '—';
+    const releaseVersion = release.label || release.version || '—';
+    const releaseVersionPrefix = releaseVersion === '—' ? '—' : `v${releaseVersion}`;
+    const remoteReleaseVersion = release.remote_version;
 
     const releaseBadgeLabel = isCheckingRemote
         ? 'Memeriksa...'
         : hasUpdate
-            ? (release.remote_version ? `v${release.remote_version}` : 'Pembaruan tersedia')
-            : 'Latest';
+            ? (remoteReleaseVersion ? `GitHub v${remoteReleaseVersion}` : 'Pembaruan tersedia')
+            : (remoteReleaseVersion ? `GitHub v${remoteReleaseVersion}` : 'Latest');
 
     const releaseBadgeClass = isCheckingRemote
         ? (theme.isDarkMode
@@ -279,7 +281,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                 <div className="flex flex-wrap items-center gap-2 mt-1.5">
                                     <Tag className="w-4 h-4 text-emerald-500 shrink-0" aria-hidden="true" />
                                     <span className={`text-sm font-bold ${theme.isDarkMode ? 'text-white' : 'text-zinc-900'}`}>
-                                        {releaseVersion}
+                                        {releaseVersionPrefix}
                                     </span>
                                     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-transparent ${releaseBadgeClass} ${isCheckingRemote ? 'opacity-70' : ''}`}>
                                         {isCheckingRemote && (
@@ -289,7 +291,9 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                     </span>
                                 </div>
                                 <p className={`text-[11px] leading-relaxed mt-1 ${theme.themeTextSub}`}>
-                                    Halaman dibuka instan; versi GitHub diperbarui di background (branch: {updateInfo.repository?.branch || 'main'}).
+                                    Versi lokal dari Git tag
+                                    {release.source === 'config' ? ' (fallback config)' : ''}
+                                    ; versi GitHub dari {release.remote_version_source === 'github_release' ? 'release' : release.remote_version_source === 'github_tag' ? 'tag' : 'commit'} (branch: {updateInfo.repository?.branch || 'main'}).
                                 </p>
                             </div>
                         </div>
@@ -307,7 +311,15 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                             <span className={`inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md ${localLabelClass}`}>
                                 Versi lokal
                             </span>
-                            <p className={`text-base font-black font-mono mt-2 ${theme.isDarkMode ? 'text-emerald-100' : 'text-emerald-950'}`}>{updateInfo.local?.commit_short || '—'}</p>
+                            <p className={`text-base font-black font-mono mt-2 ${theme.isDarkMode ? 'text-emerald-100' : 'text-emerald-950'}`}>
+                                {updateInfo.local?.tag ? `v${updateInfo.local.tag}` : (release.version ? `v${release.version}` : '—')}
+                            </p>
+                            <p className={`text-[10px] mt-1 font-mono ${theme.isDarkMode ? 'text-emerald-300/80' : 'text-emerald-800/70'}`}>
+                                {updateInfo.local?.commit_short || '—'}
+                                {Number(updateInfo.local?.commits_since_tag) > 0
+                                    ? ` · +${updateInfo.local.commits_since_tag} commit setelah tag`
+                                    : ''}
+                            </p>
                             <p className={`text-[10px] mt-1 line-clamp-2 ${theme.isDarkMode ? 'text-emerald-300/80' : 'text-emerald-800/70'}`}>{updateInfo.local?.commit_message || '—'}</p>
                         </div>
                         <div className={`rounded-xl border p-3 ${versionCardClass}`}>
@@ -323,14 +335,18 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                 )}
                             </div>
                             <p className={`text-base font-black font-mono mt-2 ${theme.themeTextTitle}`}>
-                                {isCheckingRemote && !updateInfo.remote?.commit_short ? (
+                                {isCheckingRemote && !release.remote_version && !updateInfo.remote?.commit_short ? (
                                     <span className="inline-flex items-center gap-1.5 text-sm font-bold">
                                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                                         ...
                                     </span>
                                 ) : (
-                                    updateInfo.remote?.commit_short || '—'
+                                    remoteReleaseVersion ? `v${remoteReleaseVersion}` : (updateInfo.remote?.commit_short || '—')
                                 )}
+                            </p>
+                            <p className={`text-[10px] mt-1 font-mono ${theme.themeTextDesc}`}>
+                                {updateInfo.remote?.commit_short || '—'}
+                                {release.remote_version_source ? ` · sumber: ${release.remote_version_source.replace(/_/g, ' ')}` : ''}
                             </p>
                             <p className={`text-[10px] mt-1 line-clamp-2 ${theme.themeTextDesc}`}>{updateInfo.remote?.commit_message || updateInfo.remote?.error || 'Belum dapat memuat versi remote.'}</p>
                         </div>

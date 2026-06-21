@@ -15,10 +15,10 @@ return [
     'enabled' => true,
 
     /*
-    | Versi rilis semantik aplikasi (ditampilkan di halaman Update).
-    | Naikkan saat merilis versi baru ke GitHub.
+    | Versi fallback jika Git tag tidak tersedia (mis. deploy tanpa .git).
+    | Versi aktif diambil otomatis dari Git tag terdekat.
     */
-    'app_version' => '1.1',
+    'app_version' => '1.2',
 
     'repository' => 'https://github.com/rakabitornetwork/mwifi.git',
 

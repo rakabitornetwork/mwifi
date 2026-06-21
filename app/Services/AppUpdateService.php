@@ -88,7 +88,8 @@ class AppUpdateService
             && ($requirements['php_cli']['ok'] ?? false)
             && $isRepo;
 
-        $remoteVersion = $this->getLatestGitHubReleaseVersion($owner, $repo);
+        $remoteVersionInfo = $this->getLatestGitHubVersion($owner, $repo, $isRepo && $git['ok']);
+        $localVersionInfo = $this->resolveLocalVersionInfo($isRepo && $git['ok']);
 
         return [
             'enabled' => (bool) config('update.enabled', true),
@@ -101,14 +102,23 @@ class AppUpdateService
                 'branch' => $resolvedBranch,
                 'github_url' => "https://github.com/{$owner}/{$repo}",
             ],
-            'local' => $local,
+            'local' => array_merge($local, [
+                'tag' => $localVersionInfo['tag'],
+                'describe' => $localVersionInfo['describe'],
+                'commits_since_tag' => $localVersionInfo['commits_since_tag'],
+            ]),
             'remote' => $remote,
             'update_available' => $updateAvailable,
             'behind_count' => $behindCount,
             'release' => [
-                'version' => (string) config('update.app_version', '1.0'),
+                'version' => $localVersionInfo['version'],
+                'label' => $localVersionInfo['label'],
+                'source' => $localVersionInfo['source'],
+                'tag' => $localVersionInfo['tag'],
+                'commits_since_tag' => $localVersionInfo['commits_since_tag'],
                 'is_latest' => $remoteReadable ? !$updateAvailable : null,
-                'remote_version' => $remoteVersion,
+                'remote_version' => $remoteVersionInfo['version'],
+                'remote_version_source' => $remoteVersionInfo['source'],
             ],
         ];
     }
@@ -458,18 +468,7 @@ class AppUpdateService
     private function getLatestGitHubReleaseVersion(string $owner, string $repo): ?string
     {
         try {
-            $request = Http::timeout(8)
-                ->withHeaders([
-                    'Accept' => 'application/vnd.github+json',
-                    'User-Agent' => 'mWiFi-Update-Checker',
-                ]);
-
-            $token = config('update.github_token');
-            if (is_string($token) && $token !== '') {
-                $request = $request->withToken($token);
-            }
-
-            $response = $request->get("https://api.github.com/repos/{$owner}/{$repo}/releases/latest");
+            $response = $this->githubApiRequest($owner, $repo)->get("https://api.github.com/repos/{$owner}/{$repo}/releases/latest");
 
             if (!$response->successful()) {
                 return null;
@@ -480,10 +479,230 @@ class AppUpdateService
                 return null;
             }
 
-            return ltrim($tagName, 'vV');
+            return $this->normalizeVersionTag($tagName);
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * @return array{version: ?string, source: ?string}
+     */
+    private function getLatestGitHubVersion(string $owner, string $repo, bool $canUseGit): array
+    {
+        $fromRelease = $this->getLatestGitHubReleaseVersion($owner, $repo);
+        if ($fromRelease !== null) {
+            return [
+                'version' => $fromRelease,
+                'source' => 'github_release',
+            ];
+        }
+
+        $fromTagApi = $this->getLatestGitHubTagVersion($owner, $repo);
+        if ($fromTagApi !== null) {
+            return [
+                'version' => $fromTagApi,
+                'source' => 'github_tag',
+            ];
+        }
+
+        if ($canUseGit) {
+            $fromGitTags = $this->getLatestRemoteTagFromGit();
+            if ($fromGitTags !== null) {
+                return [
+                    'version' => $fromGitTags,
+                    'source' => 'git_remote_tag',
+                ];
+            }
+        }
+
+        return [
+            'version' => null,
+            'source' => null,
+        ];
+    }
+
+    private function getLatestGitHubTagVersion(string $owner, string $repo): ?string
+    {
+        try {
+            $response = $this->githubApiRequest($owner, $repo)->get(
+                "https://api.github.com/repos/{$owner}/{$repo}/tags",
+                ['per_page' => 100]
+            );
+
+            if (!$response->successful()) {
+                return null;
+            }
+
+            return $this->pickHighestSemverVersion(
+                collect($response->json())
+                    ->pluck('name')
+                    ->filter(fn ($name) => is_string($name) && $name !== '')
+                    ->all()
+            );
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function getLatestRemoteTagFromGit(): ?string
+    {
+        $process = $this->runGit(['ls-remote', '--tags', 'origin']);
+        if (!$process->isSuccessful()) {
+            return null;
+        }
+
+        $tagNames = [];
+        foreach (preg_split('/\R/', trim($process->getOutput())) ?: [] as $line) {
+            if (!preg_match('/refs\/tags\/(.+)$/', $line, $matches)) {
+                continue;
+            }
+
+            $tag = trim($matches[1]);
+            if ($tag === '' || str_ends_with($tag, '^{}')) {
+                continue;
+            }
+
+            $tagNames[] = $tag;
+        }
+
+        return $this->pickHighestSemverVersion($tagNames);
+    }
+
+    /**
+     * @param  list<string>  $tagNames
+     */
+    private function pickHighestSemverVersion(array $tagNames): ?string
+    {
+        $best = null;
+
+        foreach ($tagNames as $tagName) {
+            $normalized = $this->normalizeVersionTag($tagName);
+            if ($normalized === null) {
+                continue;
+            }
+
+            if ($best === null || version_compare($normalized, $best, '>')) {
+                $best = $normalized;
+            }
+        }
+
+        return $best;
+    }
+
+    private function normalizeVersionTag(string $tagName): ?string
+    {
+        $tagName = ltrim(trim($tagName), 'vV');
+        if ($tagName === '' || !preg_match('/^\d+(?:\.\d+)*$/', $tagName)) {
+            return null;
+        }
+
+        return $tagName;
+    }
+
+    /**
+     * @return array{
+     *     version: string,
+     *     label: string,
+     *     tag: ?string,
+     *     describe: ?string,
+     *     commits_since_tag: int,
+     *     source: string
+     * }
+     */
+    private function resolveLocalVersionInfo(bool $canUseGit): array
+    {
+        $fallback = (string) config('update.app_version', '1.0');
+
+        if (!$canUseGit) {
+            return [
+                'version' => $fallback,
+                'label' => $fallback,
+                'tag' => null,
+                'describe' => null,
+                'commits_since_tag' => 0,
+                'source' => 'config',
+            ];
+        }
+
+        $describeProcess = $this->runGit(['describe', '--tags', '--always']);
+        if (!$describeProcess->isSuccessful()) {
+            return [
+                'version' => $fallback,
+                'label' => $fallback,
+                'tag' => null,
+                'describe' => null,
+                'commits_since_tag' => 0,
+                'source' => 'config',
+            ];
+        }
+
+        $describe = trim($describeProcess->getOutput());
+        if ($describe === '') {
+            return [
+                'version' => $fallback,
+                'label' => $fallback,
+                'tag' => null,
+                'describe' => null,
+                'commits_since_tag' => 0,
+                'source' => 'config',
+            ];
+        }
+
+        if (preg_match('/^v?(\d+(?:\.\d+)*)(?:-(\d+)-g[0-9a-f]+)?$/i', $describe, $matches)) {
+            $tag = $matches[1];
+            $commitsSinceTag = isset($matches[2]) ? (int) $matches[2] : 0;
+            $label = $commitsSinceTag > 0 ? "{$tag} (+{$commitsSinceTag})" : $tag;
+
+            return [
+                'version' => $tag,
+                'label' => $label,
+                'tag' => $tag,
+                'describe' => $describe,
+                'commits_since_tag' => $commitsSinceTag,
+                'source' => 'git_tag',
+            ];
+        }
+
+        $exactTagProcess = $this->runGit(['describe', '--tags', '--exact-match']);
+        if ($exactTagProcess->isSuccessful()) {
+            $tag = $this->normalizeVersionTag(trim($exactTagProcess->getOutput()));
+            if ($tag !== null) {
+                return [
+                    'version' => $tag,
+                    'label' => $tag,
+                    'tag' => $tag,
+                    'describe' => $describe,
+                    'commits_since_tag' => 0,
+                    'source' => 'git_tag',
+                ];
+            }
+        }
+
+        return [
+            'version' => $fallback,
+            'label' => $fallback,
+            'tag' => null,
+            'describe' => $describe,
+            'commits_since_tag' => 0,
+            'source' => 'config',
+        ];
+    }
+
+    private function githubApiRequest(string $owner, string $repo): \Illuminate\Http\Client\PendingRequest
+    {
+        $request = Http::timeout(8)
+            ->withHeaders([
+                'Accept' => 'application/vnd.github+json',
+                'User-Agent' => 'mWiFi-Update-Checker',
+            ]);
+
+        $token = config('update.github_token');
+        if (is_string($token) && $token !== '') {
+            $request = $request->withToken($token);
+        }
+
+        return $request;
     }
 
     /**
@@ -492,18 +711,7 @@ class AppUpdateService
     private function getRemoteGitHubCommit(string $owner, string $repo, string $branch): array
     {
         try {
-            $request = Http::timeout(8)
-                ->withHeaders([
-                    'Accept' => 'application/vnd.github+json',
-                    'User-Agent' => 'mWiFi-Update-Checker',
-                ]);
-
-            $token = config('update.github_token');
-            if (is_string($token) && $token !== '') {
-                $request = $request->withToken($token);
-            }
-
-            $response = $request->get("https://api.github.com/repos/{$owner}/{$repo}/commits/{$branch}");
+            $response = $this->githubApiRequest($owner, $repo)->get("https://api.github.com/repos/{$owner}/{$repo}/commits/{$branch}");
 
             if (!$response->successful()) {
                 $message = $response->json('message') ?? 'Gagal memuat commit dari GitHub API.';
