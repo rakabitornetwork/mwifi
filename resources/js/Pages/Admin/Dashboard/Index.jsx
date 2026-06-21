@@ -54,9 +54,28 @@ function DashboardContent({
     const { showToast } = useAdminToast();
     const { isDarkMode, themeCard, themeTextTitle, themeTextSub, themeTextDesc } = theme;
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
+    const themeSelect = isDarkMode
+        ? 'bg-zinc-900 border-zinc-700 text-zinc-100'
+        : 'bg-white border-zinc-200 text-zinc-800';
 
-    const [serverResources, setServerResources] = useState({ cpu: 15, ram: 35, disk: 20, os: 'VPS', hostname: 'vps-server' });
+    const defaultRouterId = (() => {
+        const activeRouter = routers.find((r) => r.status);
+        return activeRouter?.id ?? routers[0]?.id ?? '';
+    })();
+
+    const [selectedRouterId, setSelectedRouterId] = useState(String(defaultRouterId || ''));
+    const [serverResources, setServerResources] = useState({
+        cpu: 0,
+        ram: 0,
+        disk: 0,
+        os: '—',
+        hostname: '—',
+        router_name: '',
+        router_host: '',
+    });
     const [resourceHistory, setResourceHistory] = useState([]);
+    const [resourceError, setResourceError] = useState(null);
+    const [isLoadingResources, setIsLoadingResources] = useState(false);
     const [ontDevices, setOntDevices] = useState([]);
     const [isLoadingOnt, setIsLoadingOnt] = useState(true);
     const [isSyncingRouter, setIsSyncingRouter] = useState(null);
@@ -75,38 +94,50 @@ function DashboardContent({
     };
 
     const fetchServerResources = async () => {
+        if (!selectedRouterId) {
+            setResourceError('Belum ada router Mikrotik terdaftar.');
+            return;
+        }
+
+        setIsLoadingResources(true);
         try {
-            const res = await fetch('/admin/server/resources');
+            const res = await fetch(`/admin/server/resources?router_id=${selectedRouterId}`);
             const data = await res.json();
+
+            if (!res.ok) {
+                setResourceError(data.error || 'Gagal membaca resource dari Mikrotik.');
+                return;
+            }
+
+            setResourceError(null);
             setServerResources(data);
         } catch (err) {
-            console.error('Failed to load server resources', err);
+            console.error('Failed to load Mikrotik resources', err);
+            setResourceError('Gagal terhubung ke Mikrotik.');
+        } finally {
+            setIsLoadingResources(false);
         }
     };
 
     useEffect(() => {
         fetchOntDevices();
+    }, []);
+
+    useEffect(() => {
+        if (!selectedRouterId) {
+            setResourceHistory([]);
+            return;
+        }
+
+        setResourceHistory([]);
         fetchServerResources();
+
         const interval = setInterval(fetchServerResources, 15000);
         return () => clearInterval(interval);
-    }, []);
+    }, [selectedRouterId]);
 
     useEffect(() => {
-        const timeNow = new Date();
-        const initialHistory = [];
-        for (let i = 9; i >= 0; i--) {
-            const t = new Date(timeNow.getTime() - i * 15000);
-            initialHistory.push({
-                time: t.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-                cpu: 10 + Math.floor(Math.random() * 8),
-                ram: 32 + Math.floor(Math.random() * 4),
-            });
-        }
-        setResourceHistory(initialHistory);
-    }, []);
-
-    useEffect(() => {
-        if (!serverResources) return;
+        if (!serverResources || serverResources.cpu === undefined) return;
         setResourceHistory((prev) => {
             const newHistory = [...prev];
             if (newHistory.length >= 15) {
@@ -390,11 +421,43 @@ function DashboardContent({
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="md:col-span-2 space-y-1.5">
-                                <div className="flex justify-between items-center text-[10px] text-zinc-500 font-bold">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[10px] text-zinc-500 font-bold">
                                     <span>Beban Resource CPU & RAM (Real-time) Mikrotik</span>
-                                    <span className="font-mono text-emerald-500">Interval: 15s</span>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {routers.length > 0 ? (
+                                            <select
+                                                value={selectedRouterId}
+                                                onChange={(e) => setSelectedRouterId(e.target.value)}
+                                                className={`text-[10px] font-semibold px-2 py-1 rounded-lg border max-w-[180px] truncate ${themeSelect}`}
+                                                title="Pilih router Mikrotik"
+                                            >
+                                                {routers.map((r) => (
+                                                    <option key={r.id} value={r.id}>
+                                                        {r.name} ({r.host})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        ) : (
+                                            <span className="text-amber-500">Belum ada router</span>
+                                        )}
+                                        <span className="font-mono text-emerald-500 shrink-0">
+                                            {isLoadingResources ? 'Memuat...' : 'Interval: 15s'}
+                                        </span>
+                                    </div>
                                 </div>
+                                {resourceError && (
+                                    <p className="text-[10px] font-semibold text-amber-500">{resourceError}</p>
+                                )}
                                 <div className="h-44 w-full">
+                                    {resourceHistory.length === 0 ? (
+                                        <div className={`h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>
+                                            {routers.length === 0
+                                                ? 'Tambahkan router di menu Router'
+                                                : isLoadingResources
+                                                    ? 'Menghubungkan ke Mikrotik...'
+                                                    : 'Menunggu data resource...'}
+                                        </div>
+                                    ) : (
                                     <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                         <AreaChart data={resourceHistory} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                                             <defs>
@@ -417,18 +480,33 @@ function DashboardContent({
                                             <Area type="monotone" dataKey="ram" name="RAM" stroke="#6366f1" strokeWidth={1.5} fillOpacity={1} fill="url(#colorRam)" />
                                         </AreaChart>
                                     </ResponsiveContainer>
+                                    )}
                                 </div>
                             </div>
 
                             <div className={`p-3 rounded-xl border flex flex-col justify-between space-y-2.5 ${isDarkMode ? 'bg-zinc-950/30 border-zinc-800/80' : 'bg-zinc-50 border-zinc-200'}`}>
                                 <div className="space-y-2 text-[11px] sm:text-xs">
-                                    <div className="flex justify-between items-center font-bold">
-                                        <span className={themeTextSub}>Sistem OS</span>
-                                        <span className={themeTextTitle}>{serverResources.os}</span>
+                                    <div className="flex justify-between items-center font-bold gap-2">
+                                        <span className={themeTextSub}>Router</span>
+                                        <span className={`${themeTextTitle} truncate max-w-[110px] text-right`} title={serverResources.router_name}>
+                                            {serverResources.router_name || '—'}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between items-center font-bold">
-                                        <span className={themeTextSub}>Hostname</span>
-                                        <span className={`${themeTextTitle} truncate max-w-[80px] font-mono`} title={serverResources.hostname}>{serverResources.hostname}</span>
+                                        <span className={themeTextSub}>RouterOS</span>
+                                        <span className={`${themeTextTitle} truncate max-w-[110px] text-right`} title={serverResources.os}>
+                                            {serverResources.os}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center font-bold">
+                                        <span className={themeTextSub}>Identity</span>
+                                        <span className={`${themeTextTitle} truncate max-w-[110px] font-mono text-right`} title={serverResources.hostname}>
+                                            {serverResources.hostname}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center font-bold">
+                                        <span className={themeTextSub}>Storage</span>
+                                        <span className={themeTextTitle}>{serverResources.disk ?? 0}%</span>
                                     </div>
                                     <div className="flex justify-between items-center font-bold">
                                         <span className={themeTextSub}>Total ODP</span>

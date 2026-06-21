@@ -606,6 +606,38 @@ class RestApiRouterConnector implements RouterConnectorInterface
         ];
     }
 
+    public function getSystemResources(): array
+    {
+        try {
+            $resourceResponse = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(8)
+                ->get("{$this->baseUrl}/system/resource");
+
+            if (!$resourceResponse->successful()) {
+                throw new Exception('HTTP status ' . $resourceResponse->status());
+            }
+
+            $resourcePayload = $resourceResponse->json();
+            $resource = is_array($resourcePayload) ? ($resourcePayload[0] ?? $resourcePayload) : [];
+
+            $identityResponse = Http::withBasicAuth($this->username, $this->password)
+                ->withoutVerifying()
+                ->timeout(8)
+                ->get("{$this->baseUrl}/system/identity");
+
+            $identityPayload = $identityResponse->successful() ? $identityResponse->json() : [];
+            $identity = is_array($identityPayload) ? ($identityPayload[0] ?? $identityPayload) : [];
+
+            return MikrotikResourceService::normalize(
+                is_array($resource) ? $resource : [],
+                is_array($identity) ? $identity : []
+            );
+        } catch (Exception $e) {
+            throw new Exception('Gagal membaca resource RouterOS: ' . $e->getMessage());
+        }
+    }
+
     /**
      * Filter out null and empty string values to prevent RouterOS REST API Bad Request errors.
      */

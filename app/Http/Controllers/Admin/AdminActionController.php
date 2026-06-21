@@ -1317,105 +1317,35 @@ class AdminActionController extends Controller
     }
 
     /**
-     * Get real-time system resource metrics of the server (VPS).
+     * Get real-time CPU/RAM/disk metrics from a Mikrotik RouterOS device.
      */
-    public function getServerResources()
+    public function getServerResources(\Illuminate\Http\Request $request)
     {
-        // 1. Disk Space
-        $diskTotal = disk_total_space('/') ?: 1;
-        $diskFree = disk_free_space('/') ?: 0;
-        $diskUsed = $diskTotal - $diskFree;
-        $diskUsage = round(($diskUsed / $diskTotal) * 100);
-
-        // 2. CPU Usage
-        $cpuUsage = 15; // default fallback
-        if (stristr(PHP_OS, 'win')) {
-            try {
-                $output = @shell_exec('wmic cpu get LoadPercentage /Value 2>nul');
-                if ($output && preg_match("/LoadPercentage=(\d+)/i", $output, $matches)) {
-                    $cpuUsage = (int)$matches[1];
-                } else {
-                    $psOutput = @shell_exec('powershell -NoProfile -Command "Get-CimInstance Win32_Processor | Select-Object -ExpandProperty LoadPercentage" 2>nul');
-                    if ($psOutput && preg_match("/(\d+)/", $psOutput, $matches)) {
-                        $cpuUsage = (int)$matches[1];
-                    }
-                }
-            } catch (\Exception $e) {}
-        } else {
-            try {
-                if (function_exists('sys_getloadavg')) {
-                    $loads = sys_getloadavg();
-                    $coreCount = 1;
-                    if (is_file('/proc/cpuinfo')) {
-                        $cpuinfo = file_get_contents('/proc/cpuinfo');
-                        preg_match_all('/^processor/m', $cpuinfo, $matches);
-                        $coreCount = count($matches[0]) ?: 1;
-                    }
-                    $cpuUsage = round(($loads[0] / $coreCount) * 100);
-                    if ($cpuUsage > 100) $cpuUsage = 100;
-                }
-            } catch (\Exception $e) {}
-        }
-
-        // 3. RAM Usage
-        $ramUsage = 35; // default fallback
-        if (stristr(PHP_OS, 'win')) {
-            try {
-                $output = @shell_exec('wmic OS get FreePhysicalMemory,TotalVisibleMemorySize /Value 2>nul');
-                if ($output && preg_match("/FreePhysicalMemory=(\d+)/i", $output, $freeMatches) && 
-                    preg_match("/TotalVisibleMemorySize=(\d+)/i", $output, $totalMatches)) {
-                    $freeMem = (int)$freeMatches[1];
-                    $totalMem = (int)$totalMatches[1];
-                    if ($totalMem > 0) {
-                        $ramUsage = round((($totalMem - $freeMem) / $totalMem) * 100);
-                    }
-                } else {
-                    $psOutput = @shell_exec('powershell -NoProfile -Command "(Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory; (Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize" 2>nul');
-                    if ($psOutput) {
-                        $lines = array_filter(array_map('trim', explode("\n", trim($psOutput))));
-                        if (count($lines) >= 2) {
-                            $freeMem = (int)$lines[0];
-                            $totalMem = (int)$lines[1];
-                            if ($totalMem > 0) {
-                                $ramUsage = round((($totalMem - $freeMem) / $totalMem) * 100);
-                            }
-                        }
-                    }
-                }
-            } catch (\Exception $e) {}
-        } else {
-            try {
-                $free = shell_exec('free');
-                $free = trim($free);
-                $free_arr = explode("\n", $free);
-                if (isset($free_arr[1])) {
-                    $mem = preg_split("/\s+/", $free_arr[1]);
-                    $totalMem = $mem[1] ?? 1;
-                    $usedMem = $mem[2] ?? 0;
-                    $ramUsage = round(($usedMem / $totalMem) * 100);
-                }
-            } catch (\Exception $e) {}
-        }
-
-        $osName = PHP_OS_FAMILY;
-        if (PHP_OS_FAMILY === 'Linux') {
-            try {
-                if (is_file('/etc/os-release')) {
-                    $release = file_get_contents('/etc/os-release');
-                    if (preg_match('/PRETTY_NAME="([^"]+)"/', $release, $matches)) {
-                        $osName = $matches[1];
-                    }
-                }
-            } catch (\Exception $e) {}
-        }
-
-        return response()->json([
-            'cpu' => $cpuUsage,
-            'ram' => $ramUsage,
-            'disk' => $diskUsage,
-            'os' => $osName,
-            'hostname' => gethostname() ?: 'vps-server'
+        $validated = $request->validate([
+            'router_id' => 'required|exists:routers,id',
         ]);
+
+        $router = Router::findOrFail($validated['router_id']);
+
+        try {
+            $connector = \App\Services\Router\RouterService::getConnector($router);
+            $resources = $connector->getSystemResources();
+
+            return response()->json(array_merge($resources, [
+                'router_id' => $router->id,
+                'router_name' => $router->name,
+                'router_host' => $router->host,
+                'source' => 'routeros',
+            ]));
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'router_id' => $router->id,
+                'router_name' => $router->name,
+                'router_host' => $router->host,
+                'source' => 'routeros',
+            ], 502);
+        }
     }
 
     /**

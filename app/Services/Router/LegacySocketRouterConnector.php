@@ -576,4 +576,23 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
             'upload_bps' => MikrotikTrafficService::normalizeRate($first) ?? 0,
         ];
     }
+
+    public function getSystemResources(): array
+    {
+        if (!$this->client) {
+            return MikrotikResourceService::normalize([]);
+        }
+
+        try {
+            $resource = $this->client->query(new Query('/system/resource/print'))->read()[0] ?? [];
+            $identity = $this->client->query(new Query('/system/identity/print'))->read()[0] ?? [];
+
+            return MikrotikResourceService::normalize(
+                is_array($resource) ? $resource : [],
+                is_array($identity) ? $identity : []
+            );
+        } catch (Exception $e) {
+            throw new Exception('Gagal membaca resource RouterOS: ' . $e->getMessage());
+        }
+    }
 }

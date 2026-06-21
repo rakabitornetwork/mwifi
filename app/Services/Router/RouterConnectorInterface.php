@@ -158,6 +158,13 @@ interface RouterConnectorInterface
     public function getSimpleQueueTrafficStats(): array;
 
     /**
+     * CPU, RAM, and storage usage from RouterOS /system/resource.
+     *
+     * @return array<string, mixed>
+     */
+    public function getSystemResources(): array;
+
+    /**
      * Get all Hotspot Servers.
      *
      * @return array
