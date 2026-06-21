@@ -532,11 +532,12 @@ function SettingsPageContent({ settings = [], routers = [] }) {
             <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
                 <div className="flex items-center gap-2">
                     <Landmark className={`w-4 h-4 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`} />
-                    <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Rekening Transfer Manual</h3>
+                    <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Rekening & E-Wallet</h3>
                 </div>
                 <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
-                    Data rekening ini otomatis disertakan pada pesan tagihan WhatsApp. Nomor konfirmasi pembayaran diambil dari WhatsApp Gateway (Baileys) yang terhubung; isi fallback di bawah jika gateway belum aktif.
+                    Data rekening bank dan DANA otomatis disertakan pada pesan tagihan WhatsApp. Nomor konfirmasi pembayaran diambil dari WhatsApp Gateway (Baileys) yang terhubung; isi fallback di bawah jika gateway belum aktif.
                 </p>
+                <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Transfer Bank</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Nama Bank</label>
@@ -565,6 +566,29 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                             type="text"
                             defaultValue={settingsMap['payment.bank_account_holder'] || ''}
                             placeholder="Nama pemilik rekening"
+                            className={`p-2 border rounded-lg ${themeInput}`}
+                        />
+                    </div>
+                </div>
+                <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>E-Wallet DANA</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    <div className="flex flex-col gap-1">
+                        <label className={`font-bold ${themeLabel}`}>Nomor DANA</label>
+                        <input
+                            name="payment[dana_number]"
+                            type="text"
+                            defaultValue={settingsMap['payment.dana_number'] || ''}
+                            placeholder="0812... atau 62812..."
+                            className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                        />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className={`font-bold ${themeLabel}`}>Atas Nama (DANA)</label>
+                        <input
+                            name="payment[dana_account_holder]"
+                            type="text"
+                            defaultValue={settingsMap['payment.dana_account_holder'] || ''}
+                            placeholder="Nama pemilik akun DANA"
                             className={`p-2 border rounded-lg ${themeInput}`}
                         />
                     </div>

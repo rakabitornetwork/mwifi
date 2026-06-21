@@ -936,6 +936,8 @@ class AdminActionController extends Controller
             'payment.bank_name' => 'nullable|string|max:100',
             'payment.bank_account_number' => 'nullable|string|max:50',
             'payment.bank_account_holder' => 'nullable|string|max:150',
+            'payment.dana_number' => 'nullable|string|max:30',
+            'payment.dana_account_holder' => 'nullable|string|max:150',
             'payment.manual_confirm_phone' => 'nullable|string|max:30',
             'whatsapp.bulk_batch_size' => 'nullable|integer|min:1|max:100',
             'whatsapp.bulk_window_seconds' => 'nullable|integer|min:6|max:7200',

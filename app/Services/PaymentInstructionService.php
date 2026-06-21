@@ -19,9 +19,29 @@ class PaymentInstructionService
         return trim((string) SettingService::get('payment.bank_account_holder', ''));
     }
 
+    public static function danaNumber(): string
+    {
+        return trim((string) SettingService::get('payment.dana_number', ''));
+    }
+
+    public static function danaAccountHolder(): string
+    {
+        return trim((string) SettingService::get('payment.dana_account_holder', ''));
+    }
+
     public static function hasBankInfo(): bool
     {
         return self::bankName() !== '' || self::bankAccountNumber() !== '';
+    }
+
+    public static function hasDanaInfo(): bool
+    {
+        return self::danaNumber() !== '';
+    }
+
+    public static function hasAnyPaymentMethod(): bool
+    {
+        return self::hasBankInfo() || self::hasDanaInfo();
     }
 
     public static function formatBankInfo(): string
@@ -30,7 +50,7 @@ class PaymentInstructionService
             return '';
         }
 
-        $lines = [];
+        $lines = ['*Transfer Bank*'];
         if (self::bankName() !== '') {
             $lines[] = '• Bank          : *' . self::bankName() . '*';
         }
@@ -44,38 +64,78 @@ class PaymentInstructionService
         return implode("\n", $lines);
     }
 
+    public static function formatDanaInfo(): string
+    {
+        if (!self::hasDanaInfo()) {
+            return '';
+        }
+
+        $lines = ['*E-Wallet DANA*'];
+        $lines[] = '• Nomor DANA    : *' . self::formatDanaDisplayNumber(self::danaNumber()) . '*';
+        if (self::danaAccountHolder() !== '') {
+            $lines[] = '• Atas Nama     : *' . self::danaAccountHolder() . '*';
+        }
+
+        return implode("\n", $lines);
+    }
+
+    public static function formatDanaDisplayNumber(string $number): string
+    {
+        $digits = preg_replace('/[^0-9]/', '', $number);
+        if ($digits === '') {
+            return $number;
+        }
+
+        if (str_starts_with($digits, '62')) {
+            return '0' . substr($digits, 2);
+        }
+
+        return $digits;
+    }
+
     public static function formatPaymentInstructions(): string
     {
         $bankInfo = self::formatBankInfo();
+        $danaInfo = self::formatDanaInfo();
         $whatsapp = WhatsAppService::getLinkedPhoneForMessages();
 
         $lines = ['', '*Cara Pembayaran*'];
 
         if ($bankInfo !== '') {
             $lines[] = $bankInfo;
-        } else {
+        }
+
+        if ($danaInfo !== '') {
+            if ($bankInfo !== '') {
+                $lines[] = '';
+            }
+            $lines[] = $danaInfo;
+        }
+
+        if ($bankInfo === '' && $danaInfo === '') {
             $lines[] = 'Silakan lakukan pembayaran melalui Portal Pelanggan atau metode yang tersedia.';
         }
 
         $lines[] = '';
 
         if ($whatsapp !== '' && $whatsapp !== '-') {
-            $lines[] = 'Setelah transfer, mohon konfirmasi dan kirim bukti pembayaran ke WhatsApp kami:';
+            $lines[] = 'Setelah pembayaran, mohon konfirmasi dan kirim bukti transfer ke WhatsApp kami:';
             $lines[] = '*' . $whatsapp . '*';
         } else {
-            $lines[] = 'Setelah transfer, mohon konfirmasi pembayaran melalui Portal Pelanggan atau hubungi tim kami.';
+            $lines[] = 'Setelah pembayaran, mohon konfirmasi melalui Portal Pelanggan atau hubungi tim kami.';
         }
 
         return implode("\n", $lines);
     }
 
     /**
-     * @return array{bank_info: string, whatsapp_contact: string, payment_instructions: string}
+     * @return array{bank_info: string, dana_info: string, whatsapp_contact: string, payment_instructions: string}
      */
     public static function templateVariables(): array
     {
         return [
             'bank_info' => self::formatBankInfo(),
+            'dana_info' => self::formatDanaInfo(),
             'whatsapp_contact' => WhatsAppService::getLinkedPhoneForMessages(),
             'payment_instructions' => self::formatPaymentInstructions(),
         ];

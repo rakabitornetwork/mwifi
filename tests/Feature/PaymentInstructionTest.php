@@ -13,7 +13,7 @@ class PaymentInstructionTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_payment_instruction_includes_bank_and_whatsapp_contact(): void
+    public function test_payment_instruction_includes_bank_dana_and_whatsapp_contact(): void
     {
         Setting::create([
             'group' => 'payment',
@@ -34,6 +34,18 @@ class PaymentInstructionTest extends TestCase
             'is_encrypted' => false,
         ]);
         Setting::create([
+            'group' => 'payment',
+            'key' => 'payment.dana_number',
+            'value' => '6281234567890',
+            'is_encrypted' => false,
+        ]);
+        Setting::create([
+            'group' => 'payment',
+            'key' => 'payment.dana_account_holder',
+            'value' => 'Budi Santoso',
+            'is_encrypted' => false,
+        ]);
+        Setting::create([
             'group' => 'whatsapp',
             'key' => 'whatsapp.linked_phone',
             'value' => '6281234567890',
@@ -44,9 +56,11 @@ class PaymentInstructionTest extends TestCase
 
         $this->assertStringContainsString('BCA', $instructions);
         $this->assertStringContainsString('1234567890', $instructions);
-        $this->assertStringContainsString('PT Tesla Tech', $instructions);
+        $this->assertStringContainsString('E-Wallet DANA', $instructions);
+        $this->assertStringContainsString('081234567890', $instructions);
+        $this->assertStringContainsString('Budi Santoso', $instructions);
         $this->assertStringContainsString('+6281234567890', $instructions);
-        $this->assertStringContainsString('bukti pembayaran', $instructions);
+        $this->assertStringContainsString('bukti transfer', $instructions);
     }
 
     public function test_invoice_template_renders_payment_instructions(): void
@@ -86,6 +100,12 @@ class PaymentInstructionTest extends TestCase
         $this->assertStringContainsString('Mandiri', $rendered);
         $this->assertStringContainsString('+628111222333', $rendered);
         $this->assertStringContainsString('Cara Pembayaran', $rendered);
+    }
+
+    public function test_dana_display_number_formats_international_input(): void
+    {
+        $this->assertSame('081234567890', PaymentInstructionService::formatDanaDisplayNumber('6281234567890'));
+        $this->assertSame('081234567890', PaymentInstructionService::formatDanaDisplayNumber('081234567890'));
     }
 
     public function test_whatsapp_display_phone_formats_local_number(): void

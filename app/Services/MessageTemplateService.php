@@ -16,7 +16,7 @@ class MessageTemplateService
                 'placeholders' => [
                     'customer_name', 'brand_name', 'period', 'invoice_number', 'service_type',
                     'username', 'subtotal', 'prorata_line', 'total', 'due_date',
-                    'bank_info', 'whatsapp_contact', 'payment_instructions',
+                    'bank_info', 'dana_info', 'whatsapp_contact', 'payment_instructions',
                 ],
             ],
             'whatsapp.template.invoice_unpaid' => [
@@ -25,7 +25,7 @@ class MessageTemplateService
                 'placeholders' => [
                     'customer_name', 'brand_name', 'period', 'invoice_number', 'service_type',
                     'username', 'subtotal', 'prorata_line', 'total', 'due_date',
-                    'bank_info', 'whatsapp_contact', 'payment_instructions',
+                    'bank_info', 'dana_info', 'whatsapp_contact', 'payment_instructions',
                 ],
             ],
             'whatsapp.template.invoice_accumulated' => [
@@ -34,7 +34,7 @@ class MessageTemplateService
                 'placeholders' => [
                     'customer_name', 'brand_name', 'period_label', 'invoice_number', 'service_type',
                     'username', 'subtotal', 'total', 'due_date',
-                    'bank_info', 'whatsapp_contact', 'payment_instructions',
+                    'bank_info', 'dana_info', 'whatsapp_contact', 'payment_instructions',
                 ],
             ],
             'whatsapp.template.invoice_accumulated_new' => [
@@ -43,7 +43,7 @@ class MessageTemplateService
                 'placeholders' => [
                     'customer_name', 'brand_name', 'period_label', 'invoice_number',
                     'username', 'subtotal', 'total', 'due_date',
-                    'bank_info', 'whatsapp_contact', 'payment_instructions',
+                    'bank_info', 'dana_info', 'whatsapp_contact', 'payment_instructions',
                 ],
             ],
             'whatsapp.template.payment_received' => [
@@ -67,7 +67,7 @@ class MessageTemplateService
                 'description' => 'Dikirim saat layanan sementara dinonaktifkan karena tagihan melewati jatuh tempo.',
                 'placeholders' => [
                     'customer_name', 'brand_name', 'username', 'invoice_number', 'total', 'due_date',
-                    'bank_info', 'whatsapp_contact', 'payment_instructions',
+                    'bank_info', 'dana_info', 'whatsapp_contact', 'payment_instructions',
                 ],
             ],
             'whatsapp.template.admin_scheduler' => [
