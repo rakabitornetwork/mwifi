@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
-import { MessageSquare, Save, Send } from 'lucide-react';
+import { Bot, FileText, MessageSquare, Save, Server } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 import WhatsAppGatewayPanel from '../../../Components/Admin/Messaging/WhatsAppGatewayPanel';
@@ -74,13 +74,13 @@ function MessagingPageContent({
         const active = messagingSubTab === tab;
         if (active) {
             return isDarkMode
-                ? 'px-3 py-1.5 rounded-lg text-[11px] font-bold bg-violet-500/20 text-violet-200 border border-violet-500/30 cursor-pointer'
-                : 'px-3 py-1.5 rounded-lg text-[11px] font-bold bg-violet-100 text-violet-800 border border-violet-200 cursor-pointer';
+                ? 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-violet-500/20 text-violet-200 border border-violet-500/30 cursor-pointer'
+                : 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-violet-100 text-violet-800 border border-violet-200 cursor-pointer';
         }
 
         return isDarkMode
-            ? 'px-3 py-1.5 rounded-lg text-[11px] font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 cursor-pointer'
-            : 'px-3 py-1.5 rounded-lg text-[11px] font-medium text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 cursor-pointer';
+            ? 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 cursor-pointer'
+            : 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 cursor-pointer';
     };
 
     return (
@@ -100,12 +100,15 @@ function MessagingPageContent({
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                         <button type="button" onClick={() => setMessagingSubTab('gateway')} className={subTabClass('gateway')}>
+                            <Server className="w-3.5 h-3.5 shrink-0" />
                             Gateway WhatsApp
                         </button>
                         <button type="button" onClick={() => setMessagingSubTab('templates')} className={subTabClass('templates')}>
+                            <FileText className="w-3.5 h-3.5 shrink-0" />
                             Template WhatsApp
                         </button>
                         <button type="button" disabled className={`${subTabClass('telegram')} opacity-50 cursor-not-allowed`} title="Segera hadir">
+                            <Bot className="w-3.5 h-3.5 shrink-0" />
                             Telegram
                         </button>
                     </div>
@@ -146,7 +149,7 @@ function MessagingPageContent({
 
             {messagingSubTab === 'telegram' && (
                 <div className={`${themeCard} border rounded-2xl p-8 text-center`}>
-                    <Send className={`w-8 h-8 mx-auto mb-2 ${isDarkMode ? 'text-zinc-600' : 'text-zinc-300'}`} />
+                    <Bot className={`w-8 h-8 mx-auto mb-2 ${isDarkMode ? 'text-zinc-600' : 'text-zinc-300'}`} />
                     <p className={`text-sm font-bold ${themeTextTitle}`}>Telegram — Segera hadir</p>
                     <p className={`text-[11px] mt-1 ${themeTextDesc}`}>Pengaturan bot Telegram akan ditambahkan di halaman ini.</p>
                 </div>
