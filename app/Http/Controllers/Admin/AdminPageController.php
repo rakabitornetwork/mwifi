@@ -43,8 +43,53 @@ class AdminPageController extends Controller
 
     public function customers(): Response
     {
+        $customers = Customer::query()
+            ->where('service_type', 'pppoe')
+            ->with([
+                'odp',
+                'package',
+                'router',
+                'user:id,email',
+                'invoices' => fn ($query) => $query->orderByDesc('created_at')->limit(10),
+                'billingDeferrals' => fn ($query) => $query
+                    ->where('status', 'pending')
+                    ->latest('id'),
+            ])
+            ->orderBy('name')
+            ->get()
+            ->map(function (Customer $customer) {
+                $latestUnpaid = $customer->invoices->firstWhere('status', 'unpaid');
+                $latestCanceled = $customer->invoices->firstWhere('status', 'canceled');
+                $pendingDeferral = $customer->billingDeferrals->first();
+
+                return array_merge($customer->toArray(), [
+                    'portal_email' => $customer->user?->email,
+                    'latest_unpaid_invoice' => $latestUnpaid ? [
+                        'id' => $latestUnpaid->id,
+                        'invoice_number' => $latestUnpaid->invoice_number,
+                        'billing_period' => $latestUnpaid->billing_period,
+                        'total_amount' => $latestUnpaid->total_amount,
+                        'due_date' => $latestUnpaid->due_date?->format('Y-m-d'),
+                        'status' => $latestUnpaid->status,
+                    ] : null,
+                    'latest_canceled_invoice' => $latestCanceled ? [
+                        'invoice_number' => $latestCanceled->invoice_number,
+                        'billing_period' => $latestCanceled->billing_period,
+                        'total_amount' => $latestCanceled->total_amount,
+                        'due_date' => $latestCanceled->due_date?->format('Y-m-d'),
+                    ] : null,
+                    'pending_deferral' => $pendingDeferral ? [
+                        'id' => $pendingDeferral->id,
+                        'periods' => $pendingDeferral->periods,
+                        'combined_due_date' => $pendingDeferral->combined_due_date?->format('Y-m-d'),
+                        'months_count' => $pendingDeferral->months_count,
+                    ] : null,
+                ]);
+            })
+            ->values();
+
         return Inertia::render('Admin/Customers/Index', [
-            'customers' => Customer::with(['odp', 'package', 'router'])->get(),
+            'customers' => $customers,
             'routers' => Router::all(),
             'packages' => Package::all(),
             'odps' => Odp::all(),
@@ -68,6 +113,8 @@ class AdminPageController extends Controller
 
     public function invoices(): Response
     {
+        BillingService::repairSplitDeferralInvoices();
+
         return Inertia::render('Admin/Invoices/Index', [
             'invoices' => BillingService::appendNextBillingToInvoices(
                 Invoice::with(['customer.package', 'payments'])->orderByDesc('created_at')->get()

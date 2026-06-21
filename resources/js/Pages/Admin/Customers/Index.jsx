@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
-import { Edit, Plus, Search, Trash2, Users, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit, Eye, Plus, Search, Trash2, Users, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
+import CustomerDetailPanel from '../../../Components/Admin/CustomerDetailPanel';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
@@ -44,6 +45,7 @@ function CustomersPageContent({
     const [showDeleteCustomerModal, setShowDeleteCustomerModal] = useState(false);
     const [customerToDelete, setCustomerToDelete] = useState(null);
     const [deleteMode, setDeleteMode] = useState('local_only');
+    const [expandedCustomerId, setExpandedCustomerId] = useState(null);
 
     const pppoePackages = packages.filter((p) => p.type === 'pppoe');
 
@@ -74,6 +76,8 @@ function CustomersPageContent({
         return (
             cust.name.toLowerCase().includes(term) ||
             cust.username.toLowerCase().includes(term) ||
+            (cust.phone_number && cust.phone_number.toLowerCase().includes(term)) ||
+            (cust.router && cust.router.name.toLowerCase().includes(term)) ||
             (cust.package && cust.package.name.toLowerCase().includes(term))
         );
     });
@@ -87,6 +91,10 @@ function CustomersPageContent({
     const openCustomerModal = (customer = null) => {
         setEditingCustomer(customer);
         setShowCustomerModal(true);
+    };
+
+    const toggleCustomerDetail = (customerId) => {
+        setExpandedCustomerId((current) => (current === customerId ? null : customerId));
     };
 
     const handleSaveCustomer = (e) => {
@@ -185,7 +193,7 @@ function CustomersPageContent({
                     <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
                     <input
                         type="text"
-                        placeholder="Cari pelanggan..."
+                        placeholder="Cari nama, username, telepon, router, paket..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
@@ -196,6 +204,7 @@ function CustomersPageContent({
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
+                                <th className="py-3 px-2 w-8" />
                                 <th className="py-3 px-2 w-8">
                                     <input
                                         type="checkbox"
@@ -206,6 +215,8 @@ function CustomersPageContent({
                                 </th>
                                 <th className="py-3 px-2">Nama</th>
                                 <th className="py-3 px-2">Username</th>
+                                <th className="py-3 px-2">Telepon</th>
+                                <th className="py-3 px-2">Router</th>
                                 <th className="py-3 px-2">Paket</th>
                                 <th className="py-3 px-2">ODP</th>
                                 <th className="py-3 px-2">Tgl Tagih</th>
@@ -216,53 +227,100 @@ function CustomersPageContent({
                         <tbody className="divide-y divide-zinc-800/20 text-xs">
                             {paginatedCustomers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={8} className={`py-8 text-center ${themeTextDesc}`}>
+                                    <td colSpan={11} className={`py-8 text-center ${themeTextDesc}`}>
                                         {searchTerm.trim()
                                             ? 'Tidak ada pelanggan PPPoE yang cocok dengan pencarian.'
                                             : 'Belum ada pelanggan PPPoE terdaftar.'}
                                     </td>
                                 </tr>
                             ) : paginatedCustomers.map((cust) => (
-                                <tr key={cust.id} className={`${themeTextSub} hover:bg-zinc-900/10 ${selectedCustomerIds.includes(cust.id) ? 'bg-emerald-500/5' : ''}`}>
-                                    <td className="py-3 px-2 w-8">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedCustomerIds.includes(cust.id)}
-                                            onChange={() => toggleSelectCustomer(cust.id)}
-                                            className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
-                                        />
-                                    </td>
-                                    <td className={`py-3 px-2 font-bold ${themeTextTitle}`}>{cust.name}</td>
-                                    <td className="py-3 px-2 font-mono">{cust.username}</td>
-                                    <td className="py-3 px-2">{cust.package ? cust.package.name : '-'}</td>
-                                    <td className="py-3 px-2 font-mono text-[10px]">{cust.odp ? cust.odp.name : '-'}</td>
-                                    <td className="py-3 px-2">Tgl {cust.billing_date}</td>
-                                    <td className="py-3 px-2">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                            cust.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                                            cust.status === 'isolated' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
-                                            'bg-rose-500/10 text-rose-500 border border-rose-500/20'
-                                        }`}>
-                                            {cust.status.toUpperCase()}
-                                        </span>
-                                    </td>
-                                    <td className="py-3 px-2 text-right space-x-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => openCustomerModal(cust)}
-                                            className="inline-block p-1 text-zinc-400 hover:text-emerald-500 cursor-pointer"
-                                        >
-                                            <Edit className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleDeleteCustomer(cust)}
-                                            className="inline-block p-1 text-zinc-400 hover:text-rose-500 cursor-pointer"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </td>
-                                </tr>
+                                <Fragment key={cust.id}>
+                                    <tr
+                                        className={`${themeTextSub} hover:bg-zinc-900/10 ${selectedCustomerIds.includes(cust.id) ? 'bg-emerald-500/5' : ''} ${expandedCustomerId === cust.id ? (isDarkMode ? 'bg-zinc-900/20' : 'bg-zinc-50') : ''}`}
+                                    >
+                                        <td className="py-3 px-2 w-8">
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleCustomerDetail(cust.id)}
+                                                className={`p-1 rounded-md border transition-colors cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
+                                                title={expandedCustomerId === cust.id ? 'Tutup detail' : 'Lihat detail lengkap'}
+                                            >
+                                                {expandedCustomerId === cust.id
+                                                    ? <ChevronUp className="w-3.5 h-3.5" />
+                                                    : <ChevronDown className="w-3.5 h-3.5" />}
+                                            </button>
+                                        </td>
+                                        <td className="py-3 px-2 w-8">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedCustomerIds.includes(cust.id)}
+                                                onChange={() => toggleSelectCustomer(cust.id)}
+                                                className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
+                                            />
+                                        </td>
+                                        <td className={`py-3 px-2 font-bold ${themeTextTitle}`}>
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleCustomerDetail(cust.id)}
+                                                className="text-left hover:underline cursor-pointer"
+                                            >
+                                                {cust.name}
+                                            </button>
+                                        </td>
+                                        <td className="py-3 px-2 font-mono">{cust.username}</td>
+                                        <td className="py-3 px-2 font-mono text-[10px]">{cust.phone_number || '—'}</td>
+                                        <td className="py-3 px-2">{cust.router ? cust.router.name : '—'}</td>
+                                        <td className="py-3 px-2">{cust.package ? cust.package.name : '—'}</td>
+                                        <td className="py-3 px-2 font-mono text-[10px]">{cust.odp ? cust.odp.name : '—'}</td>
+                                        <td className="py-3 px-2">Tgl {cust.billing_date}</td>
+                                        <td className="py-3 px-2">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                cust.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
+                                                cust.status === 'isolated' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
+                                                'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                                            }`}>
+                                                {cust.status.toUpperCase()}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-2 text-right space-x-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleCustomerDetail(cust.id)}
+                                                className={`inline-block p-1 cursor-pointer ${expandedCustomerId === cust.id ? 'text-sky-500' : 'text-zinc-400 hover:text-sky-500'}`}
+                                                title="Detail lengkap"
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => openCustomerModal(cust)}
+                                                className="inline-block p-1 text-zinc-400 hover:text-emerald-500 cursor-pointer"
+                                                title="Edit"
+                                            >
+                                                <Edit className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeleteCustomer(cust)}
+                                                className="inline-block p-1 text-zinc-400 hover:text-rose-500 cursor-pointer"
+                                                title="Hapus"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {expandedCustomerId === cust.id && (
+                                        <tr>
+                                            <td colSpan={11} className="p-0">
+                                                <CustomerDetailPanel
+                                                    customer={cust}
+                                                    theme={theme}
+                                                    onEdit={openCustomerModal}
+                                                />
+                                            </td>
+                                        </tr>
+                                    )}
+                                </Fragment>
                             ))}
                         </tbody>
                     </table>

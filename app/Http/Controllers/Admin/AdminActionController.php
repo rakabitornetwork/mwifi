@@ -578,11 +578,69 @@ class AdminActionController extends Controller
         $deferral = \App\Models\BillingDeferral::with('customer')->findOrFail($data['deferral_id']);
 
         try {
-            BillingService::cancelBillingDeferral($deferral);
+            $result = BillingService::cancelBillingDeferral($deferral);
+
+            $message = 'Penundaan tagihan untuk ' . ($deferral->customer?->name ?? 'pelanggan') . ' berhasil dibatalkan.';
+            $parts = [];
+            if ($result['restored_count'] > 0) {
+                $parts[] = "{$result['restored_count']} invoice dipulihkan";
+            }
+            if ($result['created_count'] > 0) {
+                $parts[] = "{$result['created_count']} invoice baru dibuat";
+            }
+            if ($parts !== []) {
+                $message .= ' (' . implode(', ', $parts) . ').';
+            } else {
+                $message .= ' Tidak ada invoice baru yang dibuat.';
+            }
+
+            return redirect()->back()->with('success', $message);
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Restore a canceled invoice so Bayar Manual becomes available again.
+     */
+    public function restoreCanceledInvoice(Request $request)
+    {
+        $request->validate([
+            'invoice_id' => 'required|exists:invoices,id',
+        ]);
+
+        $invoice = Invoice::with('customer')->findOrFail($request->input('invoice_id'));
+
+        try {
+            $restored = BillingService::restoreCanceledInvoice($invoice);
 
             return redirect()->back()->with(
                 'success',
-                'Penundaan tagihan untuk ' . ($deferral->customer?->name ?? 'pelanggan') . ' berhasil dibatalkan.'
+                "Invoice {$restored->invoice_number} berhasil dipulihkan. Tombol Bayar Manual sudah tersedia."
+            );
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
+     * Permanently delete an unpaid/canceled invoice.
+     */
+    public function deleteInvoice(Request $request)
+    {
+        $request->validate([
+            'invoice_id' => 'required|exists:invoices,id',
+        ]);
+
+        $invoice = Invoice::findOrFail($request->input('invoice_id'));
+        $invoiceNumber = $invoice->invoice_number;
+
+        try {
+            BillingService::deleteInvoice($invoice);
+
+            return redirect()->back()->with(
+                'success',
+                "Invoice {$invoiceNumber} berhasil dihapus."
             );
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());

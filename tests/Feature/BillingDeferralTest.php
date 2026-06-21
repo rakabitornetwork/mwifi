@@ -80,7 +80,7 @@ class BillingDeferralTest extends TestCase
         ]);
     }
 
-    public function test_two_month_deferral_resolves_previous_and_anchor_periods(): void
+    public function test_two_month_deferral_resolves_anchor_and_next_periods(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-10'));
 
@@ -101,7 +101,18 @@ class BillingDeferralTest extends TestCase
 
         $periods = BillingService::resolveDeferralPeriods($customer, 2);
 
-        $this->assertSame(['2026-04', '2026-05'], $periods);
+        $this->assertSame(['2026-05', '2026-06'], $periods);
+    }
+
+    public function test_two_month_deferral_without_unpaid_uses_current_and_next_month(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-10'));
+
+        $customer = $this->makeCustomer();
+
+        $periods = BillingService::resolveDeferralPeriods($customer, 2);
+
+        $this->assertSame(['2026-06', '2026-07'], $periods);
     }
 
     public function test_admin_can_create_billing_deferral(): void
@@ -129,7 +140,7 @@ class BillingDeferralTest extends TestCase
         ]);
 
         $deferral = BillingDeferral::first();
-        $this->assertSame(['2026-05', '2026-06'], $deferral->periods);
+        $this->assertSame(['2026-06', '2026-07'], $deferral->periods);
     }
 
     public function test_scheduled_generation_skips_deferred_period(): void
@@ -216,5 +227,350 @@ class BillingDeferralTest extends TestCase
 
         $this->assertSame(0, $count);
         $this->assertSame('active', $customer->fresh()->status);
+    }
+
+    public function test_cancel_deferral_restores_canceled_invoices(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(20);
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-0001-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-20',
+            'status' => 'unpaid',
+        ]);
+
+        $deferral = BillingDeferral::create([
+            'customer_id' => $customer->id,
+            'months_count' => 1,
+            'periods' => ['2026-06'],
+            'combined_due_date' => '2026-07-25',
+            'status' => 'pending',
+        ]);
+
+        $invoice->update(['status' => 'canceled']);
+
+        $result = BillingService::cancelBillingDeferral($deferral);
+
+        $this->assertSame(1, $result['restored_count']);
+        $this->assertSame(0, $result['created_count']);
+        $this->assertSame('cancelled', $deferral->fresh()->status);
+        $this->assertSame('unpaid', $invoice->fresh()->status);
+    }
+
+    public function test_restore_canceled_invoice_endpoint(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-25'));
+
+        $admin = User::factory()->create();
+        $customer = $this->makeCustomer(20);
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-0005-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-20',
+            'status' => 'canceled',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->post('/admin/invoices/restore-canceled', [
+                'invoice_id' => $invoice->id,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $this->assertSame('unpaid', $invoice->fresh()->status);
+        $this->assertSame('2026-07-02', $invoice->fresh()->due_date->format('Y-m-d'));
+    }
+
+    public function test_deferred_invoice_flagged_in_invoice_payload(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(20);
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-0005-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-20',
+            'status' => 'canceled',
+        ]);
+
+        BillingDeferral::create([
+            'customer_id' => $customer->id,
+            'months_count' => 2,
+            'periods' => ['2026-05', '2026-06'],
+            'combined_due_date' => '2026-07-28',
+            'status' => 'pending',
+        ]);
+
+        $payload = BillingService::appendNextBillingToInvoices(collect([$invoice->fresh()]));
+        $row = $payload[0];
+
+        $this->assertTrue($row['is_deferred_by_pending']);
+        $this->assertSame('2026-07-28', $row['deferred_combined_due_date']);
+        $this->assertSame('2026-07-23', $row['deferred_accumulated_generate_on']);
+    }
+
+    public function test_preview_deferral_with_accumulated_unpaid_invoice_does_not_fail(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(20);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-ACC-202605202606-0001',
+            'billing_period' => '2026-05+2026-06',
+            'amount' => 155000,
+            'days_billed' => 31,
+            'is_prorated' => true,
+            'is_accumulated' => true,
+            'accumulated_periods' => ['2026-05', '2026-06'],
+            'tax' => 0,
+            'total_amount' => 155000,
+            'due_date' => '2026-07-28',
+            'status' => 'unpaid',
+        ]);
+
+        $preview = BillingService::previewBillingDeferral($customer, 2);
+
+        $this->assertSame(['2026-06', '2026-07'], $preview['periods']);
+        $this->assertGreaterThan(0, $preview['total_amount']);
+    }
+
+    public function test_preview_deferral_endpoint_with_accumulated_unpaid_invoice(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $admin = User::factory()->create();
+        $customer = $this->makeCustomer(20);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-ACC-202605202606-0001',
+            'billing_period' => '2026-05+2026-06',
+            'amount' => 155000,
+            'days_billed' => 31,
+            'is_prorated' => true,
+            'is_accumulated' => true,
+            'accumulated_periods' => ['2026-05', '2026-06'],
+            'tax' => 0,
+            'total_amount' => 155000,
+            'due_date' => '2026-07-28',
+            'status' => 'unpaid',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->postJson('/admin/billing/defer/preview', [
+                'customer_id' => $customer->id,
+                'months_count' => 2,
+            ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('periods', ['2026-06', '2026-07']);
+    }
+
+    public function test_restore_canceled_invoice_blocked_during_active_deferral(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $admin = User::factory()->create();
+        $customer = $this->makeCustomer(20);
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-0005-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-20',
+            'status' => 'canceled',
+        ]);
+
+        BillingDeferral::create([
+            'customer_id' => $customer->id,
+            'months_count' => 2,
+            'periods' => ['2026-05', '2026-06'],
+            'combined_due_date' => '2026-07-28',
+            'status' => 'pending',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->post('/admin/invoices/restore-canceled', [
+                'invoice_id' => $invoice->id,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+        $this->assertSame('canceled', $invoice->fresh()->status);
+    }
+
+    public function test_cancel_two_month_deferral_cancels_without_new_invoice(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(28);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202605-0005-BEBA',
+            'billing_period' => '2026-05',
+            'amount' => 5000,
+            'days_billed' => 1,
+            'is_prorated' => true,
+            'tax' => 0,
+            'total_amount' => 5000,
+            'due_date' => '2026-06-28',
+            'status' => 'canceled',
+        ]);
+
+        $june = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-0005-E92D',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-28',
+            'status' => 'canceled',
+        ]);
+
+        $deferral = BillingDeferral::create([
+            'customer_id' => $customer->id,
+            'months_count' => 2,
+            'periods' => ['2026-06', '2026-07'],
+            'combined_due_date' => '2026-07-28',
+            'status' => 'pending',
+        ]);
+
+        $june->update(['status' => 'unpaid']);
+        Invoice::where('customer_id', $customer->id)->where('billing_period', '2026-05')->update(['status' => 'unpaid']);
+
+        $result = BillingService::cancelBillingDeferral($deferral);
+
+        $this->assertSame(0, $result['accumulated_count']);
+        $this->assertSame('cancelled', $deferral->fresh()->status);
+        $this->assertSame(0, Invoice::where('customer_id', $customer->id)->where('is_accumulated', true)->where('status', 'unpaid')->count());
+    }
+
+    public function test_delete_accumulated_invoice_cancels_linked_deferral(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $admin = User::factory()->create();
+        $customer = $this->makeCustomer(20);
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-ACC-202606202607-0005-TEST',
+            'billing_period' => '2026-06+2026-07',
+            'amount' => 300000,
+            'days_billed' => 60,
+            'is_prorated' => false,
+            'is_accumulated' => true,
+            'accumulated_periods' => ['2026-06', '2026-07'],
+            'tax' => 0,
+            'total_amount' => 300000,
+            'due_date' => '2026-07-20',
+            'status' => 'unpaid',
+        ]);
+
+        $deferral = BillingDeferral::create([
+            'customer_id' => $customer->id,
+            'months_count' => 2,
+            'periods' => ['2026-06', '2026-07'],
+            'combined_due_date' => '2026-07-20',
+            'status' => 'invoiced',
+            'invoice_id' => $invoice->id,
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->post('/admin/invoices/delete', [
+                'invoice_id' => $invoice->id,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $this->assertDatabaseMissing('invoices', ['id' => $invoice->id]);
+        $this->assertSame('cancelled', $deferral->fresh()->status);
+        $this->assertNull($deferral->fresh()->invoice_id);
+    }
+
+    public function test_repair_split_deferral_invoices(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(28);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202605-0005-BEBA',
+            'billing_period' => '2026-05',
+            'amount' => 5000,
+            'days_billed' => 1,
+            'is_prorated' => true,
+            'tax' => 0,
+            'total_amount' => 5000,
+            'due_date' => '2026-06-28',
+            'status' => 'unpaid',
+        ]);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-0005-E92D',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-28',
+            'status' => 'unpaid',
+        ]);
+
+        BillingDeferral::create([
+            'customer_id' => $customer->id,
+            'months_count' => 2,
+            'periods' => ['2026-05', '2026-06'],
+            'combined_due_date' => '2026-07-28',
+            'status' => 'cancelled',
+        ]);
+
+        $repaired = BillingService::repairSplitDeferralInvoices();
+
+        $this->assertSame(1, $repaired);
+        $this->assertSame(1, Invoice::where('customer_id', $customer->id)->where('status', 'unpaid')->count());
+        $this->assertDatabaseHas('invoices', [
+            'customer_id' => $customer->id,
+            'billing_period' => '2026-05+2026-06',
+            'is_accumulated' => true,
+            'status' => 'unpaid',
+        ]);
     }
 }

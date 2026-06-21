@@ -54,6 +54,7 @@ class AppUpdateService
             'git' => $git,
             'composer' => $composer,
             'npm' => $npm,
+            'php_cli' => $this->getPhpCliRequirement(),
             'is_git_repo' => [
                 'ok' => $isRepo,
                 'message' => $isRepo ? 'Folder aplikasi terdeteksi sebagai repositori Git.' : 'Folder aplikasi bukan repositori Git.',
@@ -68,6 +69,7 @@ class AppUpdateService
 
         $canUpdate = (bool) config('update.enabled', true)
             && $git['ok']
+            && ($requirements['php_cli']['ok'] ?? false)
             && (!config('update.run_composer_on_update', false) || $composer['ok'])
             && (!config('update.run_npm_on_update', false) || $npm['ok'])
             && $isRepo
@@ -83,6 +85,7 @@ class AppUpdateService
             && $updateAvailable
             && $remoteReadable
             && $git['ok']
+            && ($requirements['php_cli']['ok'] ?? false)
             && $isRepo;
 
         return [
@@ -217,14 +220,17 @@ class AppUpdateService
             $steps[] = 'NPM build dilewati ✓';
         }
 
-        $this->runProcess([PHP_BINARY, 'artisan', 'migrate', '--force'], 'Migrasi database', $steps, $onLog);
-        $this->runProcess([PHP_BINARY, 'artisan', 'optimize:clear'], 'Bersihkan cache', $steps, $onLog);
-        $this->runProcess([PHP_BINARY, 'artisan', 'optimize'], 'Optimasi aplikasi', $steps, $onLog);
+        $phpCli = $this->resolveCliPhpBinary();
+        $onLog?->__invoke("Menggunakan PHP CLI: {$phpCli}", 'info');
+
+        $this->runProcess([$phpCli, 'artisan', 'migrate', '--force'], 'Migrasi database', $steps, $onLog);
+        $this->runProcess([$phpCli, 'artisan', 'optimize:clear'], 'Bersihkan cache', $steps, $onLog);
+        $this->runProcess([$phpCli, 'artisan', 'optimize'], 'Optimasi aplikasi', $steps, $onLog);
 
         if ($isProduction) {
-            $this->runProcess([PHP_BINARY, 'artisan', 'config:cache'], 'Cache konfigurasi', $steps, $onLog);
-            $this->runProcess([PHP_BINARY, 'artisan', 'route:cache'], 'Cache route', $steps, $onLog);
-            $this->runProcess([PHP_BINARY, 'artisan', 'view:cache'], 'Cache view', $steps, $onLog);
+            $this->runProcess([$phpCli, 'artisan', 'config:cache'], 'Cache konfigurasi', $steps, $onLog);
+            $this->runProcess([$phpCli, 'artisan', 'route:cache'], 'Cache route', $steps, $onLog);
+            $this->runProcess([$phpCli, 'artisan', 'view:cache'], 'Cache view', $steps, $onLog);
         }
 
         $newStatus = $this->getStatus();
@@ -504,6 +510,107 @@ class AppUpdateService
         }
 
         return max(0, (int) trim($process->getOutput()));
+    }
+
+    /**
+     * Resolve PHP CLI binary for artisan commands (not php-fpm).
+     */
+    public function resolveCliPhpBinary(): string
+    {
+        $configured = trim((string) config('update.php_cli_binary', ''));
+        if ($configured !== '') {
+            if (str_contains(strtolower($configured), 'fpm')) {
+                throw new \RuntimeException(
+                    'php_cli_binary tidak boleh menunjuk ke php-fpm. Gunakan PHP CLI, mis. /usr/bin/php8.4'
+                );
+            }
+
+            if (!is_executable($configured)) {
+                throw new \RuntimeException("PHP CLI tidak dapat dieksekusi: {$configured}");
+            }
+
+            return $configured;
+        }
+
+        $phpBinary = PHP_BINARY;
+        if ($phpBinary !== '' && is_executable($phpBinary) && !str_contains(strtolower($phpBinary), 'fpm')) {
+            return $phpBinary;
+        }
+
+        foreach ([
+            '/usr/bin/php8.4',
+            '/usr/bin/php84',
+            '/usr/bin/php8.3',
+            '/usr/bin/php83',
+            '/usr/bin/php8.2',
+            '/usr/bin/php',
+        ] as $candidate) {
+            if (is_executable($candidate) && !str_contains(strtolower($candidate), 'fpm')) {
+                return $candidate;
+            }
+        }
+
+        foreach (['php8.4', 'php84', 'php8.3', 'php83', 'php'] as $command) {
+            $process = new Process(PHP_OS_FAMILY === 'Windows'
+                ? ['where', $command]
+                : ['which', $command]);
+            $process->run();
+
+            if (!$process->isSuccessful()) {
+                continue;
+            }
+
+            foreach (preg_split('/\R/', trim($process->getOutput())) ?: [] as $line) {
+                $path = trim($line);
+                if ($path === '' || !is_executable($path) || str_contains(strtolower($path), 'fpm')) {
+                    continue;
+                }
+
+                return $path;
+            }
+        }
+
+        throw new \RuntimeException(
+            'PHP CLI tidak ditemukan. Server web memakai php-fpm — set php_cli_binary di config/update.php (mis. /usr/bin/php8.4).'
+        );
+    }
+
+    /**
+     * @return array{ok: bool, message: string, version: string|null, path: string|null}
+     */
+    private function getPhpCliRequirement(): array
+    {
+        try {
+            $binary = $this->resolveCliPhpBinary();
+            $process = new Process([$binary, '--version']);
+            $process->setTimeout(30);
+            $process->run();
+
+            if (!$process->isSuccessful()) {
+                return [
+                    'ok' => false,
+                    'message' => 'PHP CLI ditemukan tetapi gagal dijalankan.',
+                    'version' => null,
+                    'path' => $binary,
+                ];
+            }
+
+            $output = trim($process->getOutput() ?: $process->getErrorOutput());
+
+            return [
+                'ok' => true,
+                'message' => 'PHP CLI tersedia untuk migrate/optimize.',
+                'version' => $output !== '' ? strtok($output, "\n") : null,
+                'path' => $binary,
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'ok' => false,
+                'message' => $e->getMessage(),
+                'version' => null,
+                'path' => null,
+            ];
+        }
     }
 
     /**

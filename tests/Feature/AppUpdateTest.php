@@ -39,6 +39,7 @@ class AppUpdateTest extends TestCase
         $this->assertArrayHasKey('available', $status);
         $this->assertArrayHasKey('can_run_update', $status);
         $this->assertArrayHasKey('requirements', $status);
+        $this->assertArrayHasKey('php_cli', $status['requirements']);
         $this->assertArrayHasKey('repository', $status);
         $this->assertArrayHasKey('local', $status);
         $this->assertArrayHasKey('remote', $status);
@@ -175,5 +176,15 @@ class AppUpdateTest extends TestCase
             ->post('/admin/update/check');
 
         $response->assertForbidden();
+    }
+
+    public function test_resolve_cli_php_binary_uses_configured_path(): void
+    {
+        config(['update.php_cli_binary' => PHP_BINARY]);
+
+        $binary = app(AppUpdateService::class)->resolveCliPhpBinary();
+
+        $this->assertSame(PHP_BINARY, $binary);
+        $this->assertStringNotContainsString('fpm', strtolower($binary));
     }
 }

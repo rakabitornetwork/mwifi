@@ -447,10 +447,34 @@ class BillingService
      */
     public static function appendNextBillingToInvoices($invoices): array
     {
-        return $invoices->map(function (Invoice $invoice) {
+        $customerIds = $invoices->pluck('customer_id')->unique()->filter();
+        $pendingDeferralsByCustomer = BillingDeferral::query()
+            ->whereIn('customer_id', $customerIds)
+            ->where('status', 'pending')
+            ->get()
+            ->groupBy('customer_id');
+
+        return $invoices->map(function (Invoice $invoice) use ($pendingDeferralsByCustomer) {
             $data = $invoice->toArray();
             if ($invoice->status === 'paid') {
                 $data['next_billing'] = self::resolveNextBillingPreview($invoice);
+            }
+
+            if ($invoice->status === 'canceled' && $invoice->customer_id) {
+                $deferrals = $pendingDeferralsByCustomer->get($invoice->customer_id, collect());
+                $pendingDeferral = $deferrals->first(
+                    fn (BillingDeferral $deferral) => in_array($invoice->billing_period, $deferral->periods ?? [], true)
+                );
+
+                if ($pendingDeferral) {
+                    $data['is_deferred_by_pending'] = true;
+                    $data['deferred_combined_due_date'] = $pendingDeferral->combined_due_date?->format('Y-m-d');
+                    $data['deferred_accumulated_generate_on'] = $pendingDeferral->combined_due_date
+                        ? Carbon::parse($pendingDeferral->combined_due_date)
+                            ->subDays(self::getGenerateDaysBeforeDue())
+                            ->format('Y-m-d')
+                        : null;
+                }
             }
 
             return $data;
@@ -700,14 +724,21 @@ class BillingService
     {
         $today = ($today ?? Carbon::today())->copy()->startOfDay();
 
-        $unpaid = Invoice::query()
+        $unpaidInvoices = Invoice::query()
             ->where('customer_id', $customer->id)
             ->where('status', 'unpaid')
             ->orderBy('billing_period')
-            ->first();
+            ->get();
 
-        if ($unpaid && !empty($unpaid->billing_period)) {
-            return (string) $unpaid->billing_period;
+        foreach ($unpaidInvoices as $invoice) {
+            if ($invoice->is_accumulated) {
+                continue;
+            }
+
+            $period = self::normalizeSingleBillingPeriod($invoice->billing_period);
+            if ($period !== null) {
+                return $period;
+            }
         }
 
         $lastPaid = Invoice::query()
@@ -716,10 +747,11 @@ class BillingService
             ->orderByDesc('billing_period')
             ->first();
 
-        if ($lastPaid && !empty($lastPaid->billing_period)) {
-            return Carbon::createFromFormat('Y-m', $lastPaid->billing_period)
-                ->addMonth()
-                ->format('Y-m');
+        if ($lastPaid) {
+            $latestPeriod = self::resolveLatestMonthFromInvoice($lastPaid);
+            if ($latestPeriod !== null) {
+                return self::addMonthsToPeriod($latestPeriod, 1);
+            }
         }
 
         return $today->format('Y-m');
@@ -729,7 +761,7 @@ class BillingService
      * Resolve billing periods included in a deferral.
      *
      * 1 month: anchor period only.
-     * 2 months: bulan lalu + bulan anchor (bulan berikutnya dari bulan lalu).
+     * 2 months: bulan anchor + bulan berikutnya.
      *
      * @return array<int, string>
      */
@@ -742,11 +774,52 @@ class BillingService
             return [$anchor];
         }
 
-        $previous = Carbon::createFromFormat('Y-m', $anchor)
-            ->subMonth()
-            ->format('Y-m');
+        return [$anchor, self::addMonthsToPeriod($anchor, 1)];
+    }
 
-        return [$previous, $anchor];
+    private static function normalizeSingleBillingPeriod(?string $period): ?string
+    {
+        if (!$period || !preg_match('/^\d{4}-\d{2}$/', $period)) {
+            return null;
+        }
+
+        return $period;
+    }
+
+    private static function resolveLatestMonthFromInvoice(Invoice $invoice): ?string
+    {
+        if (!empty($invoice->accumulated_periods) && is_array($invoice->accumulated_periods)) {
+            $periods = $invoice->accumulated_periods;
+            $last = end($periods);
+
+            return self::normalizeSingleBillingPeriod(is_string($last) ? $last : null);
+        }
+
+        if ($invoice->billing_period && str_contains($invoice->billing_period, '+')) {
+            $parts = explode('+', $invoice->billing_period);
+            $last = trim((string) end($parts));
+
+            return self::normalizeSingleBillingPeriod($last);
+        }
+
+        return self::normalizeSingleBillingPeriod($invoice->billing_period);
+    }
+
+    private static function addMonthsToPeriod(string $period, int $months): string
+    {
+        return Carbon::createFromFormat('Y-m', $period)
+            ->addMonths($months)
+            ->format('Y-m');
+    }
+
+    private static function parseBillingPeriodMonth(string $period): Carbon
+    {
+        $normalized = self::normalizeSingleBillingPeriod($period);
+        if ($normalized === null) {
+            throw new \InvalidArgumentException("Format periode tagihan tidak valid: {$period}");
+        }
+
+        return Carbon::createFromFormat('Y-m', $normalized)->startOfMonth();
     }
 
     /**
@@ -770,7 +843,7 @@ class BillingService
             'months_count' => max(1, min(2, $monthsCount)),
             'periods' => $periods,
             'period_labels' => array_map(
-                fn (string $period) => Carbon::createFromFormat('Y-m', $period)->translatedFormat('F Y'),
+                fn (string $period) => self::parseBillingPeriodMonth($period)->translatedFormat('F Y'),
                 $periods
             ),
             'amount' => $accumulated['amount'],
@@ -830,13 +903,433 @@ class BillingService
         });
     }
 
-    public static function cancelBillingDeferral(BillingDeferral $deferral): void
+    public static function cancelBillingDeferral(BillingDeferral $deferral): array
     {
         if ($deferral->status !== 'pending') {
             throw new \RuntimeException('Hanya penundaan berstatus pending yang dapat dibatalkan.');
         }
 
-        $deferral->update(['status' => 'cancelled']);
+        $deferral->loadMissing(['customer.package']);
+        $customer = $deferral->customer;
+
+        if (!$customer || !$customer->package) {
+            throw new \RuntimeException('Pelanggan atau paket tidak ditemukan untuk memulihkan tagihan.');
+        }
+
+        $restoredCount = 0;
+        $createdCount = 0;
+
+        $periods = $deferral->periods ?? [];
+
+        DB::transaction(function () use ($deferral, $customer, $periods, &$restoredCount, &$createdCount): void {
+            if (count($periods) === 1) {
+                $result = self::restoreInvoicesForDeferralPeriods($customer, $periods);
+                $restoredCount = $result['restored_count'];
+                $createdCount = $result['created_count'];
+            }
+
+            $deferral->update(['status' => 'cancelled']);
+        });
+
+        return [
+            'restored_count' => $restoredCount,
+            'created_count' => $createdCount,
+            'accumulated_count' => 0,
+        ];
+    }
+
+    /**
+     * Merge split per-period invoices into one accumulated invoice (deferral repair).
+     */
+    public static function repairSplitDeferralInvoices(): int
+    {
+        $count = 0;
+
+        $customerIds = Invoice::query()
+            ->where('status', 'unpaid')
+            ->where('is_accumulated', false)
+            ->select('customer_id')
+            ->groupBy('customer_id')
+            ->havingRaw('COUNT(*) >= 2')
+            ->pluck('customer_id');
+
+        foreach ($customerIds as $customerId) {
+            $customer = Customer::with('package')->find($customerId);
+            if (!$customer || !$customer->package) {
+                continue;
+            }
+
+            $unpaidPeriods = Invoice::query()
+                ->where('customer_id', $customerId)
+                ->where('status', 'unpaid')
+                ->where('is_accumulated', false)
+                ->pluck('billing_period')
+                ->sort()
+                ->values()
+                ->all();
+
+            $deferral = BillingDeferral::query()
+                ->where('customer_id', $customerId)
+                ->whereIn('status', ['cancelled', 'pending', 'invoiced'])
+                ->orderByDesc('created_at')
+                ->get()
+                ->first(function (BillingDeferral $item) use ($unpaidPeriods) {
+                    $periods = $item->periods ?? [];
+                    if (count($periods) <= 1) {
+                        return false;
+                    }
+
+                    return count(array_intersect($periods, $unpaidPeriods)) === count($unpaidPeriods);
+                });
+
+            if (!$deferral) {
+                continue;
+            }
+
+            $dueDate = Carbon::parse($deferral->combined_due_date)->startOfDay();
+            if ($dueDate->lte(Carbon::today())) {
+                $dueDate = Carbon::now()->addDays(7)->startOfDay();
+            }
+
+            try {
+                self::consolidatePeriodInvoices(
+                    $customer,
+                    $deferral->periods ?? $unpaidPeriods,
+                    $dueDate,
+                    $deferral->status === 'pending' ? $deferral : null
+                );
+                $count++;
+            } catch (\Exception $e) {
+                Log::warning("repairSplitDeferralInvoices failed for customer {$customerId}: " . $e->getMessage());
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * Cancel open individual invoices and issue one accumulated invoice for the given periods.
+     */
+    public static function consolidatePeriodInvoices(
+        Customer $customer,
+        array $periods,
+        Carbon $dueDate,
+        ?BillingDeferral $deferral = null
+    ): Invoice {
+        $customer->loadMissing('package');
+
+        if (!$customer->package) {
+            throw new \RuntimeException('Pelanggan belum memiliki paket internet.');
+        }
+
+        $periods = array_values(array_unique($periods));
+        sort($periods);
+
+        if ($periods === []) {
+            throw new \RuntimeException('Tidak ada periode tagihan untuk digabungkan.');
+        }
+
+        $billingPeriod = count($periods) === 1
+            ? $periods[0]
+            : ($periods[0] . '+' . $periods[array_key_last($periods)]);
+
+        $existingAccumulated = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->where('is_accumulated', true)
+            ->get()
+            ->first(function (Invoice $invoice) use ($periods, $billingPeriod) {
+                if ($invoice->billing_period === $billingPeriod) {
+                    return true;
+                }
+
+                return ($invoice->accumulated_periods ?? []) === $periods;
+            });
+
+        if ($existingAccumulated) {
+            self::cancelUnpaidIndividualInvoicesForPeriods($customer, $periods);
+
+            if ($deferral && $deferral->status === 'pending') {
+                $deferral->update([
+                    'status' => 'invoiced',
+                    'invoice_id' => $existingAccumulated->id,
+                ]);
+            }
+
+            return $existingAccumulated->fresh();
+        }
+
+        $accumulated = self::calculateAccumulatedBilling($customer, $periods);
+        if ($accumulated['lines'] === []) {
+            throw new \RuntimeException('Tidak ada tagihan yang dapat digabungkan.');
+        }
+
+        $invoice = null;
+
+        DB::transaction(function () use ($customer, $periods, $accumulated, $dueDate, $billingPeriod, $deferral, &$invoice) {
+            self::cancelUnpaidIndividualInvoicesForPeriods($customer, $periods);
+
+            $invNumber = 'INV-ACC-' . str_replace('-', '', $periods[0])
+                . (count($periods) > 1 ? str_replace('-', '', $periods[array_key_last($periods)]) : '')
+                . '-' . str_pad((string) $customer->id, 4, '0', STR_PAD_LEFT)
+                . '-' . strtoupper(bin2hex(random_bytes(2)));
+
+            $invoice = Invoice::create([
+                'customer_id' => $customer->id,
+                'invoice_number' => $invNumber,
+                'billing_period' => $billingPeriod,
+                'amount' => $accumulated['amount'],
+                'days_billed' => array_sum(array_column($accumulated['lines'], 'days_billed')),
+                'is_prorated' => collect($accumulated['lines'])->contains(fn (array $line) => $line['is_prorated']),
+                'is_accumulated' => true,
+                'accumulated_periods' => $periods,
+                'tax' => $accumulated['tax'],
+                'total_amount' => $accumulated['total_amount'],
+                'due_date' => $dueDate,
+                'status' => 'unpaid',
+            ]);
+
+            if ($deferral && $deferral->status === 'pending') {
+                $deferral->update([
+                    'status' => 'invoiced',
+                    'invoice_id' => $invoice->id,
+                ]);
+            }
+        });
+
+        return $invoice->fresh();
+    }
+
+    private static function cancelUnpaidIndividualInvoicesForPeriods(Customer $customer, array $periods): void
+    {
+        Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->whereIn('billing_period', $periods)
+            ->where('status', 'unpaid')
+            ->where('is_accumulated', false)
+            ->update(['status' => 'canceled']);
+    }
+
+    private static function findMultiPeriodDeferralForInvoice(Invoice $invoice): ?BillingDeferral
+    {
+        return BillingDeferral::query()
+            ->where('customer_id', $invoice->customer_id)
+            ->whereIn('status', ['pending', 'cancelled'])
+            ->orderByDesc('created_at')
+            ->get()
+            ->first(function (BillingDeferral $deferral) use ($invoice) {
+                $periods = $deferral->periods ?? [];
+
+                return count($periods) > 1 && in_array($invoice->billing_period, $periods, true);
+            });
+    }
+
+    /**
+     * Restore a single canceled invoice back to unpaid (enables Bayar Manual).
+     */
+    public static function restoreCanceledInvoice(Invoice $invoice): Invoice
+    {
+        if ($invoice->status !== 'canceled') {
+            throw new \RuntimeException('Hanya invoice berstatus dibatalkan yang dapat dipulihkan.');
+        }
+
+        $invoice->loadMissing('customer');
+
+        if ($invoice->customer && self::isPeriodDeferredForCustomer($invoice->customer, $invoice->billing_period)) {
+            throw new \RuntimeException(
+                'Invoice ini ditunda oleh penundaan tagihan aktif. Batalkan penundaan di panel atas jika ingin memulihkan tagihan periode ini.'
+            );
+        }
+
+        $multiPeriodDeferral = self::findMultiPeriodDeferralForInvoice($invoice);
+        if ($multiPeriodDeferral && $invoice->customer) {
+            $dueDate = Carbon::parse($multiPeriodDeferral->combined_due_date)->startOfDay();
+            if ($dueDate->lte(Carbon::today())) {
+                $dueDate = Carbon::now()->addDays(7)->startOfDay();
+            }
+
+            return self::consolidatePeriodInvoices(
+                $invoice->customer,
+                $multiPeriodDeferral->periods ?? [],
+                $dueDate,
+                $multiPeriodDeferral->status === 'pending' ? $multiPeriodDeferral : null
+            );
+        }
+
+        $duplicateUnpaid = Invoice::query()
+            ->where('customer_id', $invoice->customer_id)
+            ->where('billing_period', $invoice->billing_period)
+            ->where('status', 'unpaid')
+            ->where('id', '!=', $invoice->id)
+            ->exists();
+
+        if ($duplicateUnpaid) {
+            throw new \RuntimeException('Sudah ada invoice belum bayar untuk periode yang sama.');
+        }
+
+        $updates = ['status' => 'unpaid'];
+
+        if ($invoice->due_date && Carbon::parse($invoice->due_date)->startOfDay()->lt(Carbon::today())) {
+            $updates['due_date'] = Carbon::now()->addDays(7)->toDateString();
+        }
+
+        $invoice->update($updates);
+
+        return $invoice->fresh();
+    }
+
+    /**
+     * Permanently delete an invoice (unpaid/canceled/expired only).
+     */
+    public static function deleteInvoice(Invoice $invoice): void
+    {
+        if ($invoice->status === 'paid') {
+            throw new \RuntimeException(
+                'Invoice lunas tidak dapat dihapus. Batalkan pembayaran manual terlebih dahulu jika perlu.'
+            );
+        }
+
+        DB::transaction(function () use ($invoice): void {
+            $invoiceNumber = $invoice->invoice_number;
+            $customerId = $invoice->customer_id;
+
+            BillingDeferral::query()
+                ->where('invoice_id', $invoice->id)
+                ->update([
+                    'invoice_id' => null,
+                    'status' => 'cancelled',
+                ]);
+
+            if ($invoice->is_accumulated) {
+                $accumulatedPeriods = $invoice->accumulated_periods ?? [];
+
+                BillingDeferral::query()
+                    ->where('customer_id', $customerId)
+                    ->where('status', 'pending')
+                    ->get()
+                    ->each(function (BillingDeferral $deferral) use ($accumulatedPeriods): void {
+                        if ($accumulatedPeriods !== [] && ($deferral->periods ?? []) === $accumulatedPeriods) {
+                            $deferral->update(['status' => 'cancelled']);
+                        }
+                    });
+            }
+
+            $invoice->payments()->delete();
+            $invoice->delete();
+
+            Log::info("Invoice deleted by admin: {$invoiceNumber}");
+        });
+    }
+
+    /**
+     * @return array{restored_count: int, created_count: int}
+     */
+    private static function restoreInvoicesForDeferralPeriods(Customer $customer, array $periods): array
+    {
+        $restoredCount = 0;
+        $createdCount = 0;
+
+        foreach ($periods as $period) {
+            $result = self::restoreOrCreateInvoiceForPeriod($customer, $period);
+            if ($result === 'restored') {
+                $restoredCount++;
+            } elseif ($result === 'created') {
+                $createdCount++;
+            }
+        }
+
+        $accumulatedCanceled = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('status', 'canceled')
+            ->where('is_accumulated', true)
+            ->get();
+
+        foreach ($accumulatedCanceled as $invoice) {
+            $accumulatedPeriods = $invoice->accumulated_periods ?? [];
+            if ($accumulatedPeriods === [] || array_intersect($periods, $accumulatedPeriods) === []) {
+                continue;
+            }
+
+            if (self::restoreCanceledInvoiceRecord($invoice)) {
+                $restoredCount++;
+            }
+        }
+
+        return [
+            'restored_count' => $restoredCount,
+            'created_count' => $createdCount,
+        ];
+    }
+
+    private static function restoreCanceledInvoiceRecord(Invoice $invoice): bool
+    {
+        if ($invoice->status !== 'canceled') {
+            return false;
+        }
+
+        $duplicateUnpaid = Invoice::query()
+            ->where('customer_id', $invoice->customer_id)
+            ->where('billing_period', $invoice->billing_period)
+            ->where('status', 'unpaid')
+            ->where('id', '!=', $invoice->id)
+            ->exists();
+
+        if ($duplicateUnpaid) {
+            return false;
+        }
+
+        $updates = ['status' => 'unpaid'];
+
+        if ($invoice->due_date && Carbon::parse($invoice->due_date)->startOfDay()->lt(Carbon::today())) {
+            $updates['due_date'] = Carbon::now()->addDays(7)->toDateString();
+        }
+
+        $invoice->update($updates);
+
+        return true;
+    }
+
+    /**
+     * Restore a canceled invoice or create a new one for a billing period.
+     *
+     * @return 'restored'|'created'|'skipped'
+     */
+    private static function restoreOrCreateInvoiceForPeriod(Customer $customer, string $period): string
+    {
+        $canceled = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('billing_period', $period)
+            ->where('status', 'canceled')
+            ->first();
+
+        if ($canceled) {
+            if (self::restoreCanceledInvoiceRecord($canceled)) {
+                return 'restored';
+            }
+
+            return 'skipped';
+        }
+
+        $alreadyBillable = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('billing_period', $period)
+            ->whereIn('status', ['unpaid', 'paid'])
+            ->exists();
+
+        if ($alreadyBillable) {
+            return 'skipped';
+        }
+
+        $dueDate = self::resolveDueDateForPeriod($customer, $period);
+        if ($dueDate->isPast() || $dueDate->isToday()) {
+            $dueDate = Carbon::now()->addDays(7)->startOfDay();
+        }
+
+        if (self::createInvoiceForCustomer($customer, $period, $dueDate) === null) {
+            return 'skipped';
+        }
+
+        return 'created';
     }
 
     public static function customerHasPendingDeferral(Customer $customer): bool
@@ -921,35 +1414,11 @@ class BillingService
 
         $result = null;
 
-        DB::transaction(function () use ($deferral, $customer, $periods, $accumulated, $dueDate, $billingPeriod, &$result) {
-            $amount = $accumulated['amount'];
-            $tax = $accumulated['tax'];
-            $total = $accumulated['total_amount'];
-
-            $invNumber = 'INV-ACC-' . str_replace('-', '', $periods[0])
-                . (count($periods) > 1 ? str_replace('-', '', $periods[array_key_last($periods)]) : '')
-                . '-' . str_pad((string) $customer->id, 4, '0', STR_PAD_LEFT)
-                . '-' . strtoupper(bin2hex(random_bytes(2)));
-
-            $invoice = Invoice::create([
-                'customer_id' => $customer->id,
-                'invoice_number' => $invNumber,
-                'billing_period' => $billingPeriod,
-                'amount' => $amount,
-                'days_billed' => array_sum(array_column($accumulated['lines'], 'days_billed')),
-                'is_prorated' => collect($accumulated['lines'])->contains(fn (array $line) => $line['is_prorated']),
-                'is_accumulated' => true,
-                'accumulated_periods' => $periods,
-                'tax' => $tax,
-                'total_amount' => $total,
-                'due_date' => $dueDate,
-                'status' => 'unpaid',
-            ]);
-
-            $deferral->update([
-                'status' => 'invoiced',
-                'invoice_id' => $invoice->id,
-            ]);
+        DB::transaction(function () use ($deferral, $customer, $periods, $dueDate, $billingPeriod, &$result) {
+            $invoice = self::consolidatePeriodInvoices($customer, $periods, $dueDate, $deferral);
+            $invNumber = $invoice->invoice_number;
+            $amount = (float) $invoice->amount;
+            $total = (float) $invoice->total_amount;
 
             try {
                 $periodLabel = implode(' + ', $periods);
@@ -1034,6 +1503,12 @@ class BillingService
                 $deferral->periods ?? []
             );
 
+            $accumulatedGenerateOn = $deferral->combined_due_date
+                ? Carbon::parse($deferral->combined_due_date)
+                    ->subDays(self::getGenerateDaysBeforeDue())
+                    ->format('Y-m-d')
+                : null;
+
             return [
                 'id' => $deferral->id,
                 'customer_id' => $deferral->customer_id,
@@ -1042,6 +1517,7 @@ class BillingService
                 'months_count' => $deferral->months_count,
                 'periods' => $deferral->periods ?? [],
                 'combined_due_date' => $deferral->combined_due_date?->format('Y-m-d'),
+                'accumulated_generate_on' => $accumulatedGenerateOn,
                 'status' => $deferral->status,
                 'notes' => $deferral->notes,
                 'invoice_id' => $deferral->invoice_id,

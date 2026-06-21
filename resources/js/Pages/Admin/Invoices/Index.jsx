@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Activity, CalendarClock, CreditCard, PauseCircle, RefreshCw, Search, X } from 'lucide-react';
+import { Activity, CalendarClock, CreditCard, PauseCircle, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
@@ -24,6 +24,41 @@ function isManualPaidInvoice(inv) {
     }
 
     return inv.payments.some((payment) => payment.gateway_name === 'manual');
+}
+
+function invoiceStatusMeta(status) {
+    switch (status) {
+        case 'paid':
+            return {
+                label: 'Lunas',
+                className: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20',
+            };
+        case 'unpaid':
+            return {
+                label: 'Belum Bayar',
+                className: 'bg-rose-500/10 text-rose-500 border border-rose-500/20',
+            };
+        case 'canceled':
+            return {
+                label: 'Dibatalkan',
+                className: 'bg-zinc-500/10 text-zinc-500 border border-zinc-500/20',
+            };
+        case 'deferred':
+            return {
+                label: 'Ditunda',
+                className: 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20',
+            };
+        case 'expired':
+            return {
+                label: 'Kedaluwarsa',
+                className: 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
+            };
+        default:
+            return {
+                label: String(status || '—'),
+                className: 'bg-zinc-500/10 text-zinc-500 border border-zinc-500/20',
+            };
+    }
 }
 
 function InvoicesPageContent({
@@ -140,6 +175,28 @@ function InvoicesPageContent({
         });
     };
 
+    const handleRestoreCanceled = (invoiceId, invoiceNumber) => {
+        if (!confirm(`Pulihkan invoice ${invoiceNumber}?\n\nStatus akan kembali "Belum Bayar" dan tombol Bayar Manual akan tersedia.`)) return;
+
+        router.post('/admin/invoices/restore-canceled', { invoice_id: invoiceId }, {
+            preserveScroll: true,
+        });
+    };
+
+    const handleDeleteInvoice = (invoiceId, invoiceNumber, status) => {
+        if (!confirm(
+            `Hapus invoice ${invoiceNumber}?\n\n` +
+            `Status: ${status}\n` +
+            'Tindakan ini permanen dan tidak dapat dibatalkan.'
+        )) return;
+
+        router.post('/admin/invoices/delete', { invoice_id: invoiceId }, {
+            preserveScroll: true,
+        });
+    };
+
+    const canDeleteInvoice = (inv) => inv.status !== 'paid';
+
     const handleGenerateInvoices = () => {
         if (!confirm('Generate tagihan bulanan otomatis untuk periode bulan ini sekarang?')) return;
 
@@ -147,7 +204,11 @@ function InvoicesPageContent({
     };
 
     const handleCancelDeferral = (deferral) => {
-        if (!confirm(`Batalkan penundaan tagihan untuk ${deferral.customer_name}?\n\nPeriode: ${(deferral.periods || []).join(' + ')}`)) return;
+        if (!confirm(
+            `Batalkan penundaan tagihan untuk ${deferral.customer_name}?\n\n` +
+            `Periode: ${(deferral.periods || []).join(' + ')}\n\n` +
+            'Penundaan akan dihentikan tanpa membuat invoice baru.'
+        )) return;
 
         router.post('/admin/billing/defer/cancel', { deferral_id: deferral.id }, {
             preserveScroll: true,
@@ -190,7 +251,12 @@ function InvoicesPageContent({
 
         const customerName = inv.customer?.name?.toLowerCase() || '';
         const customerUsername = inv.customer?.username?.toLowerCase() || '';
-        const statusLabel = inv.status === 'paid' ? 'lunas paid' : 'belum bayar unpaid';
+        const statusLabel = {
+            paid: 'lunas paid',
+            unpaid: 'belum bayar unpaid',
+            canceled: 'dibatalkan canceled',
+            expired: 'kedaluwarsa expired',
+        }[inv.status] || inv.status || '';
         const amountText = String(inv.total_amount ?? inv.amount ?? '');
 
         return (
@@ -275,6 +341,12 @@ function InvoicesPageContent({
                                                 Jatuh tempo gabungan: <span className="font-mono font-bold">{deferral.combined_due_date}</span>
                                                 {' · '}Estimasi {formatRupiah(deferral.estimated_total_amount || 0)}
                                             </p>
+                                            {deferral.status === 'pending' && deferral.accumulated_generate_on && (
+                                                <p className={`text-[10px] ${theme.themeTextDesc}`}>
+                                                    Invoice akumulasi terbit otomatis pada{' '}
+                                                    <span className="font-mono font-bold">{deferral.accumulated_generate_on}</span>.
+                                                </p>
+                                            )}
                                             {deferral.notes && (
                                                 <p className={`text-[10px] ${theme.themeTextDesc}`}>Catatan: {deferral.notes}</p>
                                             )}
@@ -284,7 +356,7 @@ function InvoicesPageContent({
                                             onClick={() => handleCancelDeferral(deferral)}
                                             className="shrink-0 px-2 py-1 border border-rose-500/30 text-rose-500 hover:bg-rose-500/10 rounded-lg text-[10px] font-bold cursor-pointer"
                                         >
-                                            Batalkan
+                                            Batalkan Penundaan
                                         </button>
                                     </div>
                                 </div>
@@ -383,9 +455,29 @@ function InvoicesPageContent({
                                     <td className="py-3 px-2 font-bold text-emerald-500">{formatRupiah(inv.total_amount)}</td>
                                     <td className="py-3 px-2 font-mono">{inv.due_date ? inv.due_date.substring(0, 10) : '-'}</td>
                                     <td className="py-3 px-2">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${inv.status === 'paid' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
-                                            {inv.status === 'paid' ? 'Lunas' : 'Belum Bayar'}
-                                        </span>
+                                        {(() => {
+                                            const isDeferredPending = inv.status === 'canceled' && inv.is_deferred_by_pending;
+                                            const status = invoiceStatusMeta(isDeferredPending ? 'deferred' : inv.status);
+                                            return (
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${status.className}`}>
+                                                    {status.label}
+                                                </span>
+                                            );
+                                        })()}
+                                        {inv.status === 'canceled' && inv.is_deferred_by_pending && (
+                                            <p className={`text-[10px] mt-1 max-w-[160px] ${theme.themeTextDesc}`}>
+                                                Termasuk penundaan aktif. Invoice akumulasi terbit otomatis
+                                                {inv.deferred_accumulated_generate_on
+                                                    ? ` pada ${inv.deferred_accumulated_generate_on}`
+                                                    : ''}
+                                                , jatuh tempo {inv.deferred_combined_due_date || '-'}.
+                                            </p>
+                                        )}
+                                        {inv.status === 'canceled' && !inv.is_deferred_by_pending && (
+                                            <p className={`text-[10px] mt-1 max-w-[140px] ${theme.themeTextDesc}`}>
+                                                Dibatalkan saat penundaan. Klik Pulihkan di kolom Aksi.
+                                            </p>
+                                        )}
                                     </td>
                                     <td className="py-3 px-2">
                                         {inv.status === 'paid' && inv.next_billing ? (
@@ -409,25 +501,47 @@ function InvoicesPageContent({
                                         )}
                                     </td>
                                     <td className="py-3 px-2 text-right">
-                                        {inv.status === 'unpaid' ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => handlePayManual(inv.id)}
-                                                className="px-2 py-0.5 border border-emerald-500/30 text-[10px] text-emerald-500 hover:bg-emerald-500/10 rounded cursor-pointer font-bold"
-                                            >
-                                                Bayar Manual
-                                            </button>
-                                        ) : isManualPaidInvoice(inv) ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleVoidPayment(inv.id, inv.invoice_number)}
-                                                className="px-2 py-0.5 border border-rose-500/30 text-[10px] text-rose-500 hover:bg-rose-500/10 rounded cursor-pointer font-bold"
-                                            >
-                                                Batalkan
-                                            </button>
-                                        ) : (
-                                            <span className={`text-[10px] ${theme.themeTextDesc}`}>—</span>
-                                        )}
+                                        <div className="flex flex-col items-end gap-1">
+                                            {inv.status === 'unpaid' ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handlePayManual(inv.id)}
+                                                    className="px-2 py-0.5 border border-emerald-500/30 text-[10px] text-emerald-500 hover:bg-emerald-500/10 rounded cursor-pointer font-bold"
+                                                >
+                                                    Bayar Manual
+                                                </button>
+                                            ) : inv.status === 'canceled' && inv.is_deferred_by_pending ? (
+                                                <span className={`text-[10px] ${theme.themeTextDesc}`}>Menunggu akumulasi</span>
+                                            ) : inv.status === 'canceled' ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRestoreCanceled(inv.id, inv.invoice_number)}
+                                                    className="px-2 py-0.5 border border-indigo-500/30 text-[10px] text-indigo-500 hover:bg-indigo-500/10 rounded cursor-pointer font-bold"
+                                                >
+                                                    Pulihkan
+                                                </button>
+                                            ) : isManualPaidInvoice(inv) ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleVoidPayment(inv.id, inv.invoice_number)}
+                                                    className="px-2 py-0.5 border border-rose-500/30 text-[10px] text-rose-500 hover:bg-rose-500/10 rounded cursor-pointer font-bold"
+                                                >
+                                                    Batalkan
+                                                </button>
+                                            ) : (
+                                                <span className={`text-[10px] ${theme.themeTextDesc}`}>—</span>
+                                            )}
+                                            {canDeleteInvoice(inv) && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDeleteInvoice(inv.id, inv.invoice_number, inv.status === 'canceled' && inv.is_deferred_by_pending ? 'Ditunda' : invoiceStatusMeta(inv.status).label)}
+                                                    className="inline-flex items-center gap-1 px-2 py-0.5 border border-zinc-500/30 text-[10px] text-zinc-500 hover:bg-zinc-500/10 rounded cursor-pointer font-bold"
+                                                >
+                                                    <Trash2 className="w-3 h-3" />
+                                                    Hapus
+                                                </button>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -518,7 +632,7 @@ function InvoicesPageContent({
                                 className={`p-2 border rounded-lg ${themeInput}`}
                             >
                                 <option value="1">1 bulan</option>
-                                <option value="2">2 bulan (bulan lalu + bulan berikutnya)</option>
+                                <option value="2">2 bulan (bulan ini + bulan berikutnya)</option>
                             </select>
                         </div>
                         <div className="flex flex-col gap-1">

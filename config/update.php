@@ -63,4 +63,11 @@ return [
     */
     'fetch_timeout' => 45,
 
+    /*
+    | Path PHP CLI untuk artisan migrate/optimize saat update dari menu.
+    | Wajib diisi jika server web memakai PHP-FPM (PHP_BINARY = php-fpm, bukan php).
+    | Contoh: /usr/bin/php8.4
+    */
+    'php_cli_binary' => env('UPDATE_PHP_CLI'),
+
 ];
