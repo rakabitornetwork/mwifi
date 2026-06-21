@@ -42,6 +42,7 @@ class CustomerPortalController extends Controller
     {
         $request->validate([
             'position' => 'nullable|in:top,bottom',
+            'format' => 'nullable|in:half,a4,thermal',
         ]);
 
         $customer = Auth::user()->customer;
@@ -50,20 +51,27 @@ class CustomerPortalController extends Controller
             abort(403);
         }
 
-        $invoice->load(['customer.package']);
+        $invoice->load(['customer.package', 'payments']);
         $position = $request->query('position', 'top');
-        $nextBilling = $invoice->status === 'paid'
-            ? BillingService::resolveNextBillingPreview($invoice)
-            : null;
+        $format = $request->query('format', 'half');
 
-        return view('admin.invoices.print', [
+        $data = [
             'invoice' => $invoice,
             'customer' => $invoice->customer,
             'package' => $invoice->customer?->package,
-            'nextBilling' => $nextBilling,
+            'nextBilling' => $invoice->status === 'paid'
+                ? BillingService::resolveNextBillingPreview($invoice)
+                : null,
+            'latestPayment' => $invoice->payments->sortByDesc('created_at')->first(),
             'position' => $position,
             'branding' => BrandingService::get(),
-        ]);
+        ];
+
+        return match ($format) {
+            'a4' => view('admin.invoices.print-a4', $data),
+            'thermal' => view('admin.invoices.print-thermal', $data),
+            default => view('admin.invoices.print', $data),
+        };
     }
 
     /**

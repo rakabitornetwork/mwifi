@@ -129,4 +129,20 @@ class BillingNextInvoiceTest extends TestCase
         $response->assertSee($invoice->invoice_number);
         $response->assertSee('Tagihan Selanjutnya');
     }
+
+    public function test_admin_can_open_invoice_print_a4_and_thermal(): void
+    {
+        $admin = User::factory()->create();
+        $invoice = $this->makePaidInvoice();
+
+        $a4 = $this->actingAs($admin)->get("/admin/invoices/{$invoice->id}/print?format=a4");
+        $a4->assertOk();
+        $a4->assertSee('Cetak A4');
+        $a4->assertSee('BUKTI BAYAR');
+
+        $thermal = $this->actingAs($admin)->get("/admin/invoices/{$invoice->id}/print?format=thermal");
+        $thermal->assertOk();
+        $thermal->assertSee('Thermal 58mm');
+        $thermal->assertSee('Lunas');
+    }
 }

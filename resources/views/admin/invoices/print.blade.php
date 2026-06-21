@@ -342,8 +342,10 @@
         @else
             <span class="toolbar-note">1 invoice = 1/2 kertas A4. Gunakan sisa kertas untuk invoice berikutnya.</span>
         @endif
-        <a href="{{ request()->fullUrlWithQuery(['position' => 'top']) }}" class="{{ $position === 'top' ? 'primary' : '' }}">Posisi Atas</a>
-        <a href="{{ request()->fullUrlWithQuery(['position' => 'bottom']) }}" class="{{ $position === 'bottom' ? 'primary' : '' }}">Posisi Bawah</a>
+        <a href="{{ request()->fullUrlWithQuery(['format' => 'a4', 'position' => $position]) }}">A4 Penuh</a>
+        <a href="{{ request()->fullUrlWithQuery(['format' => 'thermal', 'position' => $position]) }}">Thermal 58mm</a>
+        <a href="{{ request()->fullUrlWithQuery(['format' => 'half', 'position' => 'top']) }}" class="{{ $position === 'top' ? 'primary' : '' }}">Posisi Atas</a>
+        <a href="{{ request()->fullUrlWithQuery(['format' => 'half', 'position' => 'bottom']) }}" class="{{ $position === 'bottom' ? 'primary' : '' }}">Posisi Bawah</a>
         <button type="button" class="primary" onclick="window.print()">Cetak Sekarang</button>
     </div>
 

@@ -1974,28 +1974,44 @@ class AdminActionController extends Controller
     }
 
     /**
-     * Print invoice on half A4 sheet (top or bottom position).
+     * Cetak invoice: half A4 (default), full A4, atau thermal 58mm.
      */
     public function printInvoice(Request $request, Invoice $invoice)
     {
         $request->validate([
             'position' => 'nullable|in:top,bottom',
+            'format' => 'nullable|in:half,a4,thermal',
         ]);
 
-        $invoice->load(['customer.package']);
-        $position = $request->query('position', 'top');
-        $nextBilling = $invoice->status === 'paid'
-            ? BillingService::resolveNextBillingPreview($invoice)
-            : null;
+        $data = $this->invoicePrintViewData($invoice, $request);
+        $format = $request->query('format', 'half');
 
-        return view('admin.invoices.print', [
+        return match ($format) {
+            'a4' => view('admin.invoices.print-a4', $data),
+            'thermal' => view('admin.invoices.print-thermal', $data),
+            default => view('admin.invoices.print', $data),
+        };
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function invoicePrintViewData(Invoice $invoice, Request $request): array
+    {
+        $invoice->load(['customer.package', 'payments']);
+        $position = $request->query('position', 'top');
+
+        return [
             'invoice' => $invoice,
             'customer' => $invoice->customer,
             'package' => $invoice->customer?->package,
-            'nextBilling' => $nextBilling,
+            'nextBilling' => $invoice->status === 'paid'
+                ? BillingService::resolveNextBillingPreview($invoice)
+                : null,
+            'latestPayment' => $invoice->payments->sortByDesc('created_at')->first(),
             'position' => $position,
             'branding' => BrandingService::get(),
-        ]);
+        ];
     }
 
     /**

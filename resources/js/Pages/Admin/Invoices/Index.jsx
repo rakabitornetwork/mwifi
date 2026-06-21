@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Activity, CalendarClock, CreditCard, MessageSquare, PauseCircle, RefreshCw, RotateCcw, Search, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
+import { Activity, CalendarClock, CreditCard, FileText, MessageSquare, PauseCircle, Printer, RefreshCw, RotateCcw, Search, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
@@ -202,6 +202,12 @@ function InvoicesPageContent({
     const canDeleteInvoice = (inv) => inv.status !== 'paid';
 
     const canSendInvoiceWhatsApp = (inv) => inv.status === 'unpaid' || inv.status === 'paid';
+
+    const canPrintInvoice = (inv) => inv.status === 'unpaid' || inv.status === 'paid';
+
+    const handlePrintInvoice = (invoiceId, format) => {
+        window.open(`/admin/invoices/${invoiceId}/print?format=${format}`, '_blank', 'noopener,noreferrer');
+    };
 
     const handleSendInvoiceWhatsApp = (inv) => {
         const label = inv.status === 'paid' ? 'konfirmasi pembayaran' : 'tagihan';
@@ -595,6 +601,26 @@ function InvoicesPageContent({
                                         )}
                                     </td>
                                     <td className="py-3 px-2 text-right space-x-1">
+                                            {canPrintInvoice(inv) && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handlePrintInvoice(inv.id, 'thermal')}
+                                                        title="Cetak thermal 58mm"
+                                                        className="inline-block p-1 text-violet-500 hover:text-violet-400 cursor-pointer transition-colors"
+                                                    >
+                                                        <Printer className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handlePrintInvoice(inv.id, 'a4')}
+                                                        title="Cetak A4"
+                                                        className="inline-block p-1 text-zinc-500 hover:text-zinc-400 cursor-pointer transition-colors"
+                                                    >
+                                                        <FileText className="w-4 h-4" />
+                                                    </button>
+                                                </>
+                                            )}
                                             {canSendInvoiceWhatsApp(inv) && (
                                                 <button
                                                     type="button"
