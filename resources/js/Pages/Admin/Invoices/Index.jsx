@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
 import { Activity, CalendarClock, CreditCard, FileText, MessageSquare, PauseCircle, Printer, RefreshCw, RotateCcw, Search, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
+import MonthlyRevenuePanel from '../../../Components/Admin/MonthlyRevenuePanel';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { formatRupiah } from '../../../utils/formatRupiah';
 import getVisiblePages from '../../../utils/getVisiblePages';
@@ -66,6 +67,7 @@ function InvoicesPageContent({
     invoices = [],
     billingActivityLogs = [],
     billingDeferrals = [],
+    monthlyRevenue = {},
 }) {
     const theme = useAdminTheme();
     const [searchTerm, setSearchTerm] = useState('');
@@ -333,6 +335,15 @@ function InvoicesPageContent({
 
     const unpaidInvoicesCount = invoices.filter((inv) => inv.status === 'unpaid').length;
 
+    const unpaidSummary = useMemo(() => {
+        const unpaid = invoices.filter((inv) => inv.status === 'unpaid');
+
+        return {
+            count: unpaid.length,
+            total: unpaid.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0),
+        };
+    }, [invoices]);
+
     const totalInvoicePages = Math.ceil(filteredInvoices.length / invoicePageSize) || 1;
     const visibleInvoicePages = getVisiblePages(invoicePage, totalInvoicePages);
     const paginatedInvoices = filteredInvoices.slice(
@@ -395,6 +406,18 @@ function InvoicesPageContent({
 
     return (
         <>
+            <div className="space-y-4">
+                <MonthlyRevenuePanel
+                    monthlyRevenue={monthlyRevenue}
+                    unpaidTotal={unpaidSummary.total}
+                    unpaidCount={unpaidSummary.count}
+                    isDarkMode={theme.isDarkMode}
+                    themeCard={theme.themeCard}
+                    themeTextTitle={theme.themeTextTitle}
+                    themeTextSub={theme.themeTextSub}
+                    themeTextDesc={theme.themeTextDesc}
+                />
+
             <div className={`${theme.themeCard} border rounded-2xl p-5 space-y-4`}>
                 <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3 gap-3`}>
                     <div className="flex items-center space-x-2">
@@ -805,6 +828,7 @@ function InvoicesPageContent({
                     </div>
                 </div>
             </div>
+            </div>
 
             <TransitionModal show={showDeferModal} onClose={resetDeferModal} themeCard={theme.themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
@@ -920,13 +944,14 @@ function InvoicesPageContent({
     );
 }
 
-export default function InvoicesIndex({ invoices, billingActivityLogs, billingDeferrals }) {
+export default function InvoicesIndex({ invoices, billingActivityLogs, billingDeferrals, monthlyRevenue }) {
     return (
         <AdminLayout title="Tagihan / Billing">
             <InvoicesPageContent
                 invoices={invoices}
                 billingActivityLogs={billingActivityLogs}
                 billingDeferrals={billingDeferrals}
+                monthlyRevenue={monthlyRevenue}
             />
         </AdminLayout>
     );

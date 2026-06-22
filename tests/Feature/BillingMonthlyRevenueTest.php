@@ -82,18 +82,18 @@ class BillingMonthlyRevenueTest extends TestCase
         $this->assertCount(6, $summary['series']);
     }
 
-    public function test_dashboard_includes_monthly_revenue_payload(): void
+    public function test_invoices_page_includes_monthly_revenue_payload(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-20'));
 
         $admin = User::factory()->create();
         $this->makePaidInvoice('C1', '2026-06-05', 75000);
 
-        $response = $this->actingAs($admin)->get('/dashboard');
+        $response = $this->actingAs($admin)->get('/invoices');
 
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
-            ->component('Admin/Dashboard/Index')
+            ->component('Admin/Invoices/Index')
             ->has('monthlyRevenue.current_month')
             ->where('monthlyRevenue.current_month.total', 75000)
         );

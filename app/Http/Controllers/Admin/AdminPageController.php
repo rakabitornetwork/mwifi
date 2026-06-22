@@ -40,17 +40,12 @@ class AdminPageController extends Controller
                     ->where('status', 'isolated')
                     ->count(),
             ],
-            'unpaidInvoicesSummary' => [
-                'total' => round((float) Invoice::query()->where('status', 'unpaid')->sum('total_amount'), 2),
-                'count' => Invoice::query()->where('status', 'unpaid')->count(),
-            ],
             'odpSummary' => [
                 'node_count' => Odp::query()->count(),
                 'total_ports' => (int) Odp::query()->sum('total_ports'),
                 'used_ports' => (int) Customer::query()->whereNotNull('odp_id')->count(),
             ],
             'billingActivityLogs' => BillingActivityLog::orderByDesc('created_at')->limit(8)->get(),
-            'monthlyRevenue' => BillingService::summarizeMonthlyRevenue(),
             'todayRevenue' => BillingService::summarizeTodayRevenue(),
         ]);
     }
@@ -153,6 +148,7 @@ class AdminPageController extends Controller
                     ->get()
             ),
             'billingActivityLogs' => BillingActivityLog::orderByDesc('created_at')->limit(50)->get(),
+            'monthlyRevenue' => BillingService::summarizeMonthlyRevenue(),
         ]);
     }
 

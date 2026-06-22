@@ -210,7 +210,7 @@
     ]
   },
   "resources/js/Pages/Admin/Dashboard/Index.jsx": {
-    "file": "assets/Index-DZpuRtT4.js",
+    "file": "assets/Index-CTGTKdZk.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Dashboard/Index.jsx",
     "isDynamicEntry": true,
@@ -254,7 +254,7 @@
     ]
   },
   "resources/js/Pages/Admin/Invoices/Index.jsx": {
-    "file": "assets/Index-D0hFSemH.js",
+    "file": "assets/Index-Dw_KT7gJ.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Invoices/Index.jsx",
     "isDynamicEntry": true,
@@ -266,6 +266,9 @@
       "_TransitionModal-sBE6MuRA.js",
       "_formatRupiah-BPNt29Go.js",
       "_getVisiblePages-tDY32sHw.js"
+    ],
+    "dynamicImports": [
+      "resources/js/Components/Admin/DashboardCharts.jsx"
     ]
   },
   "resources/js/Pages/Admin/Messaging/Index.jsx": {
@@ -403,7 +406,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-mBq6X-J0.js",
+    "file": "assets/app-BVEpyFbl.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
