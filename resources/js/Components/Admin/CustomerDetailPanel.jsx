@@ -26,9 +26,9 @@ function statusMeta(status) {
 
 function DetailItem({ label, value, mono = false, themeTextTitle, themeTextSub, className = '' }) {
     return (
-        <div className={className}>
+        <div className={`min-w-0 ${className}`}>
             <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>{label}</p>
-            <p className={`text-xs mt-0.5 break-words ${mono ? 'font-mono' : ''} ${themeTextTitle}`}>
+            <p className={`text-xs mt-0.5 break-words [overflow-wrap:anywhere] ${mono ? 'font-mono' : ''} ${themeTextTitle}`}>
                 {value || '—'}
             </p>
         </div>
@@ -161,9 +161,9 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
     const isOnline = !!quota?.online;
 
     return (
-        <div className={`border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-3 py-4 sm:px-4`}>
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-                <div>
+        <div className={`customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-3 py-4 sm:px-4 min-w-0`}>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4 min-w-0">
+                <div className="min-w-0">
                     <p className={`text-xs font-bold ${themeTextTitle}`}>Detail Lengkap Pelanggan</p>
                     <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
                         Informasi sama seperti form popup Manajemen PPPoE.
@@ -179,8 +179,8 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                <div className={`rounded-xl border p-3 space-y-3 ${themeInnerWidget}`}>
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 min-w-0">
+                <div className={`rounded-xl border p-3 space-y-3 min-w-0 ${themeInnerWidget}`}>
                     <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Identitas & Kontak</p>
                     <DetailItem label="Nama Lengkap" value={customer.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                     <DetailItem label="Username Layanan" value={customer.username} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
@@ -190,7 +190,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                     <DetailItem label="Alamat Lengkap" value={customer.address} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                 </div>
 
-                <div className={`rounded-xl border p-3 space-y-3 ${themeInnerWidget}`}>
+                <div className={`rounded-xl border p-3 space-y-3 min-w-0 ${themeInnerWidget}`}>
                     <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Lokasi & Jaringan</p>
                     <DetailItem label="Lintang GPS (Latitude)" value={hasGps ? String(customer.latitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                     <DetailItem label="Bujur GPS (Longitude)" value={hasGps ? String(customer.longitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
@@ -215,7 +215,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                     <DetailItem label="Titik ODP" value={customer.odp?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                 </div>
 
-                <div className={`rounded-xl border p-3 space-y-3 ${themeInnerWidget}`}>
+                <div className={`rounded-xl border p-3 space-y-3 min-w-0 lg:col-span-2 xl:col-span-1 ${themeInnerWidget}`}>
                     <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Status & Billing</p>
                     <div>
                         <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Status Akun</p>
@@ -229,8 +229,8 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                     {customer.latest_unpaid_invoice ? (
                         <div className={`rounded-lg border p-2.5 ${isDarkMode ? 'border-rose-500/20 bg-rose-500/5' : 'border-rose-200 bg-rose-50/80'}`}>
                             <p className="text-[10px] font-bold uppercase tracking-wide text-rose-500">Tagihan Belum Lunas</p>
-                            <p className={`text-xs font-mono font-bold mt-1 ${themeTextTitle}`}>{customer.latest_unpaid_invoice.invoice_number}</p>
-                            <p className={`text-[10px] mt-0.5 ${themeTextSub}`}>
+                            <p className={`text-xs font-mono font-bold mt-1 break-all ${themeTextTitle}`}>{customer.latest_unpaid_invoice.invoice_number}</p>
+                            <p className={`text-[10px] mt-0.5 break-words ${themeTextSub}`}>
                                 Periode {customer.latest_unpaid_invoice.billing_period} · {formatRupiah(customer.latest_unpaid_invoice.total_amount)}
                             </p>
                             <p className={`text-[10px] ${themeTextDesc}`}>
@@ -242,11 +242,11 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                             <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
                                 {customer.pending_deferral ? 'Tagihan Periode Ditunda' : 'Invoice Dibatalkan'}
                             </p>
-                            <p className={`text-xs font-mono font-bold mt-1 ${themeTextTitle}`}>{customer.latest_canceled_invoice.invoice_number}</p>
-                            <p className={`text-[10px] mt-0.5 ${themeTextSub}`}>
+                            <p className={`text-xs font-mono font-bold mt-1 break-all ${themeTextTitle}`}>{customer.latest_canceled_invoice.invoice_number}</p>
+                            <p className={`text-[10px] mt-0.5 break-words ${themeTextSub}`}>
                                 Periode {customer.latest_canceled_invoice.billing_period} · {formatRupiah(customer.latest_canceled_invoice.total_amount)}
                             </p>
-                            <p className={`text-[10px] ${themeTextDesc}`}>
+                            <p className={`text-[10px] ${themeTextDesc} break-words leading-relaxed`}>
                                 {customer.pending_deferral
                                     ? `Penundaan aktif — invoice akumulasi terbit otomatis, jatuh tempo gabungan ${formatDate(customer.pending_deferral.combined_due_date)}.`
                                     : 'Buka menu Tagihan dan klik Pulihkan pada baris invoice untuk Bayar Manual.'}
@@ -268,9 +268,9 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                         </div>
                     ) : null}
 
-                    <div className="pt-1 space-y-2">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                            <div className="flex flex-col gap-1 min-w-0 sm:flex-1">
+                    <div className="pt-1 space-y-2 min-w-0">
+                        <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-1 min-w-0">
                                 <label
                                     htmlFor={`due-extension-${customer.id}`}
                                     className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}
@@ -300,7 +300,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                                             ? 'Membuat invoice...'
                                             : 'Generate tagihan manual untuk pelanggan ini'
                                 }
-                                className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors shrink-0 ${
+                                className={`inline-flex w-full items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
                                     canGenerateManualInvoice && !isGeneratingInvoice
                                         ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 cursor-pointer'
                                         : isDarkMode
@@ -309,37 +309,37 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                                 }`}
                             >
                                 {isGeneratingInvoice ? (
-                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                    <RefreshCw className="w-3.5 h-3.5 shrink-0 animate-spin" />
                                 ) : (
-                                    <FileText className="w-3.5 h-3.5" />
+                                    <FileText className="w-3.5 h-3.5 shrink-0" />
                                 )}
-                                Generate Tagihan Manual
+                                <span className="text-center">Generate Tagihan Manual</span>
                             </button>
                         </div>
-                        <p className={`text-[10px] ${themeTextDesc}`}>
+                        <p className={`text-[10px] leading-relaxed break-words ${themeTextDesc}`}>
                             Dipakai jika tanggal jatuh tempo periode sudah lewat atau hari ini. Untuk penundaan lebih lama, gunakan Tunda Tagihan di menu Tagihan / Billing.
                         </p>
                         {generateInvoiceDisabledReason && (
-                            <p className={`text-[10px] ${themeTextDesc}`}>{generateInvoiceDisabledReason}</p>
+                            <p className={`text-[10px] leading-relaxed break-words ${themeTextDesc}`}>{generateInvoiceDisabledReason}</p>
                         )}
                     </div>
                 </div>
             </div>
 
-            <div className={`mt-4 rounded-xl border p-3 space-y-3 ${themeInnerWidget}`}>
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                    <div className="flex flex-col gap-1 min-w-0 sm:flex-row sm:items-center sm:gap-2">
-                        <div className="flex items-center gap-2">
-                            <Database className="w-4 h-4 text-indigo-500 shrink-0" />
-                            <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Quota Bandwidth (Total Pemakaian)</p>
+            <div className={`mt-4 rounded-xl border p-3 space-y-3 min-w-0 ${themeInnerWidget}`}>
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between min-w-0">
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                        <div className="flex items-start gap-2 min-w-0">
+                            <Database className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                            <p className={`text-[10px] font-bold uppercase tracking-wider break-words ${themeTextSub}`}>Quota Bandwidth (Total Pemakaian)</p>
                         </div>
                         {quota?.period && (
-                            <span className={`text-[10px] ${themeTextDesc}`}>
+                            <span className={`text-[10px] break-words ${themeTextDesc}`}>
                                 Periode {quota.period} · reset otomatis tiap tanggal 1
                             </span>
                         )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                    <div className="flex items-center gap-2 shrink-0">
                         {isLoadingQuota && (
                             <span className={`text-[10px] inline-flex items-center gap-1 ${themeTextSub}`}>
                                 <RefreshCw className="w-3 h-3 animate-spin" />

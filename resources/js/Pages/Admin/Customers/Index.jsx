@@ -625,7 +625,7 @@ function CustomersPageContent({
                                     </tr>
                                     {expandedCustomerId === cust.id && (
                                         <tr>
-                                            <td colSpan={11} className="p-0">
+                                            <td colSpan={11} className="p-0 admin-table-detail-cell">
                                                 <CustomerDetailPanel
                                                     customer={cust}
                                                     theme={theme}
