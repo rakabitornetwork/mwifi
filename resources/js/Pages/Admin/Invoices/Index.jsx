@@ -66,7 +66,6 @@ function InvoicesPageContent({
     invoices = [],
     billingActivityLogs = [],
     billingDeferrals = [],
-    customers = [],
 }) {
     const theme = useAdminTheme();
     const [searchTerm, setSearchTerm] = useState('');
@@ -75,6 +74,7 @@ function InvoicesPageContent({
     const invoicePageSize = 10;
     const [showDeferModal, setShowDeferModal] = useState(false);
     const [deferCustomerId, setDeferCustomerId] = useState('');
+    const [deferCustomerLabel, setDeferCustomerLabel] = useState('');
     const [deferMonthsCount, setDeferMonthsCount] = useState('2');
     const [deferDueDate, setDeferDueDate] = useState('');
     const [deferNotes, setDeferNotes] = useState('');
@@ -92,8 +92,18 @@ function InvoicesPageContent({
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
     const themeLabel = theme.isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
 
-    const pppoeCustomers = customers.filter((customer) => customer.service_type === 'pppoe');
     const pendingDeferrals = billingDeferrals.filter((item) => item.status === 'pending');
+
+    const customerHasPendingDeferral = (customerId) => pendingDeferrals.some(
+        (deferral) => String(deferral.customer_id) === String(customerId)
+    );
+
+    const canDeferInvoice = (inv) => (
+        inv.status === 'unpaid'
+        && inv.customer?.id
+        && inv.customer?.service_type === 'pppoe'
+        && !customerHasPendingDeferral(inv.customer.id)
+    );
 
     useEffect(() => {
         setInvoicePage(1);
@@ -143,11 +153,30 @@ function InvoicesPageContent({
     const resetDeferModal = () => {
         setShowDeferModal(false);
         setDeferCustomerId('');
+        setDeferCustomerLabel('');
         setDeferMonthsCount('2');
         setDeferDueDate('');
         setDeferNotes('');
         setDeferPreview(null);
         setDeferPreviewError('');
+    };
+
+    const openDeferModalForInvoice = (inv) => {
+        const customer = inv.customer;
+        if (!customer?.id) {
+            return;
+        }
+
+        setDeferCustomerId(String(customer.id));
+        setDeferCustomerLabel(
+            `${customer.name} (${customer.username}) · Tgl ${customer.billing_date ?? '-'}`
+        );
+        setDeferMonthsCount('2');
+        setDeferDueDate('');
+        setDeferNotes('');
+        setDeferPreview(null);
+        setDeferPreviewError('');
+        setShowDeferModal(true);
     };
 
     const handlePayManual = (invoiceId) => {
@@ -390,14 +419,6 @@ function InvoicesPageContent({
                         </button>
                         <button
                             type="button"
-                            onClick={() => setShowDeferModal(true)}
-                            title="Tunda Tagihan"
-                            className="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center"
-                        >
-                            <PauseCircle className="w-4 h-4" />
-                        </button>
-                        <button
-                            type="button"
                             onClick={handleGenerateInvoices}
                             title="Generate Tagihan Bulan Ini"
                             className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center"
@@ -636,14 +657,26 @@ function InvoicesPageContent({
                                                 </button>
                                             )}
                                             {inv.status === 'unpaid' ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handlePayManual(inv.id)}
-                                                    title="Bayar Manual"
-                                                    className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
-                                                >
-                                                    <Wallet className="w-4 h-4" />
-                                                </button>
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handlePayManual(inv.id)}
+                                                        title="Bayar Manual"
+                                                        className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
+                                                    >
+                                                        <Wallet className="w-4 h-4" />
+                                                    </button>
+                                                    {canDeferInvoice(inv) && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => openDeferModalForInvoice(inv)}
+                                                            title="Tunda Tagihan"
+                                                            className="inline-block p-1 text-indigo-500 hover:text-indigo-400 cursor-pointer transition-colors"
+                                                        >
+                                                            <PauseCircle className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+                                                </>
                                             ) : inv.status === 'canceled' && inv.is_deferred_by_pending ? (
                                                 <span className={`text-[10px] ${theme.themeTextDesc}`}>Menunggu akumulasi</span>
                                             ) : inv.status === 'canceled' ? (
@@ -789,19 +822,7 @@ function InvoicesPageContent({
                 <form onSubmit={handleSubmitDeferral} className="space-y-3 text-xs mt-3">
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Pelanggan PPPoE</label>
-                        <select
-                            required
-                            value={deferCustomerId}
-                            onChange={(e) => setDeferCustomerId(e.target.value)}
-                            className={`p-2 border rounded-lg ${themeInput}`}
-                        >
-                            <option value="">Pilih pelanggan...</option>
-                            {pppoeCustomers.map((customer) => (
-                                <option key={customer.id} value={customer.id}>
-                                    {customer.name} ({customer.username}) · Tgl {customer.billing_date}
-                                </option>
-                            ))}
-                        </select>
+                        <p className={`p-2 border rounded-lg ${themeInput}`}>{deferCustomerLabel}</p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -870,8 +891,8 @@ function InvoicesPageContent({
                                 </p>
                             </>
                         )}
-                        {!deferCustomerId && !deferPreviewLoading && (
-                            <p className={theme.themeTextDesc}>Pilih pelanggan untuk melihat preview akumulasi tagihan.</p>
+                        {!deferPreviewLoading && !deferPreview && !deferPreviewError && (
+                            <p className={theme.themeTextDesc}>Menghitung preview akumulasi tagihan...</p>
                         )}
                     </div>
 
@@ -899,14 +920,13 @@ function InvoicesPageContent({
     );
 }
 
-export default function InvoicesIndex({ invoices, billingActivityLogs, billingDeferrals, customers }) {
+export default function InvoicesIndex({ invoices, billingActivityLogs, billingDeferrals }) {
     return (
         <AdminLayout title="Tagihan / Billing">
             <InvoicesPageContent
                 invoices={invoices}
                 billingActivityLogs={billingActivityLogs}
                 billingDeferrals={billingDeferrals}
-                customers={customers}
             />
         </AdminLayout>
     );

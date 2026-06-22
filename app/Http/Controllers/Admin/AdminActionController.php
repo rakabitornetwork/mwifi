@@ -826,7 +826,7 @@ class AdminActionController extends Controller
 
             return redirect()->back()->with(
                 'success',
-                "Penundaan tagihan berhasil. Periode {$periodLabel} akan digabung menjadi satu invoice jatuh tempo {$deferral->combined_due_date->format('d-m-Y')}."
+                "Penundaan tagihan berhasil. Periode {$periodLabel} akan digabung menjadi satu invoice jatuh tempo {$deferral->combined_due_date->format('d-m-Y')}. Layanan pelanggan dipulihkan ke profil paket normal."
             );
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());

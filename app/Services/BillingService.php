@@ -1106,7 +1106,7 @@ class BillingService
                     ->update(['status' => 'canceled']);
             }
 
-            return BillingDeferral::create([
+            $deferral = BillingDeferral::create([
                 'customer_id' => $customer->id,
                 'created_by' => $createdBy?->id,
                 'months_count' => $monthsCount,
@@ -1115,6 +1115,11 @@ class BillingService
                 'status' => 'pending',
                 'notes' => $notes,
             ]);
+
+            $customer->refresh();
+            self::reactivateCustomerOnRouter($customer);
+
+            return $deferral;
         });
     }
 
