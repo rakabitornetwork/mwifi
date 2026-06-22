@@ -67,7 +67,25 @@ function WhatsAppStatusChip({ whatsapp }) {
 
 function AdminProfileMenu({ user, themeHeaderBtn }) {
     const [open, setOpen] = useState(false);
+    const [renderMenu, setRenderMenu] = useState(false);
+    const [menuActive, setMenuActive] = useState(false);
     const menuRef = useRef(null);
+
+    useEffect(() => {
+        if (open) {
+            setRenderMenu(true);
+            const frame = window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => setMenuActive(true));
+            });
+
+            return () => window.cancelAnimationFrame(frame);
+        }
+
+        setMenuActive(false);
+        const timer = window.setTimeout(() => setRenderMenu(false), 200);
+
+        return () => window.clearTimeout(timer);
+    }, [open]);
 
     useEffect(() => {
         if (!open) {
@@ -123,13 +141,17 @@ function AdminProfileMenu({ user, themeHeaderBtn }) {
                     <span className="text-[11px] font-bold truncate w-full text-left">{user.name}</span>
                     <span className="text-[9px] text-white/70 truncate w-full text-left">{user.profile_title || 'Admin'}</span>
                 </span>
-                <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
             </button>
 
-            {open && (
+            {renderMenu && (
                 <div
                     role="menu"
-                    className="absolute right-0 mt-2 w-44 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-lg py-1 z-50"
+                    className={`absolute right-0 mt-2 w-44 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-lg py-1 z-50 origin-top-right transform transition-all duration-200 ease-out ${
+                        menuActive
+                            ? 'opacity-100 translate-y-0 scale-100'
+                            : 'opacity-0 -translate-y-1 scale-95 pointer-events-none'
+                    }`}
                 >
                     <Link
                         href="/profile"
