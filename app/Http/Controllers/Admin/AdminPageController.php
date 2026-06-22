@@ -26,13 +26,30 @@ class AdminPageController extends Controller
     public function dashboard(): Response
     {
         return Inertia::render('Admin/Dashboard/Index', [
-            'customers' => Customer::with(['package', 'router'])->get(),
             'routers' => Router::all(),
-            'invoices' => BillingService::appendNextBillingToInvoices(
-                Invoice::with(['customer.package', 'payments'])->orderByDesc('created_at')->get()
-            ),
-            'odps' => Odp::withCount('customers')->get(),
-            'billingActivityLogs' => BillingActivityLog::orderByDesc('created_at')->limit(50)->get(),
+            'customerStats' => [
+                'ppp_active' => Customer::query()
+                    ->where('service_type', 'pppoe')
+                    ->where('status', 'active')
+                    ->count(),
+                'hotspot_active' => Customer::query()
+                    ->where('service_type', 'hotspot')
+                    ->where('status', 'active')
+                    ->count(),
+                'isolated' => Customer::query()
+                    ->where('status', 'isolated')
+                    ->count(),
+            ],
+            'unpaidInvoicesSummary' => [
+                'total' => round((float) Invoice::query()->where('status', 'unpaid')->sum('total_amount'), 2),
+                'count' => Invoice::query()->where('status', 'unpaid')->count(),
+            ],
+            'odpSummary' => [
+                'node_count' => Odp::query()->count(),
+                'total_ports' => (int) Odp::query()->sum('total_ports'),
+                'used_ports' => (int) Customer::query()->whereNotNull('odp_id')->count(),
+            ],
+            'billingActivityLogs' => BillingActivityLog::orderByDesc('created_at')->limit(8)->get(),
             'monthlyRevenue' => BillingService::summarizeMonthlyRevenue(),
             'todayRevenue' => BillingService::summarizeTodayRevenue(),
         ]);

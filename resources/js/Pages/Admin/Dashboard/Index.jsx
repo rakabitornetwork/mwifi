@@ -1,16 +1,5 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { router } from '@inertiajs/react';
-import {
-    ResponsiveContainer,
-    AreaChart,
-    Area,
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-} from 'recharts';
 import {
     Users,
     UserX,
@@ -32,6 +21,15 @@ import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { formatRupiah } from '../../../utils/formatRupiah';
 import { bpsToMbps, formatSpeedBps } from '../../../utils/formatSpeedBps';
 
+const chartModule = () => import('../../../Components/Admin/DashboardCharts');
+const RevenueBarChart = lazy(() => chartModule().then((module) => ({ default: module.RevenueBarChart })));
+const ResourceAreaChart = lazy(() => chartModule().then((module) => ({ default: module.ResourceAreaChart })));
+const TrafficAreaChart = lazy(() => chartModule().then((module) => ({ default: module.TrafficAreaChart })));
+
+function ChartFallback({ className = 'h-48' }) {
+    return <div className={`w-full rounded-lg ${className} ${'bg-zinc-100/80 dark:bg-zinc-900/40'}`} aria-hidden="true" />;
+}
+
 function formatTimeAgo(isoString) {
     if (!isoString) return '-';
     const diffMs = Date.now() - new Date(isoString).getTime();
@@ -45,11 +43,11 @@ function formatTimeAgo(isoString) {
 }
 
 function DashboardContent({
-    customers = [],
     routers = [],
-    invoices = [],
+    customerStats = {},
+    unpaidInvoicesSummary = {},
+    odpSummary = {},
     billingActivityLogs = [],
-    odps = [],
     monthlyRevenue = {},
     todayRevenue = {},
 }) {
@@ -329,15 +327,14 @@ function DashboardContent({
     };
 
     const todayPaymentCount = todayRevenue?.payment_count ?? 0;
-    const todayRevenueSubtext = todayPaymentCount === 1
-        ? '1 pembayaran lunas hari ini'
-        : `${todayPaymentCount} pembayaran lunas hari ini`;
 
-    const stats = [
+    const stats = useMemo(() => [
         {
             name: 'Pendapatan Hari Ini',
             value: formatRupiah(todayRevenue?.total || 0),
-            change: todayRevenueSubtext,
+            change: todayPaymentCount === 1
+                ? '1 pembayaran lunas hari ini'
+                : `${todayPaymentCount} pembayaran lunas hari ini`,
             icon: Wallet,
             cardClass: 'bg-gradient-to-br from-amber-500 to-orange-600 border-amber-400/20 text-white shadow-md shadow-amber-500/5',
             iconClass: 'text-amber-100',
@@ -347,7 +344,7 @@ function DashboardContent({
         },
         {
             name: 'PPP Active',
-            value: customers.filter((c) => c.service_type === 'pppoe' && c.status === 'active').length,
+            value: customerStats.ppp_active ?? 0,
             change: 'ONT Terhubung',
             icon: Users,
             cardClass: 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/20 text-white shadow-md shadow-emerald-500/5',
@@ -358,7 +355,7 @@ function DashboardContent({
         },
         {
             name: 'Hotspot Active',
-            value: customers.filter((c) => c.service_type === 'hotspot' && c.status === 'active').length,
+            value: customerStats.hotspot_active ?? 0,
             change: 'Voucher aktif',
             icon: Radio,
             cardClass: 'bg-gradient-to-br from-blue-500 to-indigo-600 border-blue-400/20 text-white shadow-md shadow-blue-500/5',
@@ -369,7 +366,7 @@ function DashboardContent({
         },
         {
             name: 'Terisolir',
-            value: customers.filter((c) => c.status === 'isolated').length,
+            value: customerStats.isolated ?? 0,
             change: 'Menunggak',
             icon: UserX,
             cardClass: 'bg-gradient-to-br from-rose-500 to-red-600 border-rose-400/20 text-white shadow-md shadow-rose-500/5',
@@ -378,15 +375,18 @@ function DashboardContent({
             valClass: 'text-white',
             changeClass: 'text-rose-100/70',
         },
-    ];
+    ], [customerStats.hotspot_active, customerStats.isolated, customerStats.ppp_active, todayPaymentCount, todayRevenue?.total]);
 
-    const waLogs = (billingActivityLogs || []).slice(0, 8).map((log) => ({
-        type: 'Billing',
-        target: log.meta?.admin_phone || (log.meta?.invoice_count > 0 ? 'Admin' : 'Scheduler'),
-        text: log.message,
-        status: log.meta?.admin_notified ? 'sent' : (log.meta?.invoice_count > 0 ? 'pending' : 'system'),
-        time: formatTimeAgo(log.created_at),
-    }));
+    const waLogs = useMemo(
+        () => (billingActivityLogs || []).map((log) => ({
+            type: 'Billing',
+            target: log.meta?.admin_phone || (log.meta?.invoice_count > 0 ? 'Admin' : 'Scheduler'),
+            text: log.message,
+            status: log.meta?.admin_notified ? 'sent' : (log.meta?.invoice_count > 0 ? 'pending' : 'system'),
+            time: formatTimeAgo(log.created_at),
+        })),
+        [billingActivityLogs],
+    );
 
     const activeOntDevices = ontDevices.filter((dev) => dev.status !== 'offline' && dev.username !== 'unknown_ont');
 
@@ -400,12 +400,14 @@ function DashboardContent({
         ? `${revenueChangePercent}% vs bulan lalu`
         : 'Sama dengan bulan lalu';
 
-    const unpaidTotal = invoices
-        .filter((inv) => inv.status === 'unpaid')
-        .reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
-    const unpaidCount = invoices.filter((inv) => inv.status === 'unpaid').length;
+    const unpaidTotal = Number(unpaidInvoicesSummary?.total ?? 0);
+    const unpaidCount = Number(unpaidInvoicesSummary?.count ?? 0);
+    const odpNodeCount = Number(odpSummary?.node_count ?? 0);
+    const odpTotalPorts = Number(odpSummary?.total_ports ?? 0);
+    const odpUsedPorts = Number(odpSummary?.used_ports ?? 0);
+    const odpUtilizationPercent = odpTotalPorts > 0 ? Math.round((odpUsedPorts / odpTotalPorts) * 100) : 0;
 
-    const revenueCards = [
+    const revenueCards = useMemo(() => [
         {
             label: `Bulan Ini · ${currentRevenue.label || '-'}`,
             value: formatRupiah(currentRevenue.total || 0),
@@ -433,7 +435,7 @@ function DashboardContent({
             valueClass: 'text-white',
             subClass: 'text-rose-100/75',
         },
-    ];
+    ], [currentRevenue.invoice_count, currentRevenue.label, currentRevenue.total, previousRevenue.invoice_count, previousRevenue.label, previousRevenue.total, revenueTrendLabel, unpaidCount, unpaidTotal]);
 
     return (
         <>
@@ -493,30 +495,9 @@ function DashboardContent({
                                 Belum ada data pendapatan
                             </div>
                         ) : (
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                                <BarChart data={revenueSeries} margin={{ top: 5, right: 5, left: -10, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} />
-                                    <XAxis dataKey="label" stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={9} tickLine={false} />
-                                    <YAxis
-                                        stroke={isDarkMode ? '#a1a1aa' : '#71717a'}
-                                        fontSize={9}
-                                        tickLine={false}
-                                        axisLine={false}
-                                        tickFormatter={(value) => `${Math.round(value / 1000)}k`}
-                                    />
-                                    <Tooltip
-                                        formatter={(value) => [formatRupiah(value), 'Pendapatan']}
-                                        labelFormatter={(label) => `Periode ${label}`}
-                                        contentStyle={{
-                                            backgroundColor: isDarkMode ? '#18181b' : '#ffffff',
-                                            borderColor: isDarkMode ? '#27272a' : '#e4e4e7',
-                                            borderRadius: '8px',
-                                            fontSize: '10px',
-                                        }}
-                                    />
-                                    <Bar dataKey="total" name="Pendapatan" fill="#10b981" radius={[6, 6, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <Suspense fallback={<ChartFallback className="h-48" />}>
+                                <RevenueBarChart data={revenueSeries} isDarkMode={isDarkMode} />
+                            </Suspense>
                         )}
                     </div>
                 </div>
@@ -575,28 +556,9 @@ function DashboardContent({
                                                     : 'Menunggu data resource...'}
                                         </div>
                                     ) : (
-                                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                                        <AreaChart data={resourceHistory} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-                                            <defs>
-                                                <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                                </linearGradient>
-                                                <linearGradient id="colorRam" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2} />
-                                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} />
-                                            <XAxis dataKey="time" stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={8} tickLine={false} />
-                                            <YAxis domain={[0, 100]} stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={8} tickLine={false} axisLine={false} />
-                                            <Tooltip
-                                                contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '8px', fontSize: '10px' }}
-                                            />
-                                            <Area type="monotone" dataKey="cpu" name="CPU" stroke="#10b981" strokeWidth={1.5} fillOpacity={1} fill="url(#colorCpu)" />
-                                            <Area type="monotone" dataKey="ram" name="RAM" stroke="#6366f1" strokeWidth={1.5} fillOpacity={1} fill="url(#colorRam)" />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
+                                    <Suspense fallback={<ChartFallback className="h-44" />}>
+                                        <ResourceAreaChart data={resourceHistory} isDarkMode={isDarkMode} />
+                                    </Suspense>
                                     )}
                                 </div>
 
@@ -657,29 +619,9 @@ function DashboardContent({
                                                         : 'Pilih interface terlebih dahulu'}
                                             </div>
                                         ) : (
-                                            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                                                <AreaChart data={trafficHistory} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
-                                                    <defs>
-                                                        <linearGradient id="colorRx" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.2} />
-                                                            <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
-                                                        </linearGradient>
-                                                        <linearGradient id="colorTx" x1="0" y1="0" x2="0" y2="1">
-                                                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2} />
-                                                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                                                        </linearGradient>
-                                                    </defs>
-                                                    <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} />
-                                                    <XAxis dataKey="time" stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={8} tickLine={false} />
-                                                    <YAxis stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={8} tickLine={false} axisLine={false} />
-                                                    <Tooltip
-                                                        formatter={(value, name) => [`${value} Mbps`, name]}
-                                                        contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '8px', fontSize: '10px' }}
-                                                    />
-                                                    <Area type="monotone" dataKey="rx_mbps" name="RX" stroke="#0ea5e9" strokeWidth={1.5} fillOpacity={1} fill="url(#colorRx)" />
-                                                    <Area type="monotone" dataKey="tx_mbps" name="TX" stroke="#8b5cf6" strokeWidth={1.5} fillOpacity={1} fill="url(#colorTx)" />
-                                                </AreaChart>
-                                            </ResponsiveContainer>
+                                            <Suspense fallback={<ChartFallback className="h-28" />}>
+                                                <TrafficAreaChart data={trafficHistory} isDarkMode={isDarkMode} />
+                                            </Suspense>
                                         )}
                                     </div>
                                     <p className="text-[9px] text-zinc-500 dark:text-zinc-400">
@@ -718,27 +660,20 @@ function DashboardContent({
                                     </div>
                                     <div className="flex justify-between items-center font-bold">
                                         <span className={themeTextSub}>Total ODP</span>
-                                        <span className={themeTextTitle}>{odps.length} Node</span>
+                                        <span className={themeTextTitle}>{odpNodeCount} Node</span>
                                     </div>
-                                    {(() => {
-                                        const totalPorts = odps.reduce((acc, o) => acc + parseInt(o.total_ports || 0, 10), 0);
-                                        const usedPorts = odps.reduce((acc, o) => acc + parseInt(o.customers_count ?? o.used_ports ?? 0, 10), 0);
-                                        const percent = totalPorts > 0 ? Math.round((usedPorts / totalPorts) * 100) : 0;
-                                        return (
-                                            <div className="space-y-1.5 pt-1.5 border-t border-zinc-200/50 dark:border-zinc-800/50">
-                                                <div className="flex justify-between items-center text-[10px] font-bold">
-                                                    <span className={themeTextSub}>Utilisasi Port ODP</span>
-                                                    <span className="text-emerald-500">{usedPorts}/{totalPorts} ({percent}%)</span>
-                                                </div>
-                                                <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
-                                                    <div
-                                                        className="bg-emerald-500 h-1.5 rounded-full"
-                                                        style={{ width: `${percent}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
-                                    })()}
+                                    <div className="space-y-1.5 pt-1.5 border-t border-zinc-200/50 dark:border-zinc-800/50">
+                                        <div className="flex justify-between items-center text-[10px] font-bold">
+                                            <span className={themeTextSub}>Utilisasi Port ODP</span>
+                                            <span className="text-emerald-500">{odpUsedPorts}/{odpTotalPorts} ({odpUtilizationPercent}%)</span>
+                                        </div>
+                                        <div className="w-full bg-zinc-200 dark:bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                                            <div
+                                                className="bg-emerald-500 h-1.5 rounded-full"
+                                                style={{ width: `${odpUtilizationPercent}%` }}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="text-[9px] text-zinc-500 dark:text-zinc-400 font-medium leading-tight pt-1.5 border-t border-zinc-200/50 dark:border-zinc-800/50">
