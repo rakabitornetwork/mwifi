@@ -66,7 +66,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
     const [isLoadingQuota, setIsLoadingQuota] = useState(true);
     const [quotaError, setQuotaError] = useState(null);
     const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
-    const [dueExtensionDays, setDueExtensionDays] = useState('7');
+    const [dueExtensionDays, setDueExtensionDays] = useState('0');
 
     const themeInput = isDarkMode
         ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
@@ -89,10 +89,14 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
             return;
         }
 
+        const extensionNote = Number(dueExtensionDays) > 0
+            ? `Jika tanggal jatuh tempo periode sudah lewat, batas bayar diperpanjang ${dueExtensionDays} hari ke depan.`
+            : 'Jatuh tempo mengikuti tanggal tagihan pelanggan (tanpa perpanjangan).';
+
         if (!confirm(
             `Generate tagihan manual untuk ${customer.name}?\n\n` +
             `Invoice baru akan dibuat untuk periode tagihan sesuai jadwal pelanggan (atau bulan berjalan jika di luar jadwal otomatis).\n` +
-            `Jika tanggal jatuh tempo periode sudah lewat, batas bayar diperpanjang ${dueExtensionDays} hari ke depan.`
+            extensionNote
         )) {
             return;
         }
@@ -287,6 +291,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                                     disabled={!canGenerateManualInvoice || isGeneratingInvoice}
                                     className={`w-full px-2 py-1.5 border rounded-lg text-[10px] font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 ${themeInput}`}
                                 >
+                                    <option value="0">Tanpa perpanjangan (jatuh tempo normal)</option>
                                     <option value="3">3 hari ke depan</option>
                                     <option value="5">5 hari ke depan</option>
                                     <option value="7">7 hari ke depan</option>
@@ -320,7 +325,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                             </button>
                         </div>
                         <p className={`text-[10px] leading-relaxed break-words ${themeTextDesc}`}>
-                            Dipakai jika tanggal jatuh tempo periode sudah lewat atau hari ini. Untuk penundaan lebih lama, gunakan Tunda Tagihan di menu Tagihan / Billing.
+                            Pilih perpanjangan hanya jika jatuh tempo periode sudah lewat dan Anda ingin memberi waktu bayar tambahan. Untuk penundaan lebih lama, gunakan Tunda Tagihan di menu Tagihan / Billing.
                         </p>
                         {generateInvoiceDisabledReason && (
                             <p className={`text-[10px] leading-relaxed break-words ${themeTextDesc}`}>{generateInvoiceDisabledReason}</p>

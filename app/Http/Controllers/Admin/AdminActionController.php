@@ -775,7 +775,7 @@ class AdminActionController extends Controller
     {
         $data = $request->validate([
             'customer_id' => 'required|exists:customers,id',
-            'due_extension_days' => 'nullable|integer|in:3,5,7',
+            'due_extension_days' => 'nullable|integer|in:0,3,5,7',
         ]);
 
         $customer = Customer::with('package')->findOrFail($data['customer_id']);
@@ -784,7 +784,7 @@ class AdminActionController extends Controller
             $created = BillingService::generateInvoiceForCustomer(
                 $customer,
                 null,
-                (int) ($data['due_extension_days'] ?? 7)
+                (int) ($data['due_extension_days'] ?? 0)
             );
             $amount = number_format($created['total_amount'], 0, ',', '.');
             $dueDateLabel = Carbon::parse($created['due_date'])->format('d-m-Y');

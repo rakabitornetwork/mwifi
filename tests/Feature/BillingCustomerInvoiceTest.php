@@ -134,6 +134,37 @@ class BillingCustomerInvoiceTest extends TestCase
         BillingService::generateInvoiceForCustomer($customer->fresh());
     }
 
+    public function test_manual_invoice_skips_due_extension_when_zero(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(5);
+
+        $created = BillingService::generateInvoiceForCustomer($customer, null, 0);
+
+        $this->assertSame('2026-06-05', $created['due_date']);
+        $this->assertSame('2026-06-05', Invoice::first()->due_date->format('Y-m-d'));
+    }
+
+    public function test_admin_can_generate_invoice_without_due_extension(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $admin = User::factory()->create();
+        $customer = $this->makeCustomer(5);
+
+        $response = $this->actingAs($admin)
+            ->post('/admin/invoices/generate-customer', [
+                'customer_id' => $customer->id,
+                'due_extension_days' => 0,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertSame('2026-06-05', Invoice::first()->due_date->format('Y-m-d'));
+    }
+
     public function test_manual_invoice_uses_selected_due_extension_days(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-20'));

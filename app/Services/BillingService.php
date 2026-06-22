@@ -638,8 +638,8 @@ class BillingService
             throw new \InvalidArgumentException('Pelanggan belum memiliki paket internet.');
         }
 
-        if (!in_array($dueExtensionDays, [3, 5, 7], true)) {
-            throw new \InvalidArgumentException('Perpanjangan jatuh tempo harus 3, 5, atau 7 hari.');
+        if (!in_array($dueExtensionDays, [0, 3, 5, 7], true)) {
+            throw new \InvalidArgumentException('Perpanjangan jatuh tempo harus 0 (tanpa perpanjangan), 3, 5, atau 7 hari.');
         }
 
         $dueDate = null;
@@ -669,7 +669,9 @@ class BillingService
         }
 
         if ($dueDate->isPast() || $dueDate->isToday()) {
-            $dueDate = Carbon::now()->addDays($dueExtensionDays)->startOfDay();
+            if ($dueExtensionDays > 0) {
+                $dueDate = Carbon::now()->addDays($dueExtensionDays)->startOfDay();
+            }
         }
 
         $created = self::createInvoiceForCustomer($customer, $period, $dueDate);
