@@ -11,6 +11,39 @@ import {
 } from 'recharts';
 import { formatRupiah } from '../../utils/formatRupiah';
 
+const CHART_ANIMATION = {
+    duration: 380,
+    easing: 'ease-out',
+    begin: 60,
+};
+
+/** Animate once on mount; disable on live charts after first draw to avoid poll stutter. */
+function useMountAnimation(enabled = true) {
+    const [isAnimationActive, setIsAnimationActive] = useState(enabled);
+
+    useEffect(() => {
+        if (!enabled || !isAnimationActive) {
+            return undefined;
+        }
+
+        const timer = window.setTimeout(
+            () => setIsAnimationActive(false),
+            CHART_ANIMATION.duration + CHART_ANIMATION.begin + 40,
+        );
+
+        return () => window.clearTimeout(timer);
+    }, [enabled, isAnimationActive]);
+
+    return isAnimationActive;
+}
+
+const animatedSeriesProps = (isAnimationActive) => ({
+    isAnimationActive,
+    animationDuration: CHART_ANIMATION.duration,
+    animationEasing: CHART_ANIMATION.easing,
+    animationBegin: CHART_ANIMATION.begin,
+});
+
 function useChartDimensions() {
     const containerRef = useRef(null);
     const [dimensions, setDimensions] = useState(null);
@@ -68,12 +101,15 @@ const tooltipStyle = (isDarkMode) => ({
 });
 
 export const RevenueBarChart = memo(function RevenueBarChart({ data, isDarkMode }) {
+    const isAnimationActive = useMountAnimation(Boolean(data?.length));
+
     if (!data?.length) {
         return null;
     }
 
     const gridStroke = isDarkMode ? '#27272a' : '#e4e4e7';
     const axisStroke = isDarkMode ? '#a1a1aa' : '#71717a';
+    const animation = animatedSeriesProps(isAnimationActive);
 
     return (
         <ChartShell className="h-48 w-full">
@@ -103,7 +139,7 @@ export const RevenueBarChart = memo(function RevenueBarChart({ data, isDarkMode 
                         name="Pendapatan"
                         fill="#10b981"
                         radius={[6, 6, 0, 0]}
-                        isAnimationActive={false}
+                        {...animation}
                     />
                 </BarChart>
             )}
@@ -112,12 +148,15 @@ export const RevenueBarChart = memo(function RevenueBarChart({ data, isDarkMode 
 });
 
 export const ResourceAreaChart = memo(function ResourceAreaChart({ data, isDarkMode }) {
+    const isAnimationActive = useMountAnimation(Boolean(data?.length));
+
     if (!data?.length) {
         return null;
     }
 
     const gridStroke = isDarkMode ? '#27272a' : '#e4e4e7';
     const axisStroke = isDarkMode ? '#a1a1aa' : '#71717a';
+    const animation = animatedSeriesProps(isAnimationActive);
 
     return (
         <ChartShell className="h-44 w-full">
@@ -150,7 +189,7 @@ export const ResourceAreaChart = memo(function ResourceAreaChart({ data, isDarkM
                         strokeWidth={1.5}
                         fillOpacity={1}
                         fill="url(#dashboardColorCpu)"
-                        isAnimationActive={false}
+                        {...animation}
                     />
                     <Area
                         type="monotone"
@@ -160,7 +199,7 @@ export const ResourceAreaChart = memo(function ResourceAreaChart({ data, isDarkM
                         strokeWidth={1.5}
                         fillOpacity={1}
                         fill="url(#dashboardColorRam)"
-                        isAnimationActive={false}
+                        {...animation}
                     />
                 </AreaChart>
             )}
@@ -169,12 +208,15 @@ export const ResourceAreaChart = memo(function ResourceAreaChart({ data, isDarkM
 });
 
 export const TrafficAreaChart = memo(function TrafficAreaChart({ data, isDarkMode }) {
+    const isAnimationActive = useMountAnimation(Boolean(data?.length));
+
     if (!data?.length) {
         return null;
     }
 
     const gridStroke = isDarkMode ? '#27272a' : '#e4e4e7';
     const axisStroke = isDarkMode ? '#a1a1aa' : '#71717a';
+    const animation = animatedSeriesProps(isAnimationActive);
 
     return (
         <ChartShell className="h-28 w-full">
@@ -210,7 +252,7 @@ export const TrafficAreaChart = memo(function TrafficAreaChart({ data, isDarkMod
                         strokeWidth={1.5}
                         fillOpacity={1}
                         fill="url(#dashboardColorRx)"
-                        isAnimationActive={false}
+                        {...animation}
                     />
                     <Area
                         type="monotone"
@@ -220,7 +262,7 @@ export const TrafficAreaChart = memo(function TrafficAreaChart({ data, isDarkMod
                         strokeWidth={1.5}
                         fillOpacity={1}
                         fill="url(#dashboardColorTx)"
-                        isAnimationActive={false}
+                        {...animation}
                     />
                 </AreaChart>
             )}
