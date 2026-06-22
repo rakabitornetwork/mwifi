@@ -64,4 +64,24 @@ class Customer extends Model
             ->latest('id')
             ->first();
     }
+
+    public function generatedPortalEmail(): string
+    {
+        return strtolower($this->username) . '@mwifi.test';
+    }
+
+    public function displayPortalEmail(): ?string
+    {
+        $email = $this->user?->email;
+
+        if (! $email) {
+            return null;
+        }
+
+        if (strtolower($email) === $this->generatedPortalEmail()) {
+            return null;
+        }
+
+        return $email;
+    }
 }

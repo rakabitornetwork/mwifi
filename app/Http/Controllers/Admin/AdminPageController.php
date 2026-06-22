@@ -67,7 +67,7 @@ class AdminPageController extends Controller
                 $pendingDeferral = $customer->billingDeferrals->first();
 
                 return array_merge($customer->toArray(), [
-                    'portal_email' => $customer->user?->email,
+                    'portal_email' => $customer->displayPortalEmail(),
                     'service_start_date' => $customer->service_start_date?->format('Y-m-d'),
                     'latest_unpaid_invoice' => $latestUnpaid ? [
                         'id' => $latestUnpaid->id,
