@@ -755,6 +755,30 @@ class AdminActionController extends Controller
     }
 
     /**
+     * Manually generate an invoice for a single customer.
+     */
+    public function generateCustomerInvoice(Request $request)
+    {
+        $data = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+        ]);
+
+        $customer = Customer::with('package')->findOrFail($data['customer_id']);
+
+        try {
+            $created = BillingService::generateInvoiceForCustomer($customer);
+            $amount = number_format($created['total_amount'], 0, ',', '.');
+
+            return redirect()->back()->with(
+                'success',
+                "Invoice {$created['invoice_number']} periode {$created['billing_period']} berhasil dibuat (Rp {$amount})."
+            );
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
      * Preview accumulated billing deferral for a customer.
      */
     public function previewBillingDeferral(Request $request)

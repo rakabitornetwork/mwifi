@@ -611,6 +611,64 @@ class BillingService
     }
 
     /**
+     * Generate a single invoice for one PPPoE customer (manual action from admin UI).
+     *
+     * @return array{invoice_number: string, customer_name: string, total_amount: float, billing_period: string, due_date: string}
+     */
+    public static function generateInvoiceForCustomer(Customer $customer, ?string $period = null): array
+    {
+        $customer->loadMissing('package');
+
+        if ($customer->service_type !== 'pppoe') {
+            throw new \InvalidArgumentException('Hanya pelanggan PPPoE yang dapat digenerate tagihannya.');
+        }
+
+        if (!in_array($customer->status, ['active', 'isolated'], true)) {
+            throw new \InvalidArgumentException('Status pelanggan harus aktif atau isolir.');
+        }
+
+        if (!$customer->package) {
+            throw new \InvalidArgumentException('Pelanggan belum memiliki paket internet.');
+        }
+
+        $dueDate = null;
+
+        if ($period === null) {
+            $schedule = self::resolveInvoiceSchedule($customer);
+            if ($schedule !== null) {
+                $period = $schedule['period'];
+                $dueDate = $schedule['due_date'];
+            } else {
+                $period = Carbon::now()->format('Y-m');
+            }
+        }
+
+        if (Invoice::where('customer_id', $customer->id)
+            ->where('billing_period', $period)
+            ->exists()) {
+            throw new \InvalidArgumentException("Invoice periode {$period} sudah ada untuk pelanggan ini.");
+        }
+
+        if (self::isPeriodDeferredForCustomer($customer, $period)) {
+            throw new \InvalidArgumentException("Periode {$period} sedang ditunda (penundaan tagihan aktif).");
+        }
+
+        if ($dueDate === null) {
+            $dueDate = self::resolveDueDateForPeriod($customer, $period);
+            if ($dueDate->isPast() || $dueDate->isToday()) {
+                $dueDate = Carbon::now()->addDays(7)->startOfDay();
+            }
+        }
+
+        $created = self::createInvoiceForCustomer($customer, $period, $dueDate);
+        if ($created === null) {
+            throw new \RuntimeException('Gagal membuat invoice. Periksa tanggal mulai layanan dan paket pelanggan.');
+        }
+
+        return $created;
+    }
+
+    /**
      * Only customers whose package name starts with a digit are auto-isolated.
      */
     public static function isCustomerEligibleForAutoIsolation(Customer $customer): bool

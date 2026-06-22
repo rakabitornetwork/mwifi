@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Database, Edit, RefreshCw } from 'lucide-react';
+import { router } from '@inertiajs/react';
+import { Database, Edit, FileText, RefreshCw } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatRupiah';
 import { formatBytes, quotaUsagePercent } from '../../utils/formatBytes';
 
@@ -63,6 +64,38 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
     const [quota, setQuota] = useState(null);
     const [isLoadingQuota, setIsLoadingQuota] = useState(true);
     const [quotaError, setQuotaError] = useState(null);
+    const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+
+    const canGenerateManualInvoice = !!customer.package
+        && ['active', 'isolated'].includes(customer.status)
+        && !customer.pending_deferral;
+
+    const generateInvoiceDisabledReason = !customer.package
+        ? 'Pelanggan belum memiliki paket internet.'
+        : !['active', 'isolated'].includes(customer.status)
+            ? 'Status pelanggan harus aktif atau isolir.'
+            : customer.pending_deferral
+                ? 'Penundaan tagihan aktif — batalkan penundaan terlebih dahulu.'
+                : null;
+
+    const handleGenerateInvoice = () => {
+        if (!canGenerateManualInvoice || isGeneratingInvoice) {
+            return;
+        }
+
+        if (!confirm(
+            `Generate tagihan manual untuk ${customer.name}?\n\n` +
+            'Invoice baru akan dibuat untuk periode tagihan sesuai jadwal pelanggan (atau bulan berjalan jika di luar jadwal otomatis).'
+        )) {
+            return;
+        }
+
+        setIsGeneratingInvoice(true);
+        router.post('/admin/invoices/generate-customer', { customer_id: customer.id }, {
+            preserveScroll: true,
+            onFinish: () => setIsGeneratingInvoice(false),
+        });
+    };
 
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const status = statusMeta(customer.status);
@@ -225,6 +258,38 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                             </p>
                         </div>
                     ) : null}
+
+                    <div className="pt-1">
+                        <button
+                            type="button"
+                            onClick={handleGenerateInvoice}
+                            disabled={!canGenerateManualInvoice || isGeneratingInvoice}
+                            title={
+                                generateInvoiceDisabledReason
+                                    ? generateInvoiceDisabledReason
+                                    : isGeneratingInvoice
+                                        ? 'Membuat invoice...'
+                                        : 'Generate tagihan manual untuk pelanggan ini'
+                            }
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                                canGenerateManualInvoice && !isGeneratingInvoice
+                                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 cursor-pointer'
+                                    : isDarkMode
+                                        ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40 cursor-not-allowed opacity-60'
+                                        : 'border-zinc-200 text-zinc-400 bg-zinc-100 cursor-not-allowed opacity-70'
+                            }`}
+                        >
+                            {isGeneratingInvoice ? (
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <FileText className="w-3.5 h-3.5" />
+                            )}
+                            Generate Tagihan Manual
+                        </button>
+                        {generateInvoiceDisabledReason && (
+                            <p className={`text-[10px] mt-1.5 ${themeTextDesc}`}>{generateInvoiceDisabledReason}</p>
+                        )}
+                    </div>
                 </div>
             </div>
 

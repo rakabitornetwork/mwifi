@@ -44,7 +44,8 @@ function CustomersPageContent({
         return routers[0] ? String(routers[0].id) : '';
     });
     const [pageSize, setPageSize] = useState(10);
-    const [packageCountSort, setPackageCountSort] = useState('desc');
+    const [sortColumn, setSortColumn] = useState('package');
+    const [sortDirection, setSortDirection] = useState('desc');
     const [customerPage, setCustomerPage] = useState(1);
     const [selectedCustomerIds, setSelectedCustomerIds] = useState([]);
     const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
@@ -69,7 +70,7 @@ function CustomersPageContent({
 
     useEffect(() => {
         setCustomerPage(1);
-    }, [searchTerm, routerFilter, pageSize, packageCountSort]);
+    }, [searchTerm, routerFilter, pageSize, sortColumn, sortDirection]);
 
     useEffect(() => {
         if (showCustomerModal) {
@@ -131,21 +132,101 @@ function CustomersPageContent({
         );
     });
 
-    const sortedCustomers = [...filteredCustomers].sort((a, b) => {
-        const packageCountA = packageCustomerCounts[a.package_id ?? 'none'] || 0;
-        const packageCountB = packageCustomerCounts[b.package_id ?? 'none'] || 0;
+    const getCustomerSortValue = (cust, column) => {
+        switch (column) {
+            case 'name':
+                return cust.name || '';
+            case 'username':
+                return cust.username || '';
+            case 'phone':
+                return cust.phone_number || '';
+            case 'router':
+                return cust.router?.name || '';
+            case 'package':
+                return packageCustomerCounts[cust.package_id ?? 'none'] || 0;
+            case 'odp':
+                return cust.odp?.name || '';
+            case 'billing_date':
+                return Number(cust.billing_date) || 0;
+            case 'status':
+                return cust.status || '';
+            default:
+                return '';
+        }
+    };
 
-        if (packageCountB !== packageCountA) {
-            return packageCountSort === 'desc'
-                ? packageCountB - packageCountA
-                : packageCountA - packageCountB;
+    const sortedCustomers = [...filteredCustomers].sort((a, b) => {
+        const valueA = getCustomerSortValue(a, sortColumn);
+        const valueB = getCustomerSortValue(b, sortColumn);
+
+        let comparison = 0;
+
+        if (sortColumn === 'package' || sortColumn === 'billing_date') {
+            comparison = Number(valueA) - Number(valueB);
+        } else {
+            comparison = String(valueA).localeCompare(String(valueB), 'id', { sensitivity: 'base' });
+        }
+
+        if (comparison !== 0) {
+            return sortDirection === 'desc' ? -comparison : comparison;
         }
 
         return String(a.name || '').localeCompare(String(b.name || ''), 'id', { sensitivity: 'base' });
     });
 
-    const togglePackageCountSort = () => {
-        setPackageCountSort((current) => (current === 'desc' ? 'asc' : 'desc'));
+    const toggleColumnSort = (column) => {
+        if (sortColumn === column) {
+            setSortDirection((current) => (current === 'desc' ? 'asc' : 'desc'));
+            return;
+        }
+
+        setSortColumn(column);
+        setSortDirection(column === 'package' ? 'desc' : 'asc');
+    };
+
+    const columnSortButtonClass = `inline-flex flex-col items-center justify-center w-5 h-5 rounded-md border transition-colors cursor-pointer shrink-0 ${
+        isDarkMode
+            ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900 hover:border-zinc-700'
+            : 'border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 hover:border-zinc-300'
+    }`;
+
+    const renderColumnSortButton = (column, label) => {
+        const isActive = sortColumn === column;
+
+        return (
+            <button
+                type="button"
+                onClick={() => toggleColumnSort(column)}
+                title={
+                    isActive && sortDirection === 'desc'
+                        ? `${label} (menurun, klik untuk terbalik)`
+                        : isActive
+                            ? `${label} (menaik, klik untuk terbalik)`
+                            : label
+                }
+                aria-label={
+                    isActive && sortDirection === 'desc'
+                        ? `${label} menurun`
+                        : isActive
+                            ? `${label} menaik`
+                            : label
+                }
+                className={columnSortButtonClass}
+            >
+                <ChevronUp
+                    className={`w-2.5 h-2.5 -mb-0.5 ${
+                        isActive && sortDirection === 'asc' ? 'text-emerald-500' : 'opacity-35'
+                    }`}
+                    aria-hidden="true"
+                />
+                <ChevronDown
+                    className={`w-2.5 h-2.5 -mt-0.5 ${
+                        isActive && sortDirection === 'desc' ? 'text-emerald-500' : 'opacity-35'
+                    }`}
+                    aria-hidden="true"
+                />
+            </button>
+        );
     };
 
     const totalCustomerPages = Math.ceil(sortedCustomers.length / pageSize) || 1;
@@ -322,38 +403,6 @@ function CustomersPageContent({
                         <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                                 <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Pelanggan PPPoE</h2>
-                                <button
-                                    type="button"
-                                    onClick={togglePackageCountSort}
-                                    title={
-                                        packageCountSort === 'desc'
-                                            ? 'Urut: paket dengan pelanggan terbanyak dulu (klik untuk terbalik)'
-                                            : 'Urut: paket dengan pelanggan paling sedikit dulu (klik untuk terbalik)'
-                                    }
-                                    aria-label={
-                                        packageCountSort === 'desc'
-                                            ? 'Urut menurun berdasarkan jumlah pelanggan per paket'
-                                            : 'Urut menaik berdasarkan jumlah pelanggan per paket'
-                                    }
-                                    className={`inline-flex flex-col items-center justify-center w-5 h-5 rounded-md border transition-colors cursor-pointer shrink-0 ${
-                                        isDarkMode
-                                            ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900 hover:border-zinc-700'
-                                            : 'border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 hover:border-zinc-300'
-                                    }`}
-                                >
-                                    <ChevronUp
-                                        className={`w-2.5 h-2.5 -mb-0.5 ${
-                                            packageCountSort === 'asc' ? 'text-emerald-500' : 'opacity-35'
-                                        }`}
-                                        aria-hidden="true"
-                                    />
-                                    <ChevronDown
-                                        className={`w-2.5 h-2.5 -mt-0.5 ${
-                                            packageCountSort === 'desc' ? 'text-emerald-500' : 'opacity-35'
-                                        }`}
-                                        aria-hidden="true"
-                                    />
-                                </button>
                             </div>
                             {selectedRouter && (
                                 <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
@@ -434,14 +483,54 @@ function CustomersPageContent({
                                         className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
                                     />
                                 </th>
-                                <th className="py-3 px-2">Nama</th>
-                                <th className="py-3 px-2">Username</th>
-                                <th className="py-3 px-2">Telepon</th>
-                                <th className="py-3 px-2">Router</th>
-                                <th className="py-3 px-2">Paket</th>
-                                <th className="py-3 px-2">ODP</th>
-                                <th className="py-3 px-2">Tgl Tagih</th>
-                                <th className="py-3 px-2">Status</th>
+                                <th className="py-3 px-2">
+                                    <div className="flex items-center gap-1">
+                                        <span>Nama</span>
+                                        {renderColumnSortButton('name', 'Urut berdasarkan nama')}
+                                    </div>
+                                </th>
+                                <th className="py-3 px-2">
+                                    <div className="flex items-center gap-1">
+                                        <span>Username</span>
+                                        {renderColumnSortButton('username', 'Urut berdasarkan username')}
+                                    </div>
+                                </th>
+                                <th className="py-3 px-2">
+                                    <div className="flex items-center gap-1">
+                                        <span>Telepon</span>
+                                        {renderColumnSortButton('phone', 'Urut berdasarkan telepon')}
+                                    </div>
+                                </th>
+                                <th className="py-3 px-2">
+                                    <div className="flex items-center gap-1">
+                                        <span>Router</span>
+                                        {renderColumnSortButton('router', 'Urut berdasarkan router')}
+                                    </div>
+                                </th>
+                                <th className="py-3 px-2">
+                                    <div className="flex items-center gap-1">
+                                        <span>Paket</span>
+                                        {renderColumnSortButton('package', 'Urut berdasarkan jumlah pelanggan per paket')}
+                                    </div>
+                                </th>
+                                <th className="py-3 px-2">
+                                    <div className="flex items-center gap-1">
+                                        <span>ODP</span>
+                                        {renderColumnSortButton('odp', 'Urut berdasarkan ODP')}
+                                    </div>
+                                </th>
+                                <th className="py-3 px-2">
+                                    <div className="flex items-center gap-1">
+                                        <span>Tgl Tagih</span>
+                                        {renderColumnSortButton('billing_date', 'Urut berdasarkan tanggal tagih')}
+                                    </div>
+                                </th>
+                                <th className="py-3 px-2">
+                                    <div className="flex items-center gap-1">
+                                        <span>Status</span>
+                                        {renderColumnSortButton('status', 'Urut berdasarkan status')}
+                                    </div>
+                                </th>
                                 <th className="py-3 px-2 text-right">Aksi</th>
                             </tr>
                         </thead>
