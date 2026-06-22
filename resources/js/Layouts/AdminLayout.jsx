@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePage } from '@inertiajs/react';
-import { Menu, Moon, Sun } from 'lucide-react';
 import SeoHead from '../Components/SeoHead';
 import AppFooter from '../Components/AppFooter';
 import AdminSidebar from '../Components/Admin/AdminSidebar';
+import AdminNavbar from '../Components/Admin/AdminNavbar';
 import ToastStack from '../Components/Admin/ToastStack';
 import { AdminToastProvider, useAdminToast } from '../hooks/useAdminToast';
 import { AdminThemeProvider, useAdminTheme } from '../hooks/useAdminTheme.jsx';
@@ -18,7 +18,7 @@ function resolveActiveTab(url) {
 }
 
 function AdminLayoutShell({ title, children }) {
-    const { auth, branding = {} } = usePage().props;
+    const { auth, branding = {}, navbarStats } = usePage().props;
     const pageUrl = usePage().url;
     const theme = useAdminTheme();
     const { toasts, setToasts } = useAdminToast();
@@ -126,29 +126,14 @@ function AdminLayoutShell({ title, children }) {
                 </div>
 
                 <div className={`flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden ${theme.themeMainPanel}`}>
-                    <header className={`h-14 ${theme.themeHeader} flex items-center justify-between px-4 sm:px-6 z-10 transition-colors duration-250`}>
-                        <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-                            <button
-                                type="button"
-                                onClick={() => setIsMobileMenuOpen(true)}
-                                className={`p-1.5 rounded-lg border md:hidden cursor-pointer shrink-0 transition-colors ${theme.themeHeaderBtn}`}
-                                aria-label="Buka menu navigasi"
-                                aria-expanded={isMobileMenuOpen}
-                            >
-                                <Menu className="w-4 h-4" />
-                            </button>
-                            <h1 className={`text-xs sm:text-sm font-bold truncate ${theme.themeHeaderTextTitle}`}>{pageTitle}</h1>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={theme.toggleTheme}
-                            className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${theme.themeHeaderBtn}`}
-                            aria-label="Ganti tema"
-                        >
-                            {theme.isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-                        </button>
-                    </header>
+                    <AdminNavbar
+                        pageTitle={pageTitle}
+                        navbarStats={navbarStats}
+                        auth={auth}
+                        theme={theme}
+                        isMobileMenuOpen={isMobileMenuOpen}
+                        onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+                    />
 
                     <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 sm:p-6 space-y-6">
                         {children}

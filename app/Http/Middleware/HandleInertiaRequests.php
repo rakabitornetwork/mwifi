@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\BrandingService;
+use App\Services\NavbarStatsService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -65,6 +66,7 @@ class HandleInertiaRequests extends Middleware
                 'print_invoice_id' => $request->session()->get('print_invoice_id'),
             ],
             'branding' => BrandingService::get(),
+            'navbarStats' => $user ? NavbarStatsService::summarize() : null,
         ];
     }
 }
