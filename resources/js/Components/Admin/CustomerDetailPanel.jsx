@@ -65,6 +65,11 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
     const [isLoadingQuota, setIsLoadingQuota] = useState(true);
     const [quotaError, setQuotaError] = useState(null);
     const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+    const [dueExtensionDays, setDueExtensionDays] = useState('7');
+
+    const themeInput = isDarkMode
+        ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
+        : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
 
     const canGenerateManualInvoice = !!customer.package
         && ['active', 'isolated'].includes(customer.status)
@@ -85,13 +90,17 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
 
         if (!confirm(
             `Generate tagihan manual untuk ${customer.name}?\n\n` +
-            'Invoice baru akan dibuat untuk periode tagihan sesuai jadwal pelanggan (atau bulan berjalan jika di luar jadwal otomatis).'
+            `Invoice baru akan dibuat untuk periode tagihan sesuai jadwal pelanggan (atau bulan berjalan jika di luar jadwal otomatis).\n` +
+            `Jika tanggal jatuh tempo periode sudah lewat, batas bayar diperpanjang ${dueExtensionDays} hari ke depan.`
         )) {
             return;
         }
 
         setIsGeneratingInvoice(true);
-        router.post('/admin/invoices/generate-customer', { customer_id: customer.id }, {
+        router.post('/admin/invoices/generate-customer', {
+            customer_id: customer.id,
+            due_extension_days: Number(dueExtensionDays),
+        }, {
             preserveScroll: true,
             onFinish: () => setIsGeneratingInvoice(false),
         });
@@ -259,35 +268,59 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                         </div>
                     ) : null}
 
-                    <div className="pt-1">
-                        <button
-                            type="button"
-                            onClick={handleGenerateInvoice}
-                            disabled={!canGenerateManualInvoice || isGeneratingInvoice}
-                            title={
-                                generateInvoiceDisabledReason
-                                    ? generateInvoiceDisabledReason
-                                    : isGeneratingInvoice
-                                        ? 'Membuat invoice...'
-                                        : 'Generate tagihan manual untuk pelanggan ini'
-                            }
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
-                                canGenerateManualInvoice && !isGeneratingInvoice
-                                    ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 cursor-pointer'
-                                    : isDarkMode
-                                        ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40 cursor-not-allowed opacity-60'
-                                        : 'border-zinc-200 text-zinc-400 bg-zinc-100 cursor-not-allowed opacity-70'
-                            }`}
-                        >
-                            {isGeneratingInvoice ? (
-                                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            ) : (
-                                <FileText className="w-3.5 h-3.5" />
-                            )}
-                            Generate Tagihan Manual
-                        </button>
+                    <div className="pt-1 space-y-2">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                            <div className="flex flex-col gap-1 min-w-0 sm:flex-1">
+                                <label
+                                    htmlFor={`due-extension-${customer.id}`}
+                                    className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}
+                                >
+                                    Perpanjangan jatuh tempo
+                                </label>
+                                <select
+                                    id={`due-extension-${customer.id}`}
+                                    value={dueExtensionDays}
+                                    onChange={(e) => setDueExtensionDays(e.target.value)}
+                                    disabled={!canGenerateManualInvoice || isGeneratingInvoice}
+                                    className={`w-full px-2 py-1.5 border rounded-lg text-[10px] font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 ${themeInput}`}
+                                >
+                                    <option value="3">3 hari ke depan</option>
+                                    <option value="5">5 hari ke depan</option>
+                                    <option value="7">7 hari ke depan</option>
+                                </select>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleGenerateInvoice}
+                                disabled={!canGenerateManualInvoice || isGeneratingInvoice}
+                                title={
+                                    generateInvoiceDisabledReason
+                                        ? generateInvoiceDisabledReason
+                                        : isGeneratingInvoice
+                                            ? 'Membuat invoice...'
+                                            : 'Generate tagihan manual untuk pelanggan ini'
+                                }
+                                className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors shrink-0 ${
+                                    canGenerateManualInvoice && !isGeneratingInvoice
+                                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 cursor-pointer'
+                                        : isDarkMode
+                                            ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40 cursor-not-allowed opacity-60'
+                                            : 'border-zinc-200 text-zinc-400 bg-zinc-100 cursor-not-allowed opacity-70'
+                                }`}
+                            >
+                                {isGeneratingInvoice ? (
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                    <FileText className="w-3.5 h-3.5" />
+                                )}
+                                Generate Tagihan Manual
+                            </button>
+                        </div>
+                        <p className={`text-[10px] ${themeTextDesc}`}>
+                            Dipakai jika tanggal jatuh tempo periode sudah lewat atau hari ini. Untuk penundaan lebih lama, gunakan Tunda Tagihan di menu Tagihan / Billing.
+                        </p>
                         {generateInvoiceDisabledReason && (
-                            <p className={`text-[10px] mt-1.5 ${themeTextDesc}`}>{generateInvoiceDisabledReason}</p>
+                            <p className={`text-[10px] ${themeTextDesc}`}>{generateInvoiceDisabledReason}</p>
                         )}
                     </div>
                 </div>

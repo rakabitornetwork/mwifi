@@ -615,8 +615,11 @@ class BillingService
      *
      * @return array{invoice_number: string, customer_name: string, total_amount: float, billing_period: string, due_date: string}
      */
-    public static function generateInvoiceForCustomer(Customer $customer, ?string $period = null): array
-    {
+    public static function generateInvoiceForCustomer(
+        Customer $customer,
+        ?string $period = null,
+        int $dueExtensionDays = 7
+    ): array {
         $customer->loadMissing('package');
 
         if ($customer->service_type !== 'pppoe') {
@@ -629,6 +632,10 @@ class BillingService
 
         if (!$customer->package) {
             throw new \InvalidArgumentException('Pelanggan belum memiliki paket internet.');
+        }
+
+        if (!in_array($dueExtensionDays, [3, 5, 7], true)) {
+            throw new \InvalidArgumentException('Perpanjangan jatuh tempo harus 3, 5, atau 7 hari.');
         }
 
         $dueDate = null;
@@ -655,9 +662,10 @@ class BillingService
 
         if ($dueDate === null) {
             $dueDate = self::resolveDueDateForPeriod($customer, $period);
-            if ($dueDate->isPast() || $dueDate->isToday()) {
-                $dueDate = Carbon::now()->addDays(7)->startOfDay();
-            }
+        }
+
+        if ($dueDate->isPast() || $dueDate->isToday()) {
+            $dueDate = Carbon::now()->addDays($dueExtensionDays)->startOfDay();
         }
 
         $created = self::createInvoiceForCustomer($customer, $period, $dueDate);

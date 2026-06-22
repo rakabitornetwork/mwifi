@@ -133,4 +133,46 @@ class BillingCustomerInvoiceTest extends TestCase
 
         BillingService::generateInvoiceForCustomer($customer->fresh());
     }
+
+    public function test_manual_invoice_uses_selected_due_extension_days(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(5);
+
+        $created = BillingService::generateInvoiceForCustomer($customer, null, 3);
+
+        $this->assertSame('2026-06-23', $created['due_date']);
+        $this->assertSame('2026-06-23', Invoice::first()->due_date->format('Y-m-d'));
+    }
+
+    public function test_manual_invoice_keeps_scheduled_due_date_when_still_in_future(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(25);
+
+        $created = BillingService::generateInvoiceForCustomer($customer, null, 3);
+
+        $this->assertSame('2026-06-25', $created['due_date']);
+    }
+
+    public function test_admin_can_pass_due_extension_days_when_generating_invoice(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $admin = User::factory()->create();
+        $customer = $this->makeCustomer(5);
+
+        $response = $this->actingAs($admin)
+            ->post('/admin/invoices/generate-customer', [
+                'customer_id' => $customer->id,
+                'due_extension_days' => 5,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $this->assertSame('2026-06-25', Invoice::first()->due_date->format('Y-m-d'));
+    }
 }

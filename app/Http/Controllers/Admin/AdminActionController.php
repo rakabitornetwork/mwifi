@@ -761,17 +761,23 @@ class AdminActionController extends Controller
     {
         $data = $request->validate([
             'customer_id' => 'required|exists:customers,id',
+            'due_extension_days' => 'nullable|integer|in:3,5,7',
         ]);
 
         $customer = Customer::with('package')->findOrFail($data['customer_id']);
 
         try {
-            $created = BillingService::generateInvoiceForCustomer($customer);
+            $created = BillingService::generateInvoiceForCustomer(
+                $customer,
+                null,
+                (int) ($data['due_extension_days'] ?? 7)
+            );
             $amount = number_format($created['total_amount'], 0, ',', '.');
+            $dueDateLabel = Carbon::parse($created['due_date'])->format('d-m-Y');
 
             return redirect()->back()->with(
                 'success',
-                "Invoice {$created['invoice_number']} periode {$created['billing_period']} berhasil dibuat (Rp {$amount})."
+                "Invoice {$created['invoice_number']} periode {$created['billing_period']} berhasil dibuat (Rp {$amount}, jatuh tempo {$dueDateLabel})."
             );
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());
