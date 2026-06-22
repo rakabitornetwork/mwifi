@@ -120,4 +120,13 @@ class BillingProrataTest extends TestCase
         $this->assertFalse($billing['is_prorated']);
         $this->assertSame(150000.0, $billing['amount']);
     }
+
+    public function test_service_start_date_keeps_calendar_day_for_prorata(): void
+    {
+        $customer = $this->makeCustomer('2026-01-06', 20);
+
+        $resolved = BillingService::resolveServiceStartDate($customer);
+
+        $this->assertSame('2026-01-06', $resolved->format('Y-m-d'));
+    }
 }

@@ -68,6 +68,7 @@ class AdminPageController extends Controller
 
                 return array_merge($customer->toArray(), [
                     'portal_email' => $customer->user?->email,
+                    'service_start_date' => $customer->service_start_date?->format('Y-m-d'),
                     'latest_unpaid_invoice' => $latestUnpaid ? [
                         'id' => $latestUnpaid->id,
                         'invoice_number' => $latestUnpaid->invoice_number,

@@ -3,10 +3,11 @@ import { router } from '@inertiajs/react';
 import { Database, Edit, FileText, RefreshCw } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatRupiah';
 import { formatBytes, quotaUsagePercent } from '../../utils/formatBytes';
+import { formatDateInputValue } from '../../utils/formatDateInputValue';
 
 function formatDate(value) {
-    if (!value) return '—';
-    return String(value).substring(0, 10);
+    const formatted = formatDateInputValue(value);
+    return formatted || '—';
 }
 
 function statusMeta(status) {

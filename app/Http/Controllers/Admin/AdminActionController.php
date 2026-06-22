@@ -189,6 +189,8 @@ class AdminActionController extends Controller
 
         if (!$id && empty($data['service_start_date'])) {
             $data['service_start_date'] = now()->toDateString();
+        } elseif (!empty($data['service_start_date'])) {
+            $data['service_start_date'] = Carbon::parse($data['service_start_date'], config('app.timezone'))->toDateString();
         }
 
         $oldOdpId = $customer?->odp_id;

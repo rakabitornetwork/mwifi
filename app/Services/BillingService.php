@@ -26,7 +26,11 @@ class BillingService
     public static function resolveServiceStartDate(Customer $customer): Carbon
     {
         if ($customer->service_start_date) {
-            return Carbon::parse($customer->service_start_date)->startOfDay();
+            $dateString = $customer->service_start_date instanceof Carbon
+                ? $customer->service_start_date->format('Y-m-d')
+                : substr((string) $customer->service_start_date, 0, 10);
+
+            return Carbon::createFromFormat('Y-m-d', $dateString, config('app.timezone'))->startOfDay();
         }
 
         if ($customer->created_at) {

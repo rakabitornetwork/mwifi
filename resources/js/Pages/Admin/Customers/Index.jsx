@@ -7,6 +7,7 @@ import CustomerDetailPanel from '../../../Components/Admin/CustomerDetailPanel';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import getVisiblePages from '../../../utils/getVisiblePages';
+import { formatDateInputValue, todayDateInputValue } from '../../../utils/formatDateInputValue';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 500, 1000];
 
@@ -824,8 +825,8 @@ function CustomersPageContent({
                                 type="date"
                                 defaultValue={
                                     editingCustomer?.service_start_date
-                                        ? String(editingCustomer.service_start_date).substring(0, 10)
-                                        : new Date().toISOString().substring(0, 10)
+                                        ? formatDateInputValue(editingCustomer.service_start_date)
+                                        : todayDateInputValue()
                                 }
                                 className={`p-2 border rounded-lg ${themeInput}`}
                             />
