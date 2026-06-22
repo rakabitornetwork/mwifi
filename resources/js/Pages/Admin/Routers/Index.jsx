@@ -3,6 +3,7 @@ import { router } from '@inertiajs/react';
 import { Edit, PlugZap, Plus, RefreshCw, Save, Wifi, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
+import SettingsSectionCard from '../../../Components/Admin/SettingsSectionCard';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
 function RoutersPageContent({ routers = [] }) {
@@ -97,81 +98,88 @@ function RoutersPageContent({ routers = [] }) {
 
     return (
         <>
-            <div className={`${theme.themeCard} border rounded-2xl p-5 space-y-4`}>
-                <div className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
-                    <div className="flex items-center gap-2 min-w-0">
-                        <Wifi className="w-5 h-5 text-emerald-500 shrink-0" />
-                        <h2 className={`text-sm font-bold truncate ${theme.themeTextTitle}`}>Manajemen Router Mikrotik</h2>
+            <div className="max-w-3xl mx-auto space-y-4 pb-2">
+                <SettingsSectionCard
+                    icon={Wifi}
+                    accent="emerald"
+                    title="Manajemen Router Mikrotik"
+                    description="Daftar router untuk koneksi API, tes koneksi, sinkronisasi pelanggan PPPoE, dan isolir otomatis."
+                    themeCard={theme.themeCard}
+                    isDarkMode={theme.isDarkMode}
+                    themeTextTitle={theme.themeTextTitle}
+                    themeTextSub={theme.themeTextSub}
+                >
+                    <div className="flex justify-end">
+                        <button
+                            type="button"
+                            onClick={openCreateModal}
+                            title="Tambah Router"
+                            className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shrink-0 shadow-md"
+                        >
+                            <Plus className="w-4 h-4" />
+                        </button>
                     </div>
-                    <button
-                        type="button"
-                        onClick={openCreateModal}
-                        title="Tambah Router"
-                        className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shrink-0 self-end sm:self-auto"
-                    >
-                        <Plus className="w-4 h-4" />
-                    </button>
-                </div>
 
-                <div className="admin-table-scroll">
-                    <table>
-                        <thead>
-                            <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${theme.themeTextSub}`}>
-                                <th className="py-3 px-2">Nama Router</th>
-                                <th className="py-3 px-2">IP / Host</th>
-                                <th className="py-3 px-2">Port</th>
-                                <th className="py-3 px-2">Protokol</th>
-                                <th className="py-3 px-2">Status</th>
-                                <th className="py-3 px-2 text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-800/20 text-xs">
-                            {routers.map((routerItem) => (
-                                <tr key={routerItem.id} className={`${theme.themeTextSub} hover:bg-zinc-900/10`}>
-                                    <td className={`py-3 px-2 font-bold ${theme.themeTextTitle}`}>{routerItem.name}</td>
-                                    <td className="py-3 px-2 font-mono">{routerItem.host}</td>
-                                    <td className="py-3 px-2">{routerItem.port}</td>
-                                    <td className="py-3 px-2 uppercase font-semibold">{routerItem.protocol_type}</td>
-                                    <td className="py-3 px-2">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${routerItem.status ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
-                                            {routerItem.status ? 'Aktif' : 'Non-Aktif'}
-                                        </span>
-                                    </td>
-                                    <td className="py-3 px-2 text-right">
-                                        <div className="admin-table-actions">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleTestConnection(routerItem.id)}
-                                            disabled={isTestingRouter === routerItem.id}
-                                            title={isTestingRouter === routerItem.id ? 'Memeriksa koneksi...' : 'Tes Koneksi'}
-                                            className="inline-block p-1 text-amber-500 hover:text-amber-400 cursor-pointer transition-colors disabled:opacity-50"
-                                        >
-                                            <PlugZap className={`w-4 h-4 ${isTestingRouter === routerItem.id ? 'animate-pulse' : ''}`} />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSyncRouter(routerItem.id)}
-                                            disabled={isSyncingRouter === routerItem.id}
-                                            title={isSyncingRouter === routerItem.id ? 'Sinkronisasi...' : 'Sync Pelanggan'}
-                                            className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors disabled:opacity-50"
-                                        >
-                                            <RefreshCw className={`w-4 h-4 ${isSyncingRouter === routerItem.id ? 'animate-spin' : ''}`} />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => openEditModal(routerItem)}
-                                            title="Edit"
-                                            className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
-                                        >
-                                            <Edit className="w-4 h-4" />
-                                        </button>
-                                        </div>
-                                    </td>
+                    <div className="admin-table-scroll">
+                        <table>
+                            <thead>
+                                <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${theme.themeTextSub}`}>
+                                    <th className="py-3 px-2">Nama Router</th>
+                                    <th className="py-3 px-2">IP / Host</th>
+                                    <th className="py-3 px-2">Port</th>
+                                    <th className="py-3 px-2">Protokol</th>
+                                    <th className="py-3 px-2">Status</th>
+                                    <th className="py-3 px-2 text-right">Aksi</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-800/20 text-xs">
+                                {routers.map((routerItem) => (
+                                    <tr key={routerItem.id} className={`${theme.themeTextSub} hover:bg-zinc-900/10`}>
+                                        <td className={`py-3 px-2 font-bold ${theme.themeTextTitle}`}>{routerItem.name}</td>
+                                        <td className="py-3 px-2 font-mono">{routerItem.host}</td>
+                                        <td className="py-3 px-2">{routerItem.port}</td>
+                                        <td className="py-3 px-2 uppercase font-semibold">{routerItem.protocol_type}</td>
+                                        <td className="py-3 px-2">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${routerItem.status ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'}`}>
+                                                {routerItem.status ? 'Aktif' : 'Non-Aktif'}
+                                            </span>
+                                        </td>
+                                        <td className="py-3 px-2 text-right">
+                                            <div className="admin-table-actions">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleTestConnection(routerItem.id)}
+                                                disabled={isTestingRouter === routerItem.id}
+                                                title={isTestingRouter === routerItem.id ? 'Memeriksa koneksi...' : 'Tes Koneksi'}
+                                                className="inline-block p-1 text-amber-500 hover:text-amber-400 cursor-pointer transition-colors disabled:opacity-50"
+                                            >
+                                                <PlugZap className={`w-4 h-4 ${isTestingRouter === routerItem.id ? 'animate-pulse' : ''}`} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSyncRouter(routerItem.id)}
+                                                disabled={isSyncingRouter === routerItem.id}
+                                                title={isSyncingRouter === routerItem.id ? 'Sinkronisasi...' : 'Sync Pelanggan'}
+                                                className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors disabled:opacity-50"
+                                            >
+                                                <RefreshCw className={`w-4 h-4 ${isSyncingRouter === routerItem.id ? 'animate-spin' : ''}`} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => openEditModal(routerItem)}
+                                                title="Edit"
+                                                className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
+                                            >
+                                                <Edit className="w-4 h-4" />
+                                            </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </SettingsSectionCard>
             </div>
 
             <TransitionModal show={showRouterModal} onClose={closeRouterModal} themeCard={theme.themeCard} maxWidth="md">

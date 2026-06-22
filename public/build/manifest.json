@@ -325,7 +325,7 @@
     ]
   },
   "resources/js/Pages/Admin/Routers/Index.jsx": {
-    "file": "assets/Index-Bjgkv-H9.js",
+    "file": "assets/Index-BPHfGcTo.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Routers/Index.jsx",
     "isDynamicEntry": true,
@@ -334,6 +334,7 @@
       "_vendor-BXfUUSDP.js",
       "_vendor-core-iO_VM8C6.js",
       "_AdminLayout-C41C5ClU.js",
+      "_SettingsSectionCard-1vjiCkCh.js",
       "_TransitionModal-sBE6MuRA.js"
     ]
   },
@@ -402,7 +403,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-DrHGENlx.js",
+    "file": "assets/app-mBq6X-J0.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
