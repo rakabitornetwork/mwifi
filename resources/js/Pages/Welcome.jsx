@@ -3,6 +3,7 @@ import { usePage } from '@inertiajs/react';
 import { Wifi } from 'lucide-react';
 import SeoHead from '../Components/SeoHead';
 import AppFooter from '../Components/AppFooter';
+import BrandingTagline from '../Components/BrandingTagline';
 
 export default function Welcome() {
     const { branding = {} } = usePage().props;
@@ -24,9 +25,9 @@ export default function Welcome() {
                             <h1 className="text-3xl font-extrabold tracking-tight text-emerald-400">
                                 {branding.company_name || 'mWiFi RT RW NET'}
                             </h1>
-                            <p className="text-slate-400 mt-2 font-medium">
+                            <BrandingTagline lines={3} className="text-slate-400 mt-2 font-medium leading-relaxed">
                                 {branding.company_tagline || 'Aplikasi Manajemen Pelanggan & Billing Terintegrasi'}
-                            </p>
+                            </BrandingTagline>
                         </div>
                         {(branding.company_phone || branding.company_email || branding.company_address) && (
                             <div className="text-left text-xs text-slate-400 space-y-1 border-t border-slate-800 pt-4">

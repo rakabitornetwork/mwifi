@@ -3,6 +3,7 @@ import { useForm, usePage } from '@inertiajs/react';
 import { Mail, Lock, LogIn, ShieldAlert, Wifi } from 'lucide-react';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
+import BrandingTagline from '../../Components/BrandingTagline';
 
 export default function Login() {
     const { branding = {} } = usePage().props;
@@ -35,9 +36,9 @@ export default function Login() {
                         <p className="text-slate-400 text-sm">
                             Masuk ke Panel Kontrol {branding.company_name || branding.app_name || 'mWiFi'}
                         </p>
-                        {branding.company_tagline && (
-                            <p className="text-slate-500 text-[11px]">{branding.company_tagline}</p>
-                        )}
+                        <BrandingTagline lines={3} className="text-slate-500 text-[11px] leading-relaxed">
+                            {branding.company_tagline}
+                        </BrandingTagline>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">

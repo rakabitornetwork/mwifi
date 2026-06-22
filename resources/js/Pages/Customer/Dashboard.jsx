@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
+import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
 import { formatRupiah } from '../../utils/formatRupiah';
 import { 
     LogOut, 
@@ -112,21 +113,21 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                 <nav className={`sticky top-0 z-40 backdrop-blur-md border-b transition-colors duration-250 ${themeNav}`}>
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex justify-between items-center h-14">
-                            <div className="flex items-center space-x-2">
+                            <div className="flex items-center space-x-2 min-w-0 flex-1">
                                 {branding.logo_url ? (
                                     <img src={branding.logo_url} alt={branding.company_name} className="w-8 h-8 object-contain shrink-0" />
                                 ) : (
-                                    <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                                    <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0">
                                         <Wifi className="w-4 h-4 text-white" />
                                     </div>
                                 )}
-                                <div>
-                                    <span className={`text-sm font-bold tracking-wider ${themeTextTitle} block leading-none`}>
+                                <div className="min-w-0 overflow-hidden">
+                                    <BrandingCompanyName className={`text-sm font-bold tracking-wide ${themeTextTitle}`}>
                                         {branding.company_name || 'Portal Pelanggan'}
-                                    </span>
-                                    {branding.company_tagline && (
-                                        <span className={`text-[9px] ${themeTextSub} block mt-0.5`}>{branding.company_tagline}</span>
-                                    )}
+                                    </BrandingCompanyName>
+                                    <BrandingTagline lines={2} className={`text-[9px] ${themeTextSub} mt-0.5`}>
+                                        {branding.company_tagline}
+                                    </BrandingTagline>
                                 </div>
                             </div>
 
@@ -375,11 +376,13 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                 {(branding.company_name || branding.company_phone || branding.company_email || branding.company_address) && (
                     <footer className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-4 border-t ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 text-xs">
-                            <div>
-                                <p className={`font-bold ${themeTextTitle}`}>{branding.company_name || branding.app_name}</p>
-                                {branding.company_tagline && (
-                                    <p className={`${themeTextSub} mt-0.5`}>{branding.company_tagline}</p>
-                                )}
+                            <div className="min-w-0 flex-1">
+                                <BrandingCompanyName as="p" className={`font-bold ${themeTextTitle}`}>
+                                    {branding.company_name || branding.app_name}
+                                </BrandingCompanyName>
+                                <BrandingTagline as="p" lines={3} className={`${themeTextSub} mt-0.5`}>
+                                    {branding.company_tagline}
+                                </BrandingTagline>
                             </div>
                             <div className={`space-y-1.5 ${themeTextSub}`}>
                                 {branding.company_phone && (
