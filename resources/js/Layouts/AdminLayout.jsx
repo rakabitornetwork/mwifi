@@ -18,7 +18,7 @@ function resolveActiveTab(url) {
 }
 
 function AdminLayoutShell({ title, children }) {
-    const { auth, branding = {}, navbarStats } = usePage().props;
+    const { auth, branding = {} } = usePage().props;
     const pageUrl = usePage().url;
     const theme = useAdminTheme();
     const { toasts, setToasts } = useAdminToast();
@@ -128,8 +128,6 @@ function AdminLayoutShell({ title, children }) {
                 <div className={`flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden ${theme.themeMainPanel}`}>
                     <AdminNavbar
                         pageTitle={pageTitle}
-                        navbarStats={navbarStats}
-                        auth={auth}
                         theme={theme}
                         isMobileMenuOpen={isMobileMenuOpen}
                         onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
