@@ -256,6 +256,23 @@ function CustomersPageContent({
         setShowCustomerModal(true);
     };
 
+    const closeCustomerModal = () => {
+        setShowCustomerModal(false);
+    };
+
+    const closeDeleteCustomerModal = () => {
+        setShowDeleteCustomerModal(false);
+        setTimeout(() => setCustomerToDelete(null), 300);
+    };
+
+    const closeBulkDeleteModal = () => {
+        setShowBulkDeleteModal(false);
+    };
+
+    const closeImportModal = () => {
+        setShowImportModal(false);
+    };
+
     const toggleCustomerDetail = (customerId) => {
         setExpandedCustomerId((current) => (current === customerId ? null : customerId));
     };
@@ -717,7 +734,7 @@ function CustomersPageContent({
                 )}
             </div>
 
-            <TransitionModal show={showCustomerModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
+            <TransitionModal show={showCustomerModal} onClose={closeCustomerModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold min-w-0 flex-1 pr-2 ${themeTextTitle}`}>
                         {editingCustomer ? 'Edit Pelanggan PPPoE' : 'Tambah Pelanggan PPPoE'}
@@ -841,7 +858,7 @@ function CustomersPageContent({
                 </form>
             </TransitionModal>
 
-            <TransitionModal show={showDeleteCustomerModal} themeCard={themeCard} maxWidth="md">
+            <TransitionModal show={showDeleteCustomerModal} onClose={closeDeleteCustomerModal} themeCard={themeCard} maxWidth="md">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className="text-sm font-bold text-rose-500">
                         Hapus Pelanggan
@@ -923,7 +940,7 @@ function CustomersPageContent({
                 </div>
             </TransitionModal>
 
-            <TransitionModal show={showBulkDeleteModal} themeCard={themeCard} maxWidth="md">
+            <TransitionModal show={showBulkDeleteModal} onClose={closeBulkDeleteModal} themeCard={themeCard} maxWidth="md">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className="text-sm font-bold text-rose-500">
                         Hapus Masal Pelanggan
@@ -999,7 +1016,7 @@ function CustomersPageContent({
                 </div>
             </TransitionModal>
 
-            <TransitionModal show={showImportModal} themeCard={themeCard} maxWidth="md">
+            <TransitionModal show={showImportModal} onClose={closeImportModal} themeCard={themeCard} maxWidth="md">
                 <form onSubmit={handleImportCsv} className="space-y-4 text-xs">
                     <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                         <div className="flex items-center gap-2">

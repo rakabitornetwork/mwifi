@@ -806,7 +806,7 @@ function InvoicesPageContent({
                 </div>
             </div>
 
-            <TransitionModal show={showDeferModal} themeCard={theme.themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
+            <TransitionModal show={showDeferModal} onClose={resetDeferModal} themeCard={theme.themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <div>
                         <h3 className={`text-sm font-bold ${theme.themeTextTitle}`}>Tunda Tagihan Pelanggan</h3>

@@ -446,7 +446,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                 </div>
             </div>
 
-            <TransitionModal show={showPackageModal} themeCard={themeCard} maxWidth="md">
+            <TransitionModal show={showPackageModal} onClose={() => setShowPackageModal(false)} themeCard={themeCard} maxWidth="md">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>
                         {editingPackage ? 'Edit Paket Layanan' : 'Tambah Paket Layanan'}

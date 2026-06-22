@@ -174,7 +174,7 @@ function RoutersPageContent({ routers = [] }) {
                 </div>
             </div>
 
-            <TransitionModal show={showRouterModal} themeCard={theme.themeCard} maxWidth="md">
+            <TransitionModal show={showRouterModal} onClose={closeRouterModal} themeCard={theme.themeCard} maxWidth="md">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${theme.themeTextTitle}`}>
                         {editingRouter ? 'Edit Router Mikrotik' : 'Tambah Router Mikrotik'}

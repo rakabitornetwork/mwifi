@@ -259,6 +259,32 @@ function HotspotPageContent({
         setShowMemberModal(true);
     };
 
+    const closeMemberModal = () => {
+        setShowMemberModal(false);
+    };
+
+    const closeDeleteMemberModal = () => {
+        setShowDeleteMemberModal(false);
+        setTimeout(() => setMemberToDelete(null), 300);
+    };
+
+    const closeSellVoucherModal = () => {
+        setShowSellVoucherModal(false);
+        setSelectedVoucherForSale(null);
+    };
+
+    const closeGenerateVoucherModal = () => {
+        setShowGenerateVoucherModal(false);
+    };
+
+    const closePrintVouchersModal = () => {
+        setShowPrintVouchersModal(false);
+    };
+
+    const closeBulkDeleteVouchersModal = () => {
+        setShowBulkDeleteVouchersModal(false);
+    };
+
     const handleSaveMember = (e) => {
         e.preventDefault();
         const data = new FormData(e.target);
@@ -901,7 +927,7 @@ function HotspotPageContent({
                 )}
             </div>
 
-            <TransitionModal show={showMemberModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
+            <TransitionModal show={showMemberModal} onClose={closeMemberModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>
                         {editingMember ? 'Edit Member Hotspot' : 'Tambah Member Hotspot'}
@@ -982,7 +1008,7 @@ function HotspotPageContent({
                 </form>
             </TransitionModal>
 
-            <TransitionModal show={showDeleteMemberModal} themeCard={themeCard} maxWidth="md">
+            <TransitionModal show={showDeleteMemberModal} onClose={closeDeleteMemberModal} themeCard={themeCard} maxWidth="md">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className="text-sm font-bold text-rose-500">Hapus Member Hotspot</h3>
                     <button
@@ -1062,7 +1088,7 @@ function HotspotPageContent({
                 </div>
             </TransitionModal>
 
-            <TransitionModal show={showGenerateVoucherModal} themeCard={themeCard} maxWidth="md">
+            <TransitionModal show={showGenerateVoucherModal} onClose={closeGenerateVoucherModal} themeCard={themeCard} maxWidth="md">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Generate Voucher Hotspot (Bulk)</h3>
                     <button type="button" onClick={() => setShowGenerateVoucherModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
@@ -1193,7 +1219,7 @@ function HotspotPageContent({
                 </form>
             </TransitionModal>
 
-            <TransitionModal show={showSellVoucherModal} themeCard={themeCard} maxWidth="sm">
+            <TransitionModal show={showSellVoucherModal} onClose={closeSellVoucherModal} themeCard={themeCard} maxWidth="sm">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Konfirmasi Penjualan Voucher</h3>
                     <button type="button" onClick={() => { setShowSellVoucherModal(false); setSelectedVoucherForSale(null); }} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
@@ -1239,7 +1265,7 @@ function HotspotPageContent({
                 )}
             </TransitionModal>
 
-            <TransitionModal show={showPrintVouchersModal} themeCard={themeCard} maxWidth="md">
+            <TransitionModal show={showPrintVouchersModal} onClose={closePrintVouchersModal} themeCard={themeCard} maxWidth="md">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Cetak Voucher Hotspot (Bulk)</h3>
                     <button type="button" onClick={() => setShowPrintVouchersModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
@@ -1337,7 +1363,7 @@ function HotspotPageContent({
                 </form>
             </TransitionModal>
 
-            <TransitionModal show={showBulkDeleteVouchersModal} themeCard={themeCard} maxWidth="md">
+            <TransitionModal show={showBulkDeleteVouchersModal} onClose={closeBulkDeleteVouchersModal} themeCard={themeCard} maxWidth="md">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className="text-sm font-bold text-rose-500 flex items-center gap-1.5">
                         <Trash2 className="w-4.5 h-4.5" />

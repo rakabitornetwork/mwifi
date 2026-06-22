@@ -466,7 +466,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                 </div>
             </div>
 
-            <TransitionModal show={showOdpModal} themeCard={themeCard} maxWidth="md">
+            <TransitionModal show={showOdpModal} onClose={closeOdpModal} themeCard={themeCard} maxWidth="md">
                 <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>
                         {editingOdp ? 'Edit Kotak ODP' : 'Tambah Kotak ODP'}
