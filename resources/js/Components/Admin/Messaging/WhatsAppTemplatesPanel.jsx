@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Eye, RotateCcw } from 'lucide-react';
+import { Eye, FileText, RotateCcw } from 'lucide-react';
+import SettingsSectionCard from '../SettingsSectionCard';
 
 function templateFieldName(key) {
     return key.replace('whatsapp.template.', '');
@@ -74,26 +75,34 @@ export default function WhatsAppTemplatesPanel({
 
     return (
         <div className="space-y-4">
-            <div className={`${themeCard} border rounded-2xl p-4 sm:p-5`}>
-                <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Template Pesan WhatsApp</h3>
-                <p className={`text-[11px] mt-1 leading-relaxed ${themeTextDesc}`}>
-                    Sesuaikan format notifikasi tagihan dan pembayaran. Gunakan placeholder dalam kurung kurawal, misalnya{' '}
-                    <span className="font-mono">{'{customer_name}'}</span>. Format tebal WhatsApp: <span className="font-mono">*teks*</span>.
-                </p>
-            </div>
+            <SettingsSectionCard
+                icon={FileText}
+                accent="violet"
+                title="Template Pesan WhatsApp"
+                description={`Sesuaikan format notifikasi tagihan dan pembayaran. Gunakan placeholder seperti {customer_name}. Format tebal WhatsApp: *teks*.`}
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            />
 
             {Object.entries(templateDefinitions).map(([key, meta]) => {
                 const fieldName = templateFieldName(key);
                 const placeholders = meta.placeholders || [];
 
                 return (
-                    <div key={key} className={`${themeCard} border rounded-2xl p-4 sm:p-5 space-y-3`}>
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                            <div>
-                                <h4 className={`text-sm font-bold ${themeTextTitle}`}>{meta.label}</h4>
-                                <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>{meta.description}</p>
-                            </div>
-                            <div className="flex gap-2 shrink-0">
+                    <SettingsSectionCard
+                        key={key}
+                        icon={FileText}
+                        accent="indigo"
+                        title={meta.label}
+                        description={meta.description}
+                        themeCard={themeCard}
+                        isDarkMode={isDarkMode}
+                        themeTextTitle={themeTextTitle}
+                        themeTextSub={themeTextSub}
+                    >
+                        <div className="flex justify-end gap-2 shrink-0 -mt-1">
                                 <button
                                     type="button"
                                     onClick={() => handlePreview(key)}
@@ -111,7 +120,6 @@ export default function WhatsAppTemplatesPanel({
                                 >
                                     <RotateCcw className="w-4 h-4" />
                                 </button>
-                            </div>
                         </div>
 
                         <textarea
@@ -137,7 +145,7 @@ export default function WhatsAppTemplatesPanel({
                                 <pre className={`text-[11px] whitespace-pre-wrap font-mono ${themeTextTitle}`}>{previews[key]}</pre>
                             </div>
                         )}
-                    </div>
+                    </SettingsSectionCard>
                 );
             })}
         </div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import { MessageSquare, Save } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
+import SettingsSectionCard from '../../../Components/Admin/SettingsSectionCard';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 import WhatsAppBrandIcon from '../../../Components/Icons/WhatsAppBrandIcon';
 import TelegramBrandIcon from '../../../Components/Icons/TelegramBrandIcon';
@@ -86,36 +87,32 @@ function MessagingPageContent({
     };
 
     return (
-        <form onSubmit={handleSaveMessaging} className="max-w-4xl mx-auto space-y-4 pb-2">
-            <div className={`${themeCard} border rounded-2xl p-4 sm:p-5`}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-xl shrink-0 ${isDarkMode ? 'bg-violet-500/10 border border-violet-500/20' : 'bg-violet-50 border border-violet-100'}`}>
-                            <MessageSquare className="w-5 h-5 text-violet-500" />
-                        </div>
-                        <div>
-                            <h2 className={`text-sm font-bold tracking-tight ${themeTextTitle}`}>WhatsApp & Telegram</h2>
-                            <p className={`text-[11px] mt-0.5 ${themeTextSub}`}>
-                                Template pesan, gateway WhatsApp, dan integrasi Telegram (segera).
-                            </p>
-                        </div>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                        <button type="button" onClick={() => setMessagingSubTab('gateway')} className={subTabClass('gateway')}>
-                            <WhatsAppBrandIcon className="w-3.5 h-3.5 shrink-0 text-[#25D366]" />
-                            Gateway WhatsApp
-                        </button>
-                        <button type="button" onClick={() => setMessagingSubTab('templates')} className={subTabClass('templates')}>
-                            <WhatsAppBrandIcon className="w-3.5 h-3.5 shrink-0 text-[#25D366]" />
-                            Template WhatsApp
-                        </button>
-                        <button type="button" disabled className={`${subTabClass('telegram')} opacity-50 cursor-not-allowed`} title="Segera hadir">
-                            <TelegramBrandIcon className="w-3.5 h-3.5 shrink-0 text-[#229ED9]" />
-                            Telegram
-                        </button>
-                    </div>
+        <form onSubmit={handleSaveMessaging} className="max-w-3xl mx-auto space-y-4 pb-2">
+            <SettingsSectionCard
+                icon={MessageSquare}
+                accent="violet"
+                title="WhatsApp & Telegram"
+                description="Template pesan, gateway WhatsApp, dan integrasi Telegram (segera)."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
+                <div className="flex flex-wrap gap-1.5">
+                    <button type="button" onClick={() => setMessagingSubTab('gateway')} className={subTabClass('gateway')}>
+                        <WhatsAppBrandIcon className="w-3.5 h-3.5 shrink-0 text-[#25D366]" />
+                        Gateway WhatsApp
+                    </button>
+                    <button type="button" onClick={() => setMessagingSubTab('templates')} className={subTabClass('templates')}>
+                        <WhatsAppBrandIcon className="w-3.5 h-3.5 shrink-0 text-[#25D366]" />
+                        Template WhatsApp
+                    </button>
+                    <button type="button" disabled className={`${subTabClass('telegram')} opacity-50 cursor-not-allowed`} title="Segera hadir">
+                        <TelegramBrandIcon className="w-3.5 h-3.5 shrink-0 text-[#229ED9]" />
+                        Telegram
+                    </button>
                 </div>
-            </div>
+            </SettingsSectionCard>
 
             {messagingSubTab === 'gateway' && (
                 <WhatsAppGatewayPanel
@@ -150,11 +147,16 @@ function MessagingPageContent({
             )}
 
             {messagingSubTab === 'telegram' && (
-                <div className={`${themeCard} border rounded-2xl p-8 text-center`}>
-                    <TelegramBrandIcon className={`w-8 h-8 mx-auto mb-2 text-[#229ED9] opacity-60`} />
-                    <p className={`text-sm font-bold ${themeTextTitle}`}>Telegram — Segera hadir</p>
-                    <p className={`text-[11px] mt-1 ${themeTextDesc}`}>Pengaturan bot Telegram akan ditambahkan di halaman ini.</p>
-                </div>
+                <SettingsSectionCard
+                    icon={TelegramBrandIcon}
+                    accent="sky"
+                    title="Telegram — Segera hadir"
+                    description="Pengaturan bot Telegram akan ditambahkan di halaman ini."
+                    themeCard={themeCard}
+                    isDarkMode={isDarkMode}
+                    themeTextTitle={themeTextTitle}
+                    themeTextSub={themeTextSub}
+                />
             )}
 
             {(messagingSubTab === 'templates' || messagingSubTab === 'gateway') && (

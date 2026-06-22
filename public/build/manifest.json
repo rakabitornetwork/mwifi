@@ -36,6 +36,13 @@
       "_vendor-core-iO_VM8C6.js"
     ]
   },
+  "_SettingsSectionCard-1vjiCkCh.js": {
+    "file": "assets/SettingsSectionCard-1vjiCkCh.js",
+    "name": "SettingsSectionCard",
+    "imports": [
+      "_vendor-core-iO_VM8C6.js"
+    ]
+  },
   "_TransitionModal-sBE6MuRA.js": {
     "file": "assets/TransitionModal-sBE6MuRA.js",
     "name": "TransitionModal",
@@ -165,7 +172,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-Bja44Djs.css",
+    "file": "assets/app-mu-QUT_n.css",
     "name": "app",
     "names": [
       "app.css"
@@ -262,7 +269,7 @@
     ]
   },
   "resources/js/Pages/Admin/Messaging/Index.jsx": {
-    "file": "assets/Index-R7D3D2UV.js",
+    "file": "assets/Index-CF6GXchq.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Messaging/Index.jsx",
     "isDynamicEntry": true,
@@ -271,6 +278,7 @@
       "_vendor-BXfUUSDP.js",
       "_vendor-core-iO_VM8C6.js",
       "_AdminLayout-C41C5ClU.js",
+      "_SettingsSectionCard-1vjiCkCh.js",
       "_useAdminFormTheme-HurwNa-g.js"
     ]
   },
@@ -330,7 +338,7 @@
     ]
   },
   "resources/js/Pages/Admin/Settings/Index.jsx": {
-    "file": "assets/Index-D19poVXk.js",
+    "file": "assets/Index-DRRlf0vi.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Settings/Index.jsx",
     "isDynamicEntry": true,
@@ -340,6 +348,7 @@
       "_vendor-core-iO_VM8C6.js",
       "_AdminLayout-C41C5ClU.js",
       "_BrandingFileUpload-BJw5pf9q.js",
+      "_SettingsSectionCard-1vjiCkCh.js",
       "_useAdminFormTheme-HurwNa-g.js"
     ]
   },
@@ -393,7 +402,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-DDz8KjwQ.js",
+    "file": "assets/app-DrHGENlx.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

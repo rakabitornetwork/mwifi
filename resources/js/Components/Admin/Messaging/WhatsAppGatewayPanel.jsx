@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { router } from '@inertiajs/react';
 import { MessageSquare, QrCode, RefreshCw } from 'lucide-react';
+import SettingsSectionCard from '../SettingsSectionCard';
 
 export default function WhatsAppGatewayPanel({
     settingsMap = {},
@@ -227,8 +228,16 @@ export default function WhatsAppGatewayPanel({
     };
 
     return (
-        <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-            <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Konfigurasi WhatsApp Gateway</h3>
+        <SettingsSectionCard
+            icon={MessageSquare}
+            accent="emerald"
+            title="Konfigurasi WhatsApp Gateway"
+            description="Gateway Baileys, sesi QR, pembatasan pengiriman massal, dan uji kirim pesan."
+            themeCard={themeCard}
+            isDarkMode={isDarkMode}
+            themeTextTitle={themeTextTitle}
+            themeTextSub={themeTextSub}
+        >
             <div className="space-y-3 text-xs">
                 <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -408,6 +417,6 @@ export default function WhatsAppGatewayPanel({
                     <p className={`text-[10px] ${themeTextDesc}`}>Simpan pengaturan terlebih dahulu sebelum uji coba.</p>
                 </div>
             </div>
-        </div>
+        </SettingsSectionCard>
     );
 }
