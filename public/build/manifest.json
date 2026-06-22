@@ -165,7 +165,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DNUsfpz3.css",
+    "file": "assets/app-Bja44Djs.css",
     "name": "app",
     "names": [
       "app.css"
@@ -330,7 +330,7 @@
     ]
   },
   "resources/js/Pages/Admin/Settings/Index.jsx": {
-    "file": "assets/Index-B5BXyIyt.js",
+    "file": "assets/Index-D19poVXk.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Settings/Index.jsx",
     "isDynamicEntry": true,
@@ -393,7 +393,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-Dtw72n-q.js",
+    "file": "assets/app-DDz8KjwQ.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

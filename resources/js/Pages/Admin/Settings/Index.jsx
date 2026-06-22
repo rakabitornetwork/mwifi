@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import BrandingFileUpload from '../../../Components/Admin/BrandingFileUpload';
+import SettingsSectionCard from '../../../Components/Admin/SettingsSectionCard';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 
 function SettingsPageContent({ settings = [], routers = [] }) {
@@ -150,16 +151,17 @@ function SettingsPageContent({ settings = [], routers = [] }) {
     }, [settings, routers]);
 
     return (
-        <form key={`settings-${branding.version}`} onSubmit={handleSaveSettings} encType="multipart/form-data" className="space-y-6">
-            <div className={`${themeCard} border rounded-2xl p-5 space-y-5`}>
-                <div className={`flex items-center gap-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
-                    <Building2 className="w-5 h-5 text-emerald-500" />
-                    <div>
-                        <h3 className={`text-sm font-bold ${themeTextTitle}`}>Identitas & Branding Aplikasi</h3>
-                        <p className={`text-[10px] ${themeTextSub} mt-0.5`}>Nama aplikasi, logo perusahaan, favicon browser, dan informasi kontak resmi.</p>
-                    </div>
-                </div>
-
+        <form key={`settings-${branding.version}`} onSubmit={handleSaveSettings} encType="multipart/form-data" className="max-w-3xl mx-auto space-y-4 pb-2">
+            <SettingsSectionCard
+                icon={Building2}
+                accent="emerald"
+                title="Identitas & Branding Aplikasi"
+                description="Nama aplikasi, logo perusahaan, favicon browser, dan informasi kontak resmi."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 space-y-3 text-xs">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -255,17 +257,18 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                         </div>
                     </div>
                 </div>
-            </div>
+            </SettingsSectionCard>
 
-            <div className={`${themeCard} border rounded-2xl p-5 space-y-5`}>
-                <div className={`flex items-center gap-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
-                    <Copyright className="w-5 h-5 text-indigo-500" />
-                    <div>
-                        <h3 className={`text-sm font-bold ${themeTextTitle}`}>Footer Copyright & Meta SEO</h3>
-                        <p className={`text-[10px] ${themeTextSub} mt-0.5`}>Teks copyright di footer halaman dan meta tag untuk mesin pencari / media sosial.</p>
-                    </div>
-                </div>
-
+            <SettingsSectionCard
+                icon={Copyright}
+                accent="indigo"
+                title="Footer Copyright & Meta SEO"
+                description="Teks copyright di footer halaman dan meta tag untuk mesin pencari / media sosial."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
                     <div className="space-y-3">
                         <div className="flex flex-col gap-1">
@@ -343,17 +346,18 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                         </div>
                     </div>
                 </div>
-            </div>
+            </SettingsSectionCard>
 
-            <div className={`${themeCard} border rounded-2xl p-5 space-y-5`}>
-                <div className={`flex items-center gap-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
-                    <Receipt className="w-5 h-5 text-amber-500" />
-                    <div>
-                        <h3 className={`text-sm font-bold ${themeTextTitle}`}>Tagihan & Isolir Otomatis</h3>
-                        <p className={`text-[10px] ${themeTextSub} mt-0.5`}>PPN pada invoice baru, prorata 30 hari, generate tagihan H-N sebelum jatuh tempo, profile PPP isolir saat jatuh tempo, dan pemulihan otomatis setelah pelanggan bayar.</p>
-                    </div>
-                </div>
-
+            <SettingsSectionCard
+                icon={Receipt}
+                accent="amber"
+                title="Tagihan & Isolir Otomatis"
+                description="PPN pada invoice baru, prorata 30 hari, generate tagihan H-N sebelum jatuh tempo, profile PPP isolir saat jatuh tempo, dan pemulihan otomatis setelah pelanggan bayar."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
                     <div className={`border rounded-xl p-4 space-y-4 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
                         <div className="flex items-center gap-2">
@@ -508,35 +512,54 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                         </div>
                     </div>
                 </div>
-            </div>
+            </SettingsSectionCard>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                    <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Konfigurasi TR-069 GenieACS</h3>
-                    <div className="space-y-3 text-xs">
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>NBI API URL</label>
-                            <input name="genieacs[api_url]" type="text" defaultValue={settingsMap['genieacs.api_url'] || ''} className={`p-2 border rounded-lg ${themeInput}`} />
-                        </div>
+            <SettingsSectionCard
+                icon={Globe}
+                accent="sky"
+                title="Konfigurasi TR-069 GenieACS"
+                description="URL API Network Bootstrap Interface untuk monitoring ONT via GenieACS."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
+                <div className="space-y-3 text-xs">
+                    <div className="flex flex-col gap-1">
+                        <label className={`font-bold ${themeLabel}`}>NBI API URL</label>
+                        <input name="genieacs[api_url]" type="text" defaultValue={settingsMap['genieacs.api_url'] || ''} className={`p-2 border rounded-lg ${themeInput}`} />
                     </div>
                 </div>
-                <div className={`${themeCard} border rounded-2xl p-5 space-y-3 text-xs`}>
-                    <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Notifikasi WhatsApp</h3>
-                    <p className={`text-[11px] leading-relaxed ${themeTextDesc}`}>
-                        Gateway WhatsApp, template pesan tagihan, dan uji kirim dipindahkan ke menu{' '}
-                        <a href="/messaging" className={`font-semibold hover:underline ${isDarkMode ? 'text-violet-300' : 'text-violet-700'}`}>WhatsApp & Telegram</a>.
-                    </p>
-                </div>
-            </div>
+            </SettingsSectionCard>
 
-            <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                <div className="flex items-center gap-2">
-                    <Landmark className={`w-4 h-4 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`} />
-                    <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Rekening & E-Wallet</h3>
-                </div>
-                <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
-                    Data rekening bank dan DANA otomatis disertakan pada pesan tagihan WhatsApp. Nomor konfirmasi pembayaran diambil dari WhatsApp Gateway (Baileys) yang terhubung; isi fallback di bawah jika gateway belum aktif.
+            <SettingsSectionCard
+                icon={Phone}
+                accent="violet"
+                title="Notifikasi WhatsApp"
+                description="Gateway WhatsApp, template pesan tagihan, dan uji kirim dikelola di menu terpisah."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
+                <p className={`text-[11px] leading-relaxed ${themeTextDesc}`}>
+                    Buka menu{' '}
+                    <a href="/messaging" className={`font-semibold hover:underline ${isDarkMode ? 'text-violet-300' : 'text-violet-700'}`}>WhatsApp & Telegram</a>
+                    {' '}untuk mengatur gateway Baileys, template pesan, dan tes kirim.
                 </p>
+            </SettingsSectionCard>
+
+            <SettingsSectionCard
+                icon={Landmark}
+                accent="amber"
+                title="Rekening & E-Wallet"
+                description="Data rekening bank dan DANA otomatis disertakan pada pesan tagihan WhatsApp."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
+                <div className="space-y-4 text-xs">
                 <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Transfer Bank</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                     <div className="flex flex-col gap-1">
@@ -604,11 +627,20 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                     />
                     <span className={`text-[10px] ${themeTextDesc}`}>Kosongkan untuk memakai nomor otomatis dari sesi Baileys Gateway.</span>
                 </div>
-            </div>
+                </div>
+            </SettingsSectionCard>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                    <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Tripay Gateway</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <SettingsSectionCard
+                    icon={Landmark}
+                    accent="indigo"
+                    title="Tripay Gateway"
+                    description="Kredensial payment gateway Tripay untuk pembayaran online pelanggan."
+                    themeCard={themeCard}
+                    isDarkMode={isDarkMode}
+                    themeTextTitle={themeTextTitle}
+                    themeTextSub={themeTextSub}
+                >
                     <div className="space-y-3 text-xs">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>API Key</label>
@@ -623,10 +655,18 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                             <input name="payment[tripay][private_key]" type="password" placeholder="Tetap kosong jika tidak diubah" className={`p-2 border rounded-lg ${themeInput}`} />
                         </div>
                     </div>
-                </div>
+                </SettingsSectionCard>
 
-                <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                    <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Midtrans Gateway</h3>
+                <SettingsSectionCard
+                    icon={Landmark}
+                    accent="emerald"
+                    title="Midtrans Gateway"
+                    description="Kredensial Midtrans Snap / Core API untuk pembayaran kartu dan e-wallet."
+                    themeCard={themeCard}
+                    isDarkMode={isDarkMode}
+                    themeTextTitle={themeTextTitle}
+                    themeTextSub={themeTextSub}
+                >
                     <div className="space-y-3 text-xs">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Server Key</label>
@@ -637,7 +677,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                             <input name="payment[midtrans][client_key]" type="text" defaultValue={settingsMap['payment.midtrans.client_key'] || ''} className={`p-2 border rounded-lg ${themeInput}`} />
                         </div>
                     </div>
-                </div>
+                </SettingsSectionCard>
             </div>
 
             <div className="flex justify-end">
