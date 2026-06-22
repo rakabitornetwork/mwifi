@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Save, Search, Trash2, Upload, Users, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
@@ -240,6 +240,9 @@ function CustomersPageContent({
         : (customerPage - 1) * pageSize + 1;
     const paginationRangeEnd = Math.min(customerPage * pageSize, sortedCustomers.length);
     const visiblePages = getVisiblePages(customerPage, totalCustomerPages);
+    const expandedCustomer = expandedCustomerId
+        ? sortedCustomers.find((cust) => cust.id === expandedCustomerId)
+        : null;
     const paginationNavButton = isDarkMode
         ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-400'
         : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-600';
@@ -474,7 +477,6 @@ function CustomersPageContent({
                     <table>
                         <thead>
                             <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
-                                <th className="py-3 px-2 w-8" />
                                 <th className="py-3 px-2 w-8">
                                     <input
                                         type="checkbox"
@@ -537,7 +539,7 @@ function CustomersPageContent({
                         <tbody className="divide-y divide-zinc-800/20 text-xs">
                             {paginatedCustomers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={11} className={`py-8 text-center ${themeTextDesc}`}>
+                                    <td colSpan={10} className={`py-8 text-center ${themeTextDesc}`}>
                                         {!routerFilter
                                             ? 'Pilih router Mikrotik terlebih dahulu.'
                                             : searchTerm.trim()
@@ -546,22 +548,10 @@ function CustomersPageContent({
                                     </td>
                                 </tr>
                             ) : paginatedCustomers.map((cust) => (
-                                <Fragment key={cust.id}>
                                     <tr
+                                        key={cust.id}
                                         className={`${themeTextSub} hover:bg-zinc-900/10 ${selectedCustomerIds.includes(cust.id) ? 'bg-emerald-500/5' : ''} ${expandedCustomerId === cust.id ? (isDarkMode ? 'bg-zinc-900/20' : 'bg-zinc-50') : ''}`}
                                     >
-                                        <td className="py-3 px-2 w-8">
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleCustomerDetail(cust.id)}
-                                                className={`p-1 rounded-md border transition-colors cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'}`}
-                                                title={expandedCustomerId === cust.id ? 'Tutup detail' : 'Lihat detail lengkap'}
-                                            >
-                                                {expandedCustomerId === cust.id
-                                                    ? <ChevronUp className="w-3.5 h-3.5" />
-                                                    : <ChevronDown className="w-3.5 h-3.5" />}
-                                            </button>
-                                        </td>
                                         <td className="py-3 px-2 w-8">
                                             <input
                                                 type="checkbox"
@@ -571,13 +561,7 @@ function CustomersPageContent({
                                             />
                                         </td>
                                         <td className={`py-3 px-2 font-bold ${themeTextTitle}`}>
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleCustomerDetail(cust.id)}
-                                                className="text-left hover:underline cursor-pointer"
-                                            >
-                                                {cust.name}
-                                            </button>
+                                            {cust.name}
                                         </td>
                                         <td className="py-3 px-2 font-mono">{cust.username}</td>
                                         <td className="py-3 px-2 font-mono text-[10px]">{cust.phone_number || '—'}</td>
@@ -600,7 +584,7 @@ function CustomersPageContent({
                                                 type="button"
                                                 onClick={() => toggleCustomerDetail(cust.id)}
                                                 className={`inline-block p-1 cursor-pointer transition-colors ${expandedCustomerId === cust.id ? 'text-sky-400' : 'text-sky-500 hover:text-sky-400'}`}
-                                                title="Detail lengkap"
+                                                title={expandedCustomerId === cust.id ? 'Tutup detail' : 'Detail lengkap'}
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </button>
@@ -623,22 +607,18 @@ function CustomersPageContent({
                                             </div>
                                         </td>
                                     </tr>
-                                    {expandedCustomerId === cust.id && (
-                                        <tr>
-                                            <td colSpan={11} className="p-0 admin-table-detail-cell">
-                                                <CustomerDetailPanel
-                                                    customer={cust}
-                                                    theme={theme}
-                                                    onEdit={openCustomerModal}
-                                                />
-                                            </td>
-                                        </tr>
-                                    )}
-                                </Fragment>
                             ))}
                         </tbody>
                     </table>
                 </div>
+
+                {expandedCustomer && (
+                    <CustomerDetailPanel
+                        customer={expandedCustomer}
+                        theme={theme}
+                        onEdit={openCustomerModal}
+                    />
+                )}
 
                 {sortedCustomers.length > 0 && (
                     <div className={`flex flex-col lg:flex-row lg:items-center lg:justify-between pt-4 mt-1 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-4`}>

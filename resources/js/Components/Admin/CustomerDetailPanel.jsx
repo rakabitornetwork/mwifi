@@ -27,8 +27,8 @@ function statusMeta(status) {
 function DetailItem({ label, value, mono = false, themeTextTitle, themeTextSub, className = '' }) {
     return (
         <div className={`min-w-0 ${className}`}>
-            <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>{label}</p>
-            <p className={`text-xs mt-0.5 break-words [overflow-wrap:anywhere] ${mono ? 'font-mono' : ''} ${themeTextTitle}`}>
+            <p className={`text-[9px] font-bold uppercase tracking-wide leading-tight ${themeTextSub}`}>{label}</p>
+            <p className={`text-[11px] mt-0.5 break-words [overflow-wrap:anywhere] leading-snug ${mono ? 'font-mono' : ''} ${themeTextTitle}`}>
                 {value || '—'}
             </p>
         </div>
@@ -39,10 +39,10 @@ function QuotaCard({ label, usedBytes, limitBytes, gradient }) {
     const pct = quotaUsagePercent(usedBytes, limitBytes);
 
     return (
-        <div className={`rounded-lg border p-2.5 text-white shadow-md ${gradient}`}>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-white/80">{label}</p>
-            <p className="text-sm font-black font-mono mt-1 text-white">{formatBytes(usedBytes)}</p>
-            <p className="text-[10px] mt-0.5 text-white/70">
+        <div className={`rounded-lg border p-2 text-white shadow-md min-w-0 ${gradient}`}>
+            <p className="text-[9px] font-bold uppercase tracking-wide text-white/80 leading-tight">{label}</p>
+            <p className="text-xs font-black font-mono mt-0.5 text-white break-all">{formatBytes(usedBytes)}</p>
+            <p className="text-[9px] mt-0.5 text-white/70 leading-snug break-words">
                 {limitBytes
                     ? (pct !== null ? `${pct.toFixed(1)}% dari kuota ${formatBytes(limitBytes)}` : `Kuota ${formatBytes(limitBytes)}`)
                     : 'Tidak ada batas kuota di RouterOS'}
@@ -161,12 +161,12 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
     const isOnline = !!quota?.online;
 
     return (
-        <div className={`customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-3 py-4 sm:px-4 min-w-0`}>
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4 min-w-0">
+        <div className={`customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-2 py-3 sm:px-3 min-w-0 max-w-full overflow-hidden`}>
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3 min-w-0">
                 <div className="min-w-0">
                     <p className={`text-xs font-bold ${themeTextTitle}`}>Detail Lengkap Pelanggan</p>
                     <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
-                        Informasi sama seperti form popup Manajemen PPPoE.
+                        {customer.name} · {customer.username}
                     </p>
                 </div>
                 <button
@@ -179,9 +179,9 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 min-w-0">
-                <div className={`rounded-xl border p-3 space-y-3 min-w-0 ${themeInnerWidget}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Identitas & Kontak</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 min-w-0">
+                <div className={`rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
+                    <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Identitas & Kontak</p>
                     <DetailItem label="Nama Lengkap" value={customer.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                     <DetailItem label="Username Layanan" value={customer.username} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                     <DetailItem label="Password Portal" value={customer.password} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
@@ -190,8 +190,8 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                     <DetailItem label="Alamat Lengkap" value={customer.address} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                 </div>
 
-                <div className={`rounded-xl border p-3 space-y-3 min-w-0 ${themeInnerWidget}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Lokasi & Jaringan</p>
+                <div className={`rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
+                    <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Lokasi & Jaringan</p>
                     <DetailItem label="Lintang GPS (Latitude)" value={hasGps ? String(customer.latitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                     <DetailItem label="Bujur GPS (Longitude)" value={hasGps ? String(customer.longitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                     {mapsUrl && (
@@ -215,8 +215,8 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                     <DetailItem label="Titik ODP" value={customer.odp?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                 </div>
 
-                <div className={`rounded-xl border p-3 space-y-3 min-w-0 lg:col-span-2 xl:col-span-1 ${themeInnerWidget}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Status & Billing</p>
+                <div className={`rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
+                    <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Status & Billing</p>
                     <div>
                         <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Status Akun</p>
                         <span className={`inline-flex mt-1 px-2 py-0.5 rounded text-[10px] font-bold border ${status.className}`}>
@@ -326,7 +326,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                 </div>
             </div>
 
-            <div className={`mt-4 rounded-xl border p-3 space-y-3 min-w-0 ${themeInnerWidget}`}>
+            <div className={`mt-2 rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between min-w-0">
                     <div className="flex flex-col gap-1 min-w-0 flex-1">
                         <div className="flex items-start gap-2 min-w-0">
@@ -360,7 +360,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                     <p className="text-[10px] text-amber-500">{quotaError}</p>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 min-w-0">
                     <QuotaCard
                         label="Total Quota Terpakai"
                         usedBytes={totalBytes}
