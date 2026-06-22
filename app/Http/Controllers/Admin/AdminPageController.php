@@ -61,6 +61,12 @@ class AdminPageController extends Controller
             ])
             ->orderBy('name')
             ->get()
+            ->each(function (Customer $customer) {
+                if ($customer->status === 'isolated') {
+                    BillingService::reactivateCustomerIfBillingClear($customer);
+                    $customer->refresh();
+                }
+            })
             ->map(function (Customer $customer) {
                 $latestUnpaid = $customer->invoices->firstWhere('status', 'unpaid');
                 $latestCanceled = $customer->invoices->firstWhere('status', 'canceled');

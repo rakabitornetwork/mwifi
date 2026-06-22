@@ -777,7 +777,10 @@ class AdminActionController extends Controller
 
             return redirect()->back()->with(
                 'success',
-                "Invoice {$created['invoice_number']} periode {$created['billing_period']} berhasil dibuat (Rp {$amount}, jatuh tempo {$dueDateLabel})."
+                "Invoice {$created['invoice_number']} periode {$created['billing_period']} berhasil dibuat (Rp {$amount}, jatuh tempo {$dueDateLabel})." .
+                (!BillingService::customerHasPastDueUnpaidInvoices($customer->fresh())
+                    ? ' Layanan pelanggan dipulihkan ke status aktif.'
+                    : '')
             );
         } catch (\Exception $e) {
             return redirect()->back()->with('error', $e->getMessage());

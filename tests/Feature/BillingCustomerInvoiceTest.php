@@ -175,4 +175,67 @@ class BillingCustomerInvoiceTest extends TestCase
 
         $this->assertSame('2026-06-25', Invoice::first()->due_date->format('Y-m-d'));
     }
+
+    public function test_manual_invoice_reactivates_isolated_customer_after_due_extension(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(11);
+        $customer->update(['status' => 'isolated']);
+
+        BillingService::generateInvoiceForCustomer($customer, null, 7);
+
+        $this->assertSame('active', $customer->fresh()->status);
+        $this->assertSame('2026-06-27', Invoice::first()->due_date->format('Y-m-d'));
+        $this->assertFalse(BillingService::customerHasPastDueUnpaidInvoices($customer->fresh()));
+    }
+
+    public function test_manual_invoice_does_not_reactivate_while_other_past_due_invoices_remain(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(11);
+        $customer->update(['status' => 'isolated']);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202605-0001-TEST',
+            'billing_period' => '2026-05',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-05-11',
+            'status' => 'unpaid',
+        ]);
+
+        BillingService::generateInvoiceForCustomer($customer, null, 7);
+
+        $this->assertSame('isolated', $customer->fresh()->status);
+    }
+
+    public function test_reactivate_customer_if_billing_clear_restores_isolated_customer(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(11);
+        $customer->update(['status' => 'isolated']);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-0001-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 100000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 100000,
+            'due_date' => '2026-06-25',
+            'status' => 'unpaid',
+        ]);
+
+        $this->assertTrue(BillingService::reactivateCustomerIfBillingClear($customer));
+        $this->assertSame('active', $customer->fresh()->status);
+    }
 }

@@ -673,7 +673,30 @@ class BillingService
             throw new \RuntimeException('Gagal membuat invoice. Periksa tanggal mulai layanan dan paket pelanggan.');
         }
 
+        $customer->refresh();
+        self::reactivateCustomerIfBillingClear($customer);
+
         return $created;
+    }
+
+    /**
+     * Restore service when customer is isolated but has no overdue unpaid invoices.
+     */
+    public static function reactivateCustomerIfBillingClear(Customer $customer): bool
+    {
+        if (!in_array($customer->status, ['isolated', 'inactive', 'suspended'], true)) {
+            return false;
+        }
+
+        if (self::customerHasPendingDeferral($customer)) {
+            return false;
+        }
+
+        if (self::customerHasPastDueUnpaidInvoices($customer)) {
+            return false;
+        }
+
+        return self::reactivateCustomerOnRouter($customer);
     }
 
     /**
@@ -802,8 +825,8 @@ class BillingService
         }
 
         $router = $customer->router;
-        if (!$router) {
-            return false;
+        if (!$router || !$router->status) {
+            return $customer->fresh()->status === 'active';
         }
 
         try {
@@ -821,11 +844,11 @@ class BillingService
                 Log::warning("Failed to restore PPPoE profile for {$customer->username} on router {$router->name}");
             }
 
-            return $success;
+            return $success || $customer->fresh()->status === 'active';
         } catch (Exception $e) {
             Log::error("Failed to reactivate customer {$customer->username} on router: " . $e->getMessage());
 
-            return false;
+            return $customer->fresh()->status === 'active';
         }
     }
 
