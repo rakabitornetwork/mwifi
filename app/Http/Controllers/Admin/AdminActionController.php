@@ -103,13 +103,21 @@ class AdminActionController extends Controller
             $router = Router::findOrFail($data['router_id']);
             $package = Package::findOrFail($data['package_id']);
 
+            if ($data['status'] === 'isolated') {
+                $profile = SettingService::get('mikrotik.isolir_profile', 'ISOLIR');
+                $disabled = 'no';
+            } else {
+                $profile = $package->mikrotik_profile;
+                $disabled = ($data['status'] === 'active') ? 'no' : 'yes';
+            }
+
             $mkData = [
                 'name' => $data['username'],
                 'password' => $data['password'],
-                'profile' => $package->mikrotik_profile,
+                'profile' => $profile,
                 'service' => 'pppoe',
                 'comment' => $data['name'],
-                'disabled' => ($data['status'] !== 'active') ? 'yes' : 'no'
+                'disabled' => $disabled,
             ];
 
             try {
@@ -144,6 +152,10 @@ class AdminActionController extends Controller
                     if (!$added) {
                         throw new \Exception("Gagal menambahkan secret PPP baru di Mikrotik.");
                     }
+                }
+
+                if ($data['status'] === 'isolated') {
+                    $connector->kickActiveConnection($data['username']);
                 }
             } catch (\Exception $e) {
                 return redirect()->back()->with('error', "Gagal menyinkronkan data ke Mikrotik: " . $e->getMessage());
