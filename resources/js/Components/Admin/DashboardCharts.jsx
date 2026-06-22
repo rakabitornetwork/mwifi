@@ -17,7 +17,14 @@ const CHART_ANIMATION = {
     begin: 60,
 };
 
-/** Animate once on mount; disable on live charts after first draw to avoid poll stutter. */
+const LIVE_CHART_ANIMATION = {
+    initialDuration: 420,
+    updateDuration: 680,
+    easing: 'ease-in-out',
+    initialBegin: 40,
+};
+
+/** Mount animation for static charts (e.g. revenue bars). */
 function useMountAnimation(enabled = true) {
     const [isAnimationActive, setIsAnimationActive] = useState(enabled);
 
@@ -43,6 +50,26 @@ const animatedSeriesProps = (isAnimationActive) => ({
     animationEasing: CHART_ANIMATION.easing,
     animationBegin: CHART_ANIMATION.begin,
 });
+
+/** Smooth transition on each polling update for real-time area charts. */
+function useLiveChartAnimation(dataLength) {
+    const hasUpdatesRef = useRef(false);
+
+    useEffect(() => {
+        if (dataLength > 1) {
+            hasUpdatesRef.current = true;
+        }
+    }, [dataLength]);
+
+    const isUpdate = hasUpdatesRef.current || dataLength > 1;
+
+    return {
+        isAnimationActive: true,
+        animationDuration: isUpdate ? LIVE_CHART_ANIMATION.updateDuration : LIVE_CHART_ANIMATION.initialDuration,
+        animationEasing: LIVE_CHART_ANIMATION.easing,
+        animationBegin: isUpdate ? 0 : LIVE_CHART_ANIMATION.initialBegin,
+    };
+}
 
 function useChartDimensions() {
     const containerRef = useRef(null);
@@ -148,7 +175,7 @@ export const RevenueBarChart = memo(function RevenueBarChart({ data, isDarkMode 
 });
 
 export const ResourceAreaChart = memo(function ResourceAreaChart({ data, isDarkMode }) {
-    const isAnimationActive = useMountAnimation(Boolean(data?.length));
+    const animation = useLiveChartAnimation(data?.length ?? 0);
 
     if (!data?.length) {
         return null;
@@ -156,7 +183,6 @@ export const ResourceAreaChart = memo(function ResourceAreaChart({ data, isDarkM
 
     const gridStroke = isDarkMode ? '#27272a' : '#e4e4e7';
     const axisStroke = isDarkMode ? '#a1a1aa' : '#71717a';
-    const animation = animatedSeriesProps(isAnimationActive);
 
     return (
         <ChartShell className="h-44 w-full">
@@ -189,6 +215,8 @@ export const ResourceAreaChart = memo(function ResourceAreaChart({ data, isDarkM
                         strokeWidth={1.5}
                         fillOpacity={1}
                         fill="url(#dashboardColorCpu)"
+                        dot={false}
+                        activeDot={{ r: 3 }}
                         {...animation}
                     />
                     <Area
@@ -199,6 +227,8 @@ export const ResourceAreaChart = memo(function ResourceAreaChart({ data, isDarkM
                         strokeWidth={1.5}
                         fillOpacity={1}
                         fill="url(#dashboardColorRam)"
+                        dot={false}
+                        activeDot={{ r: 3 }}
                         {...animation}
                     />
                 </AreaChart>
@@ -208,7 +238,7 @@ export const ResourceAreaChart = memo(function ResourceAreaChart({ data, isDarkM
 });
 
 export const TrafficAreaChart = memo(function TrafficAreaChart({ data, isDarkMode }) {
-    const isAnimationActive = useMountAnimation(Boolean(data?.length));
+    const animation = useLiveChartAnimation(data?.length ?? 0);
 
     if (!data?.length) {
         return null;
@@ -216,7 +246,6 @@ export const TrafficAreaChart = memo(function TrafficAreaChart({ data, isDarkMod
 
     const gridStroke = isDarkMode ? '#27272a' : '#e4e4e7';
     const axisStroke = isDarkMode ? '#a1a1aa' : '#71717a';
-    const animation = animatedSeriesProps(isAnimationActive);
 
     return (
         <ChartShell className="h-28 w-full">
@@ -252,6 +281,8 @@ export const TrafficAreaChart = memo(function TrafficAreaChart({ data, isDarkMod
                         strokeWidth={1.5}
                         fillOpacity={1}
                         fill="url(#dashboardColorRx)"
+                        dot={false}
+                        activeDot={{ r: 3 }}
                         {...animation}
                     />
                     <Area
@@ -262,6 +293,8 @@ export const TrafficAreaChart = memo(function TrafficAreaChart({ data, isDarkMod
                         strokeWidth={1.5}
                         fillOpacity={1}
                         fill="url(#dashboardColorTx)"
+                        dot={false}
+                        activeDot={{ r: 3 }}
                         {...animation}
                     />
                 </AreaChart>
