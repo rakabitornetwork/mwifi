@@ -17,6 +17,7 @@ use App\Models\Setting;
 use App\Services\AppUpdateService;
 use App\Services\BillingService;
 use App\Services\DatabaseBackupService;
+use App\Services\InventoryService;
 use App\Services\MessageTemplateService;
 use App\Services\SettingService;
 use Inertia\Inertia;
@@ -132,6 +133,9 @@ class AdminPageController extends Controller
             'categories' => InventoryItem::CATEGORIES,
             'conditions' => InventoryItem::CONDITIONS,
             'units' => InventoryItem::UNITS,
+            'watchCategories' => InventoryItem::watchCategorySummaries(),
+            'recentMovements' => InventoryService::recentMovements(),
+            'customers' => Customer::query()->orderBy('name')->get(['id', 'name', 'username']),
         ]);
     }
 

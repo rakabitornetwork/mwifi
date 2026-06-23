@@ -15,6 +15,73 @@ function toTerminalSessionLabel(name) {
     return slug ? `${slug}-update` : 'app-update';
 }
 
+const RELEASE_SOURCE_LABELS = {
+    github_release: '(release)',
+    github_tag: '(tag)',
+    git_remote_tag: '(remote tag)',
+};
+
+function VersionCompareCard({
+    badgeLabel,
+    badgeClass,
+    badgeMeta,
+    version,
+    commitHash,
+    commitRef,
+    message,
+    footer,
+    footerClass,
+    versionCardClass,
+    themeTextTitle,
+    themeTextDesc,
+    isLoadingVersion = false,
+}) {
+    return (
+        <div className={`rounded-xl border p-3 flex flex-col h-full ${versionCardClass}`}>
+            <div className="min-h-[22px] flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                <span className={`inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md ${badgeClass}`}>
+                    {badgeLabel}
+                </span>
+                {badgeMeta ? (
+                    <span className={`text-[10px] font-normal ${themeTextDesc}`}>{badgeMeta}</span>
+                ) : null}
+            </div>
+
+            <p className={`text-base font-black font-mono mt-2 leading-none min-h-[1.25rem] ${themeTextTitle}`}>
+                {isLoadingVersion ? (
+                    <span className="inline-flex items-center gap-1.5 text-sm font-bold">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        ...
+                    </span>
+                ) : (
+                    version
+                )}
+            </p>
+
+            <p className={`text-[10px] mt-1.5 font-mono leading-snug ${themeTextDesc}`}>
+                Commit {commitHash || '—'}
+                {commitRef ? ` · ${commitRef}` : ''}
+            </p>
+
+            <p className={`text-[10px] mt-1 line-clamp-2 min-h-[2rem] leading-snug ${themeTextDesc}`}>
+                {message || '—'}
+            </p>
+
+            <div className="mt-auto pt-2 min-h-[26px]">
+                {footer ? (
+                    <p className={`text-[10px] px-2 py-1 rounded-md leading-snug ${footerClass}`}>
+                        {footer}
+                    </p>
+                ) : (
+                    <p className="text-[10px] px-2 py-1 rounded-md leading-snug invisible" aria-hidden="true">
+                        —
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+}
+
 function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
     const { branding = {} } = usePage().props;
     const companyName = branding.company_name || branding.display_name || branding.app_name || 'mWiFi';
@@ -255,6 +322,46 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
         ? 'border border-zinc-800/80 bg-zinc-950/30'
         : 'border border-zinc-200 bg-white/80';
 
+    const localVersionDisplay = buildLabel === '—'
+        ? '—'
+        : (buildLabel.startsWith('v') ? buildLabel : `v${buildLabel}`);
+
+    const remoteVersionDisplay = formatVersion(latestReleaseVersion);
+
+    const releaseTagVersion = formatVersion(release.tag || release.build_base_version || release.version);
+
+    const localFooter = buildCommitsSinceRelease > 0
+        ? `+${buildCommitsSinceRelease} commit setelah rilis ${releaseTagVersion}`
+        : branchInSync && !hasUpdate
+            ? 'Build lokal sudah sinkron dengan branch GitHub.'
+            : hasUpdate
+                ? `Branch belum sinkron — ${updateInfo.behind_count || 1} commit belum ditarik.`
+                : null;
+
+    const localFooterClass = buildCommitsSinceRelease > 0
+        ? (theme.isDarkMode ? 'bg-sky-500/10 text-sky-300/90' : 'bg-sky-50 text-sky-800')
+        : branchInSync && !hasUpdate
+            ? (theme.isDarkMode ? 'bg-emerald-500/10 text-emerald-300/90' : 'bg-emerald-50 text-emerald-800')
+            : hasUpdate
+                ? (theme.isDarkMode ? 'bg-amber-500/10 text-amber-300/90' : 'bg-amber-50 text-amber-800')
+                : '';
+
+    const remoteFooter = branchInSync && !hasUpdate
+        ? 'Kode branch sudah sama dengan build lokal.'
+        : hasUpdate
+            ? `${updateInfo.behind_count || 1} commit baru tersedia di GitHub.`
+            : updateInfo.remote?.error
+                ? 'Belum dapat memuat status branch remote.'
+                : null;
+
+    const remoteFooterClass = branchInSync && !hasUpdate
+        ? (theme.isDarkMode ? 'bg-emerald-500/10 text-emerald-300/90' : 'bg-emerald-50 text-emerald-800')
+        : hasUpdate
+            ? (theme.isDarkMode ? 'bg-amber-500/10 text-amber-300/90' : 'bg-amber-50 text-amber-800')
+            : (theme.isDarkMode ? 'bg-zinc-800/40 text-zinc-400' : 'bg-zinc-100 text-zinc-600');
+
+    const releaseSourceMeta = RELEASE_SOURCE_LABELS[release.latest_release_source] || null;
+
     return (
         <div className="max-w-3xl mx-auto space-y-4 pb-2">
             <div className={`${theme.themeCard} border rounded-2xl overflow-hidden`}>
@@ -288,64 +395,38 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                         </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className={`rounded-xl border p-3 ${versionCardClass}`}>
-                            <span className={`inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md ${localLabelClass}`}>
-                                Build saat ini
-                            </span>
-                            <p className={`text-base font-black font-mono mt-2 ${theme.isDarkMode ? 'text-emerald-100' : 'text-emerald-950'}`}>
-                                {buildLabel === '—' ? '—' : (buildLabel.startsWith('v') ? buildLabel : `v${buildLabel}`)}
-                            </p>
-                            <p className={`text-[10px] mt-1 font-mono ${theme.isDarkMode ? 'text-emerald-300/80' : 'text-emerald-800/70'}`}>
-                                Commit {updateInfo.local?.commit_short || '—'}
-                            </p>
-                            <p className={`text-[10px] mt-1 line-clamp-2 ${theme.isDarkMode ? 'text-emerald-300/80' : 'text-emerald-800/70'}`}>
-                                {updateInfo.local?.commit_message || '—'}
-                            </p>
-                            {buildCommitsSinceRelease > 0 && (
-                                <p className={`text-[10px] mt-2 px-2 py-1 rounded-md ${theme.isDarkMode ? 'bg-sky-500/10 text-sky-300/90' : 'bg-sky-50 text-sky-800'}`}>
-                                    +{buildCommitsSinceRelease} commit setelah rilis {formatVersion(release.tag || release.build_base_version || release.version)}
-                                </p>
-                            )}
-                        </div>
-                        <div className={`rounded-xl border p-3 ${versionCardClass}`}>
-                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                                <span className={`inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-md ${remoteLabelClass}`}>
-                                    Rilis terakhir GitHub
-                                </span>
-                                {release.latest_release_source === 'github_release' && (
-                                    <span className={`text-[10px] font-normal ${theme.themeTextDesc}`}>(release)</span>
-                                )}
-                                {release.latest_release_source === 'github_tag' && (
-                                    <span className={`text-[10px] font-normal ${theme.themeTextDesc}`}>(tag)</span>
-                                )}
-                                {release.latest_release_source === 'git_remote_tag' && (
-                                    <span className={`text-[10px] font-normal ${theme.themeTextDesc}`}>(remote tag)</span>
-                                )}
-                            </div>
-                            <p className={`text-base font-black font-mono mt-2 ${theme.themeTextTitle}`}>
-                                {isCheckingRemote && !latestReleaseVersion ? (
-                                    <span className="inline-flex items-center gap-1.5 text-sm font-bold">
-                                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                        ...
-                                    </span>
-                                ) : (
-                                    formatVersion(latestReleaseVersion)
-                                )}
-                            </p>
-                            <p className={`text-[10px] mt-1 font-mono ${theme.themeTextDesc}`}>
-                                Commit branch {updateInfo.remote?.commit_short || '—'}
-                                {updateInfo.remote?.source === 'git' ? ` · origin/${updateInfo.repository?.branch || 'main'}` : ''}
-                            </p>
-                            <p className={`text-[10px] mt-1 line-clamp-2 ${theme.themeTextDesc}`}>
-                                {updateInfo.remote?.commit_message || updateInfo.remote?.error || 'Belum dapat memuat commit remote.'}
-                            </p>
-                            {branchInSync && !hasUpdate && (
-                                <p className={`text-[10px] mt-2 px-2 py-1 rounded-md ${theme.isDarkMode ? 'bg-emerald-500/10 text-emerald-300/90' : 'bg-emerald-50 text-emerald-800'}`}>
-                                    Kode branch sudah sama dengan build lokal.
-                                </p>
-                            )}
-                        </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
+                        <VersionCompareCard
+                            badgeLabel="Build saat ini"
+                            badgeClass={localLabelClass}
+                            badgeMeta="(HEAD lokal)"
+                            version={localVersionDisplay}
+                            commitHash={updateInfo.local?.commit_short}
+                            commitRef={`branch ${updateInfo.repository?.branch || 'main'}`}
+                            message={updateInfo.local?.commit_message}
+                            footer={localFooter}
+                            footerClass={localFooterClass}
+                            versionCardClass={versionCardClass}
+                            themeTextTitle={theme.themeTextTitle}
+                            themeTextDesc={theme.themeTextDesc}
+                        />
+                        <VersionCompareCard
+                            badgeLabel="Rilis terakhir GitHub"
+                            badgeClass={remoteLabelClass}
+                            badgeMeta={releaseSourceMeta}
+                            version={remoteVersionDisplay}
+                            isLoadingVersion={isCheckingRemote && !latestReleaseVersion}
+                            commitHash={updateInfo.remote?.commit_short}
+                            commitRef={updateInfo.remote?.source === 'git'
+                                ? `origin/${updateInfo.repository?.branch || 'main'}`
+                                : 'GitHub'}
+                            message={updateInfo.remote?.commit_message || updateInfo.remote?.error}
+                            footer={remoteFooter}
+                            footerClass={remoteFooterClass}
+                            versionCardClass={versionCardClass}
+                            themeTextTitle={theme.themeTextTitle}
+                            themeTextDesc={theme.themeTextDesc}
+                        />
                     </div>
 
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 pt-1">

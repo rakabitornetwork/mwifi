@@ -94,6 +94,7 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/odps/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveOdp']);
     Route::post('admin/odps/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteOdp']);
     Route::post('admin/inventory/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveInventoryItem']);
+    Route::post('admin/inventory/adjust', [\App\Http\Controllers\Admin\AdminActionController::class, 'adjustInventoryStock']);
     Route::post('admin/inventory/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteInventoryItem']);
 
     Route::post('admin/invoices/pay-manual', [\App\Http\Controllers\Admin\AdminActionController::class, 'payInvoiceManual']);

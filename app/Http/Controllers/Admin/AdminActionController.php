@@ -13,6 +13,7 @@ use App\Services\BrandingService;
 use App\Services\CustomerNotificationService;
 use App\Services\Customer\LegacyCsvImportService;
 use App\Services\HotspotVoucherService;
+use App\Services\InventoryService;
 use App\Services\MessageTemplateService;
 use App\Services\SettingService;
 use Illuminate\Http\Request;
@@ -100,10 +101,14 @@ class AdminActionController extends Controller
 
         if ($id) {
             $item = InventoryItem::findOrFail($id);
+            $previousQuantity = (int) $item->quantity;
             $item->update($data);
+            InventoryService::recordEditAdjustment($item, $previousQuantity, (int) $item->quantity);
+            InventoryService::notifyLowStockIfNeeded($item->fresh(), $previousQuantity);
             $message = 'Item inventaris berhasil diperbarui.';
         } else {
-            InventoryItem::create($data);
+            $item = InventoryItem::create($data);
+            InventoryService::notifyLowStockIfNeeded($item, 0);
             $message = 'Item inventaris berhasil ditambahkan.';
         }
 
@@ -121,6 +126,35 @@ class AdminActionController extends Controller
         $item->delete();
 
         return redirect()->back()->with('success', "Item inventaris \"{$name}\" berhasil dihapus.");
+    }
+
+    public function adjustInventoryStock(Request $request)
+    {
+        $data = $request->validate([
+            'inventory_item_id' => 'required|exists:inventory_items,id',
+            'type' => 'required|in:in,out',
+            'quantity' => 'required|integer|min:1',
+            'customer_id' => 'nullable|exists:customers,id',
+            'notes' => 'nullable|string|max:2000',
+        ]);
+
+        $item = InventoryItem::findOrFail($data['inventory_item_id']);
+
+        try {
+            InventoryService::adjustStock(
+                $item,
+                $data['type'],
+                (int) $data['quantity'],
+                $data['notes'] ?? null,
+                filled($data['customer_id'] ?? null) ? (int) $data['customer_id'] : null,
+            );
+        } catch (\RuntimeException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+
+        $actionLabel = $data['type'] === 'in' ? 'masuk' : 'keluar';
+
+        return redirect()->back()->with('success', "Stok {$actionLabel} untuk \"{$item->name}\" berhasil dicatat.");
     }
 
     /**
