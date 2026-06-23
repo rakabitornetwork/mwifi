@@ -663,7 +663,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                             className={`p-2 border rounded-lg ${themeInput}`}
                         />
                     </div>
-                    <div className="flex justify-end pt-3 gap-2">
+                    <div className={`sticky bottom-0 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 mt-1 flex justify-end gap-2 border-t ${isDarkMode ? 'border-zinc-800/40 bg-zinc-900/95' : 'border-zinc-200 bg-white/95'} backdrop-blur-sm`}>
                         <button type="button" onClick={() => setShowPackageModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
                         <button type="submit" title="Simpan" className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"><Save className="w-4 h-4" /></button>
                     </div>
