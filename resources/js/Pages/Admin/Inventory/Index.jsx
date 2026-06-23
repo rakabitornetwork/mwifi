@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { AlertTriangle, Boxes, Edit, Plus, Save, Search, Trash2, X } from 'lucide-react';
+import { AlertTriangle, Boxes, Edit, Layers, Package, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
@@ -21,7 +21,6 @@ function InventoryPageContent({
         themeTextDesc,
     } = theme;
 
-    const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeInput = isDarkMode
         ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
@@ -134,6 +133,38 @@ function InventoryPageContent({
         });
     };
 
+    const statCards = useMemo(() => [
+        {
+            label: 'Total Jenis Barang',
+            value: stats.itemCount.toLocaleString('id-ID'),
+            icon: Package,
+            cardClass: 'bg-gradient-to-br from-sky-500 to-cyan-600 border-sky-400/20 text-white shadow-md shadow-sky-500/10',
+            labelClass: 'text-sky-100/90',
+            iconClass: 'text-sky-100/80',
+            valueClass: 'text-white',
+        },
+        {
+            label: 'Total Stok (Qty)',
+            value: stats.totalQuantity.toLocaleString('id-ID'),
+            icon: Layers,
+            cardClass: 'bg-gradient-to-br from-violet-500 to-indigo-600 border-violet-400/20 text-white shadow-md shadow-violet-500/10',
+            labelClass: 'text-violet-100/90',
+            iconClass: 'text-violet-100/80',
+            valueClass: 'text-white',
+        },
+        {
+            label: 'Stok Menipis',
+            value: stats.lowStockCount.toLocaleString('id-ID'),
+            icon: AlertTriangle,
+            cardClass: stats.lowStockCount > 0
+                ? 'bg-gradient-to-br from-amber-500 to-orange-600 border-amber-400/20 text-white shadow-md shadow-amber-500/10'
+                : 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/20 text-white shadow-md shadow-emerald-500/10',
+            labelClass: stats.lowStockCount > 0 ? 'text-amber-100/90' : 'text-emerald-100/90',
+            iconClass: stats.lowStockCount > 0 ? 'text-amber-100/80' : 'text-emerald-100/80',
+            valueClass: 'text-white',
+        },
+    ], [stats.itemCount, stats.totalQuantity, stats.lowStockCount]);
+
     const conditionBadgeClass = (condition) => {
         switch (condition) {
             case 'new':
@@ -170,18 +201,26 @@ function InventoryPageContent({
                 )}
             >
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className={`rounded-xl border p-3 ${themeInnerWidget}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Total Jenis Barang</p>
-                        <p className={`text-2xl font-black mt-1 ${themeTextTitle}`}>{stats.itemCount}</p>
-                    </div>
-                    <div className={`rounded-xl border p-3 ${themeInnerWidget}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Total Stok (Qty)</p>
-                        <p className={`text-2xl font-black mt-1 ${themeTextTitle}`}>{stats.totalQuantity.toLocaleString('id-ID')}</p>
-                    </div>
-                    <div className={`rounded-xl border p-3 ${stats.lowStockCount > 0 ? (isDarkMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-200 bg-amber-50/80') : themeInnerWidget}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-wide ${stats.lowStockCount > 0 ? 'text-amber-500' : themeTextSub}`}>Stok Menipis</p>
-                        <p className={`text-2xl font-black mt-1 ${stats.lowStockCount > 0 ? 'text-amber-500' : themeTextTitle}`}>{stats.lowStockCount}</p>
-                    </div>
+                    {statCards.map((card) => {
+                        const Icon = card.icon;
+
+                        return (
+                            <div
+                                key={card.label}
+                                className={`rounded-xl border p-3.5 flex flex-col justify-between transition-all duration-200 hover:scale-[1.02] ${card.cardClass}`}
+                            >
+                                <div className="flex items-start justify-between gap-2">
+                                    <p className={`text-[10px] font-bold uppercase tracking-wide ${card.labelClass}`}>
+                                        {card.label}
+                                    </p>
+                                    <Icon className={`w-4 h-4 shrink-0 ${card.iconClass}`} />
+                                </div>
+                                <p className={`text-2xl font-black mt-2 tracking-tight leading-none ${card.valueClass}`}>
+                                    {card.value}
+                                </p>
+                            </div>
+                        );
+                    })}
                 </div>
 
                 <div className="flex flex-col lg:flex-row gap-2">
