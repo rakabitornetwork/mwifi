@@ -101,19 +101,26 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     const [routerFilter, setRouterFilter] = useState(defaultRouterId);
     const [routerOsCache, setRouterOsCache] = useState({});
     const [isLoadingRouterProfiles, setIsLoadingRouterProfiles] = useState(false);
+    const [isLoadingFormOptions, setIsLoadingFormOptions] = useState(false);
     const [routerProfileError, setRouterProfileError] = useState(null);
     const [packageForm, setPackageForm] = useState(emptyPackageForm);
 
-    const loadRouterOsData = async (routerId, { force = false } = {}) => {
+    const loadRouterOsData = async (routerId, { force = false, scope = 'list' } = {}) => {
         if (!routerId) {
             return null;
         }
 
-        if (!force && routerOsCache[routerId]) {
-            return routerOsCache[routerId];
+        const cached = routerOsCache[routerId];
+        if (!force) {
+            if (scope === 'list' && cached?.all_profiles) {
+                return cached;
+            }
+            if (scope === 'form' && cached?.form_options) {
+                return cached;
+            }
         }
 
-        const res = await fetch(`/admin/packages/router-profiles?router_id=${routerId}`, {
+        const res = await fetch(`/admin/packages/router-profiles?router_id=${routerId}&scope=${scope}`, {
             headers: {
                 Accept: 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
@@ -125,8 +132,37 @@ function PackagesPageContent({ packages = [], routers = [] }) {
             throw new Error(data.error || 'Gagal memuat data RouterOS.');
         }
 
-        setRouterOsCache((prev) => ({ ...prev, [routerId]: data }));
+        setRouterOsCache((prev) => ({
+            ...prev,
+            [routerId]: {
+                ...(prev[routerId] || {}),
+                ...data,
+                all_profiles: data.all_profiles ?? prev[routerId]?.all_profiles ?? [],
+                form_options: scope === 'form'
+                    ? (data.form_options ?? prev[routerId]?.form_options ?? null)
+                    : (prev[routerId]?.form_options ?? null),
+            },
+        }));
+
         return data;
+    };
+
+    const ensureFormOptions = async (routerId, { force = false } = {}) => {
+        if (!routerId) {
+            return null;
+        }
+
+        if (!force && routerOsCache[routerId]?.form_options) {
+            return routerOsCache[routerId];
+        }
+
+        setIsLoadingFormOptions(true);
+
+        try {
+            return await loadRouterOsData(routerId, { force, scope: 'form' });
+        } finally {
+            setIsLoadingFormOptions(false);
+        }
     };
 
     const refreshRouterOsData = async (routerId) => {
@@ -134,11 +170,19 @@ function PackagesPageContent({ packages = [], routers = [] }) {
             return null;
         }
 
+        setRouterOsCache((prev) => ({
+            ...prev,
+            [routerId]: {
+                ...(prev[routerId] || {}),
+                form_options: null,
+            },
+        }));
+
         setIsLoadingRouterProfiles(true);
         setRouterProfileError(null);
 
         try {
-            return await loadRouterOsData(routerId, { force: true });
+            return await loadRouterOsData(routerId, { force: true, scope: 'list' });
         } catch (error) {
             setRouterProfileError(error?.message || 'Gagal memuat profil dari router.');
             return null;
@@ -296,22 +340,32 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         return [...new Set([...HOTSPOT_VALIDITY_PRESETS, ...fromPackages])];
     }, [packages]);
 
-    const openAddModal = () => {
+    const openAddModal = async () => {
         if (!routerFilter) {
             alert('Pilih router Mikrotik di halaman utama terlebih dahulu.');
             return;
         }
         setEditingPackage(null);
         setShowPackageModal(true);
+        try {
+            await ensureFormOptions(routerFilter);
+        } catch (error) {
+            showToast(error?.message || 'Gagal memuat opsi form RouterOS.', 'error');
+        }
     };
 
-    const openEditModal = (pkg) => {
+    const openEditModal = async (pkg) => {
         if (!routerFilter) {
             alert('Pilih router Mikrotik di halaman utama terlebih dahulu.');
             return;
         }
         setEditingPackage(pkg);
         setShowPackageModal(true);
+        try {
+            await ensureFormOptions(routerFilter);
+        } catch (error) {
+            showToast(error?.message || 'Gagal memuat opsi form RouterOS.', 'error');
+        }
     };
 
     return (
@@ -463,6 +517,12 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     Memuat opsi RouterOS...
                                 </span>
                             )}
+                            {isLoadingFormOptions && !isLoadingRouterProfiles && (
+                                <span className="inline-flex items-center gap-1 ml-2">
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                    Memuat opsi form...
+                                </span>
+                            )}
                             {routerProfileError && (
                                 <span className="block mt-1">{routerProfileError}</span>
                             )}
@@ -559,7 +619,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     placeholder="e.g. pool_ppp"
                                     themeInput={themeInput}
                                     themeLabel={themeLabel}
-                                    disabled={isLoadingRouterProfiles}
+                                    disabled={isLoadingRouterProfiles || isLoadingFormOptions}
                                 />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -583,7 +643,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     placeholder="e.g. GLOBAL CONN"
                                     themeInput={themeInput}
                                     themeLabel={themeLabel}
-                                    disabled={isLoadingRouterProfiles}
+                                    disabled={isLoadingRouterProfiles || isLoadingFormOptions}
                                 />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -596,7 +656,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     placeholder="e.g. fq-codel"
                                     themeInput={themeInput}
                                     themeLabel={themeLabel}
-                                    disabled={isLoadingRouterProfiles}
+                                    disabled={isLoadingRouterProfiles || isLoadingFormOptions}
                                 />
                                 <RouterOsField
                                     label="Queue Type Tx"
@@ -607,7 +667,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     placeholder="e.g. fq-codel"
                                     themeInput={themeInput}
                                     themeLabel={themeLabel}
-                                    disabled={isLoadingRouterProfiles}
+                                    disabled={isLoadingRouterProfiles || isLoadingFormOptions}
                                 />
                             </div>
                             <div className={`flex flex-col gap-1 p-2.5 rounded-lg border ${isDarkMode ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-zinc-50'}`}>

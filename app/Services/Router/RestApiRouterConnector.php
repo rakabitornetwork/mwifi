@@ -632,6 +632,88 @@ class RestApiRouterConnector implements RouterConnectorInterface
         }
     }
 
+    /**
+     * Ambil profil PPPoE + Hotspot secara paralel (untuk filter daftar paket).
+     *
+     * @return array{
+     *     ppp_profiles: array<int, mixed>,
+     *     hotspot_profiles: array<int, mixed>,
+     * }
+     */
+    public function fetchPackageListProfilesRaw(): array
+    {
+        return $this->fetchRouterPathsParallel([
+            'ppp_profiles' => '/ppp/profile',
+            'hotspot_profiles' => '/ip/hotspot/user/profile',
+        ]);
+    }
+
+    /**
+     * Ambil semua data form paket secara paralel.
+     *
+     * @return array{
+     *     ppp_profiles: array<int, mixed>,
+     *     hotspot_profiles: array<int, mixed>,
+     *     ip_pools: array<int, mixed>,
+     *     simple_queues: array<int, mixed>,
+     *     queue_types: array<int, mixed>,
+     * }
+     */
+    public function fetchPackageFormOptionsRaw(): array
+    {
+        return $this->fetchRouterPathsParallel([
+            'ppp_profiles' => '/ppp/profile',
+            'hotspot_profiles' => '/ip/hotspot/user/profile',
+            'ip_pools' => '/ip/pool',
+            'simple_queues' => '/queue/simple',
+            'queue_types' => '/queue/type',
+        ]);
+    }
+
+    /**
+     * @param  array<string, string>  $paths
+     * @return array<string, array<int, mixed>>
+     */
+    private function fetchRouterPathsParallel(array $paths): array
+    {
+        $baseUrl = $this->baseUrl;
+
+        try {
+            $responses = Http::pool(function (\Illuminate\Http\Client\Pool $pool) use ($paths, $baseUrl) {
+                foreach ($paths as $key => $path) {
+                    $request = $pool->as($key)
+                        ->withBasicAuth($this->username, $this->password)
+                        ->withoutVerifying()
+                        ->connectTimeout($this->apiConnectTimeout())
+                        ->timeout($this->apiTimeout());
+
+                    if (config('mikrotik.prefer_ipv4', true)) {
+                        $request = $request->withOptions([
+                            'curl' => [
+                                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+                            ],
+                        ]);
+                    }
+
+                    $request->get("{$baseUrl}{$path}");
+                }
+            });
+        } catch (Exception $e) {
+            $responses = [];
+        }
+
+        $result = [];
+        foreach ($paths as $key => $path) {
+            $response = $responses[$key] ?? null;
+            $payload = ($response && method_exists($response, 'successful') && $response->successful())
+                ? $response->json()
+                : [];
+            $result[$key] = is_array($payload) ? $payload : [];
+        }
+
+        return $result;
+    }
+
     private function parseQueueRates(array $queue): ?array
     {
         $download = MikrotikTrafficService::normalizeRate($queue['rate-down'] ?? $queue['rx-rate'] ?? null);

@@ -27,4 +27,6 @@ return [
 
     'prefer_ipv4' => filter_var(env('MIKROTIK_PREFER_IPV4', true), FILTER_VALIDATE_BOOL),
 
+    'package_profiles_cache_ttl' => max(30, (int) env('MIKROTIK_PACKAGE_PROFILES_CACHE_TTL', 180)),
+
 ];

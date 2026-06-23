@@ -600,6 +600,8 @@ class AdminActionController extends Controller
 
         Package::updateOrCreate(['id' => $id], $data);
 
+        \App\Services\Router\MikrotikPackageProfilesCache::forget($routerId);
+
         if (!empty($errors)) {
             return redirect()->back()->with('warning', 'Paket disimpan secara lokal, namun gagal sinkronisasi profil ke router: ' . implode(', ', $errors));
         }
@@ -648,6 +650,8 @@ class AdminActionController extends Controller
         }
 
         $package->delete();
+
+        \App\Services\Router\MikrotikPackageProfilesCache::forget((int) $router->id);
 
         if ($routerError) {
             return redirect()->back()->with(
@@ -1584,22 +1588,37 @@ class AdminActionController extends Controller
     {
         $validated = $request->validate([
             'router_id' => 'required|exists:routers,id',
+            'scope' => 'nullable|in:list,form',
         ]);
 
         $router = Router::findOrFail($validated['router_id']);
+        $scope = $validated['scope'] ?? \App\Services\Router\MikrotikPackageProfilesCache::SCOPE_LIST;
+
+        $cached = \App\Services\Router\MikrotikPackageProfilesCache::get($router->id, $scope);
+        if ($cached !== null) {
+            return response()->json($cached);
+        }
 
         try {
             $connector = \App\Services\Router\RouterService::getConnector($router);
-            $options = \App\Services\Router\MikrotikPackageFormOptionsService::build($connector);
+            $options = \App\Services\Router\MikrotikPackageFormOptionsService::build($connector, $scope);
 
-            return response()->json([
+            $payload = [
                 'router_id' => $router->id,
                 'router_name' => $router->name,
+                'scope' => $scope,
                 'ppp_profiles' => $options['ppp_profile_names'],
                 'hotspot_profiles' => $options['hotspot_profile_names'],
                 'all_profiles' => $options['all_profiles'],
-                'form_options' => $options,
-            ]);
+            ];
+
+            if ($scope === \App\Services\Router\MikrotikPackageProfilesCache::SCOPE_FORM) {
+                $payload['form_options'] = $options;
+            }
+
+            return response()->json(
+                \App\Services\Router\MikrotikPackageProfilesCache::put($router->id, $scope, $payload)
+            );
         } catch (\Exception $e) {
             return response()->json([
                 'error' => $e->getMessage(),

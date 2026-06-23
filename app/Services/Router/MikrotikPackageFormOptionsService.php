@@ -4,16 +4,73 @@ namespace App\Services\Router;
 
 class MikrotikPackageFormOptionsService
 {
+    public const SCOPE_LIST = MikrotikPackageProfilesCache::SCOPE_LIST;
+
+    public const SCOPE_FORM = MikrotikPackageProfilesCache::SCOPE_FORM;
+
     /**
      * @return array<string, mixed>
      */
-    public static function build(RouterConnectorInterface $connector): array
+    public static function build(RouterConnectorInterface $connector, string $scope = self::SCOPE_FORM): array
     {
-        $pppProfilesRaw = $connector->getProfiles();
-        $hotspotProfilesRaw = $connector->getHotspotProfiles();
-        $ipPoolsRaw = $connector->getIpPools();
-        $simpleQueuesRaw = $connector->getSimpleQueues();
-        $queueTypesRaw = $connector->getQueueTypes();
+        $scope = $scope === self::SCOPE_LIST ? self::SCOPE_LIST : self::SCOPE_FORM;
+
+        if ($connector instanceof RestApiRouterConnector) {
+            $raw = $scope === self::SCOPE_LIST
+                ? $connector->fetchPackageListProfilesRaw()
+                : $connector->fetchPackageFormOptionsRaw();
+
+            return self::assembleFromRaw($raw, $scope);
+        }
+
+        return self::assembleFromRaw(self::fetchRawSequential($connector, $scope), $scope);
+    }
+
+    /**
+     * @return array{
+     *     ppp_profiles: array<int, mixed>,
+     *     hotspot_profiles: array<int, mixed>,
+     *     ip_pools: array<int, mixed>,
+     *     simple_queues: array<int, mixed>,
+     *     queue_types: array<int, mixed>,
+     * }
+     */
+    private static function fetchRawSequential(RouterConnectorInterface $connector, string $scope): array
+    {
+        $raw = [
+            'ppp_profiles' => $connector->getProfiles(),
+            'hotspot_profiles' => $connector->getHotspotProfiles(),
+            'ip_pools' => [],
+            'simple_queues' => [],
+            'queue_types' => [],
+        ];
+
+        if ($scope === self::SCOPE_FORM) {
+            $raw['ip_pools'] = $connector->getIpPools();
+            $raw['simple_queues'] = $connector->getSimpleQueues();
+            $raw['queue_types'] = $connector->getQueueTypes();
+        }
+
+        return $raw;
+    }
+
+    /**
+     * @param  array{
+     *     ppp_profiles: array<int, mixed>,
+     *     hotspot_profiles: array<int, mixed>,
+     *     ip_pools?: array<int, mixed>,
+     *     simple_queues?: array<int, mixed>,
+     *     queue_types?: array<int, mixed>,
+     * }  $raw
+     * @return array<string, mixed>
+     */
+    private static function assembleFromRaw(array $raw, string $scope): array
+    {
+        $pppProfilesRaw = $raw['ppp_profiles'] ?? [];
+        $hotspotProfilesRaw = $raw['hotspot_profiles'] ?? [];
+        $ipPoolsRaw = $raw['ip_pools'] ?? [];
+        $simpleQueuesRaw = $scope === self::SCOPE_FORM ? ($raw['simple_queues'] ?? []) : [];
+        $queueTypesRaw = $scope === self::SCOPE_FORM ? ($raw['queue_types'] ?? []) : [];
 
         $pppProfileNames = [];
         $hotspotProfileNames = [];
@@ -33,11 +90,13 @@ class MikrotikPackageFormOptionsService
 
             $pppProfileNames[] = $name;
 
-            $remote = self::field($profile, ['remote-address', 'remote_address']);
-            $parentQueue = self::field($profile, ['parent-queue', 'parent_queue']);
+            if ($scope === self::SCOPE_FORM) {
+                $remote = self::field($profile, ['remote-address', 'remote_address']);
+                $parentQueue = self::field($profile, ['parent-queue', 'parent_queue']);
 
-            self::pushUnique($remoteAddresses, $remote);
-            self::pushUnique($parentQueues, $parentQueue);
+                self::pushUnique($remoteAddresses, $remote);
+                self::pushUnique($parentQueues, $parentQueue);
+            }
         }
 
         foreach ($hotspotProfilesRaw as $profile) {
@@ -52,11 +111,13 @@ class MikrotikPackageFormOptionsService
 
             $hotspotProfileNames[] = $name;
 
-            $parentQueue = self::field($profile, ['parent-queue', 'parent_queue']);
-            $addressPool = self::field($profile, ['address-pool', 'address_pool']);
+            if ($scope === self::SCOPE_FORM) {
+                $parentQueue = self::field($profile, ['parent-queue', 'parent_queue']);
+                $addressPool = self::field($profile, ['address-pool', 'address_pool']);
 
-            self::pushUnique($remoteAddresses, $addressPool);
-            self::pushUnique($parentQueues, $parentQueue);
+                self::pushUnique($remoteAddresses, $addressPool);
+                self::pushUnique($parentQueues, $parentQueue);
+            }
         }
 
         $ipPoolNames = [];
