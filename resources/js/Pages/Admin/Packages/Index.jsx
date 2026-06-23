@@ -14,6 +14,16 @@ import {
 
 const HOTSPOT_VALIDITY_PRESETS = ['1h', '2h', '6h', '12h', '1d', '7d', '30d'];
 
+function packageHasNumericPrefix(pkg) {
+    const name = String(pkg?.name ?? '').trim();
+
+    return /^\d/.test(name);
+}
+
+function profileHasNumericPrefix(name) {
+    return /^\d/.test(String(name ?? '').trim());
+}
+
 function dedupePackagesByMikrotikProfile(items = []) {
     const byProfile = new Map();
 
@@ -322,13 +332,20 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     const filterRouterOs = routerFilter ? routerOsCache[routerFilter] : null;
     const routerProfiles = filterRouterOs?.all_profiles || [];
 
-    const profileSet = useMemo(
-        () => new Set(routerProfiles.map((name) => String(name).toLowerCase())),
+    const numericRouterProfiles = useMemo(
+        () => routerProfiles.filter((name) => profileHasNumericPrefix(name)),
         [routerProfiles],
     );
 
+    const profileSet = useMemo(
+        () => new Set(numericRouterProfiles.map((name) => String(name).toLowerCase())),
+        [numericRouterProfiles],
+    );
+
     const filteredPackages = useMemo(() => {
-        const sorted = [...packages].sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
+        const sorted = [...packages]
+            .filter(packageHasNumericPrefix)
+            .sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
 
         if (!routerFilter) {
             return dedupePackagesByMikrotikProfile(sorted);
@@ -347,7 +364,10 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         return dedupePackagesByMikrotikProfile(matched);
     }, [packages, routerFilter, isLoadingRouterProfiles, routerProfileError, profileSet]);
 
-    const duplicatePackages = useMemo(() => listDuplicatePackages(packages), [packages]);
+    const duplicatePackages = useMemo(
+        () => listDuplicatePackages(packages.filter(packageHasNumericPrefix)),
+        [packages],
+    );
 
     const duplicatePackageCount = duplicatePackages.length;
 
@@ -488,7 +508,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                             <>
                                 Menampilkan {filteredPackages.length} paket yang ada di router{' '}
                                 <span className={themeTextTitle}>{selectedRouter?.name}</span>
-                                {' '}({routerProfiles.length} profil RouterOS)
+                                {' '}({numericRouterProfiles.length} profil RouterOS berawalan angka)
                                 {duplicatePackageCount > 0 && (
                                     <span className="block mt-1 text-amber-500">
                                         {duplicatePackageCount} paket duplikat di database — hapus dari daftar di bawah.
