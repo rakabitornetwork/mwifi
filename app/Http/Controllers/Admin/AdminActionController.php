@@ -98,7 +98,35 @@ class AdminActionController extends Controller
             $oldRouterId = $customer->router_id;
         }
 
-        // 1. Sync to Mikrotik for PPPoE secrets
+        $user = User::updateOrCreate(
+            ['id' => $userId],
+            [
+                'name' => $data['name'],
+                'email' => $email,
+                'password' => Hash::make($data['password']),
+            ]
+        );
+
+        $data['user_id'] = $user->id;
+
+        if (!$id && empty($data['service_start_date'])) {
+            $data['service_start_date'] = now()->toDateString();
+        } elseif (!empty($data['service_start_date'])) {
+            $data['service_start_date'] = Carbon::parse($data['service_start_date'], config('app.timezone'))->toDateString();
+        }
+
+        $oldOdpId = $customer?->odp_id;
+
+        Customer::updateOrCreate(['id' => $id], $data);
+
+        $newOdpId = $data['odp_id'] ?? null;
+        if ($oldOdpId != $newOdpId) {
+            \App\Models\Odp::syncUsedPortsForIds([$oldOdpId, $newOdpId]);
+        }
+
+        $mikrotikSyncWarning = null;
+
+        // Sync to Mikrotik for PPPoE secrets (after local save so data is not lost on timeout)
         if ($data['service_type'] === 'pppoe') {
             $router = Router::findOrFail($data['router_id']);
             $package = Package::findOrFail($data['package_id']);
@@ -158,7 +186,12 @@ class AdminActionController extends Controller
                     $connector->kickActiveConnection($data['username']);
                 }
             } catch (\Exception $e) {
-                return redirect()->back()->with('error', "Gagal menyinkronkan data ke Mikrotik: " . $e->getMessage());
+                $mikrotikSyncWarning = $e->getMessage();
+                \Illuminate\Support\Facades\Log::warning('MikroTik PPP sync failed after customer save', [
+                    'customer_username' => $data['username'],
+                    'router_id' => $data['router_id'],
+                    'error' => $mikrotikSyncWarning,
+                ]);
             }
         } else {
             // If service type changed from pppoe to hotspot, remove old pppoe secret
@@ -175,31 +208,10 @@ class AdminActionController extends Controller
             }
         }
 
-        // 2. Save User and Customer local models
-        $user = User::updateOrCreate(
-            ['id' => $userId],
-            [
-                'name' => $data['name'],
-                'email' => $email,
-                'password' => Hash::make($data['password']),
-            ]
-        );
-
-        $data['user_id'] = $user->id;
-
-        if (!$id && empty($data['service_start_date'])) {
-            $data['service_start_date'] = now()->toDateString();
-        } elseif (!empty($data['service_start_date'])) {
-            $data['service_start_date'] = Carbon::parse($data['service_start_date'], config('app.timezone'))->toDateString();
-        }
-
-        $oldOdpId = $customer?->odp_id;
-
-        Customer::updateOrCreate(['id' => $id], $data);
-
-        $newOdpId = $data['odp_id'] ?? null;
-        if ($oldOdpId != $newOdpId) {
-            \App\Models\Odp::syncUsedPortsForIds([$oldOdpId, $newOdpId]);
+        if ($mikrotikSyncWarning) {
+            return redirect()->back()
+                ->with('success', 'Data pelanggan berhasil disimpan.')
+                ->with('warning', 'Data tersimpan di aplikasi, tetapi sinkronisasi ke MikroTik gagal: ' . $mikrotikSyncWarning);
         }
 
         return redirect()->back()->with('success', 'Data pelanggan berhasil disimpan.');

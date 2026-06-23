@@ -26,6 +26,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
         // Verify connection by doing a light request to system/identity
         try {
             $response = $this->http()
+                ->retry($this->apiRetryTimes(), $this->apiRetrySleepMs())
                 ->get("{$this->baseUrl}/system/identity");
 
             if ($response->successful()) {
@@ -37,8 +38,9 @@ class RestApiRouterConnector implements RouterConnectorInterface
             if (str_contains($message, 'timed out') || str_contains($message, 'cURL error 28')) {
                 throw new Exception(
                     'REST API error: ' . $message
-                    . '. Koneksi ke router melebihi batas waktu (' . $this->apiTimeout() . ' detik). '
-                    . 'Periksa host/port tunnel, pastikan layanan www/API MikroTik aktif, atau naikkan MIKROTIK_API_TIMEOUT di .env.'
+                    . '. Koneksi ke router melebihi batas waktu (connect '
+                    . $this->apiConnectTimeout() . ' detik, total ' . $this->apiTimeout() . ' detik). '
+                    . 'Periksa tunnel/firewall MikroTik, atau naikkan MIKROTIK_API_CONNECT_TIMEOUT dan MIKROTIK_API_TIMEOUT di .env.'
                 );
             }
 
@@ -695,24 +697,44 @@ class RestApiRouterConnector implements RouterConnectorInterface
 
     protected function apiTimeout(): int
     {
-        return max(5, (int) config('mikrotik.api_timeout', 20));
+        return max(5, (int) config('mikrotik.api_timeout', 25));
     }
 
     protected function apiConnectTimeout(): int
     {
-        return max(3, (int) config('mikrotik.api_connect_timeout', 15));
+        return max(5, (int) config('mikrotik.api_connect_timeout', $this->apiTimeout()));
     }
 
     protected function apiTimeoutLong(): int
     {
-        return max($this->apiTimeout(), (int) config('mikrotik.api_timeout_long', 35));
+        return max($this->apiTimeout(), (int) config('mikrotik.api_timeout_long', 40));
+    }
+
+    protected function apiRetryTimes(): int
+    {
+        return max(1, (int) config('mikrotik.api_retry_times', 2));
+    }
+
+    protected function apiRetrySleepMs(): int
+    {
+        return max(100, (int) config('mikrotik.api_retry_sleep_ms', 1500));
     }
 
     protected function http(?int $timeout = null): \Illuminate\Http\Client\PendingRequest
     {
-        return Http::withBasicAuth($this->username, $this->password)
+        $request = Http::withBasicAuth($this->username, $this->password)
             ->withoutVerifying()
             ->connectTimeout($this->apiConnectTimeout())
             ->timeout($timeout ?? $this->apiTimeout());
+
+        if (config('mikrotik.prefer_ipv4', true)) {
+            $request = $request->withOptions([
+                'curl' => [
+                    CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+                ],
+            ]);
+        }
+
+        return $request;
     }
 }
