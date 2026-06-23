@@ -720,27 +720,27 @@ function DashboardContent({
                             themeTextTitle={themeTextTitle}
                             themeTextDesc={themeTextDesc}
                             title="Log Generate Tagihan Otomatis"
-                            trailing={<span className={`text-xs ${themeTextSub} font-medium shrink-0`}>Auto Refresh</span>}
+                            trailing={<span className={`text-[10px] ${themeTextSub} font-bold shrink-0`}>Auto Refresh</span>}
                         />
 
-                        <div className="space-y-2 max-h-[195px] overflow-y-auto pr-1">
+                        <div className="space-y-1.5 max-h-[195px] overflow-y-auto pr-1">
                             {waLogs.length === 0 ? (
-                                <div className="py-8 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+                                <div className="py-6 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
                                     Belum ada log generate tagihan otomatis.
                                 </div>
                             ) : (
                                 waLogs.map((log, idx) => (
-                                    <div key={idx} className={`p-2 border rounded-lg flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between text-xs sm:text-[13px] font-medium transition-colors duration-150 ${isDarkMode ? 'bg-zinc-950/40 border-zinc-900/50' : 'bg-zinc-50 border-zinc-200/50'}`}>
+                                    <div key={idx} className={`p-2 border rounded-lg flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between text-[10px] font-semibold transition-colors duration-150 ${isDarkMode ? 'bg-zinc-950/40 border-zinc-900/50' : 'bg-zinc-50 border-zinc-200/50'}`}>
                                         <div className="space-y-0.5 min-w-0 flex-1">
                                             <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                                                <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase border shrink-0 ${isDarkMode ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-zinc-200 text-zinc-600 border-zinc-300'}`}>
+                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border shrink-0 ${isDarkMode ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-zinc-200 text-zinc-600 border-zinc-300'}`}>
                                                     {log.type}
                                                 </span>
                                                 <span className={`${themeTextTitle} font-bold truncate`}>{log.target}</span>
                                             </div>
-                                            <p className={`${themeTextDesc} line-clamp-2 sm:line-clamp-1`}>{log.text}</p>
+                                            <p className={`${themeTextDesc} text-[10px] leading-snug line-clamp-2 sm:line-clamp-1`}>{log.text}</p>
                                         </div>
-                                        <span className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono shrink-0 self-end sm:self-auto`}>{log.time}</span>
+                                        <span className={`text-[10px] ${themeTextSub} font-mono shrink-0 self-end sm:self-auto`}>{log.time}</span>
                                     </div>
                                 ))
                             )}
