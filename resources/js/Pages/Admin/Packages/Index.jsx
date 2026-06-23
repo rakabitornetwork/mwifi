@@ -134,6 +134,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     const [routerOsCache, setRouterOsCache] = useState({});
     const [isLoadingRouterProfiles, setIsLoadingRouterProfiles] = useState(false);
     const [isLoadingFormOptions, setIsLoadingFormOptions] = useState(false);
+    const [isSyncingPackages, setIsSyncingPackages] = useState(false);
     const [routerProfileError, setRouterProfileError] = useState(null);
     const [packageForm, setPackageForm] = useState(emptyPackageForm);
 
@@ -407,6 +408,46 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         }
     };
 
+    const handleSyncPackages = () => {
+        if (!routerFilter) {
+            alert('Pilih router Mikrotik terlebih dahulu.');
+            return;
+        }
+
+        const routerName = selectedRouter?.name || 'router ini';
+        const confirmed = confirm(
+            `Sinkronkan paket dari ${routerName}?\n\n`
+            + '• Profil PPPoE & Hotspot di RouterOS akan diimpor/diperbarui ke database.\n'
+            + '• Paket di database yang tidak ada di router ini akan dihapus (kecuali masih dipakai pelanggan).\n'
+            + '• Harga paket yang sudah ada tidak diubah otomatis.',
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        setIsSyncingPackages(true);
+
+        router.post('/admin/packages/sync-from-router', { router_id: routerFilter }, {
+            onSuccess: (page) => {
+                const flash = page.props.flash || {};
+                if (flash.success) {
+                    showToast(flash.success, 'success');
+                } else if (flash.error) {
+                    showToast(flash.error, 'error');
+                }
+                clearRouterPackageProfilesCache(routerFilter);
+                refreshRouterOsData(routerFilter);
+            },
+            onError: () => {
+                showToast('Gagal sinkron paket dari router.', 'error');
+            },
+            onFinish: () => {
+                setIsSyncingPackages(false);
+            },
+        });
+    };
+
     return (
         <>
             <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
@@ -429,6 +470,15 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                 </option>
                             ))}
                         </select>
+                        <button
+                            type="button"
+                            onClick={handleSyncPackages}
+                            disabled={!routerFilter || isSyncingPackages}
+                            title="Sinkronkan paket dari RouterOS"
+                            className="p-2 border rounded-xl cursor-pointer inline-flex items-center justify-center disabled:opacity-50 border-sky-300/60 text-sky-600 hover:bg-sky-50 dark:border-sky-500/30 dark:text-sky-300 dark:hover:bg-sky-500/10"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isSyncingPackages ? 'animate-spin' : ''}`} />
+                        </button>
                         <button
                             type="button"
                             onClick={openAddModal}

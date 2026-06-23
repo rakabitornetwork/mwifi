@@ -693,6 +693,47 @@ class AdminActionController extends Controller
     }
 
     /**
+     * Sinkronkan paket dari profil RouterOS (PPPoE + Hotspot) dan bersihkan database.
+     */
+    public function syncPackagesFromRouter(Request $request)
+    {
+        $data = $request->validate([
+            'router_id' => 'required|exists:routers,id',
+        ]);
+
+        $router = Router::findOrFail($data['router_id']);
+
+        try {
+            $result = \App\Services\Router\PackageRouterSyncService::sync($router);
+
+            $parts = [
+                sprintf(
+                    '%d profil RouterOS diproses (%d baru, %d diperbarui)',
+                    $result['profile_count'],
+                    $result['imported'],
+                    $result['updated']
+                ),
+            ];
+
+            if ($result['removed'] > 0) {
+                $parts[] = sprintf('%d paket dihapus dari database (tidak ada di router)', $result['removed']);
+            }
+
+            if ($result['duplicates_removed'] > 0) {
+                $parts[] = sprintf('%d entri duplikat dibersihkan', $result['duplicates_removed']);
+            }
+
+            if ($result['skipped_in_use'] > 0) {
+                $parts[] = sprintf('%d paket tidak dihapus karena masih dipakai pelanggan', $result['skipped_in_use']);
+            }
+
+            return redirect()->back()->with('success', 'Sinkron paket dari ' . $router->name . ': ' . implode('. ', $parts) . '.');
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Gagal sinkron paket dari router: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Accept manual cash payment for an invoice.
      */
     public function payInvoiceManual(Request $request)

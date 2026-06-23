@@ -86,6 +86,7 @@ Route::middleware('auth')->group(function () {
     Route::get('admin/customers/bandwidth-quota', [\App\Http\Controllers\Admin\AdminActionController::class, 'getCustomerBandwidthQuota']);
     Route::post('admin/packages/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'savePackage']);
     Route::post('admin/packages/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deletePackage']);
+    Route::post('admin/packages/sync-from-router', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncPackagesFromRouter']);
 
     // Admin ODP Actions
     Route::post('admin/odps/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveOdp']);
