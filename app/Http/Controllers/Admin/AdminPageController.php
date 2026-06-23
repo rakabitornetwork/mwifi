@@ -108,7 +108,7 @@ class AdminPageController extends Controller
         return Inertia::render('Admin/Customers/Index', [
             'customers' => $customers,
             'routers' => Router::all(),
-            'packages' => Package::orderBy('name')->get(),
+            'packages' => Package::all(),
             'odps' => Odp::withCount('customers')->get(),
         ]);
     }

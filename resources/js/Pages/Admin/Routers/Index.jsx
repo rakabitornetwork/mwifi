@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Edit, PlugZap, Plus, RefreshCw, Wifi, X } from 'lucide-react';
+import { Edit, PlugZap, Plus, RefreshCw, Save, Wifi, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
-import ModalFormActions from '../../../Components/Admin/ModalFormActions';
 import SettingsSectionCard from '../../../Components/Admin/SettingsSectionCard';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
@@ -192,7 +191,7 @@ function RoutersPageContent({ routers = [] }) {
                         <X className="w-4 h-4" />
                     </button>
                 </div>
-                <form onSubmit={handleSaveRouter} className="space-y-3 text-xs pb-14 sm:pb-0">
+                <form onSubmit={handleSaveRouter} className="space-y-3 text-xs">
                     <input type="hidden" name="id" value={editingRouter ? editingRouter.id : ''} />
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Nama Router</label>
@@ -234,10 +233,19 @@ function RoutersPageContent({ routers = [] }) {
                             <option value={0}>Non-Aktifkan</option>
                         </select>
                     </div>
-                    <ModalFormActions
-                        isDarkMode={theme.isDarkMode}
-                        onCancel={closeRouterModal}
-                    />
+                    <div className="flex justify-end pt-3 gap-2">
+                        <button
+                            type="button"
+                            onClick={closeRouterModal}
+                            title="Batal"
+                            className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center transition-colors ${theme.isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                        <button type="submit" title="Simpan" className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg inline-flex items-center justify-center">
+                            <Save className="w-4 h-4" />
+                        </button>
+                    </div>
                 </form>
             </TransitionModal>
         </>

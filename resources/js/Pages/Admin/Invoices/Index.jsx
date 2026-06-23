@@ -3,7 +3,6 @@ import { router } from '@inertiajs/react';
 import { Activity, CalendarClock, CreditCard, FileText, MessageSquare, PauseCircle, Printer, RefreshCw, RotateCcw, Search, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
-import ModalFormActions from '../../../Components/Admin/ModalFormActions';
 import MonthlyRevenuePanel from '../../../Components/Admin/MonthlyRevenuePanel';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { formatRupiah } from '../../../utils/formatRupiah';
@@ -844,7 +843,7 @@ function InvoicesPageContent({
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmitDeferral} className="space-y-3 text-xs mt-3 pb-14 sm:pb-0">
+                <form onSubmit={handleSubmitDeferral} className="space-y-3 text-xs mt-3">
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Pelanggan PPPoE</label>
                         <p className={`p-2 border rounded-lg ${themeInput}`}>{deferCustomerLabel}</p>
@@ -921,11 +920,15 @@ function InvoicesPageContent({
                         )}
                     </div>
 
-                    <ModalFormActions
-                        isDarkMode={theme.isDarkMode}
-                        onCancel={resetDeferModal}
-                        submitTitle={isSubmittingDefer ? 'Menyimpan...' : 'Aktifkan Penundaan'}
-                    >
+                    <div className="flex justify-end gap-2 pt-1">
+                        <button
+                            type="button"
+                            onClick={resetDeferModal}
+                            title="Batal"
+                            className={`p-2 rounded-lg border cursor-pointer inline-flex items-center justify-center ${theme.isDarkMode ? 'border-zinc-700 text-zinc-300' : 'border-zinc-200 text-zinc-600'}`}
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
                         <button
                             type="submit"
                             disabled={isSubmittingDefer || !deferCustomerId || !deferDueDate || !deferPreview || !!deferPreviewError}
@@ -934,7 +937,7 @@ function InvoicesPageContent({
                         >
                             <PauseCircle className={`w-4 h-4 ${isSubmittingDefer ? 'animate-pulse' : ''}`} />
                         </button>
-                    </ModalFormActions>
+                    </div>
                 </form>
             </TransitionModal>
         </>

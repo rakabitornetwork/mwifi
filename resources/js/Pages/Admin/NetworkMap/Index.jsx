@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Edit, Map, Plus, Search, Trash2, X } from 'lucide-react';
+import { Edit, Map, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
-import ModalFormActions from '../../../Components/Admin/ModalFormActions';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
@@ -12,57 +11,6 @@ import { readDeviceCoordinates } from '../../../utils/deviceGps';
 import { buildCustomerMapPopup, getCustomerPopupOptions } from '../../../utils/networkMapPopup';
 
 const isPppoeCustomer = (cust) => cust?.service_type !== 'hotspot';
-
-const isMobileViewport = () => window.matchMedia('(max-width: 639px)').matches;
-
-const LONG_PRESS_MS = 600;
-
-function buildMiniOdpFormHtml(lat, lng) {
-    return `
-        <form id="mini-odp-form" class="p-2 space-y-3 w-56 font-sans text-zinc-800 leading-normal">
-            <div class="flex items-center gap-1.5 border-b border-zinc-100 pb-2">
-                <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span class="font-extrabold text-[11px] text-zinc-900 tracking-wider uppercase">Tambah ODP Baru</span>
-            </div>
-            
-            <div class="space-y-2">
-                <div class="flex flex-col gap-1">
-                    <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Nama ODP</label>
-                    <input required id="mini-odp-name" type="text" placeholder="Contoh: ODP-IND-01" class="w-full px-2.5 py-1.5 border border-zinc-200 rounded-lg text-[10px] transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs" style="color:#27272a !important; background-color:#ffffff !important;" />
-                </div>
-                
-                <div class="grid grid-cols-2 gap-2">
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Latitude</label>
-                        <input readonly id="mini-odp-lat" type="text" value="${lat.toFixed(6)}" class="w-full px-2 py-1.5 border border-zinc-100 rounded-lg text-[9px] font-mono bg-zinc-50 text-zinc-450 focus:outline-none" style="color:#71717a !important; background-color:#f4f4f5 !important;" />
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Longitude</label>
-                        <input readonly id="mini-odp-lng" type="text" value="${lng.toFixed(6)}" class="w-full px-2 py-1.5 border border-zinc-100 rounded-lg text-[9px] font-mono bg-zinc-50 text-zinc-450 focus:outline-none" style="color:#71717a !important; background-color:#f4f4f5 !important;" />
-                    </div>
-                </div>
-                
-                <div class="flex flex-col gap-1">
-                    <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Jumlah Port</label>
-                    <input required id="mini-odp-ports" type="number" min="1" value="8" class="w-full px-2.5 py-1.5 border border-zinc-200 rounded-lg text-[10px] transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs" style="color:#27272a !important; background-color:#ffffff !important;" />
-                </div>
-                
-                <div class="flex flex-col gap-1">
-                    <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Deskripsi Lokasi</label>
-                    <textarea id="mini-odp-desc" placeholder="Contoh: Depan warung..." class="w-full px-2.5 py-1.5 border border-zinc-200 rounded-lg text-[10px] h-12 resize-none transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs" style="color:#27272a !important; background-color:#ffffff !important;"></textarea>
-                </div>
-            </div>
-
-            <button type="button" id="mini-odp-gps-btn" class="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg font-bold text-[10px] transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
-                Ambil GPS Perangkat
-            </button>
-            
-            <button type="submit" class="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg font-bold text-[10px] transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-center gap-1">
-                Simpan ODP
-            </button>
-        </form>
-    `;
-}
 
 function NetworkMapPageContent({ odps = [], customers = [] }) {
     const theme = useAdminTheme();
@@ -174,63 +122,60 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        const openMiniOdpPopup = (latlng) => {
-            const { lat, lng } = latlng;
+        map.on('click', (e) => {
+            const { lat, lng } = e.latlng;
             setOdpLat(lat.toFixed(6));
             setOdpLng(lng.toFixed(6));
             setEditingOdp(null);
 
             L.popup()
-                .setLatLng(latlng)
-                .setContent(buildMiniOdpFormHtml(lat, lng))
+                .setLatLng(e.latlng)
+                .setContent(`
+                    <form id="mini-odp-form" class="p-2 space-y-3 w-56 font-sans text-zinc-800 leading-normal">
+                        <div class="flex items-center gap-1.5 border-b border-zinc-100 pb-2">
+                            <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                            <span class="font-extrabold text-[11px] text-zinc-900 tracking-wider uppercase">Tambah ODP Baru</span>
+                        </div>
+                        
+                        <div class="space-y-2">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Nama ODP</label>
+                                <input required id="mini-odp-name" type="text" placeholder="Contoh: ODP-IND-01" class="w-full px-2.5 py-1.5 border border-zinc-200 rounded-lg text-[10px] transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs" style="color:#27272a !important; background-color:#ffffff !important;" />
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Latitude</label>
+                                    <input readonly id="mini-odp-lat" type="text" value="${lat.toFixed(6)}" class="w-full px-2 py-1.5 border border-zinc-100 rounded-lg text-[9px] font-mono bg-zinc-50 text-zinc-450 focus:outline-none" style="color:#71717a !important; background-color:#f4f4f5 !important;" />
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Longitude</label>
+                                    <input readonly id="mini-odp-lng" type="text" value="${lng.toFixed(6)}" class="w-full px-2 py-1.5 border border-zinc-100 rounded-lg text-[9px] font-mono bg-zinc-50 text-zinc-450 focus:outline-none" style="color:#71717a !important; background-color:#f4f4f5 !important;" />
+                                </div>
+                            </div>
+                            
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Jumlah Port</label>
+                                <input required id="mini-odp-ports" type="number" min="1" value="8" class="w-full px-2.5 py-1.5 border border-zinc-200 rounded-lg text-[10px] transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs" style="color:#27272a !important; background-color:#ffffff !important;" />
+                            </div>
+                            
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Deskripsi Lokasi</label>
+                                <textarea id="mini-odp-desc" placeholder="Contoh: Depan warung..." class="w-full px-2.5 py-1.5 border border-zinc-200 rounded-lg text-[10px] h-12 resize-none transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs" style="color:#27272a !important; background-color:#ffffff !important;"></textarea>
+                            </div>
+                        </div>
+
+                        <button type="button" id="mini-odp-gps-btn" class="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg font-bold text-[10px] transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer">
+                            Ambil GPS Perangkat
+                        </button>
+                        
+                        <button type="submit" class="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg font-bold text-[10px] transition-all duration-200 shadow-sm hover:shadow-md cursor-pointer flex items-center justify-center gap-1">
+                            Simpan ODP
+                        </button>
+                    </form>
+                `)
                 .openOn(map);
-        };
-
-        map.on('contextmenu', (e) => {
-            L.DomEvent.preventDefault(e.originalEvent);
-            if (!isMobileViewport()) {
-                openMiniOdpPopup(e.latlng);
-            }
         });
-
-        let longPressTimer = null;
-
-        const clearLongPress = () => {
-            if (longPressTimer !== null) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-            }
-        };
-
-        const onTouchStart = (evt) => {
-            if (!isMobileViewport() || evt.touches.length !== 1) {
-                return;
-            }
-
-            const touch = evt.touches[0];
-            clearLongPress();
-
-            longPressTimer = setTimeout(() => {
-                longPressTimer = null;
-                const containerPoint = map.mouseEventToContainerPoint({
-                    clientX: touch.clientX,
-                    clientY: touch.clientY,
-                });
-                const latlng = map.containerPointToLatLng(containerPoint);
-                navigator.vibrate?.(40);
-                openMiniOdpPopup(latlng);
-            }, LONG_PRESS_MS);
-        };
-
-        const onTouchMove = () => clearLongPress();
-        const onTouchEnd = () => clearLongPress();
-        const onTouchCancel = () => clearLongPress();
-
-        const mapEl = map.getContainer();
-        mapEl.addEventListener('touchstart', onTouchStart, { passive: true });
-        mapEl.addEventListener('touchmove', onTouchMove, { passive: true });
-        mapEl.addEventListener('touchend', onTouchEnd, { passive: true });
-        mapEl.addEventListener('touchcancel', onTouchCancel, { passive: true });
 
         map.on('popupopen', (e) => {
             const popupNode = e.popup.getElement();
@@ -396,11 +341,6 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
             if (cableFlowFrameId !== null) {
                 cancelAnimationFrame(cableFlowFrameId);
             }
-            clearLongPress();
-            mapEl.removeEventListener('touchstart', onTouchStart);
-            mapEl.removeEventListener('touchmove', onTouchMove);
-            mapEl.removeEventListener('touchend', onTouchEnd);
-            mapEl.removeEventListener('touchcancel', onTouchCancel);
             mapRef.current = null;
             map.remove();
         };
@@ -514,7 +454,6 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
                     <div className="flex-1 flex flex-col space-y-2">
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">Peta di bawah menggambarkan jalur kabel fiber optik dari masing-masing kotak ODP (biru) ke titik rumah pelanggan (hijau: aktif, merah: nonaktif).</p>
-                        <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 sm:hidden">Tahan posisi di peta untuk tambah ODP</p>
                         <div className={`border rounded-2xl overflow-hidden shadow-xs relative ${isDarkMode ? 'border-zinc-800/80' : 'border-zinc-200'}`}>
                             <div id="map-container" className="h-[550px] w-full z-0" />
                             <div className="absolute bottom-2.5 right-2.5 z-[400] bg-zinc-950/85 border border-zinc-800/60 backdrop-blur-xs px-2.5 py-1.5 rounded-lg flex gap-3 text-[9px] font-bold text-zinc-400 shadow-md">
@@ -536,7 +475,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                         <X className="w-4 h-4" />
                     </button>
                 </div>
-                <form onSubmit={handleSaveOdpSubmit} className="space-y-3 text-xs pb-14 sm:pb-0">
+                <form onSubmit={handleSaveOdpSubmit} className="space-y-3 text-xs">
                     <input type="hidden" name="id" value={editingOdp ? editingOdp.id : ''} />
 
                     <div className="flex flex-col gap-1">
@@ -569,13 +508,22 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                     </div>
 
                     <div className={`p-2.5 ${themeInnerWidget} rounded-xl text-[10px] ${themeTextSub} leading-normal`}>
-                        💡 <strong className={themeTextTitle}>Tips:</strong> Klik kanan peta (desktop) atau tahan posisi di peta (HP), gunakan tombol GPS perangkat, atau isi koordinat manual.
+                        💡 <strong className={themeTextTitle}>Tips:</strong> Klik peta jaringan, gunakan tombol GPS perangkat, atau isi koordinat manual.
                     </div>
 
-                    <ModalFormActions
-                        isDarkMode={isDarkMode}
-                        onCancel={closeOdpModal}
-                    />
+                    <div className="flex justify-end pt-3 gap-2">
+                        <button
+                            type="button"
+                            onClick={closeOdpModal}
+                            title="Batal"
+                            className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                        <button type="submit" title="Simpan" className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg inline-flex items-center justify-center">
+                            <Save className="w-4 h-4" />
+                        </button>
+                    </div>
                 </form>
             </TransitionModal>
         </>

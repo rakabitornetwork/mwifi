@@ -1,19 +1,14 @@
 import { useEffect, useState, useMemo } from 'react';
 import { router, usePage } from '@inertiajs/react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Search, Trash2, Upload, Users, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Save, Search, Trash2, Upload, Users, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
-import ModalFormActions from '../../../Components/Admin/ModalFormActions';
 import CustomerDetailPanel from '../../../Components/Admin/CustomerDetailPanel';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import getVisiblePages from '../../../utils/getVisiblePages';
 import { formatDateInputValue, todayDateInputValue } from '../../../utils/formatDateInputValue';
 import { fetchRouterPackageProfiles } from '../../../utils/fetchRouterPackageProfiles';
-import {
-    dedupePackagesByMikrotikProfile,
-    packageHasNumericPrefix,
-} from '../../../utils/packageListHelpers';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 500, 1000];
 
@@ -81,26 +76,24 @@ function CustomersPageContent({
     const pppoePackages = packages.filter((p) => p.type === 'pppoe');
 
     const modalPackages = useMemo(() => {
-        let filtered = pppoePackages;
-
-        if (selectedRouterId) {
-            const allowedProfiles = routerProfilesMap[selectedRouterId];
-            if (allowedProfiles) {
-                const profileSet = new Set(allowedProfiles.map((p) => String(p).toLowerCase()));
-                filtered = pppoePackages.filter((pkg) => {
-                    if (pkg.router_id != null && String(pkg.router_id) !== String(selectedRouterId)) {
-                        return false;
-                    }
-
-                    const profile = String(pkg.mikrotik_profile || '').toLowerCase();
-                    return profileSet.has(profile);
-                });
-            }
+        if (!selectedRouterId) {
+            return pppoePackages;
         }
 
-        return dedupePackagesByMikrotikProfile(
-            filtered.filter(packageHasNumericPrefix),
-        );
+        const allowedProfiles = routerProfilesMap[selectedRouterId];
+        if (!allowedProfiles) {
+            return pppoePackages;
+        }
+
+        const profileSet = new Set(allowedProfiles.map((p) => String(p).toLowerCase()));
+        return pppoePackages.filter((pkg) => {
+            if (pkg.router_id != null && String(pkg.router_id) !== String(selectedRouterId)) {
+                return false;
+            }
+
+            const profile = String(pkg.mikrotik_profile || '').toLowerCase();
+            return profileSet.has(profile);
+        });
     }, [pppoePackages, selectedRouterId, routerProfilesMap]);
 
     useEffect(() => {
@@ -819,8 +812,8 @@ function CustomersPageContent({
                 )}
             </div>
 
-            <TransitionModal show={showCustomerModal} onClose={closeCustomerModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
-                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+            <TransitionModal show={showCustomerModal} onClose={closeCustomerModal} themeCard={themeCard} maxWidth="lg" className="!flex !flex-col !overflow-hidden max-h-[min(90dvh,calc(100dvh-1.5rem))] !space-y-0">
+                <div className={`flex items-start justify-between gap-3 pb-3 border-b shrink-0 ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold min-w-0 flex-1 pr-2 ${themeTextTitle}`}>
                         {editingCustomer ? 'Edit Pelanggan PPPoE' : 'Tambah Pelanggan PPPoE'}
                     </h3>
@@ -828,7 +821,8 @@ function CustomersPageContent({
                         <X className="w-4 h-4" />
                     </button>
                 </div>
-                <form onSubmit={handleSaveCustomer} className="space-y-3 text-xs pb-14 sm:pb-0">
+                <form onSubmit={handleSaveCustomer} className="flex flex-col flex-1 min-h-0 mt-4">
+                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 text-xs pr-0.5">
                     <input type="hidden" name="id" value={editingCustomer ? editingCustomer.id : ''} />
                     <input type="hidden" name="service_type" value="pppoe" />
 
@@ -943,11 +937,25 @@ function CustomersPageContent({
                             <span className={`text-[10px] ${themeTextDesc}`}>Dasar prorata bulan pertama: tgl mulai layanan s/d tgl jatuh tempo (billing date), dibagi 30 hari.</span>
                         </div>
                     </div>
+                    </div>
 
-                    <ModalFormActions
-                        isDarkMode={isDarkMode}
-                        onCancel={() => setShowCustomerModal(false)}
-                    />
+                    <div className={`flex justify-end pt-3 gap-2 shrink-0 border-t ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                        <button
+                            type="button"
+                            onClick={() => setShowCustomerModal(false)}
+                            title="Tutup"
+                            className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="submit"
+                            title="Simpan"
+                            className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"
+                        >
+                            <Save className="w-4 h-4" />
+                        </button>
+                    </div>
                 </form>
             </TransitionModal>
 
@@ -1110,7 +1118,7 @@ function CustomersPageContent({
             </TransitionModal>
 
             <TransitionModal show={showImportModal} onClose={closeImportModal} themeCard={themeCard} maxWidth="md">
-                <form onSubmit={handleImportCsv} className="space-y-4 text-xs pb-14 sm:pb-0">
+                <form onSubmit={handleImportCsv} className="space-y-4 text-xs">
                     <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                         <div className="flex items-center gap-2">
                             <Upload className="w-4 h-4 text-emerald-500" />
@@ -1204,20 +1212,23 @@ function CustomersPageContent({
                         </div>
                     )}
 
-                    <ModalFormActions
-                        isDarkMode={isDarkMode}
-                        onCancel={() => setShowImportModal(false)}
-                        cancelTitle="Tutup"
-                    >
+                    <div className="flex justify-end gap-2 pt-1">
+                        <button
+                            type="button"
+                            onClick={() => setShowImportModal(false)}
+                            className={`px-3 py-2 border rounded-lg cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100'}`}
+                        >
+                            Tutup
+                        </button>
                         <button
                             type="submit"
                             disabled={isImporting || !importCsvFile || !importRouterId}
                             className="px-3 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-lg cursor-pointer inline-flex items-center gap-2"
                         >
                             {isImporting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                            <span className="hidden sm:inline">{importDryRun ? 'Jalankan Simulasi' : 'Impor Sekarang'}</span>
+                            {importDryRun ? 'Jalankan Simulasi' : 'Impor Sekarang'}
                         </button>
-                    </ModalFormActions>
+                    </div>
                 </form>
             </TransitionModal>
         </>

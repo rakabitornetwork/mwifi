@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Edit, Layers, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { Edit, Layers, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
-import ModalFormActions from '../../../Components/Admin/ModalFormActions';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 import { useAdminToast } from '../../../hooks/useAdminToast';
@@ -12,13 +11,14 @@ import {
     fetchRouterPackageProfiles,
     peekRouterPackageProfiles,
 } from '../../../utils/fetchRouterPackageProfiles';
-import {
-    dedupePackagesByMikrotikProfile,
-    listDuplicatePackages,
-    packageHasNumericPrefix,
-} from '../../../utils/packageListHelpers';
 
 const HOTSPOT_VALIDITY_PRESETS = ['1h', '2h', '6h', '12h', '1d', '7d', '30d'];
+
+function packageHasNumericPrefix(pkg) {
+    const name = String(pkg?.name ?? '').trim();
+
+    return /^\d/.test(name);
+}
 
 function profileHasNumericPrefix(name) {
     return /^\d/.test(String(name ?? '').trim());
@@ -34,6 +34,34 @@ function packageBelongsToRouter(pkg, routerId) {
     }
 
     return String(pkg.router_id) === String(routerId);
+}
+
+function dedupePackagesByMikrotikProfile(items = []) {
+    const byProfile = new Map();
+
+    for (const pkg of items) {
+        const profileKey = String(pkg.mikrotik_profile || pkg.name || '').trim().toLowerCase();
+        const key = `${pkg.router_id ?? 'global'}:${profileKey}`;
+        if (profileKey === '') {
+            continue;
+        }
+
+        const existing = byProfile.get(key);
+        if (!existing || Number(pkg.id) > Number(existing.id)) {
+            byProfile.set(key, pkg);
+        }
+    }
+
+    return Array.from(byProfile.values()).sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
+}
+
+function listDuplicatePackages(items = []) {
+    const kept = dedupePackagesByMikrotikProfile(items);
+    const keptIds = new Set(kept.map((pkg) => pkg.id));
+
+    return items
+        .filter((pkg) => !keptIds.has(pkg.id))
+        .sort((a, b) => Number(a.id) - Number(b.id));
 }
 
 const emptyPackageForm = {
@@ -628,7 +656,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                     </h3>
                     <button type="button" onClick={() => setShowPackageModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form onSubmit={handleSavePackage} className="space-y-3 text-xs pb-14 sm:pb-0">
+                <form onSubmit={handleSavePackage} className="space-y-3 text-xs">
                     {routerFilter && (
                         <div className={`text-[10px] font-semibold ${routerProfileError ? 'text-amber-500' : themeTextSub}`}>
                             Router: <span className={themeTextTitle}>{selectedRouter?.name || '—'}</span>
@@ -844,10 +872,10 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                             className={`p-2 border rounded-lg ${themeInput}`}
                         />
                     </div>
-                    <ModalFormActions
-                        isDarkMode={isDarkMode}
-                        onCancel={() => setShowPackageModal(false)}
-                    />
+                    <div className={`sticky bottom-0 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 mt-1 flex justify-end gap-2 border-t ${isDarkMode ? 'border-zinc-800/40 bg-zinc-900/95' : 'border-zinc-200 bg-white/95'} backdrop-blur-sm`}>
+                        <button type="button" onClick={() => setShowPackageModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
+                        <button type="submit" title="Simpan" className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"><Save className="w-4 h-4" /></button>
+                    </div>
                 </form>
             </TransitionModal>
         </>
