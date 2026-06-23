@@ -64,14 +64,27 @@ function invoiceStatusMeta(status) {
     }
 }
 
+function getInvoiceRouterId(invoice) {
+    return invoice?.customer?.router_id ?? invoice?.customer?.router?.id ?? null;
+}
+
 function InvoicesPageContent({
     invoices = [],
+    routers = [],
     billingActivityLogs = [],
     billingDeferrals = [],
     monthlyRevenue = {},
 }) {
     const theme = useAdminTheme();
     const [searchTerm, setSearchTerm] = useState('');
+    const [routerFilter, setRouterFilter] = useState(() => {
+        const activeRouter = routers.find((item) => item.status);
+        if (activeRouter) {
+            return String(activeRouter.id);
+        }
+
+        return routers[0] ? String(routers[0].id) : '';
+    });
     const [statusFilter, setStatusFilter] = useState('all');
     const [invoicePage, setInvoicePage] = useState(1);
     const invoicePageSize = 10;
@@ -97,6 +110,24 @@ function InvoicesPageContent({
 
     const pendingDeferrals = billingDeferrals.filter((item) => item.status === 'pending');
 
+    const selectedRouter = routers.find((item) => String(item.id) === String(routerFilter));
+
+    const routerInvoiceCounts = useMemo(() => (
+        invoices.reduce((counts, inv) => {
+            const routerId = getInvoiceRouterId(inv) ?? 'none';
+            counts[routerId] = (counts[routerId] || 0) + 1;
+            return counts;
+        }, {})
+    ), [invoices]);
+
+    const matchesRouterFilter = (routerId) => (
+        !routerFilter || String(routerId ?? '') === String(routerFilter)
+    );
+
+    const visiblePendingDeferrals = pendingDeferrals.filter((deferral) => (
+        matchesRouterFilter(deferral.customer_router_id)
+    ));
+
     const customerHasPendingDeferral = (customerId) => pendingDeferrals.some(
         (deferral) => String(deferral.customer_id) === String(customerId)
     );
@@ -110,7 +141,8 @@ function InvoicesPageContent({
 
     useEffect(() => {
         setInvoicePage(1);
-    }, [searchTerm, statusFilter]);
+        setSelectedInvoiceIds([]);
+    }, [searchTerm, statusFilter, routerFilter]);
 
     useEffect(() => {
         if (!showDeferModal || !deferCustomerId) {
@@ -304,6 +336,10 @@ function InvoicesPageContent({
     };
 
     const filteredInvoices = invoices.filter((inv) => {
+        if (!matchesRouterFilter(getInvoiceRouterId(inv))) {
+            return false;
+        }
+
         if (statusFilter !== 'all' && inv.status !== statusFilter) {
             return false;
         }
@@ -334,7 +370,12 @@ function InvoicesPageContent({
         );
     });
 
-    const unpaidInvoicesCount = invoices.filter((inv) => inv.status === 'unpaid').length;
+    const unpaidInvoicesCount = useMemo(
+        () => invoices.filter(
+            (inv) => inv.status === 'unpaid' && matchesRouterFilter(getInvoiceRouterId(inv))
+        ).length,
+        [invoices, routerFilter]
+    );
 
     const unpaidSummary = useMemo(() => {
         const unpaid = invoices.filter((inv) => inv.status === 'unpaid');
@@ -423,6 +464,7 @@ function InvoicesPageContent({
                 icon={CreditCard}
                 accent="amber"
                 title="Log Tagihan / Invoice"
+                description={selectedRouter ? `Router: ${selectedRouter.name} · ${routerInvoiceCounts[selectedRouter.id] || 0} invoice` : undefined}
                 themeCard={theme.themeCard}
                 isDarkMode={theme.isDarkMode}
                 themeTextTitle={theme.themeTextTitle}
@@ -455,7 +497,20 @@ function InvoicesPageContent({
                     </>
                 )}
             >
-                <div className="flex flex-col sm:flex-row gap-2">
+                <div className="flex flex-col lg:flex-row gap-2">
+                    <select
+                        value={routerFilter}
+                        onChange={(e) => setRouterFilter(e.target.value)}
+                        className={`lg:w-56 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                    >
+                        {routers.length === 0 ? (
+                            <option value="">Belum ada router</option>
+                        ) : routers.map((routerItem) => (
+                            <option key={routerItem.id} value={routerItem.id}>
+                                {routerItem.name} ({routerInvoiceCounts[routerItem.id] || 0})
+                            </option>
+                        ))}
+                    </select>
                     <div className="relative flex-1">
                         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${theme.themeTextDesc}`} />
                         <input
@@ -481,11 +536,12 @@ function InvoicesPageContent({
                 {statusFilter === 'unpaid' && (
                     <p className={`text-[10px] ${theme.themeTextSub}`}>
                         Menampilkan <span className="font-bold text-rose-500">{filteredInvoices.length}</span> invoice belum bayar
+                        {selectedRouter ? ` di ${selectedRouter.name}` : ''}
                         {searchTerm.trim() ? ' yang cocok dengan pencarian' : ''}.
                     </p>
                 )}
 
-                {pendingDeferrals.length > 0 && (
+                {visiblePendingDeferrals.length > 0 && (
                     <div className={`border rounded-xl p-4 space-y-3 ${theme.isDarkMode ? 'border-indigo-500/20 bg-indigo-950/20' : 'border-indigo-200 bg-indigo-50/70'}`}>
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center space-x-2">
@@ -493,11 +549,11 @@ function InvoicesPageContent({
                                 <h3 className={`text-xs font-bold uppercase tracking-wider ${theme.themeTextTitle}`}>Penundaan Tagihan Aktif</h3>
                             </div>
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme.isDarkMode ? 'bg-indigo-500/15 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>
-                                {pendingDeferrals.length} pelanggan
+                                {visiblePendingDeferrals.length} pelanggan
                             </span>
                         </div>
                         <div className="space-y-2">
-                            {pendingDeferrals.map((deferral) => (
+                            {visiblePendingDeferrals.map((deferral) => (
                                 <div key={deferral.id} className={`p-3 border rounded-xl text-xs ${themeInnerWidget}`}>
                                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                                         <div className="space-y-1">
@@ -565,9 +621,11 @@ function InvoicesPageContent({
                             {paginatedInvoices.length === 0 ? (
                                 <tr>
                                     <td colSpan={10} className={`py-8 text-center text-xs ${theme.themeTextDesc}`}>
-                                        {searchTerm.trim()
-                                            ? 'Tidak ada invoice yang cocok dengan pencarian.'
-                                            : 'Belum ada data tagihan.'}
+                                        {!routerFilter
+                                            ? 'Pilih router Mikrotik terlebih dahulu.'
+                                            : searchTerm.trim()
+                                                ? `Tidak ada invoice di ${selectedRouter?.name || 'router ini'} yang cocok dengan pencarian.`
+                                                : `Belum ada data tagihan di ${selectedRouter?.name || 'router ini'}.`}
                                     </td>
                                 </tr>
                             ) : paginatedInvoices.map((inv) => (
@@ -948,11 +1006,12 @@ function InvoicesPageContent({
     );
 }
 
-export default function InvoicesIndex({ invoices, billingActivityLogs, billingDeferrals, monthlyRevenue }) {
+export default function InvoicesIndex({ invoices, routers, billingActivityLogs, billingDeferrals, monthlyRevenue }) {
     return (
         <AdminLayout title="Tagihan / Billing">
             <InvoicesPageContent
                 invoices={invoices}
+                routers={routers}
                 billingActivityLogs={billingActivityLogs}
                 billingDeferrals={billingDeferrals}
                 monthlyRevenue={monthlyRevenue}

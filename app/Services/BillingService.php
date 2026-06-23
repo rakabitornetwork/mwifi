@@ -1746,6 +1746,7 @@ class BillingService
             return [
                 'id' => $deferral->id,
                 'customer_id' => $deferral->customer_id,
+                'customer_router_id' => $deferral->customer?->router_id,
                 'customer_name' => $deferral->customer?->name,
                 'customer_username' => $deferral->customer?->username,
                 'months_count' => $deferral->months_count,

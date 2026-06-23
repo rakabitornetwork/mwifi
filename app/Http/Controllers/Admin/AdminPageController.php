@@ -138,13 +138,14 @@ class AdminPageController extends Controller
 
         return Inertia::render('Admin/Invoices/Index', [
             'invoices' => BillingService::appendNextBillingToInvoices(
-                Invoice::with(['customer.package', 'payments'])->orderByDesc('created_at')->get()
+                Invoice::with(['customer.package', 'customer.router', 'payments'])->orderByDesc('created_at')->get()
             ),
+            'routers' => Router::orderBy('name')->get(['id', 'name', 'status']),
             'customers' => Customer::with(['package', 'router'])
                 ->where('service_type', 'pppoe')
                 ->get(),
             'billingDeferrals' => BillingService::serializeBillingDeferrals(
-                BillingDeferral::with(['customer.package', 'invoice'])
+                BillingDeferral::with(['customer.package', 'customer.router', 'invoice'])
                     ->whereIn('status', ['pending', 'invoiced'])
                     ->orderByDesc('created_at')
                     ->limit(50)
