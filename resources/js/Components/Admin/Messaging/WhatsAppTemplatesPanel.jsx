@@ -144,14 +144,33 @@ export default function WhatsAppTemplatesPanel({
                             className={`w-full p-3 border rounded-xl font-mono text-[11px] leading-relaxed resize-y min-h-[180px] ${themeInput}`}
                         />
 
-                        <p className={`text-[10px] ${themeTextSub}`}>
-                            Placeholder:{' '}
-                            {placeholders.map((item) => (
-                                <span key={item} className="inline-block font-mono mr-2 mb-1">
-                                    {'{'}{item}{'}'}
-                                </span>
-                            ))}
-                        </p>
+                        <div className="space-y-2">
+                            {meta.placeholder_groups ? (
+                                Object.entries(meta.placeholder_groups).map(([groupLabel, groupPlaceholders]) => (
+                                    <div key={groupLabel}>
+                                        <p className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${themeTextSub}`}>
+                                            {groupLabel}
+                                        </p>
+                                        <p className={`text-[10px] ${themeTextSub}`}>
+                                            {groupPlaceholders.map((item) => (
+                                                <span key={item} className="inline-block font-mono mr-2 mb-1">
+                                                    {'{'}{item}{'}'}
+                                                </span>
+                                            ))}
+                                        </p>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className={`text-[10px] ${themeTextSub}`}>
+                                    Placeholder:{' '}
+                                    {placeholders.map((item) => (
+                                        <span key={item} className="inline-block font-mono mr-2 mb-1">
+                                            {'{'}{item}{'}'}
+                                        </span>
+                                    ))}
+                                </p>
+                            )}
+                        </div>
 
                         {previews[key] && (
                             <div className={`rounded-xl border p-3 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/50' : 'border-zinc-200 bg-zinc-50'}`}>

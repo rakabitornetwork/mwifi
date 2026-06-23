@@ -34,10 +34,25 @@ class MessageTemplateService
                 'label' => 'Selamat datang (pendaftaran pelanggan baru)',
                 'description' => 'Dikirim otomatis ke pelanggan setelah pendaftaran berhasil di panel admin.',
                 'placeholders' => [
-                    'customer_name', 'brand_name', 'service_type', 'package_name',
-                    'username', 'password', 'billing_date', 'status_label',
-                    'billing_info', 'billing_period', 'due_date', 'monthly_price',
-                    'estimated_subtotal', 'estimated_total', 'prorata_line',
+                    'customer_name', 'brand_name', 'username', 'password', 'phone_number',
+                    'address', 'portal_email_line', 'router_name', 'package_name',
+                    'monthly_price', 'package_bandwidth', 'odp_name', 'gps_coordinates',
+                    'maps_link_line', 'service_type', 'status_label', 'billing_date',
+                    'billing_info', 'billing_period', 'due_date', 'estimated_subtotal',
+                    'estimated_total', 'prorata_line',
+                ],
+                'placeholder_groups' => [
+                    'Identitas & Kontak' => [
+                        'customer_name', 'username', 'password', 'phone_number', 'address', 'portal_email_line',
+                    ],
+                    'Lokasi & Jaringan' => [
+                        'router_name', 'package_name', 'monthly_price', 'package_bandwidth',
+                        'odp_name', 'gps_coordinates', 'maps_link_line',
+                    ],
+                    'Status & Billing' => [
+                        'service_type', 'status_label', 'billing_date', 'billing_info', 'billing_period',
+                        'due_date', 'estimated_subtotal', 'estimated_total', 'prorata_line', 'brand_name',
+                    ],
                 ],
             ],
             'whatsapp.template.invoice_new' => [
@@ -146,15 +161,27 @@ class MessageTemplateService
 
 Yth. Bapak/Ibu *{customer_name}*,
 
-Pendaftaran layanan internet Anda telah kami terima. Berikut data akses Anda:
+Pendaftaran layanan internet Anda telah kami terima. Berikut data lengkap Anda:
 
-*Data Layanan*
-• Layanan     : {service_type}
-• Paket       : {package_name}
-• Username    : *{username}*
-• Password    : *{password}*
-• Tgl Tagihan : Setiap tanggal *{billing_date}*
-• Status      : {status_label}
+*Identitas & Kontak*
+• Nama Lengkap : {customer_name}
+• Username     : *{username}*
+• Password     : *{password}*
+• Telepon (WA) : {phone_number}
+• Alamat       : {address}{portal_email_line}
+
+*Lokasi & Jaringan*
+• Router       : {router_name}
+• Paket        : {package_name} · {monthly_price}
+• Kecepatan    : {package_bandwidth}
+• Titik ODP    : {odp_name}
+• GPS          : {gps_coordinates}
+{maps_link_line}
+
+*Status & Billing*
+• Layanan      : {service_type}
+• Status       : {status_label}
+• Tgl Tagihan  : Setiap tanggal *{billing_date}*
 
 {billing_info}
 
@@ -471,10 +498,19 @@ TEMPLATE,
             'whatsapp.template.customer_registered' => [
                 'customer_name' => 'Budi Santoso',
                 'brand_name' => BrandingService::companyName(),
-                'service_type' => 'PPPOE',
-                'package_name' => '10 Mbps - 120K',
                 'username' => 'budi001',
                 'password' => 'gantengmax',
+                'phone_number' => '6281234567890',
+                'address' => 'Jl. Merdeka No. 10, RT 02 RW 05',
+                'portal_email_line' => "\n• Email Portal : budi001@mwifi.test",
+                'router_name' => 'Router Utama',
+                'package_name' => '10 Mbps - 120K',
+                'monthly_price' => 'Rp 120.000',
+                'package_bandwidth' => '10M/10M',
+                'odp_name' => 'ODP-01 / Gang Melati',
+                'gps_coordinates' => '-6.200000, 106.816666',
+                'maps_link_line' => '• Google Maps : https://www.google.com/maps?q=-6.200000,106.816666',
+                'service_type' => 'PPPOE',
                 'billing_date' => '20',
                 'status_label' => 'Aktif',
                 'billing_info' => BillingService::buildRegistrationBillingInfoBlock(

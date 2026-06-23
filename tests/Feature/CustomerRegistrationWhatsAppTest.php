@@ -85,6 +85,9 @@ class CustomerRegistrationWhatsAppTest extends TestCase
             && $request['to'] === '6281234567890'
             && str_contains($request['text'], 'pelanggan_baru')
             && str_contains($request['text'], 'SELAMAT DATANG')
+            && str_contains($request['text'], 'Identitas & Kontak')
+            && str_contains($request['text'], 'Lokasi & Jaringan')
+            && str_contains($request['text'], 'Router Test')
             && str_contains($request['text'], 'Estimasi Tagihan Pertama'));
     }
 
