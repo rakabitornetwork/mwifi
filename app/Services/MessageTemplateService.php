@@ -77,6 +77,14 @@ class MessageTemplateService
                     'brand_name', 'run_date', 'days_before', 'invoice_count', 'invoice_list', 'total',
                 ],
             ],
+            'whatsapp.template.customer_registered' => [
+                'label' => 'Selamat datang (pendaftaran pelanggan baru)',
+                'description' => 'Dikirim otomatis ke pelanggan setelah pendaftaran berhasil di panel admin.',
+                'placeholders' => [
+                    'customer_name', 'brand_name', 'service_type', 'package_name',
+                    'username', 'password', 'billing_date', 'status_label',
+                ],
+            ],
         ];
     }
 
@@ -242,6 +250,27 @@ Ringkasan penjadwalan otomatis:
 
 Detail lengkap tersedia di panel Admin → Invoice.
 TEMPLATE,
+
+            'whatsapp.template.customer_registered' => <<<'TEMPLATE'
+*SELAMAT DATANG · {brand_name}*
+
+Yth. Bapak/Ibu *{customer_name}*,
+
+Pendaftaran layanan internet Anda telah kami terima. Berikut data akses Anda:
+
+*Data Layanan*
+• Layanan     : {service_type}
+• Paket       : {package_name}
+• Username    : *{username}*
+• Password    : *{password}*
+• Tgl Tagihan : Setiap tanggal *{billing_date}*
+• Status      : {status_label}
+
+Simpan pesan ini sebagai referensi login layanan Anda.
+
+Hormat kami,
+*{brand_name}*
+TEMPLATE,
         ];
     }
 
@@ -364,6 +393,16 @@ TEMPLATE,
                 'invoice_count' => '2',
                 'invoice_list' => "- *INV-202606-0001* — Budi Santoso (2026-06) Rp 150.000\n- *INV-202606-0002* — Ani Wijaya (2026-06) Rp 200.000",
                 'total' => 'Rp 350.000',
+            ],
+            'whatsapp.template.customer_registered' => [
+                'customer_name' => 'Budi Santoso',
+                'brand_name' => BrandingService::companyName(),
+                'service_type' => 'PPPOE',
+                'package_name' => '10 Mbps - 120K',
+                'username' => 'budi001',
+                'password' => 'gantengmax',
+                'billing_date' => '20',
+                'status_label' => 'Aktif',
             ],
             default => [],
         };

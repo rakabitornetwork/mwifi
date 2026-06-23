@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\User;
 use App\Services\BillingService;
 use App\Services\BrandingService;
+use App\Services\CustomerNotificationService;
 use App\Services\Customer\LegacyCsvImportService;
 use App\Services\HotspotVoucherService;
 use App\Services\MessageTemplateService;
@@ -80,6 +81,7 @@ class AdminActionController extends Controller
 
         $id = $data['id'] ?? null;
         unset($data['id']);
+        $isNewCustomer = $id === null;
 
         // Create or update linked user first
         $email = $data['username'] . '@mwifi.test';
@@ -117,7 +119,7 @@ class AdminActionController extends Controller
 
         $oldOdpId = $customer?->odp_id;
 
-        Customer::updateOrCreate(['id' => $id], $data);
+        $savedCustomer = Customer::updateOrCreate(['id' => $id], $data);
 
         $newOdpId = $data['odp_id'] ?? null;
         if ($oldOdpId != $newOdpId) {
@@ -125,6 +127,7 @@ class AdminActionController extends Controller
         }
 
         $mikrotikSyncWarning = null;
+        $whatsAppWarning = null;
 
         // Sync to Mikrotik for PPPoE secrets (after local save so data is not lost on timeout)
         if ($data['service_type'] === 'pppoe') {
@@ -208,10 +211,29 @@ class AdminActionController extends Controller
             }
         }
 
-        if ($mikrotikSyncWarning) {
+        if ($isNewCustomer) {
+            try {
+                $package = !empty($data['package_id']) ? Package::find($data['package_id']) : null;
+                $sent = CustomerNotificationService::sendRegistrationWhatsApp($savedCustomer, $package);
+                if (!$sent) {
+                    $whatsAppWarning = 'Notifikasi WhatsApp pendaftaran tidak terkirim. Pastikan gateway WA aktif, sesi terhubung, dan nomor telepon pelanggan benar.';
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::warning('Registration WhatsApp failed after customer save', [
+                    'customer_id' => $savedCustomer->id,
+                    'username' => $savedCustomer->username,
+                    'error' => $e->getMessage(),
+                ]);
+                $whatsAppWarning = 'Notifikasi WhatsApp pendaftaran gagal: ' . $e->getMessage();
+            }
+        }
+
+        $warnings = array_values(array_filter([$mikrotikSyncWarning, $whatsAppWarning]));
+
+        if ($warnings !== []) {
             return redirect()->back()
                 ->with('success', 'Data pelanggan berhasil disimpan.')
-                ->with('warning', 'Data tersimpan di aplikasi, tetapi sinkronisasi ke MikroTik gagal: ' . $mikrotikSyncWarning);
+                ->with('warning', implode(' ', $warnings));
         }
 
         return redirect()->back()->with('success', 'Data pelanggan berhasil disimpan.');
