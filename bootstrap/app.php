@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'staff' => \App\Http\Middleware\EnsureStaffActive::class,
             'admin.tab' => \App\Http\Middleware\EnsureAdminTabAccess::class,
+            'staff.write' => \App\Http\Middleware\EnsureStaffCanWrite::class,
         ]);
 
         $middleware->validateCsrfTokens(except: [

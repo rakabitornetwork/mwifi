@@ -8,6 +8,8 @@ import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
+import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
+import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import { readDeviceCoordinates } from '../../../utils/deviceGps';
 import { buildCustomerMapPopup, getCustomerPopupOptions } from '../../../utils/networkMapPopup';
 
@@ -16,6 +18,7 @@ const isPppoeCustomer = (cust) => cust?.service_type !== 'hotspot';
 function NetworkMapPageContent({ odps = [], customers = [] }) {
     const theme = useAdminTheme();
     const { showToast } = useAdminToast();
+    const { canWrite } = useStaffPermissions();
     const { isDarkMode, themeCard, themeTextTitle, themeTextSub, themeTextDesc } = theme;
 
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
@@ -36,6 +39,8 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
     const openCustomerPopupIdRef = useRef(null);
     const networkMapMetricsRef = useRef(networkMapMetrics);
     networkMapMetricsRef.current = networkMapMetrics;
+    const canWriteRef = useRef(canWrite);
+    canWriteRef.current = canWrite;
 
     useEffect(() => {
         if (showOdpModal) {
@@ -169,6 +174,8 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                 `;
 
         const openMiniOdpPopup = (latlng) => {
+            if (!canWriteRef.current) return;
+
             const { lat, lng } = latlng;
             setOdpLat(lat.toFixed(6));
             setOdpLng(lng.toFixed(6));
@@ -258,6 +265,8 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
                 form.addEventListener('submit', (evt) => {
                     evt.preventDefault();
+                    if (!canWriteRef.current) return;
+
                     const name = form.querySelector('#mini-odp-name').value;
                     const total_ports = form.querySelector('#mini-odp-ports').value;
                     const description = form.querySelector('#mini-odp-desc').value;
@@ -441,6 +450,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                     <div className="w-full lg:w-80 xl:w-96 flex flex-col space-y-3 flex-shrink-0">
                         <div className="flex justify-between items-center">
                             <h3 className={`text-xs font-bold ${themeTextTitle}`}>Daftar ODP ({filteredOdps.length})</h3>
+                            {canWrite && (
                             <button
                                 type="button"
                                 onClick={() => { setEditingOdp(null); setShowOdpModal(true); }}
@@ -449,6 +459,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                             >
                                 <Plus className="w-4 h-4" />
                             </button>
+                            )}
                         </div>
 
                         <div className="relative">
@@ -503,6 +514,8 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                                             </div>
 
                                             <div className="flex items-center gap-1 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                {canWrite ? (
+                                                <>
                                                 <button
                                                     type="button"
                                                     onClick={() => { setEditingOdp(odp); setShowOdpModal(true); }}
@@ -519,6 +532,10 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
+                                                </>
+                                                ) : (
+                                                    <ReadOnlyTableActionsPlaceholder />
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -528,7 +545,12 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                     </div>
 
                     <div className="flex-1 flex flex-col space-y-2">
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">Peta di bawah menggambarkan jalur kabel fiber optik dari masing-masing kotak ODP (biru) ke titik rumah pelanggan (hijau: aktif, merah: nonaktif). <span className="hidden sm:inline">Klik kanan</span><span className="sm:hidden">Tahan</span> pada peta untuk menambah ODP baru.</p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            Peta di bawah menggambarkan jalur kabel fiber optik dari masing-masing kotak ODP (biru) ke titik rumah pelanggan (hijau: aktif, merah: nonaktif).
+                            {canWrite && (
+                                <> <span className="hidden sm:inline">Klik kanan</span><span className="sm:hidden">Tahan</span> pada peta untuk menambah ODP baru.</>
+                            )}
+                        </p>
                         <div className={`border rounded-2xl overflow-hidden shadow-xs relative ${isDarkMode ? 'border-zinc-800/80' : 'border-zinc-200'}`}>
                             <div id="map-container" className="h-[550px] w-full z-0" />
                             <div className="absolute bottom-2.5 right-2.5 z-[400] bg-zinc-950/85 border border-zinc-800/60 backdrop-blur-xs px-2.5 py-1.5 rounded-lg flex gap-3 text-[9px] font-bold text-zinc-400 shadow-md">

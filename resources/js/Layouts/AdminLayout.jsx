@@ -5,6 +5,7 @@ import AppFooter from '../Components/AppFooter';
 import AdminSidebar from '../Components/Admin/AdminSidebar';
 import AdminNavbar from '../Components/Admin/AdminNavbar';
 import ToastStack from '../Components/Admin/ToastStack';
+import ReadOnlyStaffBanner from '../Components/Admin/ReadOnlyStaffBanner';
 import { AdminToastProvider, useAdminToast } from '../hooks/useAdminToast';
 import { AdminThemeProvider, useAdminTheme } from '../hooks/useAdminTheme.jsx';
 
@@ -134,6 +135,7 @@ function AdminLayoutShell({ title, children }) {
                     />
 
                     <div className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain p-4 sm:p-6 space-y-6">
+                        <ReadOnlyStaffBanner />
                         {children}
                     </div>
 

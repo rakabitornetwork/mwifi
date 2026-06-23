@@ -25,9 +25,10 @@ class User extends Authenticatable
 
     public const ROLE_TECHNICIAN = 'technician';
 
-    public const ROLE_FINANCE = 'finance';
-
     public const ROLE_OPERATOR = 'operator';
+
+    /** Role legacy — digabung ke teknisi (read-only). */
+    public const ROLE_FINANCE = 'finance';
 
     public const ROLES = [
         self::ROLE_SUPER_ADMIN => [
@@ -40,16 +41,18 @@ class User extends Authenticatable
         ],
         self::ROLE_TECHNICIAN => [
             'label' => 'Teknisi Lapangan',
-            'description' => 'Router, peta jaringan, pelanggan PPPoE, paket, dan inventaris.',
-        ],
-        self::ROLE_FINANCE => [
-            'label' => 'Keuangan / Billing',
-            'description' => 'Tagihan, invoice, dan data pelanggan terkait billing.',
+            'description' => 'Lihat router, peta jaringan, pelanggan, paket, inventaris, dan tagihan. Tidak dapat mengubah atau menghapus data.',
         ],
         self::ROLE_OPERATOR => [
             'label' => 'Operator Hotspot',
             'description' => 'Pelanggan, voucher hotspot, dan tagihan dasar.',
         ],
+    ];
+
+    /** @var list<string> */
+    public const READ_ONLY_ROLES = [
+        self::ROLE_TECHNICIAN,
+        self::ROLE_FINANCE,
     ];
 
     /** @var array<string, list<string>> */
@@ -60,10 +63,12 @@ class User extends Authenticatable
             'invoices', 'inventory', 'messaging', 'settings', 'profile',
         ],
         self::ROLE_TECHNICIAN => [
-            'dashboard', 'routers', 'network-map', 'packages', 'customers', 'inventory', 'profile',
+            'dashboard', 'routers', 'network-map', 'packages', 'customers', 'inventory',
+            'invoices', 'profile',
         ],
         self::ROLE_FINANCE => [
-            'dashboard', 'customers', 'invoices', 'profile',
+            'dashboard', 'routers', 'network-map', 'packages', 'customers', 'inventory',
+            'invoices', 'profile',
         ],
         self::ROLE_OPERATOR => [
             'dashboard', 'customers', 'hotspot', 'invoices', 'profile',
@@ -131,13 +136,31 @@ class User extends Authenticatable
         return $this->isSuperAdmin();
     }
 
+    public function isReadOnly(): bool
+    {
+        return in_array($this->role, self::READ_ONLY_ROLES, true);
+    }
+
+    public function canWriteData(): bool
+    {
+        return $this->isStaff() && !$this->isReadOnly();
+    }
+
     public function roleLabel(): string
     {
+        if ($this->role === self::ROLE_FINANCE) {
+            return self::ROLES[self::ROLE_TECHNICIAN]['label'] . ' (Legacy)';
+        }
+
         return self::ROLES[$this->role]['label'] ?? ucfirst(str_replace('_', ' ', (string) $this->role));
     }
 
     public function roleDescription(): string
     {
+        if ($this->role === self::ROLE_FINANCE) {
+            return self::ROLES[self::ROLE_TECHNICIAN]['description'];
+        }
+
         return self::ROLES[$this->role]['description'] ?? '';
     }
 

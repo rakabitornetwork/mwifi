@@ -5,9 +5,12 @@ import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import SettingsSectionCard from '../../../Components/Admin/SettingsSectionCard';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
+import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
+import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 
 function RoutersPageContent({ routers = [] }) {
     const theme = useAdminTheme();
+    const { canWrite } = useStaffPermissions();
     const { showToast } = useAdminToast();
     const [showRouterModal, setShowRouterModal] = useState(false);
     const [editingRouter, setEditingRouter] = useState(null);
@@ -134,6 +137,7 @@ function RoutersPageContent({ routers = [] }) {
                     themeTextTitle={theme.themeTextTitle}
                     themeTextSub={theme.themeTextSub}
                 >
+                    {canWrite && (
                     <div className="flex justify-end">
                         <button
                             type="button"
@@ -144,6 +148,7 @@ function RoutersPageContent({ routers = [] }) {
                             <Plus className="w-4 h-4" />
                         </button>
                     </div>
+                    )}
 
                     <div className="admin-table-scroll">
                         <table>
@@ -170,6 +175,7 @@ function RoutersPageContent({ routers = [] }) {
                                             </span>
                                         </td>
                                         <td className="py-3 px-2 text-right">
+                                            {canWrite ? (
                                             <div className="admin-table-actions">
                                             <button
                                                 type="button"
@@ -206,6 +212,9 @@ function RoutersPageContent({ routers = [] }) {
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
                                             </div>
+                                            ) : (
+                                                <ReadOnlyTableActionsPlaceholder />
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

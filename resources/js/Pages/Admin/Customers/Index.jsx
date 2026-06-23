@@ -7,6 +7,8 @@ import TransitionModal from '../../../Components/Admin/TransitionModal';
 import CustomerDetailPanel from '../../../Components/Admin/CustomerDetailPanel';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
+import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
+import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import getVisiblePages from '../../../utils/getVisiblePages';
 import { formatDateInputValue, todayDateInputValue } from '../../../utils/formatDateInputValue';
 import { fetchRouterPackageProfiles } from '../../../utils/fetchRouterPackageProfiles';
@@ -20,6 +22,7 @@ function CustomersPageContent({
     odps = [],
 }) {
     const theme = useAdminTheme();
+    const { canWrite } = useStaffPermissions();
     const { showToast } = useAdminToast();
     const { branding = {} } = usePage().props;
 
@@ -505,7 +508,7 @@ function CustomersPageContent({
                 isDarkMode={isDarkMode}
                 themeTextTitle={themeTextTitle}
                 themeTextDesc={themeTextDesc}
-                actions={(
+                actions={canWrite ? (
                     <>
                         {selectedCustomerIds.length > 0 && (
                             <button
@@ -537,7 +540,7 @@ function CustomersPageContent({
                             <Plus className="w-4 h-4" />
                         </button>
                     </>
-                )}
+                ) : undefined}
             >
                 <div className="flex flex-col lg:flex-row gap-2">
                     <select
@@ -569,6 +572,7 @@ function CustomersPageContent({
                     <table>
                         <thead>
                             <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
+                                {canWrite && (
                                 <th className="py-3 px-2 w-8">
                                     <input
                                         type="checkbox"
@@ -577,6 +581,7 @@ function CustomersPageContent({
                                         className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
                                     />
                                 </th>
+                                )}
                                 <th className="py-3 px-2">
                                     <div className="flex items-center gap-1">
                                         <span>Nama</span>
@@ -631,7 +636,7 @@ function CustomersPageContent({
                         <tbody className="divide-y divide-zinc-800/20 text-xs">
                             {paginatedCustomers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className={`py-8 text-center ${themeTextDesc}`}>
+                                    <td colSpan={canWrite ? 10 : 9} className={`py-8 text-center ${themeTextDesc}`}>
                                         {!routerFilter
                                             ? 'Pilih router Mikrotik terlebih dahulu.'
                                             : searchTerm.trim()
@@ -644,6 +649,7 @@ function CustomersPageContent({
                                         key={cust.id}
                                         className={`${themeTextSub} hover:bg-zinc-900/10 ${selectedCustomerIds.includes(cust.id) ? 'bg-emerald-500/5' : ''} ${expandedCustomerId === cust.id ? (isDarkMode ? 'bg-zinc-900/20' : 'bg-zinc-50') : ''}`}
                                     >
+                                        {canWrite && (
                                         <td className="py-3 px-2 w-8">
                                             <input
                                                 type="checkbox"
@@ -652,6 +658,7 @@ function CustomersPageContent({
                                                 className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
                                             />
                                         </td>
+                                        )}
                                         <td className={`py-3 px-2 font-bold ${themeTextTitle}`}>
                                             {cust.name}
                                         </td>
@@ -680,6 +687,8 @@ function CustomersPageContent({
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </button>
+                                            {canWrite && (
+                                            <>
                                             <button
                                                 type="button"
                                                 onClick={() => openCustomerModal(cust)}
@@ -696,6 +705,8 @@ function CustomersPageContent({
                                             >
                                                 <Trash2 className="w-4 h-4" />
                                             </button>
+                                            </>
+                                            )}
                                             </div>
                                         </td>
                                     </tr>
@@ -709,6 +720,7 @@ function CustomersPageContent({
                         customer={expandedCustomer}
                         theme={theme}
                         onEdit={openCustomerModal}
+                        canWrite={canWrite}
                     />
                 )}
 

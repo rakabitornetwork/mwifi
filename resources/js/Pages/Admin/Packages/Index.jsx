@@ -6,6 +6,8 @@ import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 import { useAdminToast } from '../../../hooks/useAdminToast';
+import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
+import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import { formatRupiah } from '../../../utils/formatRupiah';
 import {
     clearRouterPackageProfilesCache,
@@ -136,6 +138,7 @@ function RouterOsField({
 function PackagesPageContent({ packages = [], routers = [] }) {
     const theme = useAdminFormTheme();
     const { showToast } = useAdminToast();
+    const { canWrite } = useStaffPermissions();
     const {
         isDarkMode,
         themeCard,
@@ -497,6 +500,8 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                 </option>
                             ))}
                         </select>
+                        {canWrite && (
+                        <>
                         <button
                             type="button"
                             onClick={handleSyncPackages}
@@ -514,6 +519,8 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                         >
                             <Plus className="w-4 h-4" />
                         </button>
+                        </>
+                        )}
                     </>
                 )}
             >
@@ -627,6 +634,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                         }
                                     </td>
                                     <td className="py-3 px-2 text-right">
+                                        {canWrite ? (
                                         <div className="admin-table-actions">
                                         <button
                                             type="button"
@@ -645,6 +653,9 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                             <Trash2 className="w-4 h-4" />
                                         </button>
                                         </div>
+                                        ) : (
+                                            <ReadOnlyTableActionsPlaceholder />
+                                        )}
                                     </td>
                                 </tr>
                             ))}

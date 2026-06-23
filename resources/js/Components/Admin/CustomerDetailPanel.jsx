@@ -54,7 +54,7 @@ function QuotaCard({ label, usedBytes, limitBytes, gradient }) {
 
 const QUOTA_POLL_MS = 30000;
 
-export default function CustomerDetailPanel({ customer, theme, onEdit }) {
+export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite = true }) {
     const {
         isDarkMode,
         themeTextTitle,
@@ -174,6 +174,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                         {customer.name} · {customer.username}
                     </p>
                 </div>
+                {canWrite && (
                 <button
                     type="button"
                     onClick={() => onEdit?.(customer)}
@@ -182,6 +183,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                 >
                     <Edit className="w-4 h-4" />
                 </button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 min-w-0">
@@ -275,6 +277,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                         </div>
                     ) : null}
 
+                    {canWrite ? (
                     <div className="pt-1 space-y-2 min-w-0">
                         <div className="flex flex-col gap-2">
                             <div className="flex flex-col gap-1 min-w-0">
@@ -331,6 +334,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit }) {
                             <p className={`text-[10px] leading-relaxed break-words ${themeTextDesc}`}>{generateInvoiceDisabledReason}</p>
                         )}
                     </div>
+                    ) : null}
                 </div>
             </div>
 

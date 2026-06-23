@@ -61,7 +61,7 @@ Route::middleware('auth')->group(function () {
     Route::post('customer/invoice/{invoice}/pay', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'payInvoice']);
 });
 
-Route::middleware(['auth', 'staff', 'admin.tab'])->group(function () {
+Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function () {
     Route::get('dashboard', [AdminPageController::class, 'dashboard'])->name('dashboard');
     Route::get('routers', [AdminPageController::class, 'routers']);
     Route::get('customers', [AdminPageController::class, 'customers']);

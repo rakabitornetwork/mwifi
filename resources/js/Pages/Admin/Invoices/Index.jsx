@@ -6,6 +6,8 @@ import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import MonthlyRevenuePanel from '../../../Components/Admin/MonthlyRevenuePanel';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
+import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
+import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import { formatRupiah } from '../../../utils/formatRupiah';
 import getVisiblePages from '../../../utils/getVisiblePages';
 
@@ -76,6 +78,7 @@ function InvoicesPageContent({
     monthlyRevenue = {},
 }) {
     const theme = useAdminTheme();
+    const { canWrite } = useStaffPermissions();
     const [searchTerm, setSearchTerm] = useState('');
     const [routerFilter, setRouterFilter] = useState(() => {
         const activeRouter = routers.find((item) => item.status);
@@ -469,7 +472,7 @@ function InvoicesPageContent({
                 isDarkMode={theme.isDarkMode}
                 themeTextTitle={theme.themeTextTitle}
                 themeTextDesc={theme.themeTextDesc}
-                actions={(
+                actions={canWrite ? (
                     <>
                         <button
                             type="button"
@@ -495,7 +498,7 @@ function InvoicesPageContent({
                             <RefreshCw className="w-4 h-4" />
                         </button>
                     </>
-                )}
+                ) : null}
             >
                 <div className="flex flex-col lg:flex-row gap-2">
                     <select
@@ -577,6 +580,7 @@ function InvoicesPageContent({
                                                 <p className={`text-[10px] ${theme.themeTextDesc}`}>Catatan: {deferral.notes}</p>
                                             )}
                                         </div>
+                                        {canWrite && (
                                         <button
                                             type="button"
                                             onClick={() => handleCancelDeferral(deferral)}
@@ -585,6 +589,7 @@ function InvoicesPageContent({
                                         >
                                             <XCircle className="w-4 h-4" />
                                         </button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -596,6 +601,7 @@ function InvoicesPageContent({
                     <table>
                         <thead>
                             <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${theme.themeTextSub}`}>
+                                {canWrite && (
                                 <th className="py-3 px-2 w-8">
                                     <input
                                         type="checkbox"
@@ -606,6 +612,7 @@ function InvoicesPageContent({
                                         title="Pilih semua belum bayar di halaman ini"
                                     />
                                 </th>
+                                )}
                                 <th className="py-3 px-2">No. Invoice</th>
                                 <th className="py-3 px-2">Pelanggan</th>
                                 <th className="py-3 px-2">Periode</th>
@@ -620,7 +627,7 @@ function InvoicesPageContent({
                         <tbody className="divide-y divide-zinc-800/20 text-xs">
                             {paginatedInvoices.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className={`py-8 text-center text-xs ${theme.themeTextDesc}`}>
+                                    <td colSpan={canWrite ? 10 : 9} className={`py-8 text-center text-xs ${theme.themeTextDesc}`}>
                                         {!routerFilter
                                             ? 'Pilih router Mikrotik terlebih dahulu.'
                                             : searchTerm.trim()
@@ -630,6 +637,7 @@ function InvoicesPageContent({
                                 </tr>
                             ) : paginatedInvoices.map((inv) => (
                                 <tr key={inv.id} className={`${theme.themeTextSub} hover:bg-zinc-900/10 ${selectedInvoiceIds.includes(inv.id) ? 'bg-emerald-500/5' : ''}`}>
+                                    {canWrite && (
                                     <td className="py-3 px-2 w-8">
                                         {inv.status === 'unpaid' ? (
                                             <input
@@ -640,6 +648,7 @@ function InvoicesPageContent({
                                             />
                                         ) : null}
                                     </td>
+                                    )}
                                     <td className={`py-3 px-2 font-mono font-bold ${theme.themeTextTitle}`}>{inv.invoice_number}</td>
                                     <td className="py-3 px-2">{inv.customer ? inv.customer.name : 'Unknown'}</td>
                                     <td className="py-3 px-2 font-mono">
@@ -730,6 +739,8 @@ function InvoicesPageContent({
                                                     </button>
                                                 </>
                                             )}
+                                            {canWrite ? (
+                                            <>
                                             {canSendInvoiceWhatsApp(inv) && (
                                                 <button
                                                     type="button"
@@ -794,6 +805,10 @@ function InvoicesPageContent({
                                                 >
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
+                                            )}
+                                            </>
+                                            ) : (
+                                                !canPrintInvoice(inv) && <ReadOnlyTableActionsPlaceholder />
                                             )}
                                         </div>
                                     </td>

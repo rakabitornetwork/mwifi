@@ -1,0 +1,12 @@
+import { usePage } from '@inertiajs/react';
+
+export function useStaffPermissions() {
+    const { auth } = usePage().props;
+    const user = auth?.user;
+
+    return {
+        canWrite: user?.can_write !== false,
+        isReadOnly: user?.is_read_only === true,
+        roleLabel: user?.role_label || '',
+    };
+}

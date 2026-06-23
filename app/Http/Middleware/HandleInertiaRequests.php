@@ -53,6 +53,8 @@ class HandleInertiaRequests extends Middleware
                     'role_label' => $user->role ? $user->roleLabel() : null,
                     'allowed_tabs' => $customer ? [] : $user->allowedTabs(),
                     'can_manage_users' => $user->canManageUsers(),
+                    'can_write' => $customer ? false : $user->canWriteData(),
+                    'is_read_only' => $customer ? false : $user->isReadOnly(),
                     'updated_at' => $user->updated_at?->timestamp,
                     'customer' => $customer ? [
                         'id' => $customer->id,

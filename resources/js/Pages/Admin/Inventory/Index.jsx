@@ -5,6 +5,8 @@ import AdminLayout from '../../../Layouts/AdminLayout';
 import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
+import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
+import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 
 const WATCH_CATEGORY_ICONS = {
     ont: Router,
@@ -26,6 +28,7 @@ function InventoryPageContent({
     customers = [],
 }) {
     const theme = useAdminTheme();
+    const { canWrite } = useStaffPermissions();
     const {
         isDarkMode,
         themeCard,
@@ -265,7 +268,7 @@ function InventoryPageContent({
                 isDarkMode={isDarkMode}
                 themeTextTitle={themeTextTitle}
                 themeTextDesc={themeTextDesc}
-                actions={(
+                actions={canWrite ? (
                     <button
                         type="button"
                         onClick={openCreateModal}
@@ -274,7 +277,7 @@ function InventoryPageContent({
                     >
                         <Plus className="w-4 h-4" />
                     </button>
-                )}
+                ) : null}
             >
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {statCards.map((card) => {
@@ -453,6 +456,7 @@ function InventoryPageContent({
                                             </span>
                                         </td>
                                         <td className="py-3 px-2 text-right">
+                                            {canWrite ? (
                                             <div className="admin-table-actions">
                                                 <button
                                                     type="button"
@@ -487,6 +491,9 @@ function InventoryPageContent({
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
+                                            ) : (
+                                                <ReadOnlyTableActionsPlaceholder />
+                                            )}
                                         </td>
                                     </tr>
                                 );
