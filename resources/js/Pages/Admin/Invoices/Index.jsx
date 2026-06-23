@@ -831,7 +831,7 @@ function InvoicesPageContent({
             </div>
             </div>
 
-            <TransitionModal show={showDeferModal} onClose={resetDeferModal} themeCard={theme.themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
+            <TransitionModal show={showDeferModal} onClose={resetDeferModal} themeCard={theme.themeCard} maxWidth="lg">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <div>
                         <h3 className={`text-sm font-bold ${theme.themeTextTitle}`}>Tunda Tagihan Pelanggan</h3>
@@ -844,7 +844,7 @@ function InvoicesPageContent({
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmitDeferral} className="space-y-3 text-xs mt-3 pb-14 sm:pb-0">
+                <form onSubmit={handleSubmitDeferral} className="space-y-3 text-xs mt-3">
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Pelanggan PPPoE</label>
                         <p className={`p-2 border rounded-lg ${themeInput}`}>{deferCustomerLabel}</p>

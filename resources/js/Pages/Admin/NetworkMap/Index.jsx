@@ -536,7 +536,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                         <X className="w-4 h-4" />
                     </button>
                 </div>
-                <form onSubmit={handleSaveOdpSubmit} className="space-y-3 text-xs pb-14 sm:pb-0">
+                <form onSubmit={handleSaveOdpSubmit} className="space-y-3 text-xs">
                     <input type="hidden" name="id" value={editingOdp ? editingOdp.id : ''} />
 
                     <div className="flex flex-col gap-1">

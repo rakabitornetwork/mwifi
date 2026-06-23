@@ -192,7 +192,7 @@ function RoutersPageContent({ routers = [] }) {
                         <X className="w-4 h-4" />
                     </button>
                 </div>
-                <form onSubmit={handleSaveRouter} className="space-y-3 text-xs pb-14 sm:pb-0">
+                <form onSubmit={handleSaveRouter} className="space-y-3 text-xs">
                     <input type="hidden" name="id" value={editingRouter ? editingRouter.id : ''} />
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Nama Router</label>

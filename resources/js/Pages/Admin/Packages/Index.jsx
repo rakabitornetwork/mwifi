@@ -628,7 +628,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                     </h3>
                     <button type="button" onClick={() => setShowPackageModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form onSubmit={handleSavePackage} className="space-y-3 text-xs pb-14 sm:pb-0">
+                <form onSubmit={handleSavePackage} className="space-y-3 text-xs">
                     {routerFilter && (
                         <div className={`text-[10px] font-semibold ${routerProfileError ? 'text-amber-500' : themeTextSub}`}>
                             Router: <span className={themeTextTitle}>{selectedRouter?.name || '—'}</span>

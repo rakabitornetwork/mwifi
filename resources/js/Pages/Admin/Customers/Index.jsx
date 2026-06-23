@@ -819,7 +819,7 @@ function CustomersPageContent({
                 )}
             </div>
 
-            <TransitionModal show={showCustomerModal} onClose={closeCustomerModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
+            <TransitionModal show={showCustomerModal} onClose={closeCustomerModal} themeCard={themeCard} maxWidth="lg">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold min-w-0 flex-1 pr-2 ${themeTextTitle}`}>
                         {editingCustomer ? 'Edit Pelanggan PPPoE' : 'Tambah Pelanggan PPPoE'}
@@ -828,7 +828,7 @@ function CustomersPageContent({
                         <X className="w-4 h-4" />
                     </button>
                 </div>
-                <form onSubmit={handleSaveCustomer} className="space-y-3 text-xs pb-14 sm:pb-0">
+                <form onSubmit={handleSaveCustomer} className="space-y-3 text-xs">
                     <input type="hidden" name="id" value={editingCustomer ? editingCustomer.id : ''} />
                     <input type="hidden" name="service_type" value="pppoe" />
 
@@ -1110,7 +1110,7 @@ function CustomersPageContent({
             </TransitionModal>
 
             <TransitionModal show={showImportModal} onClose={closeImportModal} themeCard={themeCard} maxWidth="md">
-                <form onSubmit={handleImportCsv} className="space-y-4 text-xs pb-14 sm:pb-0">
+                <form onSubmit={handleImportCsv} className="space-y-4 text-xs">
                     <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                         <div className="flex items-center gap-2">
                             <Upload className="w-4 h-4 text-emerald-500" />
