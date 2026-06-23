@@ -562,7 +562,6 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                 <th className="py-3 px-2">Masa Aktif</th>
                                 <th className="py-3 px-2">Harga</th>
                                 <th className="py-3 px-2">Speed Limit</th>
-                                <th className="py-3 px-2">Mikrotik Profile</th>
                                 <th className="py-3 px-2">Local IP</th>
                                 <th className="py-3 px-2">Remote IP</th>
                                 <th className="py-3 px-2">DNS Server</th>
@@ -574,7 +573,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                         <tbody className="divide-y divide-zinc-800/20 text-xs">
                             {filteredPackages.length === 0 ? (
                                 <tr>
-                                    <td colSpan={12} className={`py-8 text-center ${themeTextDesc}`}>
+                                    <td colSpan={11} className={`py-8 text-center ${themeTextDesc}`}>
                                         {routerFilter
                                             ? (isLoadingRouterProfiles
                                                 ? 'Memuat paket dari router terpilih...'
@@ -595,7 +594,6 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     <td className="py-3 px-2 font-mono">{pkg.validity || '-'}</td>
                                     <td className="py-3 px-2 font-bold text-emerald-500">{formatRupiah(pkg.price)}</td>
                                     <td className="py-3 px-2 font-mono">{pkg.bandwidth_limit}</td>
-                                    <td className="py-3 px-2 font-mono">{pkg.mikrotik_profile}</td>
                                     <td className="py-3 px-2 font-mono">{pkg.local_address || '-'}</td>
                                     <td className="py-3 px-2 font-mono">{pkg.remote_address || '-'}</td>
                                     <td className="py-3 px-2 font-mono">{pkg.dns_server || '-'}</td>
