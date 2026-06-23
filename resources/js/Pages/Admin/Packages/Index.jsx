@@ -6,8 +6,31 @@ import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 import { useAdminToast } from '../../../hooks/useAdminToast';
 import { formatRupiah } from '../../../utils/formatRupiah';
+import {
+    clearRouterPackageProfilesCache,
+    fetchRouterPackageProfiles,
+    peekRouterPackageProfiles,
+} from '../../../utils/fetchRouterPackageProfiles';
 
 const HOTSPOT_VALIDITY_PRESETS = ['1h', '2h', '6h', '12h', '1d', '7d', '30d'];
+
+function dedupePackagesByMikrotikProfile(items = []) {
+    const byProfile = new Map();
+
+    for (const pkg of items) {
+        const key = String(pkg.mikrotik_profile || pkg.name || '').trim().toLowerCase();
+        if (key === '') {
+            continue;
+        }
+
+        const existing = byProfile.get(key);
+        if (!existing || Number(pkg.id) > Number(existing.id)) {
+            byProfile.set(key, pkg);
+        }
+    }
+
+    return Array.from(byProfile.values()).sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
+}
 
 const emptyPackageForm = {
     name: '',
@@ -105,43 +128,19 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     const [routerProfileError, setRouterProfileError] = useState(null);
     const [packageForm, setPackageForm] = useState(emptyPackageForm);
 
-    const loadRouterOsData = async (routerId, { force = false, scope = 'list' } = {}) => {
+    const loadRouterOsData = async (routerId, { force = false, scope = 'list', signal } = {}) => {
         if (!routerId) {
             return null;
         }
 
-        const cached = routerOsCache[routerId];
-        if (!force) {
-            if (scope === 'list' && cached?.all_profiles) {
-                return cached;
-            }
-            if (scope === 'form' && cached?.form_options) {
-                return cached;
-            }
+        if (force) {
+            clearRouterPackageProfilesCache(routerId);
         }
 
-        const res = await fetch(`/admin/packages/router-profiles?router_id=${routerId}&scope=${scope}`, {
-            headers: {
-                Accept: 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-            throw new Error(data.error || 'Gagal memuat data RouterOS.');
-        }
-
+        const data = await fetchRouterPackageProfiles(routerId, { force, scope, signal });
         setRouterOsCache((prev) => ({
             ...prev,
-            [routerId]: {
-                ...(prev[routerId] || {}),
-                ...data,
-                all_profiles: data.all_profiles ?? prev[routerId]?.all_profiles ?? [],
-                form_options: scope === 'form'
-                    ? (data.form_options ?? prev[routerId]?.form_options ?? null)
-                    : (prev[routerId]?.form_options ?? null),
-            },
+            [routerId]: data,
         }));
 
         return data;
@@ -152,8 +151,10 @@ function PackagesPageContent({ packages = [], routers = [] }) {
             return null;
         }
 
-        if (!force && routerOsCache[routerId]?.form_options) {
-            return routerOsCache[routerId];
+        const cached = peekRouterPackageProfiles(routerId, 'form')?.form_options
+            ?? routerOsCache[routerId]?.form_options;
+        if (!force && cached) {
+            return routerOsCache[routerId] ?? peekRouterPackageProfiles(routerId, 'form');
         }
 
         setIsLoadingFormOptions(true);
@@ -170,6 +171,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
             return null;
         }
 
+        clearRouterPackageProfilesCache(routerId);
         setRouterOsCache((prev) => ({
             ...prev,
             [routerId]: {
@@ -257,9 +259,11 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         setIsLoadingRouterProfiles(true);
         setRouterProfileError(null);
 
-        loadRouterOsData(routerFilter)
+        const controller = new AbortController();
+
+        loadRouterOsData(routerFilter, { signal: controller.signal })
             .catch((error) => {
-                if (cancelled) return;
+                if (cancelled || error?.name === 'AbortError') return;
                 setRouterProfileError(error?.message || 'Gagal memuat profil dari router.');
             })
             .finally(() => {
@@ -270,6 +274,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
 
         return () => {
             cancelled = true;
+            controller.abort();
         };
     }, [routerFilter]);
 
@@ -312,19 +317,30 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         const sorted = [...packages].sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
 
         if (!routerFilter) {
-            return sorted;
+            return dedupePackagesByMikrotikProfile(sorted);
         }
 
         if (isLoadingRouterProfiles) {
-            return sorted;
+            return [];
         }
 
         if (routerProfileError || profileSet.size === 0) {
             return [];
         }
 
-        return sorted.filter((pkg) => profileSet.has(String(pkg.mikrotik_profile || '').toLowerCase()));
+        const matched = sorted.filter((pkg) => profileSet.has(String(pkg.mikrotik_profile || '').toLowerCase()));
+
+        return dedupePackagesByMikrotikProfile(matched);
     }, [packages, routerFilter, isLoadingRouterProfiles, routerProfileError, profileSet]);
+
+    const duplicatePackageCount = useMemo(() => {
+        if (!routerFilter || isLoadingRouterProfiles) {
+            return 0;
+        }
+
+        const matched = packages.filter((pkg) => profileSet.has(String(pkg.mikrotik_profile || '').toLowerCase()));
+        return Math.max(0, matched.length - filteredPackages.length);
+    }, [packages, routerFilter, isLoadingRouterProfiles, profileSet, filteredPackages.length]);
 
     const selectedRouter = routers.find((r) => String(r.id) === String(routerFilter));
     const modalFormOptions = filterRouterOs?.form_options || null;
@@ -415,6 +431,11 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                 Menampilkan {filteredPackages.length} paket yang ada di router{' '}
                                 <span className={themeTextTitle}>{selectedRouter?.name}</span>
                                 {' '}({routerProfiles.length} profil RouterOS)
+                                {duplicatePackageCount > 0 && (
+                                    <span className="block mt-1 text-amber-500">
+                                        {duplicatePackageCount} paket duplikat disembunyikan — profil MikroTik yang sama terdaftar lebih dari sekali di database. Hapus salah satunya.
+                                    </span>
+                                )}
                             </>
                         )}
                     </div>

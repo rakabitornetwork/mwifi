@@ -164,11 +164,37 @@ class MikrotikPackageFormOptionsService
         return [
             'ppp_profile_names' => array_values(array_unique($pppProfileNames)),
             'hotspot_profile_names' => array_values(array_unique($hotspotProfileNames)),
-            'all_profiles' => array_values(array_unique(array_merge($pppProfileNames, $hotspotProfileNames))),
+            'all_profiles' => self::uniqueProfileNames(array_merge($pppProfileNames, $hotspotProfileNames)),
             'ip_pool_names' => $ipPoolNames,
             'parent_queues' => $parentQueues,
             'queue_types' => $queueTypeNames,
         ];
+    }
+
+    /**
+     * @param  array<int, string>  $names
+     * @return array<int, string>
+     */
+    private static function uniqueProfileNames(array $names): array
+    {
+        $unique = [];
+
+        foreach ($names as $name) {
+            $label = trim((string) $name);
+            if ($label === '') {
+                continue;
+            }
+
+            $key = strtolower($label);
+            if (!array_key_exists($key, $unique)) {
+                $unique[$key] = $label;
+            }
+        }
+
+        $values = array_values($unique);
+        sort($values, SORT_NATURAL | SORT_FLAG_CASE);
+
+        return $values;
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Services\Router;
 
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 
 class MikrotikPackageProfilesCache
@@ -21,28 +22,44 @@ class MikrotikPackageProfilesCache
     }
 
     /**
-     * @return array<string, mixed>|null
+     * @param  callable(): array<string, mixed>  $resolver
+     * @return array<string, mixed>
      */
-    public static function get(int $routerId, string $scope): ?array
+    public static function remember(int $routerId, string $scope, callable $resolver): array
     {
-        $payload = Cache::get(self::key($routerId, $scope));
+        $key = self::key($routerId, $scope);
+        $cached = Cache::get($key);
 
-        return is_array($payload) ? $payload : null;
-    }
+        if (is_array($cached)) {
+            return $cached;
+        }
 
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    public static function put(int $routerId, string $scope, array $payload): array
-    {
-        Cache::put(self::key($routerId, $scope), $payload, self::ttl());
+        $lock = Cache::lock($key . ':lock', 120);
 
-        return $payload;
+        try {
+            return $lock->block(90, function () use ($key, $resolver) {
+                $cached = Cache::get($key);
+                if (is_array($cached)) {
+                    return $cached;
+                }
+
+                $payload = $resolver();
+                Cache::put($key, $payload, self::ttl());
+
+                return $payload;
+            });
+        } catch (LockTimeoutException) {
+            $cached = Cache::get($key);
+
+            return is_array($cached) ? $cached : $resolver();
+        }
     }
 
     public static function forget(int $routerId): void
     {
         Cache::forget(self::key($routerId, self::SCOPE_LIST));
         Cache::forget(self::key($routerId, self::SCOPE_FORM));
+        Cache::forget(self::key($routerId, self::SCOPE_LIST) . ':lock');
+        Cache::forget(self::key($routerId, self::SCOPE_FORM) . ':lock');
     }
 }

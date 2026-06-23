@@ -496,6 +496,17 @@ class AdminActionController extends Controller
         $routerId = (int) $data['router_id'];
         unset($data['id'], $data['router_id']);
 
+        $duplicateProfile = Package::query()
+            ->whereRaw('LOWER(mikrotik_profile) = ?', [strtolower((string) $data['mikrotik_profile'])])
+            ->when($id, fn ($query) => $query->where('id', '!=', $id))
+            ->exists();
+
+        if ($duplicateProfile) {
+            return redirect()->back()
+                ->withErrors(['name' => 'Paket dengan profil MikroTik "' . $data['mikrotik_profile'] . '" sudah terdaftar. Hapus duplikat lama atau gunakan nama profil lain.'])
+                ->withInput();
+        }
+
         $oldPackage = null;
         if ($id) {
             $oldPackage = Package::find($id);
@@ -1594,31 +1605,32 @@ class AdminActionController extends Controller
         $router = Router::findOrFail($validated['router_id']);
         $scope = $validated['scope'] ?? \App\Services\Router\MikrotikPackageProfilesCache::SCOPE_LIST;
 
-        $cached = \App\Services\Router\MikrotikPackageProfilesCache::get($router->id, $scope);
-        if ($cached !== null) {
-            return response()->json($cached);
-        }
-
         try {
-            $connector = \App\Services\Router\RouterService::getConnector($router);
-            $options = \App\Services\Router\MikrotikPackageFormOptionsService::build($connector, $scope);
+            $payload = \App\Services\Router\MikrotikPackageProfilesCache::remember(
+                $router->id,
+                $scope,
+                function () use ($router, $scope) {
+                    $connector = \App\Services\Router\RouterService::getConnector($router);
+                    $options = \App\Services\Router\MikrotikPackageFormOptionsService::build($connector, $scope);
 
-            $payload = [
-                'router_id' => $router->id,
-                'router_name' => $router->name,
-                'scope' => $scope,
-                'ppp_profiles' => $options['ppp_profile_names'],
-                'hotspot_profiles' => $options['hotspot_profile_names'],
-                'all_profiles' => $options['all_profiles'],
-            ];
+                    $payload = [
+                        'router_id' => $router->id,
+                        'router_name' => $router->name,
+                        'scope' => $scope,
+                        'ppp_profiles' => $options['ppp_profile_names'],
+                        'hotspot_profiles' => $options['hotspot_profile_names'],
+                        'all_profiles' => $options['all_profiles'],
+                    ];
 
-            if ($scope === \App\Services\Router\MikrotikPackageProfilesCache::SCOPE_FORM) {
-                $payload['form_options'] = $options;
-            }
+                    if ($scope === \App\Services\Router\MikrotikPackageProfilesCache::SCOPE_FORM) {
+                        $payload['form_options'] = $options;
+                    }
 
-            return response()->json(
-                \App\Services\Router\MikrotikPackageProfilesCache::put($router->id, $scope, $payload)
+                    return $payload;
+                }
             );
+
+            return response()->json($payload);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => $e->getMessage(),

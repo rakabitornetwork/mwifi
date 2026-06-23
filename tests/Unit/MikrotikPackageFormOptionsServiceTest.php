@@ -40,4 +40,20 @@ class MikrotikPackageFormOptionsServiceTest extends TestCase
         $this->assertContains('queue-heavy', $form['parent_queues']);
         $this->assertContains('fq-codel', $form['queue_types']);
     }
+
+    public function test_all_profiles_deduplicates_case_insensitive_names(): void
+    {
+        $connector = $this->createMock(RouterConnectorInterface::class);
+        $connector->method('getProfiles')->willReturn([
+            ['name' => 'Premium 1: RiverFlow'],
+        ]);
+        $connector->method('getHotspotProfiles')->willReturn([
+            ['name' => 'premium 1: riverflow'],
+        ]);
+        $connector->expects($this->never())->method('getSimpleQueues');
+
+        $list = MikrotikPackageFormOptionsService::build($connector, MikrotikPackageFormOptionsService::SCOPE_LIST);
+
+        $this->assertSame(['Premium 1: RiverFlow'], $list['all_profiles']);
+    }
 }
