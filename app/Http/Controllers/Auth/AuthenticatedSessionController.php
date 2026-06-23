@@ -49,6 +49,12 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        if (!$user->customer && $user->role && !$user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => 'Akun staff dinonaktifkan. Hubungi Super Admin.',
+            ]);
+        }
+
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
 

@@ -174,12 +174,12 @@ class DatabaseBackupService
      */
     public function resetApplicationData(User $actingAdmin, ?string $currentSessionId = null): array
     {
-        if ($actingAdmin->customer()->exists()) {
+        if ($actingAdmin->customer()->exists() || !$actingAdmin->isStaff()) {
             throw new \RuntimeException('Hanya administrator yang dapat mereset database.');
         }
 
         $preservedAdminIds = User::query()
-            ->whereDoesntHave('customer')
+            ->whereNotNull('role')
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->all();

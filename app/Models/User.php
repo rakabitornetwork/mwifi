@@ -12,12 +12,63 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'email', 'password', 'profile_title', 'avatar'])]
+#[Fillable(['name', 'email', 'password', 'profile_title', 'avatar', 'role', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
+
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+
+    public const ROLE_ADMIN = 'admin';
+
+    public const ROLE_TECHNICIAN = 'technician';
+
+    public const ROLE_FINANCE = 'finance';
+
+    public const ROLE_OPERATOR = 'operator';
+
+    public const ROLES = [
+        self::ROLE_SUPER_ADMIN => [
+            'label' => 'Super Admin',
+            'description' => 'Akses penuh: user, database, update, dan semua menu operasional.',
+        ],
+        self::ROLE_ADMIN => [
+            'label' => 'Administrator',
+            'description' => 'Kelola operasional harian, pengaturan, dan integrasi (tanpa database/update/user).',
+        ],
+        self::ROLE_TECHNICIAN => [
+            'label' => 'Teknisi Lapangan',
+            'description' => 'Router, peta jaringan, pelanggan PPPoE, paket, dan inventaris.',
+        ],
+        self::ROLE_FINANCE => [
+            'label' => 'Keuangan / Billing',
+            'description' => 'Tagihan, invoice, dan data pelanggan terkait billing.',
+        ],
+        self::ROLE_OPERATOR => [
+            'label' => 'Operator Hotspot',
+            'description' => 'Pelanggan, voucher hotspot, dan tagihan dasar.',
+        ],
+    ];
+
+    /** @var array<string, list<string>> */
+    public const TAB_PERMISSIONS = [
+        self::ROLE_SUPER_ADMIN => ['*'],
+        self::ROLE_ADMIN => [
+            'dashboard', 'routers', 'network-map', 'packages', 'customers', 'hotspot',
+            'invoices', 'inventory', 'messaging', 'settings', 'profile',
+        ],
+        self::ROLE_TECHNICIAN => [
+            'dashboard', 'routers', 'network-map', 'packages', 'customers', 'inventory', 'profile',
+        ],
+        self::ROLE_FINANCE => [
+            'dashboard', 'customers', 'invoices', 'profile',
+        ],
+        self::ROLE_OPERATOR => [
+            'dashboard', 'customers', 'hotspot', 'invoices', 'profile',
+        ],
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -29,6 +80,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -62,5 +114,90 @@ class User extends Authenticatable
     public function customer(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(Customer::class);
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->role !== null && !$this->customer()->exists();
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
+    public function canManageUsers(): bool
+    {
+        return $this->isSuperAdmin();
+    }
+
+    public function roleLabel(): string
+    {
+        return self::ROLES[$this->role]['label'] ?? ucfirst(str_replace('_', ' ', (string) $this->role));
+    }
+
+    public function roleDescription(): string
+    {
+        return self::ROLES[$this->role]['description'] ?? '';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function allowedTabs(): array
+    {
+        $role = $this->role;
+        $permissions = self::TAB_PERMISSIONS[$role] ?? [];
+
+        if (in_array('*', $permissions, true)) {
+            return [
+                'dashboard', 'routers', 'network-map', 'packages', 'customers', 'hotspot',
+                'invoices', 'inventory', 'messaging', 'settings', 'database', 'update',
+                'users', 'profile',
+            ];
+        }
+
+        return array_values(array_unique([...$permissions, 'profile']));
+    }
+
+    public function canAccessTab(string $tab): bool
+    {
+        if ($tab === 'profile') {
+            return $this->isStaff();
+        }
+
+        return in_array($tab, $this->allowedTabs(), true);
+    }
+
+    /**
+     * @return array<string, array{label: string, description: string, tabs: list<string>}>
+     */
+    public static function roleCatalog(): array
+    {
+        return collect(self::ROLES)
+            ->map(function (array $meta, string $key) {
+                $tabs = self::TAB_PERMISSIONS[$key] ?? [];
+                if (in_array('*', $tabs, true)) {
+                    $tabs = (new self(['role' => $key]))->allowedTabs();
+                }
+
+                return [
+                    'label' => $meta['label'],
+                    'description' => $meta['description'],
+                    'tabs' => array_values(array_filter($tabs, fn ($tab) => $tab !== 'profile')),
+                ];
+            })
+            ->all();
+    }
+
+    public static function assignableRoles(?User $actor = null): array
+    {
+        $roles = self::ROLES;
+
+        if ($actor && !$actor->isSuperAdmin()) {
+            unset($roles[self::ROLE_SUPER_ADMIN]);
+        }
+
+        return $roles;
     }
 }

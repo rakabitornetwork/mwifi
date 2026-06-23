@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\HandleInertiaRequests::class,
         ]);
 
+        $middleware->alias([
+            'staff' => \App\Http\Middleware\EnsureStaffActive::class,
+            'admin.tab' => \App\Http\Middleware\EnsureAdminTabAccess::class,
+        ]);
+
         $middleware->validateCsrfTokens(except: [
             'api/payment/callback',
         ]);

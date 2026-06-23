@@ -21,6 +21,9 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Super Admin',
                 'password' => \Illuminate\Support\Facades\Hash::make('gantengmax'),
+                'role' => \App\Models\User::ROLE_SUPER_ADMIN,
+                'is_active' => true,
+                'profile_title' => 'Super Admin',
             ]
         );
 

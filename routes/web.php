@@ -51,6 +51,17 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+
+    Route::get('profile/avatar', [\App\Http\Controllers\ProfileAvatarController::class, 'show'])
+        ->name('profile.avatar');
+
+    Route::get('customer/dashboard', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'index']);
+    Route::get('customer/invoice/{invoice}/print', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'printInvoice']);
+    Route::post('customer/invoice/{invoice}/pay', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'payInvoice']);
+});
+
+Route::middleware(['auth', 'staff', 'admin.tab'])->group(function () {
     Route::get('dashboard', [AdminPageController::class, 'dashboard'])->name('dashboard');
     Route::get('routers', [AdminPageController::class, 'routers']);
     Route::get('customers', [AdminPageController::class, 'customers']);
@@ -64,11 +75,7 @@ Route::middleware('auth')->group(function () {
     Route::get('profile', [AdminPageController::class, 'profile']);
     Route::get('network-map', [AdminPageController::class, 'networkMap']);
     Route::get('inventory', [AdminPageController::class, 'inventory']);
-
-    Route::get('profile/avatar', [\App\Http\Controllers\ProfileAvatarController::class, 'show'])
-        ->name('profile.avatar');
-
-    Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+    Route::get('users', [AdminPageController::class, 'users']);
 
     // GenieACS (TR-069) Routes
     Route::get('admin/gpon/status', [\App\Http\Controllers\Admin\GenieAcsController::class, 'status']);
@@ -96,6 +103,9 @@ Route::middleware('auth')->group(function () {
     Route::post('admin/inventory/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveInventoryItem']);
     Route::post('admin/inventory/adjust', [\App\Http\Controllers\Admin\AdminActionController::class, 'adjustInventoryStock']);
     Route::post('admin/inventory/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteInventoryItem']);
+    Route::post('admin/users/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveStaffUser']);
+    Route::post('admin/users/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteStaffUser']);
+    Route::post('admin/users/toggle-active', [\App\Http\Controllers\Admin\AdminActionController::class, 'toggleStaffUserActive']);
 
     Route::post('admin/invoices/pay-manual', [\App\Http\Controllers\Admin\AdminActionController::class, 'payInvoiceManual']);
     Route::post('admin/invoices/pay-manual-bulk', [\App\Http\Controllers\Admin\AdminActionController::class, 'payInvoicesManualBulk']);
@@ -142,11 +152,6 @@ Route::middleware('auth')->group(function () {
     Route::get('admin/hotspot/get-servers', [\App\Http\Controllers\Admin\AdminActionController::class, 'getRouterHotspotServers']);
     Route::get('admin/hotspot/voucher-mac-addresses', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncHotspotMacAddresses']);
     Route::get('admin/hotspot/print-vouchers', [\App\Http\Controllers\Admin\AdminActionController::class, 'printVouchers']);
-
-    // Customer Portal Routes
-    Route::get('customer/dashboard', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'index']);
-    Route::get('customer/invoice/{invoice}/print', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'printInvoice']);
-    Route::post('customer/invoice/{invoice}/pay', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'payInvoice']);
 });
 
 // Webhook Callback Payment Gateway

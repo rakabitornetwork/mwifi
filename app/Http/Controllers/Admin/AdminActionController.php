@@ -157,6 +157,146 @@ class AdminActionController extends Controller
         return redirect()->back()->with('success', "Stok {$actionLabel} untuk \"{$item->name}\" berhasil dicatat.");
     }
 
+    public function saveStaffUser(Request $request)
+    {
+        $actor = $request->user();
+        abort_unless($actor?->canManageUsers(), 403);
+
+        $id = $request->input('id');
+        $assignableRoleKeys = array_keys(User::assignableRoles($actor));
+
+        $rules = [
+            'id' => 'nullable|exists:users,id',
+            'name' => 'required|string|max:150',
+            'email' => 'required|email|max:150|unique:users,email' . ($id ? ",{$id}" : ''),
+            'role' => 'required|in:' . implode(',', $assignableRoleKeys),
+            'profile_title' => 'nullable|string|max:100',
+            'is_active' => 'nullable|boolean',
+        ];
+
+        if ($id) {
+            $rules['password'] = 'nullable|string|min:6|max:100';
+        } else {
+            $rules['password'] = 'required|string|min:6|max:100';
+        }
+
+        $data = $request->validate($rules);
+        unset($data['id']);
+
+        $payload = [
+            'name' => $data['name'],
+            'email' => $data['email'],
+            'role' => $data['role'],
+            'profile_title' => $data['profile_title'] ?? null,
+            'is_active' => $request->boolean('is_active', true),
+        ];
+
+        if (!empty($data['password'])) {
+            $payload['password'] = $data['password'];
+        }
+
+        if ($id) {
+            $user = User::query()
+                ->whereNotNull('role')
+                ->whereDoesntHave('customer')
+                ->findOrFail($id);
+
+            if ($user->id === $actor->id && !$payload['is_active']) {
+                return redirect()->back()->with('error', 'Anda tidak dapat menonaktifkan akun sendiri.');
+            }
+
+            if ($user->isSuperAdmin() && $payload['role'] !== User::ROLE_SUPER_ADMIN) {
+                $otherSuperAdmins = User::query()
+                    ->where('role', User::ROLE_SUPER_ADMIN)
+                    ->where('id', '!=', $user->id)
+                    ->where('is_active', true)
+                    ->count();
+
+                if ($otherSuperAdmins === 0) {
+                    return redirect()->back()->with('error', 'Harus ada minimal satu Super Admin aktif.');
+                }
+            }
+
+            $user->update($payload);
+            $message = 'User staff berhasil diperbarui.';
+        } else {
+            User::create($payload);
+            $message = 'User staff berhasil ditambahkan.';
+        }
+
+        return redirect()->back()->with('success', $message);
+    }
+
+    public function deleteStaffUser(Request $request)
+    {
+        $actor = $request->user();
+        abort_unless($actor?->canManageUsers(), 403);
+
+        $request->validate([
+            'id' => 'required|exists:users,id',
+        ]);
+
+        $user = User::query()
+            ->whereNotNull('role')
+            ->whereDoesntHave('customer')
+            ->findOrFail($request->input('id'));
+
+        if ($user->id === $actor->id) {
+            return redirect()->back()->with('error', 'Anda tidak dapat menghapus akun sendiri.');
+        }
+
+        if ($user->isSuperAdmin()) {
+            $activeSuperAdmins = User::query()
+                ->where('role', User::ROLE_SUPER_ADMIN)
+                ->where('is_active', true)
+                ->count();
+
+            if ($activeSuperAdmins <= 1) {
+                return redirect()->back()->with('error', 'Tidak dapat menghapus Super Admin terakhir yang aktif.');
+            }
+        }
+
+        $name = $user->name;
+        $user->delete();
+
+        return redirect()->back()->with('success', "User \"{$name}\" berhasil dihapus.");
+    }
+
+    public function toggleStaffUserActive(Request $request)
+    {
+        $actor = $request->user();
+        abort_unless($actor?->canManageUsers(), 403);
+
+        $request->validate([
+            'id' => 'required|exists:users,id',
+        ]);
+
+        $user = User::query()
+            ->whereNotNull('role')
+            ->whereDoesntHave('customer')
+            ->findOrFail($request->input('id'));
+
+        if ($user->id === $actor->id) {
+            return redirect()->back()->with('error', 'Anda tidak dapat menonaktifkan akun sendiri.');
+        }
+
+        if ($user->is_active && $user->isSuperAdmin()) {
+            $activeSuperAdmins = User::query()
+                ->where('role', User::ROLE_SUPER_ADMIN)
+                ->where('is_active', true)
+                ->count();
+
+            if ($activeSuperAdmins <= 1) {
+                return redirect()->back()->with('error', 'Tidak dapat menonaktifkan Super Admin terakhir yang aktif.');
+            }
+        }
+
+        $user->update(['is_active' => !$user->is_active]);
+        $statusLabel = $user->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
+        return redirect()->back()->with('success', "User \"{$user->name}\" berhasil {$statusLabel}.");
+    }
+
     /**
      * Create or update a Customer profile, linking their User account.
      */

@@ -10,6 +10,7 @@ import {
     Map,
     MessageSquare,
     Radio,
+    ShieldCheck,
     Settings,
     Users,
     Wifi,
@@ -30,6 +31,7 @@ export const adminNavItems = [
     { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
     { tab: 'inventory', icon: Boxes, label: 'Manajemen Inventaris' },
     // Administrasi sistem
+    { tab: 'users', icon: ShieldCheck, label: 'Manajemen User' },
     { tab: 'messaging', icon: MessageSquare, label: 'WhatsApp & Telegram' },
     { tab: 'settings', icon: Settings, label: 'Pengaturan' },
     { tab: 'database', icon: Database, label: 'Database' },
@@ -103,7 +105,9 @@ export default function AdminSidebar({
                 </div>
 
                 <nav className="p-2.5 space-y-0.5">
-                    {adminNavItems.map(({ tab, icon: Icon, label }) => (
+                    {adminNavItems
+                        .filter(({ tab }) => (auth?.user?.allowed_tabs || []).includes(tab))
+                        .map(({ tab, icon: Icon, label }) => (
                         <Link
                             key={tab}
                             href={`/${tab}`}

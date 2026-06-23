@@ -14,6 +14,7 @@ use App\Models\Odp;
 use App\Models\Package;
 use App\Models\Router;
 use App\Models\Setting;
+use App\Models\User;
 use App\Services\AppUpdateService;
 use App\Services\BillingService;
 use App\Services\DatabaseBackupService;
@@ -151,6 +152,40 @@ class AdminPageController extends Controller
             'watchCategories' => InventoryItem::watchCategorySummaries(),
             'recentMovements' => InventoryService::recentMovements(),
             'customers' => Customer::query()->orderBy('name')->get(['id', 'name', 'username']),
+        ]);
+    }
+
+    public function users(): Response
+    {
+        $actor = auth()->user();
+        abort_unless($actor?->canManageUsers(), 403);
+
+        return Inertia::render('Admin/Users/Index', [
+            'staffUsers' => User::query()
+                ->whereNotNull('role')
+                ->whereDoesntHave('customer')
+                ->orderBy('name')
+                ->get()
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'role_label' => $user->roleLabel(),
+                    'role_description' => $user->roleDescription(),
+                    'profile_title' => $user->profile_title,
+                    'is_active' => (bool) $user->is_active,
+                    'initials' => $user->initials(),
+                    'avatar_url' => $user->avatarUrl(),
+                    'created_at' => $user->created_at?->format('d/m/Y H:i'),
+                    'updated_at' => $user->updated_at?->format('d/m/Y H:i'),
+                ]),
+            'roles' => User::roleCatalog(),
+            'assignableRoles' => collect(User::assignableRoles($actor))
+                ->map(fn (array $meta, string $key) => ['value' => $key, 'label' => $meta['label'], 'description' => $meta['description']])
+                ->values()
+                ->all(),
+            'currentUserId' => $actor->id,
         ]);
     }
 
