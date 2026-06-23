@@ -129,4 +129,44 @@ class BillingProrataTest extends TestCase
 
         $this->assertSame('2026-01-06', $resolved->format('Y-m-d'));
     }
+
+    public function test_prorata_uses_next_month_due_when_billing_date_already_passed(): void
+    {
+        $customer = $this->makeCustomer('2026-06-23', 20);
+
+        $billing = BillingService::calculateInvoiceAmount($customer, '2026-07', 120000);
+
+        $this->assertNotNull($billing);
+        $this->assertTrue($billing['is_prorated']);
+        $this->assertSame(28, $billing['days_billed']);
+        $this->assertSame(112000.0, $billing['amount']);
+    }
+
+    public function test_resolve_next_due_date_uses_following_month_when_day_passed(): void
+    {
+        $customer = $this->makeCustomer('2026-06-23', 20);
+        $fromDate = Carbon::createFromFormat('Y-m-d', '2026-06-23');
+
+        $dueDate = BillingService::resolveNextDueDateFrom($customer, $fromDate);
+
+        $this->assertSame('2026-07-20', $dueDate->format('Y-m-d'));
+    }
+
+    public function test_registration_preview_after_billing_date_targets_next_due(): void
+    {
+        Carbon::setTestNow(Carbon::createFromFormat('Y-m-d', '2026-06-23'));
+
+        $customer = $this->makeCustomer('2026-06-23', 20);
+        $preview = BillingService::previewRegistrationBilling($customer, 120000);
+
+        $this->assertNotNull($preview);
+        $this->assertSame('2026-07', $preview['period']);
+        $this->assertSame('20-07-2026', $preview['due_date']);
+        $this->assertTrue($preview['is_prorated']);
+        $this->assertSame(28, $preview['days_billed']);
+        $this->assertStringContainsString('Juli 2026', $preview['period_label']);
+        $this->assertStringContainsString('23 Juni 2026 s/d 20-07-2026', $preview['billing_info']);
+
+        Carbon::setTestNow();
+    }
 }

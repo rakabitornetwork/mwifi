@@ -96,6 +96,23 @@ class BillingService
     }
 
     /**
+     * Jatuh tempo berikutnya pada atau setelah tanggal acuan (memperhitungkan bulan & tahun).
+     */
+    public static function resolveNextDueDateFrom(Customer $customer, Carbon $fromDate): Carbon
+    {
+        $fromDate = $fromDate->copy()->startOfDay();
+        $candidate = self::resolveDueDateForPeriod($customer, $fromDate->format('Y-m'));
+
+        if ($candidate->lt($fromDate)) {
+            $nextMonth = $fromDate->copy()->addMonth()->startOfMonth();
+
+            return self::resolveDueDateForPeriod($customer, $nextMonth->format('Y-m'));
+        }
+
+        return $candidate;
+    }
+
+    /**
      * Determine if an invoice should be generated today for a customer.
      *
      * @return array{period: string, due_date: Carbon}|null
@@ -345,7 +362,8 @@ class BillingService
     /**
      * Calculate invoice subtotal for a customer and billing period.
      *
-     * Prorata (bulan pertama): hari ditagih = tgl mulai layanan s/d tgl jatuh tempo (billing_date) periode tersebut.
+     * Prorata (bulan pertama): hari ditagih = tgl mulai layanan s/d tgl jatuh tempo periode berjalan.
+     * Jika tgl jatuh tempo di bulan mulai layanan sudah lewat, dipakai jatuh tempo bulan berikutnya.
      *
      * @return array{amount: float, days_billed: int, is_prorated: bool}|null Null when customer is not billable in period.
      */
@@ -359,7 +377,28 @@ class BillingService
             return null;
         }
 
-        if (!self::isProrataEnabled() || $serviceStart->lte($periodStart)) {
+        if (!self::isProrataEnabled()) {
+            return [
+                'amount' => round($monthlyPrice, 2),
+                'days_billed' => self::PRORATA_BASE_DAYS,
+                'is_prorated' => false,
+            ];
+        }
+
+        $activeStart = $serviceStart->greaterThan($periodStart) ? $serviceStart : $periodStart;
+        $isCrossMonthFirstCycle = false;
+
+        if ($serviceStart->lt($periodStart)) {
+            $previousPeriod = Carbon::createFromFormat('Y-m', $period)->subMonth()->format('Y-m');
+            $previousDue = self::resolveDueDateForPeriod($customer, $previousPeriod);
+
+            if ($serviceStart->gt($previousDue)) {
+                $activeStart = $serviceStart;
+                $isCrossMonthFirstCycle = true;
+            }
+        }
+
+        if ($serviceStart->lte($periodStart) && !$isCrossMonthFirstCycle) {
             return [
                 'amount' => round($monthlyPrice, 2),
                 'days_billed' => self::PRORATA_BASE_DAYS,
@@ -368,10 +407,12 @@ class BillingService
         }
 
         $dueDate = self::resolveDueDateForPeriod($customer, $period);
-        $activeStart = $serviceStart->greaterThan($periodStart) ? $serviceStart : $periodStart;
-        $activeEnd = $dueDate->greaterThanOrEqualTo($activeStart) ? $dueDate : $periodEnd;
+        if ($dueDate->lt($activeStart)) {
+            $nextPeriod = Carbon::createFromFormat('Y-m', $period)->addMonth()->format('Y-m');
+            $dueDate = self::resolveDueDateForPeriod($customer, $nextPeriod);
+        }
 
-        $daysActive = $activeStart->diffInDays($activeEnd) + 1;
+        $daysActive = $activeStart->diffInDays($dueDate) + 1;
         $daysActive = (int) min(max($daysActive, 1), self::PRORATA_BASE_DAYS);
 
         $amount = round(($monthlyPrice / self::PRORATA_BASE_DAYS) * $daysActive, 2);
@@ -1837,14 +1878,9 @@ class BillingService
             return null;
         }
 
-        $schedule = self::resolveInvoiceSchedule($customer);
-        if ($schedule !== null) {
-            $period = $schedule['period'];
-            $dueDate = $schedule['due_date'];
-        } else {
-            $period = Carbon::now()->format('Y-m');
-            $dueDate = self::resolveDueDateForPeriod($customer, $period);
-        }
+        $serviceStart = self::resolveServiceStartDate($customer);
+        $dueDate = self::resolveNextDueDateFrom($customer, $serviceStart);
+        $period = $dueDate->format('Y-m');
 
         $billing = self::calculateInvoiceAmount($customer, $period, $monthlyPrice);
         if ($billing === null) {
@@ -1857,23 +1893,26 @@ class BillingService
         $periodLabel = Carbon::createFromFormat('Y-m', $period)
             ->locale('id')
             ->translatedFormat('F Y');
+        $prorataFromLabel = $serviceStart->locale('id')->translatedFormat('d F Y');
+        $dueDateLabel = $dueDate->format('d-m-Y');
 
         $prorataLine = self::buildProrataLine($billing['is_prorated'], (int) $billing['days_billed']);
         $billingInfo = self::buildRegistrationBillingInfoBlock(
             $periodLabel,
-            $dueDate->format('d-m-Y'),
+            $dueDateLabel,
             $monthlyPrice,
             $billing['amount'],
             $total,
             $billing['is_prorated'],
             (int) $billing['days_billed'],
-            $tax > 0
+            $tax > 0,
+            $billing['is_prorated'] ? $prorataFromLabel : null
         );
 
         return [
             'period' => $period,
             'period_label' => $periodLabel,
-            'due_date' => $dueDate->format('d-m-Y'),
+            'due_date' => $dueDateLabel,
             'monthly_price' => self::formatWhatsAppMoney($monthlyPrice),
             'estimated_subtotal' => self::formatWhatsAppMoney($billing['amount']),
             'estimated_total' => self::formatWhatsAppMoney($total),
@@ -1892,7 +1931,8 @@ class BillingService
         float $total,
         bool $isProrated,
         int $daysBilled,
-        bool $hasTax
+        bool $hasTax,
+        ?string $prorataFromDate = null
     ): string {
         $lines = [
             '*Estimasi Tagihan Pertama*',
@@ -1901,7 +1941,10 @@ class BillingService
         ];
 
         if ($isProrated) {
-            $lines[] = '• Prorata     : *' . $daysBilled . ' hari* / ' . self::PRORATA_BASE_DAYS . ' hari (mulai layanan s/d jatuh tempo)';
+            $rangeLabel = $prorataFromDate !== null
+                ? " ({$prorataFromDate} s/d {$dueDate})"
+                : ' (mulai layanan s/d jatuh tempo)';
+            $lines[] = '• Prorata     : *' . $daysBilled . ' hari* / ' . self::PRORATA_BASE_DAYS . ' hari' . $rangeLabel;
             $lines[] = '• Subtotal    : *' . self::formatWhatsAppMoney($subtotal) . '*';
         } else {
             $lines[] = '• Tagihan     : *' . self::formatWhatsAppMoney($subtotal) . '*';
