@@ -4,6 +4,7 @@ import { Edit, Map, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
+import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
@@ -15,7 +16,7 @@ const isPppoeCustomer = (cust) => cust?.service_type !== 'hotspot';
 function NetworkMapPageContent({ odps = [], customers = [] }) {
     const theme = useAdminTheme();
     const { showToast } = useAdminToast();
-    const { isDarkMode, themeCard, themeTextTitle, themeTextSub } = theme;
+    const { isDarkMode, themeCard, themeTextTitle, themeTextSub, themeTextDesc } = theme;
 
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeInput = isDarkMode
@@ -426,15 +427,16 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
     return (
         <>
-            <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3 gap-3`}>
-                    <div className="flex items-center space-x-2">
-                        <Map className="w-5 h-5 text-emerald-500" />
-                        <h2 className={`text-sm font-bold ${themeTextTitle}`}>Peta Jaringan Pelanggan & ODP</h2>
-                    </div>
-                    <span className="text-[10px] text-zinc-500 font-bold">Teknologi Optical Distribution Point (ODP)</span>
-                </div>
-
+            <AdminPageCard
+                icon={Map}
+                accent="sky"
+                title="Peta Jaringan Pelanggan & ODP"
+                description="Teknologi Optical Distribution Point (ODP)"
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextDesc={themeTextDesc}
+            >
                 <div className="flex flex-col lg:flex-row gap-5">
                     <div className="w-full lg:w-80 xl:w-96 flex flex-col space-y-3 flex-shrink-0">
                         <div className="flex justify-between items-center">
@@ -537,7 +539,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                         </div>
                     </div>
                 </div>
-            </div>
+            </AdminPageCard>
 
             <TransitionModal show={showOdpModal} onClose={closeOdpModal} themeCard={themeCard} maxWidth="md">
                 <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>

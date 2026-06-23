@@ -1,6 +1,7 @@
 import { router, usePage } from '@inertiajs/react';
 import { Image as ImageIcon, Mail, Save, User } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
+import { PremiumPanel, PremiumPanelHeader } from '../../../Components/Admin/AdminPageCard';
 import BrandingFileUpload from '../../../Components/Admin/BrandingFileUpload';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
@@ -36,20 +37,29 @@ function ProfilePageContent() {
     };
 
     return (
-        <form
-            key={`profile-${auth.user.updated_at || auth.user.id}`}
-            onSubmit={handleSaveProfile}
-            encType="multipart/form-data"
-            className={`${theme.themeCard} border rounded-2xl p-5 space-y-5 max-w-4xl`}
+        <PremiumPanel
+            accent="indigo"
+            themeCard={theme.themeCard}
+            isDarkMode={theme.isDarkMode}
+            className="max-w-4xl"
+            bodyClassName="p-5 space-y-5"
         >
-            <div className={`flex items-center gap-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
-                <User className="w-5 h-5 text-indigo-500" />
-                <div>
-                    <h3 className={`text-sm font-bold ${theme.themeTextTitle}`}>Profil Administrator</h3>
-                    <p className={`text-[10px] ${theme.themeTextSub} mt-0.5`}>Kelola nama, email, jabatan, kata sandi, dan foto profil Anda.</p>
-                </div>
-            </div>
+            <PremiumPanelHeader
+                icon={User}
+                accent="indigo"
+                isDarkMode={theme.isDarkMode}
+                themeTextTitle={theme.themeTextTitle}
+                themeTextDesc={theme.themeTextSub}
+                title="Profil Administrator"
+                subtitle="Kelola nama, email, jabatan, kata sandi, dan foto profil Anda."
+            />
 
+            <form
+                key={`profile-${auth.user.updated_at || auth.user.id}`}
+                onSubmit={handleSaveProfile}
+                encType="multipart/form-data"
+                className="space-y-5"
+            >
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-xs">
                 <div className={`border rounded-xl p-4 space-y-3 ${theme.isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
                     <div className="flex items-center gap-2">
@@ -122,7 +132,8 @@ function ProfilePageContent() {
                     <Save className="w-4 h-4" />
                 </button>
             </div>
-        </form>
+            </form>
+        </PremiumPanel>
     );
 }
 

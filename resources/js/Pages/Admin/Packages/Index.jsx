@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
 import { Edit, Layers, Plus, RefreshCw, Save, Trash2, X } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
+import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 import { useAdminToast } from '../../../hooks/useAdminToast';
@@ -473,13 +474,16 @@ function PackagesPageContent({ packages = [], routers = [] }) {
 
     return (
         <>
-            <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3 gap-3`}>
-                    <div className="flex items-center gap-2 min-w-0">
-                        <Layers className="w-5 h-5 text-emerald-500 shrink-0" />
-                        <h2 className={`text-sm font-bold truncate ${themeTextTitle}`}>Paket Layanan Internet</h2>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
+            <AdminPageCard
+                icon={Layers}
+                accent="indigo"
+                title="Paket Layanan Internet"
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextDesc={themeTextDesc}
+                actions={(
+                    <>
                         <select
                             value={routerFilter}
                             onChange={(e) => setRouterFilter(e.target.value)}
@@ -510,9 +514,9 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                         >
                             <Plus className="w-4 h-4" />
                         </button>
-                    </div>
-                </div>
-
+                    </>
+                )}
+            >
                 {routerFilter && (
                     <div className={`text-[10px] font-semibold ${routerProfileError ? 'text-amber-500' : themeTextSub}`}>
                         {isLoadingRouterProfiles && (
@@ -647,7 +651,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </AdminPageCard>
 
             <TransitionModal show={showPackageModal} onClose={() => setShowPackageModal(false)} themeCard={themeCard} maxWidth="md">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>

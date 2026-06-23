@@ -16,6 +16,7 @@ import {
     ArrowUpRight,
 } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
+import { PremiumPanel, PremiumPanelHeader } from '../../../Components/Admin/AdminPageCard';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { formatRupiah } from '../../../utils/formatRupiah';
 import { bpsToMbps, formatSpeedBps } from '../../../utils/formatSpeedBps';
@@ -413,18 +414,20 @@ function DashboardContent({
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-4">
-                    <div className={`${themeCard} border rounded-2xl p-4 shadow-xs space-y-4`}>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-zinc-200/50 dark:border-zinc-800/40">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <Cpu className="w-4 h-4 text-emerald-500 animate-pulse shrink-0" />
-                                <h3 className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate ${themeTextTitle}`}>NOC Monitor Kinerja Server & ODP</h3>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                                <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider whitespace-nowrap">Live Monitoring</span>
-                            </div>
-                        </div>
-
+                    <PremiumPanel accent="emerald" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-4">
+                        <PremiumPanelHeader
+                            icon={Cpu}
+                            accent="emerald"
+                            isDarkMode={isDarkMode}
+                            themeTextTitle={themeTextTitle}
+                            title="NOC Monitor Kinerja Server & ODP"
+                            trailing={(
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider whitespace-nowrap">Live Monitoring</span>
+                                </div>
+                            )}
+                        />
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="md:col-span-2 space-y-1.5">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[10px] text-zinc-500 font-bold">
@@ -589,29 +592,32 @@ function DashboardContent({
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </PremiumPanel>
                 </div>
 
                 <div className="space-y-4">
-                    <div className={`${themeCard} rounded-2xl p-4 shadow-sm space-y-3 transition-colors duration-250`}>
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center space-x-2">
-                                <Layers className="w-4 h-4 text-emerald-500" />
-                                <h3 className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>GenieACS: Monitor Redaman ONT</h3>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <button
-                                    type="button"
-                                    onClick={fetchOntDevices}
-                                    disabled={isLoadingOnt}
-                                    title="Refresh daftar ONT"
-                                    className={`p-1 rounded-lg transition-colors cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'hover:bg-zinc-900 text-zinc-400 hover:text-white' : 'hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900'} ${isLoadingOnt ? 'animate-spin' : ''}`}
-                                >
-                                    <RefreshCw className="w-3 h-3" />
-                                </button>
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            </div>
-                        </div>
+                    <PremiumPanel accent="indigo" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3">
+                        <PremiumPanelHeader
+                            icon={Layers}
+                            accent="indigo"
+                            isDarkMode={isDarkMode}
+                            themeTextTitle={themeTextTitle}
+                            title="GenieACS: Monitor Redaman ONT"
+                            trailing={(
+                                <div className="flex items-center space-x-2">
+                                    <button
+                                        type="button"
+                                        onClick={fetchOntDevices}
+                                        disabled={isLoadingOnt}
+                                        title="Refresh daftar ONT"
+                                        className={`p-1 rounded-lg transition-colors cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'hover:bg-zinc-900 text-zinc-400 hover:text-white' : 'hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900'} ${isLoadingOnt ? 'animate-spin' : ''}`}
+                                    >
+                                        <RefreshCw className="w-3 h-3" />
+                                    </button>
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                </div>
+                            )}
+                        />
 
                         <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
                             {isLoadingOnt ? (
@@ -656,16 +662,18 @@ function DashboardContent({
                                 })
                             )}
                         </div>
-                    </div>
+                    </PremiumPanel>
 
-                    <div className={`${themeCard} rounded-2xl p-4 shadow-sm space-y-3 transition-colors duration-250`}>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <MessageSquare className="w-4 h-4 text-emerald-500 shrink-0" />
-                                <h3 className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Log Generate Tagihan Otomatis</h3>
-                            </div>
-                            <span className={`text-xs ${themeTextSub} font-medium shrink-0`}>Auto Refresh</span>
-                        </div>
+                    <PremiumPanel accent="amber" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3">
+                        <PremiumPanelHeader
+                            icon={MessageSquare}
+                            accent="amber"
+                            isDarkMode={isDarkMode}
+                            themeTextTitle={themeTextTitle}
+                            themeTextDesc={themeTextDesc}
+                            title="Log Generate Tagihan Otomatis"
+                            trailing={<span className={`text-xs ${themeTextSub} font-medium shrink-0`}>Auto Refresh</span>}
+                        />
 
                         <div className="space-y-2 max-h-[195px] overflow-y-auto pr-1">
                             {waLogs.length === 0 ? (
@@ -689,7 +697,7 @@ function DashboardContent({
                                 ))
                             )}
                         </div>
-                    </div>
+                    </PremiumPanel>
 
                     <div className={`p-3 border rounded-2xl flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-[13px] font-bold transition-colors duration-250 ${themeInnerWidget}`}>
                         <div className="flex items-center gap-2 min-w-0">

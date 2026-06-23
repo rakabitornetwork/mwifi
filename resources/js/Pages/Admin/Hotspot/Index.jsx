@@ -25,6 +25,7 @@ import {
     Tooltip,
 } from 'recharts';
 import AdminLayout from '../../../Layouts/AdminLayout';
+import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useAdminToast } from '../../../hooks/useAdminToast';
@@ -379,12 +380,15 @@ function HotspotPageContent({
 
     return (
         <>
-            <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                <div className={`flex flex-col gap-3 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3`}>
-                    <div className="flex items-center gap-2 min-w-0">
-                        <Radio className="w-5 h-5 text-emerald-500 shrink-0" />
-                        <h2 className={`text-sm font-bold truncate ${themeTextTitle}`}>Manajemen Hotspot & Voucher</h2>
-                    </div>
+            <AdminPageCard
+                icon={Radio}
+                accent="violet"
+                title="Manajemen Hotspot & Voucher"
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextDesc={themeTextDesc}
+                headerBottom={(
                     <div className="flex flex-wrap gap-2 w-full">
                         <button
                             type="button"
@@ -408,8 +412,8 @@ function HotspotPageContent({
                             Laporan Penjualan
                         </button>
                     </div>
-                </div>
-
+                )}
+            >
                 {(hotspotSubTab === 'vouchers' || hotspotSubTab === 'members') && (
                     <div className="relative">
                         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
@@ -925,7 +929,7 @@ function HotspotPageContent({
                         )}
                     </div>
                 )}
-            </div>
+            </AdminPageCard>
 
             <TransitionModal show={showMemberModal} onClose={closeMemberModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>

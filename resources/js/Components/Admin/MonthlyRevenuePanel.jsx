@@ -1,5 +1,6 @@
 import { lazy, Suspense, useMemo } from 'react';
 import { TrendingUp } from 'lucide-react';
+import { PremiumPanel, PremiumPanelHeader } from './AdminPageCard';
 import { formatRupiah } from '../../utils/formatRupiah';
 
 const chartModule = () => import('./DashboardCharts');
@@ -70,14 +71,17 @@ export default function MonthlyRevenuePanel({
     ]);
 
     return (
-        <div className={`${themeCard} border rounded-2xl p-4 shadow-xs space-y-4`}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-zinc-200/50 dark:border-zinc-800/40">
-                <div className="flex items-center space-x-2">
-                    <TrendingUp className="w-4 h-4 text-emerald-500" />
-                    <h3 className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Pendapatan Bulanan</h3>
-                </div>
-                <span className={`text-[10px] ${themeTextDesc}`}>Berdasarkan invoice lunas (tanggal bayar)</span>
-            </div>
+        <PremiumPanel accent="emerald" themeCard={themeCard} isDarkMode={isDarkMode}>
+            <PremiumPanelHeader
+                icon={TrendingUp}
+                accent="emerald"
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                title="Pendapatan Bulanan"
+                trailing={(
+                    <span className={`text-[10px] ${themeTextDesc} shrink-0`}>Berdasarkan invoice lunas (tanggal bayar)</span>
+                )}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {revenueCards.map((card) => (
@@ -114,6 +118,6 @@ export default function MonthlyRevenuePanel({
                     )}
                 </div>
             </div>
-        </div>
+        </PremiumPanel>
     );
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
 import { Activity, CalendarClock, CreditCard, FileText, MessageSquare, PauseCircle, Printer, RefreshCw, RotateCcw, Search, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
+import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import MonthlyRevenuePanel from '../../../Components/Admin/MonthlyRevenuePanel';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
@@ -418,13 +419,16 @@ function InvoicesPageContent({
                     themeTextDesc={theme.themeTextDesc}
                 />
 
-            <div className={`${theme.themeCard} border rounded-2xl p-5 space-y-4`}>
-                <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3 gap-3`}>
-                    <div className="flex items-center space-x-2">
-                        <CreditCard className="w-5 h-5 text-emerald-500" />
-                        <h2 className={`text-sm font-bold ${theme.themeTextTitle}`}>Log Tagihan / Invoice</h2>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <AdminPageCard
+                icon={CreditCard}
+                accent="amber"
+                title="Log Tagihan / Invoice"
+                themeCard={theme.themeCard}
+                isDarkMode={theme.isDarkMode}
+                themeTextTitle={theme.themeTextTitle}
+                themeTextDesc={theme.themeTextDesc}
+                actions={(
+                    <>
                         <button
                             type="button"
                             onClick={handleBulkPayManual}
@@ -448,9 +452,9 @@ function InvoicesPageContent({
                         >
                             <RefreshCw className="w-4 h-4" />
                         </button>
-                    </div>
-                </div>
-
+                    </>
+                )}
+            >
                 <div className="flex flex-col sm:flex-row gap-2">
                     <div className="relative flex-1">
                         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${theme.themeTextDesc}`} />
@@ -827,7 +831,7 @@ function InvoicesPageContent({
                         ))}
                     </div>
                 </div>
-            </div>
+            </AdminPageCard>
             </div>
 
             <TransitionModal show={showDeferModal} onClose={resetDeferModal} themeCard={theme.themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">

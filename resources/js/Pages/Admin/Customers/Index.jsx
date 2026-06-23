@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Save, Search, Trash2, Upload, Users, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
+import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import CustomerDetailPanel from '../../../Components/Admin/CustomerDetailPanel';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
@@ -495,22 +496,17 @@ function CustomersPageContent({
 
     return (
         <>
-            <div className={`${themeCard} border rounded-2xl p-5 space-y-4`}>
-                <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-3 gap-3`}>
-                    <div className="flex items-start gap-2 min-w-0">
-                        <Users className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-                        <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                                <h2 className={`text-sm font-bold ${themeTextTitle}`}>Manajemen Pelanggan PPPoE</h2>
-                            </div>
-                            {selectedRouter && (
-                                <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
-                                    Router: {selectedRouter.name} · {routerScopedCustomers.length} pelanggan
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+            <AdminPageCard
+                icon={Users}
+                accent="emerald"
+                title="Manajemen Pelanggan PPPoE"
+                description={selectedRouter ? `Router: ${selectedRouter.name} · ${routerScopedCustomers.length} pelanggan` : undefined}
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextDesc={themeTextDesc}
+                actions={(
+                    <>
                         {selectedCustomerIds.length > 0 && (
                             <button
                                 type="button"
@@ -540,9 +536,9 @@ function CustomersPageContent({
                         >
                             <Plus className="w-4 h-4" />
                         </button>
-                    </div>
-                </div>
-
+                    </>
+                )}
+            >
                 <div className="flex flex-col lg:flex-row gap-2">
                     <select
                         value={routerFilter}
@@ -810,7 +806,7 @@ function CustomersPageContent({
                         )}
                     </div>
                 )}
-            </div>
+            </AdminPageCard>
 
             <TransitionModal show={showCustomerModal} onClose={closeCustomerModal} themeCard={themeCard} maxWidth="lg" className="!flex !flex-col !overflow-hidden max-h-[min(90dvh,calc(100dvh-1.5rem))] !space-y-0">
                 <div className={`flex items-start justify-between gap-3 pb-3 border-b shrink-0 ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
