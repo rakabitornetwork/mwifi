@@ -63,6 +63,7 @@ Route::middleware('auth')->group(function () {
     Route::get('update', [AdminPageController::class, 'update']);
     Route::get('profile', [AdminPageController::class, 'profile']);
     Route::get('network-map', [AdminPageController::class, 'networkMap']);
+    Route::get('inventory', [AdminPageController::class, 'inventory']);
 
     Route::get('profile/avatar', [\App\Http\Controllers\ProfileAvatarController::class, 'show'])
         ->name('profile.avatar');
@@ -92,6 +93,8 @@ Route::middleware('auth')->group(function () {
     // Admin ODP Actions
     Route::post('admin/odps/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveOdp']);
     Route::post('admin/odps/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteOdp']);
+    Route::post('admin/inventory/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveInventoryItem']);
+    Route::post('admin/inventory/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteInventoryItem']);
 
     Route::post('admin/invoices/pay-manual', [\App\Http\Controllers\Admin\AdminActionController::class, 'payInvoiceManual']);
     Route::post('admin/invoices/pay-manual-bulk', [\App\Http\Controllers\Admin\AdminActionController::class, 'payInvoicesManualBulk']);

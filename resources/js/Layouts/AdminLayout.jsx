@@ -11,7 +11,7 @@ import { AdminThemeProvider, useAdminTheme } from '../hooks/useAdminTheme.jsx';
 function resolveActiveTab(url) {
     const pathname = new URL(url, window.location.origin).pathname.replace(/^\//, '');
     const validTabs = [
-        'dashboard', 'routers', 'customers', 'packages', 'invoices',
+        'dashboard', 'routers', 'customers', 'packages', 'invoices', 'inventory',
         'hotspot', 'database', 'update', 'messaging', 'settings', 'profile', 'network-map',
     ];
     return validTabs.includes(pathname) ? pathname : 'dashboard';

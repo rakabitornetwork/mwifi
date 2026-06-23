@@ -8,6 +8,7 @@ use App\Models\BillingDeferral;
 use App\Models\Customer;
 use App\Models\HotspotSale;
 use App\Models\HotspotVoucher;
+use App\Models\InventoryItem;
 use App\Models\Invoice;
 use App\Models\Odp;
 use App\Models\Package;
@@ -121,6 +122,16 @@ class AdminPageController extends Controller
         return Inertia::render('Admin/NetworkMap/Index', [
             'odps' => Odp::withCount('customers')->get(),
             'customers' => Customer::with(['odp', 'package', 'router'])->get(),
+        ]);
+    }
+
+    public function inventory(): Response
+    {
+        return Inertia::render('Admin/Inventory/Index', [
+            'items' => InventoryItem::query()->orderBy('name')->get(),
+            'categories' => InventoryItem::CATEGORIES,
+            'conditions' => InventoryItem::CONDITIONS,
+            'units' => InventoryItem::UNITS,
         ]);
     }
 

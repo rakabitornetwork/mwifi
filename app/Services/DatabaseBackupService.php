@@ -246,6 +246,7 @@ class DatabaseBackupService
                 }
 
                 $deleted['odps'] = $this->deleteAllFromTable('odps');
+                $deleted['inventory_items'] = $this->deleteAllFromTable('inventory_items');
                 $deleted['packages'] = $this->deleteAllFromTable('packages');
                 $deleted['routers'] = $this->deleteAllFromTable('routers');
                 $deleted['jobs'] = $this->deleteAllFromTable('jobs');

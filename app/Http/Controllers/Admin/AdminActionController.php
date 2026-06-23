@@ -24,6 +24,7 @@ use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use App\Models\HotspotVoucher;
 use App\Models\HotspotSale;
+use App\Models\InventoryItem;
 
 class AdminActionController extends Controller
 {
@@ -76,6 +77,50 @@ class AdminActionController extends Controller
         $router->delete();
 
         return redirect()->back()->with('success', "Router \"{$name}\" berhasil dihapus.");
+    }
+
+    public function saveInventoryItem(Request $request)
+    {
+        $id = $request->input('id');
+
+        $data = $request->validate([
+            'id' => 'nullable|exists:inventory_items,id',
+            'name' => 'required|string|max:150',
+            'sku' => 'nullable|string|max:100',
+            'category' => 'required|in:' . implode(',', array_keys(InventoryItem::CATEGORIES)),
+            'quantity' => 'required|integer|min:0',
+            'unit' => 'required|in:' . implode(',', array_keys(InventoryItem::UNITS)),
+            'min_stock' => 'required|integer|min:0',
+            'location' => 'nullable|string|max:150',
+            'condition' => 'required|in:' . implode(',', array_keys(InventoryItem::CONDITIONS)),
+            'notes' => 'nullable|string|max:2000',
+        ]);
+
+        unset($data['id']);
+
+        if ($id) {
+            $item = InventoryItem::findOrFail($id);
+            $item->update($data);
+            $message = 'Item inventaris berhasil diperbarui.';
+        } else {
+            InventoryItem::create($data);
+            $message = 'Item inventaris berhasil ditambahkan.';
+        }
+
+        return redirect()->back()->with('success', $message);
+    }
+
+    public function deleteInventoryItem(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:inventory_items,id',
+        ]);
+
+        $item = InventoryItem::findOrFail($request->input('id'));
+        $name = $item->name;
+        $item->delete();
+
+        return redirect()->back()->with('success', "Item inventaris \"{$name}\" berhasil dihapus.");
     }
 
     /**

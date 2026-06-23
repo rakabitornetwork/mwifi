@@ -1,6 +1,7 @@
 import { Link, router } from '@inertiajs/react';
 import {
     Activity,
+    Boxes,
     CreditCard,
     Database,
     GitBranch,
@@ -27,6 +28,7 @@ export const adminNavItems = [
     { tab: 'customers', icon: Users, label: 'Manajemen PPPoE' },
     { tab: 'hotspot', icon: Radio, label: 'Manajemen Hotspot' },
     { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
+    { tab: 'inventory', icon: Boxes, label: 'Manajemen Inventaris' },
     // Administrasi sistem
     { tab: 'messaging', icon: MessageSquare, label: 'WhatsApp & Telegram' },
     { tab: 'settings', icon: Settings, label: 'Pengaturan' },
