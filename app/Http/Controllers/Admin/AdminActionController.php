@@ -639,8 +639,12 @@ class AdminActionController extends Controller
         $router = Router::findOrFail($data['router_id']);
         $profileName = $package->mikrotik_profile ?: $package->name;
         $routerError = null;
+        $otherPackageUsesProfile = Package::query()
+            ->where('id', '!=', $package->id)
+            ->whereRaw('LOWER(mikrotik_profile) = ?', [strtolower((string) $profileName)])
+            ->exists();
 
-        if (strtolower($profileName) !== 'default') {
+        if (!$otherPackageUsesProfile && strtolower($profileName) !== 'default') {
             try {
                 $connector = \App\Services\Router\RouterService::getConnector($router);
 

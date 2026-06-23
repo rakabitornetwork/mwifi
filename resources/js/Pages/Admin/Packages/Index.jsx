@@ -32,6 +32,15 @@ function dedupePackagesByMikrotikProfile(items = []) {
     return Array.from(byProfile.values()).sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
 }
 
+function listDuplicatePackages(items = []) {
+    const kept = dedupePackagesByMikrotikProfile(items);
+    const keptIds = new Set(kept.map((pkg) => pkg.id));
+
+    return items
+        .filter((pkg) => !keptIds.has(pkg.id))
+        .sort((a, b) => Number(a.id) - Number(b.id));
+}
+
 const emptyPackageForm = {
     name: '',
     price: '',
@@ -333,14 +342,21 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         return dedupePackagesByMikrotikProfile(matched);
     }, [packages, routerFilter, isLoadingRouterProfiles, routerProfileError, profileSet]);
 
-    const duplicatePackageCount = useMemo(() => {
-        if (!routerFilter || isLoadingRouterProfiles) {
-            return 0;
+    const duplicatePackages = useMemo(() => {
+        if (routerFilter) {
+            if (isLoadingRouterProfiles || routerProfileError || profileSet.size === 0) {
+                return [];
+            }
+
+            const matched = packages.filter((pkg) => profileSet.has(String(pkg.mikrotik_profile || '').toLowerCase()));
+
+            return listDuplicatePackages(matched);
         }
 
-        const matched = packages.filter((pkg) => profileSet.has(String(pkg.mikrotik_profile || '').toLowerCase()));
-        return Math.max(0, matched.length - filteredPackages.length);
-    }, [packages, routerFilter, isLoadingRouterProfiles, profileSet, filteredPackages.length]);
+        return listDuplicatePackages(packages);
+    }, [packages, routerFilter, isLoadingRouterProfiles, routerProfileError, profileSet]);
+
+    const duplicatePackageCount = duplicatePackages.length;
 
     const selectedRouter = routers.find((r) => String(r.id) === String(routerFilter));
     const modalFormOptions = filterRouterOs?.form_options || null;
@@ -433,11 +449,45 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                 {' '}({routerProfiles.length} profil RouterOS)
                                 {duplicatePackageCount > 0 && (
                                     <span className="block mt-1 text-amber-500">
-                                        {duplicatePackageCount} paket duplikat disembunyikan — profil MikroTik yang sama terdaftar lebih dari sekali di database. Hapus salah satunya.
+                                        {duplicatePackageCount} paket duplikat terdeteksi — hapus dari daftar di bawah.
                                     </span>
                                 )}
                             </>
                         )}
+                    </div>
+                )}
+
+                {duplicatePackageCount > 0 && (
+                    <div className={`rounded-xl border p-3 space-y-2 ${isDarkMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-200 bg-amber-50/80'}`}>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                            Paket duplikat (profil MikroTik sama)
+                        </p>
+                        <p className={`text-[10px] leading-relaxed ${themeTextSub}`}>
+                            Sistem menyimpan satu paket aktif per profil. Hapus entri lama yang tidak dipakai agar tidak bentrok saat simpan/edit.
+                        </p>
+                        <ul className="space-y-2">
+                            {duplicatePackages.map((pkg) => (
+                                <li
+                                    key={pkg.id}
+                                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border px-3 py-2 ${isDarkMode ? 'border-amber-500/20 bg-zinc-950/30' : 'border-amber-100 bg-white/80'}`}
+                                >
+                                    <div className="min-w-0">
+                                        <p className={`text-xs font-bold truncate ${themeTextTitle}`}>{pkg.name}</p>
+                                        <p className={`text-[10px] font-mono truncate ${themeTextSub}`}>
+                                            Profil: {pkg.mikrotik_profile || pkg.name} · ID #{pkg.id}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDeletePackage(pkg.id)}
+                                        className="self-start sm:self-auto inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-rose-600 border border-rose-300/60 hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10 cursor-pointer"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        Hapus duplikat
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 )}
 
