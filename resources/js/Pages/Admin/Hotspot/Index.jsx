@@ -425,12 +425,12 @@ function HotspotPageContent({
 
                 {hotspotSubTab === 'vouchers' ? (
                     <div className="space-y-4">
-                        <div className="flex flex-col md:flex-row gap-3 justify-between items-start md:items-center">
-                            <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
+                        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full lg:flex-1 lg:max-w-3xl">
                                 <select
                                     value={voucherRouterFilter}
                                     onChange={(e) => setVoucherRouterFilter(e.target.value)}
-                                    className={`p-1.5 border rounded-xl text-xs ${themeInput}`}
+                                    className={`w-full min-w-0 px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
                                 >
                                     <option value="">Semua Router</option>
                                     {routers.map((r) => (
@@ -440,7 +440,7 @@ function HotspotPageContent({
                                 <select
                                     value={voucherStatusFilter}
                                     onChange={(e) => setVoucherStatusFilter(e.target.value)}
-                                    className={`p-1.5 border rounded-xl text-xs ${themeInput}`}
+                                    className={`w-full min-w-0 px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
                                 >
                                     <option value="">Semua Status</option>
                                     <option value="unused">Belum Terpakai</option>
@@ -450,7 +450,7 @@ function HotspotPageContent({
                                 <select
                                     value={voucherCommentFilter}
                                     onChange={(e) => setVoucherCommentFilter(e.target.value)}
-                                    className={`p-1.5 border rounded-xl text-xs max-w-[180px] ${themeInput}`}
+                                    className={`w-full min-w-0 px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
                                 >
                                     <option value="">Semua Info Tambahan</option>
                                     {availableVoucherComments.map((comment) => (
@@ -459,7 +459,7 @@ function HotspotPageContent({
                                 </select>
                             </div>
 
-                            <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
+                            <div className="flex flex-wrap gap-2 w-full lg:w-auto justify-end shrink-0">
                                 <button
                                     type="button"
                                     onClick={() => {
