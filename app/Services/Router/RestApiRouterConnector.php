@@ -25,9 +25,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
 
         // Verify connection by doing a light request to system/identity
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/system/identity");
 
             if ($response->successful()) {
@@ -35,7 +33,16 @@ class RestApiRouterConnector implements RouterConnectorInterface
             }
             throw new Exception("HTTP status " . $response->status() . " - " . $response->body());
         } catch (Exception $e) {
-            throw new Exception("REST API error: " . $e->getMessage());
+            $message = $e->getMessage();
+            if (str_contains($message, 'timed out') || str_contains($message, 'cURL error 28')) {
+                throw new Exception(
+                    'REST API error: ' . $message
+                    . '. Koneksi ke router melebihi batas waktu (' . $this->apiTimeout() . ' detik). '
+                    . 'Periksa host/port tunnel, pastikan layanan www/API MikroTik aktif, atau naikkan MIKROTIK_API_TIMEOUT di .env.'
+                );
+            }
+
+            throw new Exception('REST API error: ' . $message);
         }
     }
 
@@ -45,9 +52,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getSecrets(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/ppp/secret");
 
             return $response->successful() ? $response->json() : [];
@@ -64,9 +69,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
         try {
             // RouterOS REST API uses PUT to create new resources
             $filtered = $this->filterData($data);
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->put("{$this->baseUrl}/ppp/secret", $filtered);
 
             return $response->successful() || $response->status() === 201;
@@ -82,9 +85,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     {
         try {
             // First, find the item by name to get its ID (.id)
-            $responseFind = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseFind = $this->http()
                 ->get("{$this->baseUrl}/ppp/secret", ['name' => $username]);
 
             if (!$responseFind->successful() || empty($responseFind->json())) {
@@ -100,9 +101,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
 
             // RouterOS REST API uses PATCH to update resources
             $filtered = $this->filterData($data);
-            $responseUpdate = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseUpdate = $this->http()
                 ->patch("{$this->baseUrl}/ppp/secret/{$id}", $filtered);
 
             return $responseUpdate->successful();
@@ -118,9 +117,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     {
         try {
             // Find by name to get ID
-            $responseFind = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseFind = $this->http()
                 ->get("{$this->baseUrl}/ppp/secret", ['name' => $username]);
 
             if (!$responseFind->successful() || empty($responseFind->json())) {
@@ -134,9 +131,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
                 return false;
             }
 
-            $responseDelete = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseDelete = $this->http()
                 ->delete("{$this->baseUrl}/ppp/secret/{$id}");
 
             return $responseDelete->successful();
@@ -151,9 +146,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getActiveConnections(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/ppp/active");
 
             return $response->successful() ? $response->json() : [];
@@ -168,9 +161,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function kickActiveConnection(string $username): bool
     {
         try {
-            $responseFind = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseFind = $this->http()
                 ->get("{$this->baseUrl}/ppp/active");
 
             if (!$responseFind->successful()) {
@@ -192,9 +183,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
                     continue;
                 }
 
-                $responseDelete = Http::withBasicAuth($this->username, $this->password)
-                    ->withoutVerifying()
-                    ->timeout(5)
+                $responseDelete = $this->http()
                     ->delete("{$this->baseUrl}/ppp/active/{$id}");
 
                 if (!$responseDelete->successful()) {
@@ -214,9 +203,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getProfiles(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/ppp/profile");
 
             return $response->successful() ? $response->json() : [];
@@ -229,9 +216,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     {
         try {
             $filtered = $this->filterData($data);
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->put("{$this->baseUrl}/ppp/profile", $filtered);
 
             return $response->successful() || $response->status() === 201;
@@ -243,9 +228,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function updatePppProfile(string $name, array $data): bool
     {
         try {
-            $responseFind = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseFind = $this->http()
                 ->get("{$this->baseUrl}/ppp/profile", ['name' => $name]);
 
             if (!$responseFind->successful() || empty($responseFind->json())) {
@@ -260,9 +243,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
             }
 
             $filtered = $this->filterData($data);
-            $responseUpdate = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseUpdate = $this->http()
                 ->patch("{$this->baseUrl}/ppp/profile/{$id}", $filtered);
 
             return $responseUpdate->successful();
@@ -274,9 +255,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function deletePppProfile(string $name): bool
     {
         try {
-            $responseFind = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseFind = $this->http()
                 ->get("{$this->baseUrl}/ppp/profile", ['name' => $name]);
 
             if (!$responseFind->successful() || empty($responseFind->json())) {
@@ -290,9 +269,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
                 return true;
             }
 
-            $responseDelete = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseDelete = $this->http()
                 ->delete("{$this->baseUrl}/ppp/profile/{$id}");
 
             return $responseDelete->successful();
@@ -304,9 +281,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getHotspotProfiles(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/ip/hotspot/user/profile");
 
             return $response->successful() ? $response->json() : [];
@@ -319,9 +294,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     {
         try {
             $filtered = $this->filterData($data);
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->put("{$this->baseUrl}/ip/hotspot/user/profile", $filtered);
 
             return $response->successful() || $response->status() === 201;
@@ -333,9 +306,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function updateHotspotProfile(string $name, array $data): bool
     {
         try {
-            $responseFind = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseFind = $this->http()
                 ->get("{$this->baseUrl}/ip/hotspot/user/profile", ['name' => $name]);
 
             if (!$responseFind->successful() || empty($responseFind->json())) {
@@ -350,9 +321,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
             }
 
             $filtered = $this->filterData($data);
-            $responseUpdate = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseUpdate = $this->http()
                 ->patch("{$this->baseUrl}/ip/hotspot/user/profile/{$id}", $filtered);
 
             return $responseUpdate->successful();
@@ -364,9 +333,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function deleteHotspotProfile(string $name): bool
     {
         try {
-            $responseFind = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseFind = $this->http()
                 ->get("{$this->baseUrl}/ip/hotspot/user/profile", ['name' => $name]);
 
             if (!$responseFind->successful() || empty($responseFind->json())) {
@@ -380,9 +347,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
                 return true;
             }
 
-            $responseDelete = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseDelete = $this->http()
                 ->delete("{$this->baseUrl}/ip/hotspot/user/profile/{$id}");
 
             return $responseDelete->successful();
@@ -394,9 +359,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getHotspotUsers(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/ip/hotspot/user");
 
             if (!$response->successful()) {
@@ -413,9 +376,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     {
         try {
             $filtered = $this->filterData($data);
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->put("{$this->baseUrl}/ip/hotspot/user", $filtered);
 
             return $response->successful() || $response->status() === 201;
@@ -427,9 +388,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function deleteHotspotUser(string $username): bool
     {
         try {
-            $responseFind = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseFind = $this->http()
                 ->get("{$this->baseUrl}/ip/hotspot/user", ['name' => $username]);
 
             if (!$responseFind->successful() || empty($responseFind->json())) {
@@ -443,9 +402,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
                 return false;
             }
 
-            $responseDelete = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseDelete = $this->http()
                 ->delete("{$this->baseUrl}/ip/hotspot/user/{$id}");
 
             return $responseDelete->successful();
@@ -457,9 +414,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getHotspotActive(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/ip/hotspot/active");
 
             return $response->successful() ? $response->json() : [];
@@ -471,9 +426,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function kickHotspotActive(string $username): bool
     {
         try {
-            $responseFind = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseFind = $this->http()
                 ->get("{$this->baseUrl}/ip/hotspot/active", ['user' => $username]);
 
             if (!$responseFind->successful() || empty($responseFind->json())) {
@@ -487,9 +440,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
                 return false;
             }
 
-            $responseDelete = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $responseDelete = $this->http()
                 ->delete("{$this->baseUrl}/ip/hotspot/active/{$id}");
 
             return $responseDelete->successful();
@@ -501,9 +452,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getIpPools(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/ip/pool");
 
             return $response->successful() ? $response->json() : [];
@@ -515,9 +464,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getSimpleQueues(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/queue/simple");
 
             return $response->successful() ? $response->json() : [];
@@ -529,9 +476,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getSimpleQueueStats(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(8)
+            $response = $this->http($this->apiTimeoutLong())
                 ->post("{$this->baseUrl}/queue/simple/print", ['stats' => '']);
 
             if ($response->successful()) {
@@ -550,9 +495,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getQueueTypes(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/queue/type");
 
             return $response->successful() ? $response->json() : [];
@@ -564,9 +507,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getHotspotServers(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/ip/hotspot");
 
             return $response->successful() ? $response->json() : [];
@@ -578,9 +519,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getHotspotServerProfiles(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(5)
+            $response = $this->http()
                 ->get("{$this->baseUrl}/ip/hotspot/profile");
 
             return $response->successful() ? $response->json() : [];
@@ -609,9 +548,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getInterfaces(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(8)
+            $response = $this->http($this->apiTimeoutLong())
                 ->get("{$this->baseUrl}/interface");
 
             if (!$response->successful()) {
@@ -629,9 +566,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getInterfaceLiveTraffic(string $interfaceName): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(12)
+            $response = $this->http($this->apiTimeoutLong())
                 ->post("{$this->baseUrl}/interface/monitor-traffic", [
                     'interface' => $interfaceName,
                     'once' => true,
@@ -665,9 +600,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getSimpleQueueTrafficStats(): array
     {
         try {
-            $response = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(8)
+            $response = $this->http($this->apiTimeoutLong())
                 ->get("{$this->baseUrl}/queue/simple");
 
             if (!$response->successful()) {
@@ -725,9 +658,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
     public function getSystemResources(): array
     {
         try {
-            $resourceResponse = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(8)
+            $resourceResponse = $this->http($this->apiTimeoutLong())
                 ->get("{$this->baseUrl}/system/resource");
 
             if (!$resourceResponse->successful()) {
@@ -737,9 +668,7 @@ class RestApiRouterConnector implements RouterConnectorInterface
             $resourcePayload = $resourceResponse->json();
             $resource = is_array($resourcePayload) ? ($resourcePayload[0] ?? $resourcePayload) : [];
 
-            $identityResponse = Http::withBasicAuth($this->username, $this->password)
-                ->withoutVerifying()
-                ->timeout(8)
+            $identityResponse = $this->http($this->apiTimeoutLong())
                 ->get("{$this->baseUrl}/system/identity");
 
             $identityPayload = $identityResponse->successful() ? $identityResponse->json() : [];
@@ -762,5 +691,28 @@ class RestApiRouterConnector implements RouterConnectorInterface
         return array_filter($data, function ($val) {
             return $val !== null && $val !== '';
         });
+    }
+
+    protected function apiTimeout(): int
+    {
+        return max(5, (int) config('mikrotik.api_timeout', 20));
+    }
+
+    protected function apiConnectTimeout(): int
+    {
+        return max(3, (int) config('mikrotik.api_connect_timeout', 15));
+    }
+
+    protected function apiTimeoutLong(): int
+    {
+        return max($this->apiTimeout(), (int) config('mikrotik.api_timeout_long', 35));
+    }
+
+    protected function http(?int $timeout = null): \Illuminate\Http\Client\PendingRequest
+    {
+        return Http::withBasicAuth($this->username, $this->password)
+            ->withoutVerifying()
+            ->connectTimeout($this->apiConnectTimeout())
+            ->timeout($timeout ?? $this->apiTimeout());
     }
 }

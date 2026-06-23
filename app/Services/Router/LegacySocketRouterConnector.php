@@ -24,7 +24,7 @@ class LegacySocketRouterConnector implements RouterConnectorInterface
                 'user' => $username,
                 'pass' => $password,
                 'port' => $port,
-                'timeout' => 5,
+                'timeout' => max(5, (int) config('mikrotik.api_timeout', 20)),
             ]);
             return true;
         } catch (Exception $e) {
