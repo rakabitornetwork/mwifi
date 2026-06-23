@@ -122,15 +122,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
         L.control.zoom({ position: 'topright' }).addTo(map);
 
-        map.on('click', (e) => {
-            const { lat, lng } = e.latlng;
-            setOdpLat(lat.toFixed(6));
-            setOdpLng(lng.toFixed(6));
-            setEditingOdp(null);
-
-            L.popup()
-                .setLatLng(e.latlng)
-                .setContent(`
+        const buildMiniOdpPopupContent = (lat, lng) => `
                     <form id="mini-odp-form" class="p-2 space-y-3 w-56 font-sans text-zinc-800 leading-normal">
                         <div class="flex items-center gap-1.5 border-b border-zinc-100 pb-2">
                             <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
@@ -173,9 +165,85 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                             Simpan ODP
                         </button>
                     </form>
-                `)
+                `;
+
+        const openMiniOdpPopup = (latlng) => {
+            const { lat, lng } = latlng;
+            setOdpLat(lat.toFixed(6));
+            setOdpLng(lng.toFixed(6));
+            setEditingOdp(null);
+
+            L.popup()
+                .setLatLng(latlng)
+                .setContent(buildMiniOdpPopupContent(lat, lng))
                 .openOn(map);
+        };
+
+        map.on('contextmenu', (e) => {
+            L.DomEvent.preventDefault(e.originalEvent);
+            openMiniOdpPopup(e.latlng);
         });
+
+        const mapContainerEl = map.getContainer();
+        const longPressMs = 600;
+        const moveTolerancePx = 12;
+        let longPressTimer = null;
+        let longPressTouch = null;
+
+        const cancelLongPress = () => {
+            if (longPressTimer !== null) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+            longPressTouch = null;
+        };
+
+        const onMapTouchStart = (event) => {
+            if (event.touches.length !== 1) {
+                cancelLongPress();
+                return;
+            }
+
+            const touch = event.touches[0];
+            longPressTouch = { x: touch.clientX, y: touch.clientY, touch };
+            longPressTimer = window.setTimeout(() => {
+                longPressTimer = null;
+                if (!longPressTouch) return;
+
+                const { touch: activeTouch } = longPressTouch;
+                const latlng = map.containerPointToLatLng(
+                    map.mouseEventToContainerPoint({
+                        clientX: activeTouch.clientX,
+                        clientY: activeTouch.clientY,
+                    }),
+                );
+
+                openMiniOdpPopup(latlng);
+                navigator.vibrate?.(40);
+                longPressTouch = null;
+            }, longPressMs);
+        };
+
+        const onMapTouchMove = (event) => {
+            if (!longPressTouch || longPressTimer === null) return;
+
+            const touch = event.touches[0];
+            const dx = touch.clientX - longPressTouch.x;
+            const dy = touch.clientY - longPressTouch.y;
+
+            if (Math.hypot(dx, dy) > moveTolerancePx) {
+                cancelLongPress();
+            }
+        };
+
+        const onMapTouchEnd = () => {
+            cancelLongPress();
+        };
+
+        mapContainerEl.addEventListener('touchstart', onMapTouchStart, { passive: true });
+        mapContainerEl.addEventListener('touchmove', onMapTouchMove, { passive: true });
+        mapContainerEl.addEventListener('touchend', onMapTouchEnd);
+        mapContainerEl.addEventListener('touchcancel', onMapTouchEnd);
 
         map.on('popupopen', (e) => {
             const popupNode = e.popup.getElement();
@@ -341,6 +409,11 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
             if (cableFlowFrameId !== null) {
                 cancelAnimationFrame(cableFlowFrameId);
             }
+            cancelLongPress();
+            mapContainerEl.removeEventListener('touchstart', onMapTouchStart);
+            mapContainerEl.removeEventListener('touchmove', onMapTouchMove);
+            mapContainerEl.removeEventListener('touchend', onMapTouchEnd);
+            mapContainerEl.removeEventListener('touchcancel', onMapTouchEnd);
             mapRef.current = null;
             map.remove();
         };
@@ -453,7 +526,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                     </div>
 
                     <div className="flex-1 flex flex-col space-y-2">
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">Peta di bawah menggambarkan jalur kabel fiber optik dari masing-masing kotak ODP (biru) ke titik rumah pelanggan (hijau: aktif, merah: nonaktif).</p>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">Peta di bawah menggambarkan jalur kabel fiber optik dari masing-masing kotak ODP (biru) ke titik rumah pelanggan (hijau: aktif, merah: nonaktif). <span className="hidden sm:inline">Klik kanan</span><span className="sm:hidden">Tahan</span> pada peta untuk menambah ODP baru.</p>
                         <div className={`border rounded-2xl overflow-hidden shadow-xs relative ${isDarkMode ? 'border-zinc-800/80' : 'border-zinc-200'}`}>
                             <div id="map-container" className="h-[550px] w-full z-0" />
                             <div className="absolute bottom-2.5 right-2.5 z-[400] bg-zinc-950/85 border border-zinc-800/60 backdrop-blur-xs px-2.5 py-1.5 rounded-lg flex gap-3 text-[9px] font-bold text-zinc-400 shadow-md">
@@ -508,7 +581,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                     </div>
 
                     <div className={`p-2.5 ${themeInnerWidget} rounded-xl text-[10px] ${themeTextSub} leading-normal`}>
-                        💡 <strong className={themeTextTitle}>Tips:</strong> Klik peta jaringan, gunakan tombol GPS perangkat, atau isi koordinat manual.
+                        💡 <strong className={themeTextTitle}>Tips:</strong> Klik kanan peta (desktop) atau tahan peta (HP) untuk tambah ODP, gunakan tombol GPS perangkat, atau isi koordinat manual.
                     </div>
 
                     <div className="flex justify-end pt-3 gap-2">
