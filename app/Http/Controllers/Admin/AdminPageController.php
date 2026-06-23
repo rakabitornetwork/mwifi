@@ -49,6 +49,21 @@ class AdminPageController extends Controller
             ],
             'billingActivityLogs' => BillingActivityLog::orderByDesc('created_at')->limit(8)->get(),
             'todayRevenue' => BillingService::summarizeTodayRevenue(),
+            'inventorySummary' => InventoryItem::watchCategorySummaries(),
+            'recentInventoryMovements' => InventoryService::recentMovements(5),
+            'billingSummary' => [
+                'unpaid_count' => Invoice::query()->where('status', 'unpaid')->count(),
+                'unpaid_total' => (float) Invoice::query()->where('status', 'unpaid')->sum('total_amount'),
+                'overdue_count' => Invoice::query()
+                    ->where('status', 'unpaid')
+                    ->whereDate('due_date', '<', now()->toDateString())
+                    ->count(),
+                'pending_deferrals' => BillingDeferral::query()->where('status', 'pending')->count(),
+            ],
+            'routerSummary' => [
+                'total' => Router::query()->count(),
+                'active' => Router::query()->where('status', true)->count(),
+            ],
         ]);
     }
 

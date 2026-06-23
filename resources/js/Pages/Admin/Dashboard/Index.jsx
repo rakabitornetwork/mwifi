@@ -1,21 +1,23 @@
 import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
-import { router } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import {
-    Users,
-    UserX,
-    Radio,
-    Cpu,
-    Sliders,
-    Layers,
-    MessageSquare,
-    Power,
-    Radar,
-    RefreshCw,
-    Wallet,
+    AlertTriangle,
     ArrowDownLeft,
     ArrowUpRight,
+    Boxes,
+    CreditCard,
+    Cpu,
+    History,
+    MessageSquare,
+    Plug,
+    Router as RouterIcon,
+    UserX,
+    Users,
+    Radio,
+    Wallet,
+    Wifi,
 } from 'lucide-react';
-import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
+import AdminLayout from '../../../Layouts/AdminLayout';
 import { PremiumPanel, PremiumPanelHeader } from '../../../Components/Admin/AdminPageCard';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { formatRupiah } from '../../../utils/formatRupiah';
@@ -24,6 +26,11 @@ import { bpsToMbps, formatSpeedBps } from '../../../utils/formatSpeedBps';
 const chartModule = () => import('../../../Components/Admin/DashboardCharts');
 const ResourceAreaChart = lazy(() => chartModule().then((module) => ({ default: module.ResourceAreaChart })));
 const TrafficAreaChart = lazy(() => chartModule().then((module) => ({ default: module.TrafficAreaChart })));
+
+const WATCH_CATEGORY_ICONS = {
+    ont: RouterIcon,
+    adaptor: Plug,
+};
 
 function ChartFallback({ className = 'h-48' }) {
     return <div className={`w-full rounded-lg ${className} ${'bg-zinc-100/80 dark:bg-zinc-900/40'}`} aria-hidden="true" />;
@@ -47,9 +54,12 @@ function DashboardContent({
     odpSummary = {},
     billingActivityLogs = [],
     todayRevenue = {},
+    inventorySummary = {},
+    recentInventoryMovements = [],
+    billingSummary = {},
+    routerSummary = {},
 }) {
     const theme = useAdminTheme();
-    const { showToast } = useAdminToast();
     const { isDarkMode, themeCard, themeTextTitle, themeTextSub, themeTextDesc } = theme;
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeSelect = isDarkMode
@@ -80,23 +90,7 @@ function DashboardContent({
     const [trafficHistory, setTrafficHistory] = useState([]);
     const [interfaceError, setInterfaceError] = useState(null);
     const [isLoadingInterfaces, setIsLoadingInterfaces] = useState(false);
-    const [ontDevices, setOntDevices] = useState([]);
-    const [isLoadingOnt, setIsLoadingOnt] = useState(true);
-    const [isSyncingRouter, setIsSyncingRouter] = useState(null);
     const monitorIntervalMs = 7000;
-
-    const fetchOntDevices = async () => {
-        setIsLoadingOnt(true);
-        try {
-            const res = await fetch('/admin/gpon/status');
-            const data = await res.json();
-            setOntDevices(data);
-        } catch (err) {
-            console.error('Failed to load ONT devices', err);
-        } finally {
-            setIsLoadingOnt(false);
-        }
-    };
 
     const fetchServerResources = async () => {
         if (!selectedRouterId) {
@@ -191,10 +185,6 @@ function DashboardContent({
     };
 
     useEffect(() => {
-        fetchOntDevices();
-    }, []);
-
-    useEffect(() => {
         if (!selectedRouterId) {
             setResourceHistory([]);
             setInterfaceList([]);
@@ -265,64 +255,6 @@ function DashboardContent({
         });
     }, [interfaceTraffic]);
 
-    const handleRebootOnt = async (deviceId) => {
-        if (!confirm('Apakah Anda yakin ingin me-reboot perangkat ONT ini?')) return;
-
-        try {
-            const response = await fetch('/admin/gpon/reboot', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ device_id: deviceId }),
-            });
-            const result = await response.json();
-            if (result.success) {
-                showToast(result.message, 'success');
-                fetchOntDevices();
-            } else {
-                showToast(result.message || 'Gagal mengirimkan perintah reboot.', 'error');
-            }
-        } catch {
-            showToast('Error: Gagal me-reboot perangkat.', 'error');
-        }
-    };
-
-    const handleSyncRouter = async (routerId) => {
-        const id = routerId || (routers && routers[0] ? routers[0].id : null);
-        if (!id) {
-            showToast('Tidak ada router yang dapat disinkronkan.', 'warning');
-            return;
-        }
-
-        setIsSyncingRouter(id);
-        try {
-            const response = await fetch('/admin/routers/sync', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ router_id: id }),
-            });
-            const result = await response.json();
-            showToast(result.message, result.success ? 'success' : 'error');
-            if (result.success) {
-                router.reload();
-            }
-        } catch {
-            showToast('Error: Gagal menghubungi server saat melakukan sinkronisasi.', 'error');
-        } finally {
-            setIsSyncingRouter(null);
-        }
-    };
-
-    const handleScanOlt = () => {
-        showToast('Pemindaian GPON OLT berhasil dijalankan. Data redaman diperbarui.', 'success');
-        fetchOntDevices();
-    };
-
     const todayPaymentCount = todayRevenue?.payment_count ?? 0;
 
     const stats = useMemo(() => [
@@ -342,7 +274,7 @@ function DashboardContent({
         {
             name: 'PPP Active',
             value: customerStats.ppp_active ?? 0,
-            change: 'ONT Terhubung',
+            change: 'Pelanggan PPPoE aktif',
             icon: Users,
             cardClass: 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400/20 text-white shadow-md shadow-emerald-500/5',
             iconClass: 'text-emerald-100',
@@ -364,7 +296,7 @@ function DashboardContent({
         {
             name: 'Terisolir',
             value: customerStats.isolated ?? 0,
-            change: 'Menunggak',
+            change: 'Menunggak / isolir',
             icon: UserX,
             cardClass: 'bg-gradient-to-br from-rose-500 to-red-600 border-rose-400/20 text-white shadow-md shadow-rose-500/5',
             iconClass: 'text-rose-100',
@@ -385,12 +317,43 @@ function DashboardContent({
         [billingActivityLogs],
     );
 
-    const activeOntDevices = ontDevices.filter((dev) => dev.status !== 'offline' && dev.username !== 'unknown_ont');
+    const inventoryWatchEntries = useMemo(
+        () => Object.entries(inventorySummary || {}),
+        [inventorySummary],
+    );
+
+    const inventoryLowStockCount = useMemo(
+        () => inventoryWatchEntries.reduce((sum, [, summary]) => sum + Number(summary.low_stock_count || 0), 0),
+        [inventoryWatchEntries],
+    );
+
+    const lowStockItems = useMemo(
+        () => inventoryWatchEntries.flatMap(([, summary]) => summary.low_stock_items || []),
+        [inventoryWatchEntries],
+    );
 
     const odpNodeCount = Number(odpSummary?.node_count ?? 0);
     const odpTotalPorts = Number(odpSummary?.total_ports ?? 0);
     const odpUsedPorts = Number(odpSummary?.used_ports ?? 0);
     const odpUtilizationPercent = odpTotalPorts > 0 ? Math.round((odpUsedPorts / odpTotalPorts) * 100) : 0;
+
+    const unpaidCount = Number(billingSummary?.unpaid_count ?? 0);
+    const unpaidTotal = Number(billingSummary?.unpaid_total ?? 0);
+    const overdueCount = Number(billingSummary?.overdue_count ?? 0);
+    const pendingDeferrals = Number(billingSummary?.pending_deferrals ?? 0);
+    const routerActive = Number(routerSummary?.active ?? 0);
+    const routerTotal = Number(routerSummary?.total ?? 0);
+
+    const movementTypeClass = (type) => {
+        switch (type) {
+            case 'in':
+                return 'text-emerald-500';
+            case 'out':
+                return 'text-rose-500';
+            default:
+                return 'text-sky-500';
+        }
+    };
 
     return (
         <>
@@ -596,72 +559,157 @@ function DashboardContent({
                 </div>
 
                 <div className="space-y-4">
-                    <PremiumPanel accent="indigo" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3">
+                    <PremiumPanel accent="sky" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3">
                         <PremiumPanelHeader
-                            icon={Layers}
-                            accent="indigo"
+                            icon={Boxes}
+                            accent="sky"
                             isDarkMode={isDarkMode}
                             themeTextTitle={themeTextTitle}
-                            title="GenieACS: Monitor Redaman ONT"
+                            title="Inventaris ONT & Adaptor"
                             trailing={(
-                                <div className="flex items-center space-x-2">
-                                    <button
-                                        type="button"
-                                        onClick={fetchOntDevices}
-                                        disabled={isLoadingOnt}
-                                        title="Refresh daftar ONT"
-                                        className={`p-1 rounded-lg transition-colors cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'hover:bg-zinc-900 text-zinc-400 hover:text-white' : 'hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900'} ${isLoadingOnt ? 'animate-spin' : ''}`}
-                                    >
-                                        <RefreshCw className="w-3 h-3" />
-                                    </button>
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                </div>
+                                <Link
+                                    href="/inventory"
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors ${isDarkMode ? 'border-sky-500/30 text-sky-300 hover:bg-sky-500/10' : 'border-sky-200 text-sky-700 hover:bg-sky-50'}`}
+                                >
+                                    Kelola
+                                </Link>
                             )}
                         />
 
-                        <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
-                            {isLoadingOnt ? (
-                                <div className="py-8 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                                    Loading ONT status...
-                                </div>
-                            ) : activeOntDevices.length === 0 ? (
-                                <div className="py-8 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                                    No active/online ONT devices found.
-                                </div>
-                            ) : (
-                                activeOntDevices.map((dev, idx) => {
-                                    const rxColor =
-                                        dev.status === 'good' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                                            : dev.status === 'warning' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-                                                : dev.status === 'offline' ? 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'
-                                                    : 'bg-rose-500/10 text-rose-500 border-rose-500/20';
-                                    return (
-                                        <div key={idx} className={`p-2 border rounded-xl flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-[13px] font-semibold transition-colors duration-150 ${themeInnerWidget}`}>
-                                            <div className="space-y-0.5 min-w-0 flex-1">
-                                                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                                                    <span className={`font-bold truncate max-w-full ${themeTextTitle}`}>{dev.username}</span>
-                                                    <span className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono shrink-0`}>({dev.model})</span>
-                                                </div>
-                                                <p className={`text-[10px] sm:text-[11px] ${themeTextSub} font-mono leading-none truncate`}>SN: {dev.sn}</p>
+                        {inventoryLowStockCount > 0 && (
+                            <div className={`rounded-lg border px-2.5 py-2 flex items-start gap-2 ${isDarkMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-200 bg-amber-50/80'}`}>
+                                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                                <p className={`text-[10px] font-bold leading-snug ${isDarkMode ? 'text-amber-300' : 'text-amber-800'}`}>
+                                    {inventoryLowStockCount} item ONT/Adaptor stok menipis — segera restock.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {inventoryWatchEntries.map(([key, summary]) => {
+                                const Icon = WATCH_CATEGORY_ICONS[key] || Boxes;
+                                const isLow = summary.status === 'low';
+
+                                return (
+                                    <div
+                                        key={key}
+                                        className={`rounded-xl border p-2.5 ${isLow
+                                            ? (isDarkMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-200 bg-amber-50/70')
+                                            : themeInnerWidget}`}
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                                <p className={`text-[10px] font-bold uppercase tracking-wide ${isLow ? 'text-amber-500' : themeTextSub}`}>
+                                                    {summary.label}
+                                                </p>
+                                                <p className={`text-xl font-black mt-1 tabular-nums ${themeTextTitle}`}>
+                                                    {Number(summary.total_quantity || 0).toLocaleString('id-ID')}
+                                                    <span className={`text-[10px] font-bold ml-1 ${themeTextSub}`}>pcs</span>
+                                                </p>
                                             </div>
-                                            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleRebootOnt(dev.id)}
-                                                    title="Reboot ONT"
-                                                    className={`p-1.5 rounded border transition-colors cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'bg-zinc-900 hover:bg-zinc-800 border-zinc-800 hover:border-zinc-700 text-zinc-300' : 'bg-white hover:bg-zinc-50 border-zinc-200 text-zinc-600 shadow-2xs'}`}
-                                                >
-                                                    <Power className="w-3.5 h-3.5" />
-                                                </button>
-                                                <span className={`inline-block w-[85px] text-center px-1 py-0.5 rounded font-mono text-[11px] sm:text-xs font-bold border whitespace-nowrap shrink-0 ${rxColor}`}>
-                                                    {dev.rx}
-                                                </span>
-                                            </div>
+                                            <Icon className={`w-4 h-4 shrink-0 ${isLow ? 'text-amber-500' : 'text-sky-500'}`} />
                                         </div>
-                                    );
-                                })
-                            )}
+                                        <p className={`text-[10px] mt-1.5 ${themeTextDesc}`}>
+                                            {summary.item_count} jenis · {summary.low_stock_count} menipis
+                                        </p>
+                                    </div>
+                                );
+                            })}
                         </div>
+
+                        {lowStockItems.length > 0 ? (
+                            <div className="space-y-1.5">
+                                <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Perlu restock</p>
+                                {lowStockItems.slice(0, 4).map((item) => (
+                                    <div key={item.id} className={`p-2 border rounded-lg text-[10px] font-semibold flex items-center justify-between gap-2 ${themeInnerWidget}`}>
+                                        <span className={`truncate ${themeTextTitle}`}>{item.name}</span>
+                                        <span className="text-amber-500 tabular-nums shrink-0">{item.quantity}/{item.min_stock}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className={`text-[10px] ${themeTextDesc}`}>Semua stok ONT & Adaptor dalam batas aman.</p>
+                        )}
+
+                        {recentInventoryMovements.length > 0 && (
+                            <div className="space-y-1.5 pt-1 border-t border-zinc-200/50 dark:border-zinc-800/50">
+                                <div className="flex items-center gap-1.5">
+                                    <History className={`w-3.5 h-3.5 ${themeTextDesc}`} />
+                                    <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Stok terakhir berubah</p>
+                                </div>
+                                {recentInventoryMovements.slice(0, 3).map((movement) => (
+                                    <div key={movement.id} className={`p-2 border rounded-lg text-[10px] ${themeInnerWidget}`}>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className={`font-bold truncate ${themeTextTitle}`}>{movement.item?.name || '—'}</span>
+                                            <span className={`font-black tabular-nums shrink-0 ${movementTypeClass(movement.type)}`}>
+                                                {Number(movement.quantity_change) > 0 ? '+' : ''}{Number(movement.quantity_change).toLocaleString('id-ID')}
+                                            </span>
+                                        </div>
+                                        <p className={`mt-0.5 truncate ${themeTextDesc}`}>
+                                            {movement.type_label}
+                                            {movement.customer?.name ? ` · ${movement.customer.name}` : ''}
+                                            {' · '}{movement.created_at_label}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </PremiumPanel>
+
+                    <PremiumPanel accent="rose" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3">
+                        <PremiumPanelHeader
+                            icon={CreditCard}
+                            accent="rose"
+                            isDarkMode={isDarkMode}
+                            themeTextTitle={themeTextTitle}
+                            title="Ringkasan Tagihan & Operasional"
+                            trailing={(
+                                <Link
+                                    href="/invoices"
+                                    className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors ${isDarkMode ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10' : 'border-rose-200 text-rose-700 hover:bg-rose-50'}`}
+                                >
+                                    Tagihan
+                                </Link>
+                            )}
+                        />
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className={`rounded-xl border p-2.5 ${isDarkMode ? 'border-rose-500/20 bg-rose-500/5' : 'border-rose-200 bg-rose-50/70'}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-rose-300/90' : 'text-rose-700'}`}>Belum Lunas</p>
+                                <p className={`text-lg font-black mt-1 leading-none ${themeTextTitle}`}>{unpaidCount}</p>
+                                <p className={`text-[10px] font-bold mt-1 ${themeTextDesc}`}>{formatRupiah(unpaidTotal)}</p>
+                            </div>
+                            <div className={`rounded-xl border p-2.5 ${overdueCount > 0
+                                ? (isDarkMode ? 'border-amber-500/30 bg-amber-500/5' : 'border-amber-200 bg-amber-50/70')
+                                : themeInnerWidget}`}
+                            >
+                                <p className={`text-[10px] font-bold uppercase tracking-wide ${overdueCount > 0 ? 'text-amber-500' : themeTextSub}`}>Jatuh Tempo Lewat</p>
+                                <p className={`text-lg font-black mt-1 leading-none ${overdueCount > 0 ? 'text-amber-500' : themeTextTitle}`}>{overdueCount}</p>
+                                <p className={`text-[10px] font-bold mt-1 ${themeTextDesc}`}>Invoice terlambat</p>
+                            </div>
+                            <div className={`rounded-xl border p-2.5 ${themeInnerWidget}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Penundaan Aktif</p>
+                                <p className={`text-lg font-black mt-1 leading-none ${themeTextTitle}`}>{pendingDeferrals}</p>
+                                <p className={`text-[10px] font-bold mt-1 ${themeTextDesc}`}>Menunggu generate</p>
+                            </div>
+                            <div className={`rounded-xl border p-2.5 ${themeInnerWidget}`}>
+                                <div className="flex items-center gap-1.5">
+                                    <Wifi className={`w-3.5 h-3.5 ${themeTextDesc}`} />
+                                    <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Router Aktif</p>
+                                </div>
+                                <p className={`text-lg font-black mt-1 leading-none ${themeTextTitle}`}>{routerActive}/{routerTotal}</p>
+                                <p className={`text-[10px] font-bold mt-1 ${themeTextDesc}`}>Mikrotik online</p>
+                            </div>
+                        </div>
+
+                        {(overdueCount > 0 || customerStats.isolated > 0) && (
+                            <div className={`rounded-lg border px-2.5 py-2 ${isDarkMode ? 'border-rose-500/25 bg-rose-500/5' : 'border-rose-200 bg-rose-50/80'}`}>
+                                <p className={`text-[10px] font-bold leading-snug ${isDarkMode ? 'text-rose-300' : 'text-rose-800'}`}>
+                                    {overdueCount > 0 && `${overdueCount} tagihan lewat jatuh tempo. `}
+                                    {customerStats.isolated > 0 && `${customerStats.isolated} pelanggan terisolir.`}
+                                </p>
+                            </div>
+                        )}
                     </PremiumPanel>
 
                     <PremiumPanel accent="amber" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3">
@@ -698,32 +746,6 @@ function DashboardContent({
                             )}
                         </div>
                     </PremiumPanel>
-
-                    <div className={`p-3 border rounded-2xl flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-[13px] font-bold transition-colors duration-250 ${themeInnerWidget}`}>
-                        <div className="flex items-center gap-2 min-w-0">
-                            <Sliders className={`w-3.5 h-3.5 shrink-0 ${themeTextSub}`} />
-                            <span className={`truncate ${themeTextTitle}`}>Quick Tools Panel</span>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5 shrink-0 self-end sm:self-auto">
-                            <button
-                                type="button"
-                                onClick={() => handleSyncRouter()}
-                                disabled={isSyncingRouter !== null}
-                                title={isSyncingRouter !== null ? 'Sinkronisasi...' : 'Sync Router'}
-                                className={`p-2 border rounded-lg transition-all duration-150 cursor-pointer inline-flex items-center justify-center disabled:opacity-50 ${isDarkMode ? 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white' : 'bg-white border-zinc-200 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 shadow-xs'}`}
-                            >
-                                <RefreshCw className={`w-4 h-4 ${isSyncingRouter !== null ? 'animate-spin' : ''}`} />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={handleScanOlt}
-                                title="Scan OLT"
-                                className={`p-2 border rounded-lg transition-all duration-150 cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white' : 'bg-white border-zinc-200 hover:bg-zinc-50 text-zinc-600 hover:text-zinc-900 shadow-xs'}`}
-                            >
-                                <Radar className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </>
