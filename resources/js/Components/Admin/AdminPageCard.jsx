@@ -13,19 +13,24 @@ export default function AdminPageCard({
     headerBottom = null,
     children,
     className = '',
-    bodyClassName = 'p-6 space-y-6',
+    bodyClassName = 'p-5 space-y-4',
 }) {
+    const styles = getCardAccentStyles(accent);
+
     return (
-        <div className={`${themeCard} border rounded-2xl overflow-hidden shadow-xs ${className}`}>
+        <div className={`${themeCard} border rounded-2xl overflow-hidden ${className}`}>
+            <div className={`h-0.5 ${isDarkMode ? styles.barDark : styles.barLight}`} />
             <div className={bodyClassName}>
-                <div className={`space-y-4 border-b pb-4 ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-100'}`}>
+                <div className={`space-y-3 border-b pb-3 ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                        <div className="flex items-start gap-2.5 min-w-0">
-                            {Icon && <Icon className="w-4.5 h-4.5 text-zinc-400 dark:text-zinc-500 shrink-0 mt-0.5" />}
+                        <div className="flex items-start gap-3 min-w-0">
+                            <div className={`p-2 rounded-xl shrink-0 ${isDarkMode ? styles.wrapDark : styles.wrapLight}`}>
+                                <Icon className={`w-5 h-5 ${styles.icon}`} />
+                            </div>
                             <div className="min-w-0">
-                                <h2 className={`text-sm font-semibold tracking-tight ${themeTextTitle}`}>{title}</h2>
+                                <h2 className={`text-sm font-bold ${themeTextTitle}`}>{title}</h2>
                                 {description ? (
-                                    <p className={`text-xs mt-0.5 text-zinc-500 dark:text-zinc-400`}>{description}</p>
+                                    <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>{description}</p>
                                 ) : null}
                             </div>
                         </div>
@@ -49,10 +54,13 @@ export function PremiumPanel({
     isDarkMode,
     children,
     className = '',
-    bodyClassName = 'p-6 space-y-5',
+    bodyClassName = 'p-4 space-y-4',
 }) {
+    const styles = getCardAccentStyles(accent);
+
     return (
-        <div className={`${themeCard} border rounded-2xl overflow-hidden shadow-xs hover:shadow-sm transition-shadow duration-200 ${className}`}>
+        <div className={`${themeCard} border rounded-2xl overflow-hidden shadow-xs ${className}`}>
+            <div className={`h-0.5 ${isDarkMode ? styles.barDark : styles.barLight}`} />
             <div className={bodyClassName}>{children}</div>
         </div>
     );
@@ -67,18 +75,22 @@ export function PremiumPanelHeader({
     title,
     subtitle,
     trailing = null,
-    className = 'pb-3.5 border-b border-zinc-100 dark:border-zinc-800/60',
+    className = 'pb-2 border-b border-zinc-200/50 dark:border-zinc-800/40',
 }) {
+    const styles = getCardAccentStyles(accent);
+
     return (
-        <div className={`flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between ${className}`}>
-            <div className="flex items-center gap-2.5 min-w-0">
-                {Icon && <Icon className="w-4.5 h-4.5 text-zinc-400 dark:text-zinc-500 shrink-0" />}
+        <div className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${className}`}>
+            <div className="flex items-center gap-2 min-w-0">
+                <div className={`p-1.5 rounded-lg shrink-0 ${isDarkMode ? styles.wrapDark : styles.wrapLight}`}>
+                    <Icon className={`w-4 h-4 ${styles.icon}`} />
+                </div>
                 <div className="min-w-0">
-                    <h3 className={`text-sm font-semibold tracking-tight ${themeTextTitle}`}>
+                    <h3 className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate ${themeTextTitle}`}>
                         {title}
                     </h3>
                     {subtitle ? (
-                        <p className="text-xs text-zinc-550 dark:text-zinc-400 mt-0.5">{subtitle}</p>
+                        <p className={`text-[10px] mt-0.5 ${themeTextDesc || ''}`}>{subtitle}</p>
                     ) : null}
                 </div>
             </div>
