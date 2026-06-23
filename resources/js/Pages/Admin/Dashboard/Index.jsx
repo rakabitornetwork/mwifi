@@ -377,7 +377,7 @@ function DashboardContent({
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-4">
-                    <PremiumPanel accent="emerald" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-4">
+                    <PremiumPanel accent="emerald" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-6 space-y-5">
                         <PremiumPanelHeader
                             icon={Cpu}
                             accent="emerald"
@@ -385,14 +385,14 @@ function DashboardContent({
                             themeTextTitle={themeTextTitle}
                             title="NOC Monitor Kinerja Server & ODP"
                             trailing={(
-                                <div className="flex items-center gap-2 shrink-0">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                                    <span className="text-xs text-zinc-500 font-semibold tracking-tight whitespace-nowrap">Live Monitoring</span>
+                                <div className="flex items-center gap-1.5 shrink-0 select-none">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span className="text-xs text-zinc-400 dark:text-zinc-500 font-medium tracking-tight">Live</span>
                                 </div>
                             )}
                         />
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-2 space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="md:col-span-2 space-y-4">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-zinc-500 font-medium">
                                     <span>Beban Resource CPU & RAM (Real-time) Mikrotik</span>
                                     <div className="flex flex-wrap items-center gap-2">
@@ -400,7 +400,7 @@ function DashboardContent({
                                             <select
                                                 value={selectedRouterId}
                                                 onChange={(e) => setSelectedRouterId(e.target.value)}
-                                                className={`text-[11px] font-semibold px-2 py-1 rounded-lg border max-w-[180px] truncate ${themeSelect}`}
+                                                className={`text-xs font-medium px-2.5 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-zinc-400 max-w-[180px] truncate ${themeSelect}`}
                                                 title="Pilih router Mikrotik"
                                             >
                                                 {routers.map((r) => (
@@ -410,7 +410,7 @@ function DashboardContent({
                                                 ))}
                                             </select>
                                         ) : (
-                                            <span className="text-amber-500 font-semibold">Belum ada router</span>
+                                            <span className="text-amber-500 font-medium">Belum ada router</span>
                                         )}
                                         <span className="font-mono text-emerald-500 shrink-0">
                                             {isLoadingResources ? 'Memuat...' : 'Interval: 7s'}
@@ -422,7 +422,7 @@ function DashboardContent({
                                 )}
                                 <div className="h-44 w-full">
                                     {resourceHistory.length === 0 ? (
-                                        <div className={`h-full flex items-center justify-center text-xs font-semibold tracking-tight ${themeTextSub}`}>
+                                        <div className={`h-full flex items-center justify-center text-xs font-medium tracking-tight ${themeTextSub}`}>
                                             {routers.length === 0
                                                 ? 'Tambahkan router di menu Router'
                                                 : isLoadingResources
@@ -436,14 +436,14 @@ function DashboardContent({
                                     )}
                                 </div>
 
-                                <div className="space-y-3 pt-3 border-t border-zinc-200/50 dark:border-zinc-800/50">
+                                <div className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800/60">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-zinc-500 font-medium">
                                         <span>Trafik Interface (Real-time)</span>
                                         <select
                                             value={selectedInterface}
                                             onChange={(e) => setSelectedInterface(e.target.value)}
                                             disabled={interfaceList.length === 0 || isLoadingInterfaces}
-                                            className={`text-[11px] font-semibold px-2 py-1 rounded-lg border max-w-[220px] truncate disabled:opacity-50 ${themeSelect}`}
+                                            className={`text-xs font-medium px-2.5 py-1 rounded-md border focus:outline-none focus:ring-1 focus:ring-zinc-400 max-w-[220px] truncate disabled:opacity-50 ${themeSelect}`}
                                             title="Pilih interface Mikrotik"
                                         >
                                             {interfaceList.length === 0 ? (
@@ -462,22 +462,16 @@ function DashboardContent({
                                         <p className="text-xs font-semibold text-amber-500">{interfaceError}</p>
                                     )}
 
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className={`rounded-xl border p-3.5 ${isDarkMode ? 'border-zinc-800 bg-zinc-900/10' : 'border-zinc-200/60 bg-zinc-50/30'}`}>
-                                            <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-650 dark:text-sky-400">
-                                                <ArrowDownLeft className="w-4 h-4" />
-                                                RX (terima)
-                                            </div>
-                                            <p className={`text-base font-bold mt-1.5 ${themeTextTitle}`}>
+                                    <div className="grid grid-cols-2 gap-6 py-2">
+                                        <div className="space-y-1">
+                                            <span className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">RX (Receive)</span>
+                                            <p className={`text-xl font-bold tracking-tight ${themeTextTitle}`}>
                                                 {selectedInterface ? formatSpeedBps(interfaceTraffic.rx_bps) : '—'}
                                             </p>
                                         </div>
-                                        <div className={`rounded-xl border p-3.5 ${isDarkMode ? 'border-zinc-800 bg-zinc-900/10' : 'border-zinc-200/60 bg-zinc-50/30'}`}>
-                                            <div className="flex items-center gap-1.5 text-xs font-semibold text-violet-650 dark:text-violet-400">
-                                                <ArrowUpRight className="w-4 h-4" />
-                                                TX (kirim)
-                                            </div>
-                                            <p className={`text-base font-bold mt-1.5 ${themeTextTitle}`}>
+                                        <div className="space-y-1">
+                                            <span className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">TX (Send)</span>
+                                            <p className={`text-xl font-bold tracking-tight ${themeTextTitle}`}>
                                                 {selectedInterface ? formatSpeedBps(interfaceTraffic.tx_bps) : '—'}
                                             </p>
                                         </div>
@@ -485,7 +479,7 @@ function DashboardContent({
 
                                     <div className="h-28 w-full">
                                         {trafficHistory.length === 0 ? (
-                                            <div className={`h-full flex items-center justify-center text-xs font-semibold tracking-tight ${themeTextSub}`}>
+                                            <div className={`h-full flex items-center justify-center text-xs font-medium tracking-tight ${themeTextSub}`}>
                                                 {isLoadingInterfaces
                                                     ? 'Memuat interface...'
                                                     : selectedInterface
@@ -498,7 +492,7 @@ function DashboardContent({
                                             </Suspense>
                                         )}
                                     </div>
-                                    <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
+                                    <p className="text-[10px] text-zinc-450 dark:text-zinc-550 font-normal">
                                         RX/TX dari perspektif router via RouterOS monitor-traffic.
                                         {interfaceTraffic.sampled_at && (
                                             <> Terakhir diukur: {new Date(interfaceTraffic.sampled_at).toLocaleTimeString('id-ID')}.</>
@@ -508,58 +502,57 @@ function DashboardContent({
                                 </div>
                             </div>
 
-                            <div className={`p-4 rounded-xl border flex flex-col justify-between space-y-3.5 ${isDarkMode ? 'bg-zinc-900/10 border-zinc-800/50' : 'bg-zinc-50/30 border-zinc-150'}`}>
-                                <div className="space-y-2 text-xs">
-                                    <div className="flex justify-between items-center font-medium gap-2">
-                                        <span className={themeTextSub}>Router</span>
-                                        <span className={`${themeTextTitle} font-semibold truncate max-w-[110px] text-right`} title={serverResources.router_name}>
+                            <div className="space-y-4 pt-1">
+                                <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80 text-xs">
+                                    <div className="flex justify-between items-center py-2.5">
+                                        <span className="text-zinc-500 dark:text-zinc-400 font-medium">Router</span>
+                                        <span className={`font-semibold ${themeTextTitle} truncate max-w-[120px]`} title={serverResources.router_name}>
                                             {serverResources.router_name || '—'}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between items-center font-medium">
-                                        <span className={themeTextSub}>RouterOS</span>
-                                        <span className={`${themeTextTitle} font-semibold truncate max-w-[110px] text-right`} title={serverResources.os}>
-                                            {serverResources.os}
+                                    <div className="flex justify-between items-center py-2.5">
+                                        <span className="text-zinc-500 dark:text-zinc-400 font-medium">RouterOS</span>
+                                        <span className={`font-semibold ${themeTextTitle}`}>{serverResources.os || '—'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center py-2.5">
+                                        <span className="text-zinc-500 dark:text-zinc-400 font-medium">Identity</span>
+                                        <span className={`font-mono font-semibold ${themeTextTitle} truncate max-w-[120px]`} title={serverResources.hostname}>
+                                            {serverResources.hostname || '—'}
                                         </span>
                                     </div>
-                                    <div className="flex justify-between items-center font-medium">
-                                        <span className={themeTextSub}>Identity</span>
-                                        <span className={`${themeTextTitle} font-semibold truncate max-w-[110px] font-mono text-right`} title={serverResources.hostname}>
-                                            {serverResources.hostname}
-                                        </span>
+                                    <div className="flex justify-between items-center py-2.5">
+                                        <span className="text-zinc-500 dark:text-zinc-400 font-medium">Storage</span>
+                                        <span className={`font-semibold ${themeTextTitle}`}>{serverResources.disk ?? 0}%</span>
                                     </div>
-                                    <div className="flex justify-between items-center font-medium">
-                                        <span className={themeTextSub}>Storage</span>
-                                        <span className={`${themeTextTitle} font-semibold`}>{serverResources.disk ?? 0}%</span>
-                                    </div>
-                                    <div className="flex justify-between items-center font-medium">
-                                        <span className={themeTextSub}>Total ODP</span>
-                                        <span className={`${themeTextTitle} font-semibold`}>{odpNodeCount} Node</span>
-                                    </div>
-                                    <div className="space-y-2 pt-2 border-t border-zinc-200/50 dark:border-zinc-800/50">
-                                        <div className="flex justify-between items-center text-[11px] font-medium">
-                                            <span className={themeTextSub}>Utilisasi Port ODP</span>
-                                            <span className="text-emerald-500 font-semibold">{odpUsedPorts}/{odpTotalPorts} ({odpUtilizationPercent}%)</span>
-                                        </div>
-                                        <div className="w-full bg-zinc-200/70 dark:bg-zinc-850 h-1.5 rounded-full overflow-hidden">
-                                            <div
-                                                className="bg-emerald-500 h-1.5 rounded-full"
-                                                style={{ width: `${odpUtilizationPercent}%` }}
-                                            />
-                                        </div>
+                                    <div className="flex justify-between items-center py-2.5">
+                                        <span className="text-zinc-500 dark:text-zinc-400 font-medium">Total ODP</span>
+                                        <span className={`font-semibold ${themeTextTitle}`}>{odpNodeCount} Node</span>
                                     </div>
                                 </div>
 
-                                <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium leading-relaxed pt-2 border-t border-zinc-200/50 dark:border-zinc-800/50">
-                                    Peta topologi jaringan dan detail ODP dipindahkan ke menu utama **Peta Jaringan**.
+                                <div className="space-y-2 pt-1">
+                                    <div className="flex justify-between items-center text-xs font-medium">
+                                        <span className="text-zinc-550 dark:text-zinc-400">Utilisasi Port ODP</span>
+                                        <span className="text-emerald-550 dark:text-emerald-450 font-semibold">{odpUsedPorts}/{odpTotalPorts} ({odpUtilizationPercent}%)</span>
+                                    </div>
+                                    <div className="w-full bg-zinc-100 dark:bg-zinc-800/80 h-1.5 rounded-full overflow-hidden">
+                                        <div
+                                            className="bg-emerald-550 dark:bg-emerald-500 h-1.5 rounded-full"
+                                            style={{ width: `${odpUtilizationPercent}%` }}
+                                        />
+                                    </div>
                                 </div>
+
+                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 leading-relaxed font-normal pt-2 border-t border-zinc-100 dark:border-zinc-850/50">
+                                    Peta topologi jaringan dan detail ODP dipindahkan ke menu utama **Peta Jaringan**.
+                                </p>
                             </div>
                         </div>
                     </PremiumPanel>
                 </div>
 
                 <div className="space-y-4">
-                    <PremiumPanel accent="sky" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3.5">
+                    <PremiumPanel accent="sky" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-6 space-y-4">
                         <PremiumPanelHeader
                             icon={Boxes}
                             accent="sky"
@@ -569,7 +562,7 @@ function DashboardContent({
                             trailing={(
                                 <Link
                                     href="/inventory"
-                                    className={`text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+                                    className={`text-xs font-medium px-2.5 py-1 rounded-md border transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
                                 >
                                     Kelola
                                 </Link>
@@ -577,15 +570,14 @@ function DashboardContent({
                         />
 
                         {inventoryLowStockCount > 0 && (
-                            <div className={`rounded-xl border px-3 py-2.5 flex items-start gap-2.5 ${isDarkMode ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200/60 bg-amber-50/30'}`}>
-                                <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                                <p className={`text-xs font-semibold leading-snug ${isDarkMode ? 'text-amber-300' : 'text-amber-800'}`}>
+                            <div className="border-l-2 border-amber-500 pl-3 py-1">
+                                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium leading-relaxed">
                                     {inventoryLowStockCount} item ONT/Adaptor stok menipis — segera restock.
                                 </p>
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {inventoryWatchEntries.map(([key, summary]) => {
                                 const Icon = WATCH_CATEGORY_ICONS[key] || Boxes;
                                 const isLow = summary.status === 'low';
@@ -593,23 +585,21 @@ function DashboardContent({
                                 return (
                                     <div
                                         key={key}
-                                        className={`rounded-xl border p-3.5 transition-all duration-200 ${isLow
-                                            ? (isDarkMode ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200 bg-amber-50/30')
-                                            : (isDarkMode ? 'border-zinc-800 bg-zinc-900/10' : 'border-zinc-200 bg-white shadow-xs')}`}
+                                        className={`rounded-xl border p-4 transition-all duration-155 ${isLow
+                                            ? 'border-amber-500/20 bg-amber-500/5'
+                                            : 'border-zinc-100 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/10'}`}
                                     >
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div>
-                                                <p className={`text-xs font-semibold tracking-tight ${isLow ? 'text-amber-500' : themeTextSub}`}>
-                                                    {summary.label}
-                                                </p>
-                                                <p className={`text-2xl font-bold mt-1.5 tracking-tight tabular-nums ${themeTextTitle}`}>
-                                                    {Number(summary.total_quantity || 0).toLocaleString('id-ID')}
-                                                    <span className={`text-xs font-medium ml-1 ${themeTextSub}`}>pcs</span>
-                                                </p>
-                                            </div>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className={`text-xs font-medium ${isLow ? 'text-amber-500' : 'text-zinc-450 dark:text-zinc-400'}`}>
+                                                {summary.label}
+                                            </span>
                                             <Icon className={`w-4 h-4 shrink-0 ${isLow ? 'text-amber-500' : 'text-zinc-400 dark:text-zinc-500'}`} />
                                         </div>
-                                        <p className={`text-xs mt-2 ${themeTextDesc}`}>
+                                        <p className={`text-2xl font-bold mt-2 tracking-tight ${themeTextTitle}`}>
+                                            {Number(summary.total_quantity || 0).toLocaleString('id-ID')}
+                                            <span className="text-xs text-zinc-400 dark:text-zinc-500 ml-1 font-normal">pcs</span>
+                                        </p>
+                                        <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">
                                             {summary.item_count} jenis · {summary.low_stock_count} menipis
                                         </p>
                                     </div>
@@ -618,45 +608,49 @@ function DashboardContent({
                         </div>
 
                         {lowStockItems.length > 0 ? (
-                            <div className="space-y-2">
-                                <p className={`text-xs font-semibold tracking-tight ${themeTextSub}`}>Perlu restock</p>
-                                {lowStockItems.slice(0, 4).map((item) => (
-                                    <div key={item.id} className={`p-2.5 border rounded-xl text-xs font-semibold flex items-center justify-between gap-2 ${isDarkMode ? 'border-zinc-800/60 bg-zinc-900/10' : 'border-zinc-150 bg-zinc-50/20'}`}>
-                                        <span className={`truncate ${themeTextTitle}`}>{item.name}</span>
-                                        <span className="text-amber-500 tabular-nums shrink-0 font-bold">{item.quantity}/{item.min_stock}</span>
-                                    </div>
-                                ))}
+                            <div className="space-y-2.5">
+                                <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Perlu restock</p>
+                                <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
+                                    {lowStockItems.slice(0, 4).map((item) => (
+                                        <div key={item.id} className="flex justify-between items-center py-2 text-xs">
+                                            <span className={`font-medium ${themeTextTitle} truncate`}>{item.name}</span>
+                                            <span className="text-amber-600 dark:text-amber-400 font-bold shrink-0">{item.quantity}/{item.min_stock}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         ) : (
-                            <p className={`text-xs ${themeTextDesc}`}>Semua stok ONT & Adaptor dalam batas aman.</p>
+                            <p className="text-xs text-zinc-400 dark:text-zinc-500">Semua stok ONT & Adaptor dalam batas aman.</p>
                         )}
 
                         {recentInventoryMovements.length > 0 && (
-                            <div className="space-y-2 pt-1 border-t border-zinc-200/50 dark:border-zinc-800/50">
+                            <div className="space-y-3.5 pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
                                 <div className="flex items-center gap-1.5">
-                                    <History className={`w-3.5 h-3.5 ${themeTextDesc}`} />
-                                    <p className={`text-xs font-semibold tracking-tight ${themeTextSub}`}>Stok terakhir berubah</p>
+                                    <History className="w-3.5 h-3.5 text-zinc-405 dark:text-zinc-500" />
+                                    <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Stok terakhir berubah</p>
                                 </div>
-                                {recentInventoryMovements.slice(0, 3).map((movement) => (
-                                    <div key={movement.id} className={`p-2.5 border rounded-xl text-xs ${isDarkMode ? 'border-zinc-800/60 bg-zinc-900/10' : 'border-zinc-150 bg-zinc-50/20'}`}>
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span className={`font-semibold truncate ${themeTextTitle}`}>{movement.item?.name || '—'}</span>
-                                            <span className={`font-bold tabular-nums shrink-0 ${movementTypeClass(movement.type)}`}>
-                                                {Number(movement.quantity_change) > 0 ? '+' : ''}{Number(movement.quantity_change).toLocaleString('id-ID')}
-                                            </span>
+                                <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
+                                    {recentInventoryMovements.slice(0, 3).map((movement) => (
+                                        <div key={movement.id} className="py-2.5 text-xs">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className={`font-semibold ${themeTextTitle} truncate`}>{movement.item?.name || '—'}</span>
+                                                <span className={`font-bold tabular-nums shrink-0 ${movementTypeClass(movement.type)}`}>
+                                                    {Number(movement.quantity_change) > 0 ? '+' : ''}{Number(movement.quantity_change).toLocaleString('id-ID')}
+                                                </span>
+                                            </div>
+                                            <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500 truncate">
+                                                {movement.type_label}
+                                                {movement.customer?.name ? ` · ${movement.customer.name}` : ''}
+                                                {' · '}{movement.created_at_label}
+                                            </p>
                                         </div>
-                                        <p className={`mt-1 text-xs truncate ${themeTextDesc}`}>
-                                            {movement.type_label}
-                                            {movement.customer?.name ? ` · ${movement.customer.name}` : ''}
-                                            {' · '}{movement.created_at_label}
-                                        </p>
-                                    </div>
-                                ))}
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </PremiumPanel>
 
-                    <PremiumPanel accent="rose" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3.5">
+                    <PremiumPanel accent="rose" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-6 space-y-4">
                         <PremiumPanelHeader
                             icon={CreditCard}
                             accent="rose"
@@ -666,45 +660,45 @@ function DashboardContent({
                             trailing={(
                                 <Link
                                     href="/invoices"
-                                    className={`text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+                                    className={`text-xs font-medium px-2.5 py-1 rounded-md border transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
                                 >
                                     Tagihan
                                 </Link>
                             )}
                         />
 
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className={`rounded-xl border p-3.5 ${isDarkMode ? 'border-zinc-800 bg-zinc-900/10' : 'border-zinc-200 bg-white shadow-xs'}`}>
-                                <p className={`text-xs font-semibold tracking-tight ${isDarkMode ? 'text-rose-450' : 'text-rose-600'}`}>Belum Lunas</p>
-                                <p className={`text-xl font-bold mt-1.5 leading-none ${themeTextTitle}`}>{unpaidCount}</p>
-                                <p className={`text-xs font-medium mt-1 ${themeTextDesc}`}>{formatRupiah(unpaidTotal)}</p>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="border border-zinc-100 dark:border-zinc-800/60 rounded-xl p-4 bg-white dark:bg-zinc-900/10 shadow-xxs">
+                                <p className="text-xs font-semibold text-rose-500 dark:text-rose-400">Belum Lunas</p>
+                                <p className={`text-xl font-bold mt-1.5 ${themeTextTitle}`}>{unpaidCount}</p>
+                                <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1 font-medium">{formatRupiah(unpaidTotal)}</p>
                             </div>
-                            <div className={`rounded-xl border p-3.5 ${overdueCount > 0
-                                ? (isDarkMode ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200 bg-amber-50/30')
-                                : (isDarkMode ? 'border-zinc-800 bg-zinc-900/10' : 'border-zinc-200 bg-white shadow-xs')}`}
+                            <div className={`border rounded-xl p-4 transition-all duration-150 shadow-xxs ${overdueCount > 0
+                                ? 'border-amber-500/20 bg-amber-500/5'
+                                : 'border-zinc-100 dark:border-zinc-800/60 bg-white dark:bg-zinc-900/10'}`}
                             >
-                                <p className={`text-xs font-semibold tracking-tight ${overdueCount > 0 ? 'text-amber-500' : themeTextSub}`}>Jatuh Tempo Lewat</p>
-                                <p className={`text-xl font-bold mt-1.5 leading-none ${overdueCount > 0 ? 'text-amber-500' : themeTextTitle}`}>{overdueCount}</p>
-                                <p className={`text-xs font-medium mt-1 ${themeTextDesc}`}>Invoice terlambat</p>
+                                <p className={`text-xs font-semibold ${overdueCount > 0 ? 'text-amber-550' : 'text-zinc-450 dark:text-zinc-400'}`}>Jatuh Tempo Lewat</p>
+                                <p className={`text-xl font-bold mt-1.5 ${overdueCount > 0 ? 'text-amber-500' : themeTextTitle}`}>{overdueCount}</p>
+                                <p className="text-xs text-zinc-400 dark:text-zinc-550 mt-1 font-medium">Invoice terlambat</p>
                             </div>
-                            <div className={`rounded-xl border p-3.5 ${isDarkMode ? 'border-zinc-800 bg-zinc-900/10' : 'border-zinc-200 bg-white shadow-xs'}`}>
-                                <p className={`text-xs font-semibold tracking-tight ${themeTextSub}`}>Penundaan Aktif</p>
-                                <p className={`text-xl font-bold mt-1.5 leading-none ${themeTextTitle}`}>{pendingDeferrals}</p>
-                                <p className={`text-xs font-medium mt-1 ${themeTextDesc}`}>Menunggu generate</p>
+                            <div className="border border-zinc-100 dark:border-zinc-800/60 rounded-xl p-4 bg-white dark:bg-zinc-900/10 shadow-xxs">
+                                <p className="text-xs font-semibold text-zinc-450 dark:text-zinc-400">Penundaan Aktif</p>
+                                <p className={`text-xl font-bold mt-1.5 ${themeTextTitle}`}>{pendingDeferrals}</p>
+                                <p className="text-xs text-zinc-400 dark:text-zinc-550 mt-1 font-medium">Menunggu generate</p>
                             </div>
-                            <div className={`rounded-xl border p-3.5 ${isDarkMode ? 'border-zinc-800 bg-zinc-900/10' : 'border-zinc-200 bg-white shadow-xs'}`}>
+                            <div className="border border-zinc-100 dark:border-zinc-800/60 rounded-xl p-4 bg-white dark:bg-zinc-900/10 shadow-xxs">
                                 <div className="flex items-center gap-1.5">
-                                    <Wifi className={`w-3.5 h-3.5 ${themeTextDesc}`} />
-                                    <p className={`text-xs font-semibold tracking-tight ${themeTextSub}`}>Router Aktif</p>
+                                    <Wifi className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
+                                    <span className="text-xs font-semibold text-zinc-450 dark:text-zinc-400">Router Aktif</span>
                                 </div>
-                                <p className={`text-xl font-bold mt-1.5 leading-none ${themeTextTitle}`}>{routerActive}/{routerTotal}</p>
-                                <p className={`text-xs font-medium mt-1 ${themeTextDesc}`}>Mikrotik online</p>
+                                <p className={`text-xl font-bold mt-1.5 ${themeTextTitle}`}>{routerActive}/{routerTotal}</p>
+                                <p className="text-xs text-zinc-400 dark:text-zinc-550 mt-1 font-medium">Mikrotik online</p>
                             </div>
                         </div>
 
                         {(overdueCount > 0 || customerStats.isolated > 0) && (
-                            <div className={`rounded-xl border px-3 py-2.5 ${isDarkMode ? 'border-rose-500/25 bg-rose-500/5' : 'border-rose-200 bg-rose-50/30'}`}>
-                                <p className={`text-xs font-semibold leading-snug ${isDarkMode ? 'text-rose-350' : 'text-rose-800'}`}>
+                            <div className="border-l-2 border-rose-500 pl-3 py-1">
+                                <p className="text-xs text-rose-600 dark:text-rose-400 font-medium leading-relaxed">
                                     {overdueCount > 0 && `${overdueCount} tagihan lewat jatuh tempo. `}
                                     {customerStats.isolated > 0 && `${customerStats.isolated} pelanggan terisolir.`}
                                 </p>
@@ -712,7 +706,7 @@ function DashboardContent({
                         )}
                     </PremiumPanel>
 
-                    <PremiumPanel accent="amber" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3.5">
+                    <PremiumPanel accent="amber" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-6 space-y-4">
                         <PremiumPanelHeader
                             icon={MessageSquare}
                             accent="amber"
@@ -723,26 +717,28 @@ function DashboardContent({
                             trailing={<span className={`text-xs ${themeTextSub} font-semibold shrink-0`}>Auto Refresh</span>}
                         />
 
-                        <div className="space-y-2 max-h-[195px] overflow-y-auto pr-1">
+                        <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
                             {waLogs.length === 0 ? (
-                                <div className="py-6 text-center text-xs text-zinc-500 font-semibold uppercase tracking-wider">
+                                <div className="py-6 text-center text-xs text-zinc-450 dark:text-zinc-500 font-medium">
                                     Belum ada log generate tagihan otomatis.
                                 </div>
                             ) : (
-                                waLogs.map((log, idx) => (
-                                    <div key={idx} className={`p-3 border rounded-xl flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between text-xs transition-colors duration-150 ${isDarkMode ? 'bg-zinc-900/10 border-zinc-800/50' : 'bg-zinc-50/20 border-zinc-150'}`}>
-                                        <div className="space-y-1 min-w-0 flex-1">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase border shrink-0 ${isDarkMode ? 'bg-zinc-900 text-zinc-450 border-zinc-800/80' : 'bg-zinc-100 text-zinc-650 border-zinc-200/80'}`}>
-                                                    {log.type}
-                                                </span>
-                                                <span className={`${themeTextTitle} font-semibold truncate`}>{log.target}</span>
+                                <div className="divide-y divide-zinc-100 dark:divide-zinc-800/80">
+                                    {waLogs.map((log, idx) => (
+                                        <div key={idx} className="py-3 flex flex-col gap-1 text-xs">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border border-zinc-200/50 dark:border-zinc-700/50 shrink-0">
+                                                        {log.type}
+                                                    </span>
+                                                    <span className={`${themeTextTitle} font-semibold truncate`}>{log.target}</span>
+                                                </div>
+                                                <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-mono shrink-0">{log.time}</span>
                                             </div>
-                                            <p className={`${themeTextDesc} text-xs leading-relaxed line-clamp-2 sm:line-clamp-1`}>{log.text}</p>
+                                            <p className={`${themeTextDesc} text-xs leading-relaxed mt-0.5`}>{log.text}</p>
                                         </div>
-                                        <span className={`text-xs ${themeTextSub} font-mono shrink-0 self-end sm:self-auto`}>{log.time}</span>
-                                    </div>
-                                ))
+                                    ))}
+                                </div>
                             )}
                         </div>
                     </PremiumPanel>
