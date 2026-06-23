@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Save, Search, Trash2, Upload, Users, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
@@ -8,6 +8,7 @@ import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import getVisiblePages from '../../../utils/getVisiblePages';
 import { formatDateInputValue, todayDateInputValue } from '../../../utils/formatDateInputValue';
+import { fetchRouterPackageProfiles } from '../../../utils/fetchRouterPackageProfiles';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 500, 1000];
 
@@ -67,7 +68,29 @@ function CustomersPageContent({
     const [isImporting, setIsImporting] = useState(false);
     const [importResult, setImportResult] = useState(null);
 
+    const [selectedRouterId, setSelectedRouterId] = useState('');
+    const [selectedPackageId, setSelectedPackageId] = useState('');
+    const [routerProfilesMap, setRouterProfilesMap] = useState({});
+    const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
+
     const pppoePackages = packages.filter((p) => p.type === 'pppoe');
+
+    const modalPackages = useMemo(() => {
+        if (!selectedRouterId) {
+            return pppoePackages;
+        }
+
+        const allowedProfiles = routerProfilesMap[selectedRouterId];
+        if (!allowedProfiles) {
+            return pppoePackages;
+        }
+
+        const profileSet = new Set(allowedProfiles.map((p) => String(p).toLowerCase()));
+        return pppoePackages.filter((pkg) => {
+            const profile = String(pkg.mikrotik_profile || '').toLowerCase();
+            return profileSet.has(profile);
+        });
+    }, [pppoePackages, selectedRouterId, routerProfilesMap]);
 
     useEffect(() => {
         setCustomerPage(1);
@@ -85,8 +108,59 @@ function CustomersPageContent({
                     ? String(editingCustomer.longitude)
                     : ''
             );
+
+            const rId = editingCustomer ? String(editingCustomer.router_id) : (routers[0] ? String(routers[0].id) : '');
+            setSelectedRouterId(rId);
+            setSelectedPackageId(editingCustomer ? String(editingCustomer.package_id || '') : '');
         }
-    }, [showCustomerModal, editingCustomer]);
+    }, [showCustomerModal, editingCustomer, routers]);
+
+    useEffect(() => {
+        if (!selectedRouterId || !showCustomerModal) {
+            return;
+        }
+
+        if (routerProfilesMap[selectedRouterId]) {
+            return;
+        }
+
+        let cancelled = false;
+        setIsLoadingProfiles(true);
+
+        fetchRouterPackageProfiles(selectedRouterId)
+            .then((data) => {
+                if (cancelled) return;
+                setRouterProfilesMap((prev) => ({
+                    ...prev,
+                    [selectedRouterId]: data?.all_profiles || [],
+                }));
+            })
+            .catch((err) => {
+                console.error('Gagal memuat profil router:', err);
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setIsLoadingProfiles(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedRouterId, showCustomerModal, routerProfilesMap]);
+
+    useEffect(() => {
+        if (!showCustomerModal) return;
+
+        if (modalPackages.length > 0) {
+            const hasSelected = modalPackages.some((p) => String(p.id) === String(selectedPackageId));
+            if (!hasSelected) {
+                setSelectedPackageId(String(modalPackages[0].id));
+            }
+        } else {
+            setSelectedPackageId('');
+        }
+    }, [modalPackages, showCustomerModal, selectedPackageId]);
 
     const isPppoeCustomer = (cust) => cust?.service_type !== 'hotspot';
 
@@ -793,7 +867,12 @@ function CustomersPageContent({
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Router</label>
-                            <select name="router_id" defaultValue={editingCustomer ? editingCustomer.router_id : (routers[0]?.id || '')} className={`p-2 border rounded-lg ${themeInput}`}>
+                            <select 
+                                name="router_id" 
+                                value={selectedRouterId} 
+                                onChange={(e) => setSelectedRouterId(e.target.value)}
+                                className={`p-2 border rounded-lg ${themeInput}`}
+                            >
                                 {routers.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                             </select>
                         </div>
@@ -802,12 +881,15 @@ function CustomersPageContent({
                             <select
                                 name="package_id"
                                 required
-                                defaultValue={editingCustomer?.package_id || pppoePackages[0]?.id || ''}
+                                value={selectedPackageId}
+                                onChange={(e) => setSelectedPackageId(e.target.value)}
                                 className={`p-2 border rounded-lg ${themeInput}`}
                             >
-                                {pppoePackages.length === 0 ? (
-                                    <option value="" disabled>Paket belum tersedia</option>
-                                ) : pppoePackages.map((p) => (
+                                {modalPackages.length === 0 ? (
+                                    <option value="" disabled>
+                                        {isLoadingProfiles ? 'Memuat paket...' : 'Paket belum tersedia'}
+                                    </option>
+                                ) : modalPackages.map((p) => (
                                     <option key={p.id} value={p.id}>{p.name}</option>
                                 ))}
                             </select>
