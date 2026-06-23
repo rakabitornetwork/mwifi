@@ -1810,6 +1810,116 @@ class BillingService
         return "\n• Prorata    : *{$daysBilled} hari* / " . self::PRORATA_BASE_DAYS . ' hari';
     }
 
+    /**
+     * Preview first-cycle billing for a newly registered customer (welcome WhatsApp).
+     *
+     * @return array{
+     *     period: string,
+     *     period_label: string,
+     *     due_date: string,
+     *     monthly_price: string,
+     *     estimated_subtotal: string,
+     *     estimated_total: string,
+     *     is_prorated: bool,
+     *     days_billed: int,
+     *     prorata_line: string,
+     *     billing_info: string,
+     * }|null
+     */
+    public static function previewRegistrationBilling(Customer $customer, ?float $monthlyPrice = null): ?array
+    {
+        if ($customer->service_type !== 'pppoe') {
+            return null;
+        }
+
+        $monthlyPrice = $monthlyPrice ?? (float) ($customer->package?->price ?? 0);
+        if ($monthlyPrice <= 0) {
+            return null;
+        }
+
+        $schedule = self::resolveInvoiceSchedule($customer);
+        if ($schedule !== null) {
+            $period = $schedule['period'];
+            $dueDate = $schedule['due_date'];
+        } else {
+            $period = Carbon::now()->format('Y-m');
+            $dueDate = self::resolveDueDateForPeriod($customer, $period);
+        }
+
+        $billing = self::calculateInvoiceAmount($customer, $period, $monthlyPrice);
+        if ($billing === null) {
+            return null;
+        }
+
+        $taxRate = (float) SettingService::get('system.tax_rate', 0);
+        $tax = round($billing['amount'] * $taxRate, 2);
+        $total = round($billing['amount'] + $tax, 2);
+        $periodLabel = Carbon::createFromFormat('Y-m', $period)
+            ->locale('id')
+            ->translatedFormat('F Y');
+
+        $prorataLine = self::buildProrataLine($billing['is_prorated'], (int) $billing['days_billed']);
+        $billingInfo = self::buildRegistrationBillingInfoBlock(
+            $periodLabel,
+            $dueDate->format('d-m-Y'),
+            $monthlyPrice,
+            $billing['amount'],
+            $total,
+            $billing['is_prorated'],
+            (int) $billing['days_billed'],
+            $tax > 0
+        );
+
+        return [
+            'period' => $period,
+            'period_label' => $periodLabel,
+            'due_date' => $dueDate->format('d-m-Y'),
+            'monthly_price' => self::formatWhatsAppMoney($monthlyPrice),
+            'estimated_subtotal' => self::formatWhatsAppMoney($billing['amount']),
+            'estimated_total' => self::formatWhatsAppMoney($total),
+            'is_prorated' => $billing['is_prorated'],
+            'days_billed' => (int) $billing['days_billed'],
+            'prorata_line' => $prorataLine,
+            'billing_info' => $billingInfo,
+        ];
+    }
+
+    public static function buildRegistrationBillingInfoBlock(
+        string $periodLabel,
+        string $dueDate,
+        float $monthlyPrice,
+        float $subtotal,
+        float $total,
+        bool $isProrated,
+        int $daysBilled,
+        bool $hasTax
+    ): string {
+        $lines = [
+            '*Estimasi Tagihan Pertama*',
+            '• Periode     : ' . $periodLabel,
+            '• Paket       : ' . self::formatWhatsAppMoney($monthlyPrice) . '/bulan',
+        ];
+
+        if ($isProrated) {
+            $lines[] = '• Prorata     : *' . $daysBilled . ' hari* / ' . self::PRORATA_BASE_DAYS . ' hari (mulai layanan s/d jatuh tempo)';
+            $lines[] = '• Subtotal    : *' . self::formatWhatsAppMoney($subtotal) . '*';
+        } else {
+            $lines[] = '• Tagihan     : *' . self::formatWhatsAppMoney($subtotal) . '*';
+        }
+
+        if ($hasTax) {
+            $lines[] = '• Total+PPN   : *' . self::formatWhatsAppMoney($total) . '*';
+        } elseif ($isProrated) {
+            $lines[] = '• Total       : *' . self::formatWhatsAppMoney($total) . '*';
+        }
+
+        $lines[] = '• Jatuh Tempo : *' . $dueDate . '*';
+        $lines[] = '';
+        $lines[] = '_Nominal final mengikuti invoice yang diterbitkan sistem._';
+
+        return implode("\n", $lines);
+    }
+
     public static function formatDisplayDateTime(mixed $value = null): string
     {
         $timezone = config('app.timezone', 'Asia/Jakarta');

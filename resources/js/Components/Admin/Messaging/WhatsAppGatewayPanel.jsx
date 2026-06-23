@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { MessageSquare, QrCode, RefreshCw } from 'lucide-react';
+import { Clock, MessageSquare, QrCode, RefreshCw, Server } from 'lucide-react';
 import SettingsSectionCard from '../SettingsSectionCard';
 
 export default function WhatsAppGatewayPanel({
@@ -227,86 +227,61 @@ export default function WhatsAppGatewayPanel({
         });
     };
 
+    const innerWidget = isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80';
+
     return (
-        <SettingsSectionCard
-            icon={MessageSquare}
-            accent="emerald"
-            title="Konfigurasi WhatsApp Gateway"
-            description="Gateway Baileys, sesi QR, pembatasan pengiriman massal, dan uji kirim pesan."
-            themeCard={themeCard}
-            isDarkMode={isDarkMode}
-            themeTextTitle={themeTextTitle}
-            themeTextSub={themeTextSub}
-        >
-            <div className="space-y-3 text-xs">
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                        type="checkbox"
-                        name="whatsapp_enabled_ui"
-                        defaultChecked={whatsappEnabledDefault}
-                        className={`rounded text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}
-                    />
-                    <span className={`font-bold ${themeTextTitle}`}>Aktifkan notifikasi WhatsApp</span>
-                </label>
-                <div className="flex flex-col gap-1">
-                    <label className={`font-bold ${themeLabel}`}>Gateway URL</label>
-                    <input name="whatsapp[api_url]" type="text" placeholder="http://127.0.0.1:3003" defaultValue={settingsMap['whatsapp.api_url'] || 'http://127.0.0.1:3003'} className={`p-2 border rounded-lg ${themeInput}`} />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <label className={`font-bold ${themeLabel}`}>Session ID</label>
-                    <input name="whatsapp[session_id]" type="text" placeholder="mwifi_session" defaultValue={settingsMap['whatsapp.session_id'] || 'mwifi_session'} className={`p-2 border rounded-lg ${themeInput}`} />
-                </div>
-                <div className="flex flex-col gap-1">
-                    <label className={`font-bold ${themeLabel}`}>API Key / Token (Opsional)</label>
-                    <input name="whatsapp[api_key]" type="password" placeholder="Tetap kosong jika tidak diubah" className={`p-2 border rounded-lg ${themeInput}`} />
-                </div>
-                <div className={`rounded-xl border p-3 space-y-3 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Jeda pengiriman massal</p>
+        <div className="space-y-4">
+            <SettingsSectionCard
+                icon={Server}
+                accent="emerald"
+                title="Pengaturan Gateway"
+                description="Aktifkan integrasi WhatsApp dan konfigurasi koneksi ke Baileys Gateway."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
+                <div className="space-y-3 text-xs">
                     <label className="flex items-center gap-2 cursor-pointer">
                         <input
                             type="checkbox"
-                            name="whatsapp_bulk_delay_enabled_ui"
-                            defaultChecked={whatsappBulkDelayEnabledDefault}
+                            name="whatsapp_enabled_ui"
+                            defaultChecked={whatsappEnabledDefault}
                             className={`rounded text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}
                         />
-                        <span className={`font-bold ${themeTextTitle}`}>Aktifkan pembatasan pengiriman massal</span>
+                        <span className={`font-bold ${themeTextTitle}`}>Aktifkan notifikasi WhatsApp</span>
                     </label>
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Jumlah pesan</label>
-                            <input
-                                name="whatsapp_bulk_batch_size_ui"
-                                type="number"
-                                min={1}
-                                max={100}
-                                step={1}
-                                defaultValue={whatsappBulkBatchSizeDefault}
-                                className={`p-2 border rounded-lg ${themeInput}`}
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Periode waktu (menit)</label>
-                            <input
-                                name="whatsapp_bulk_window_minutes_ui"
-                                type="number"
-                                min={0.1}
-                                max={120}
-                                step={0.1}
-                                defaultValue={whatsappBulkWindowMinutesDefault}
-                                className={`p-2 border rounded-lg ${themeInput}`}
-                            />
-                        </div>
+                    <div className="flex flex-col gap-1">
+                        <label className={`font-bold ${themeLabel}`}>Gateway URL</label>
+                        <input name="whatsapp[api_url]" type="text" placeholder="http://127.0.0.1:3003" defaultValue={settingsMap['whatsapp.api_url'] || 'http://127.0.0.1:3003'} className={`p-2 border rounded-lg ${themeInput}`} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className={`font-bold ${themeLabel}`}>Session ID</label>
+                        <input name="whatsapp[session_id]" type="text" placeholder="mwifi_session" defaultValue={settingsMap['whatsapp.session_id'] || 'mwifi_session'} className={`p-2 border rounded-lg ${themeInput}`} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                        <label className={`font-bold ${themeLabel}`}>API Key / Token (Opsional)</label>
+                        <input name="whatsapp[api_key]" type="password" placeholder="Tetap kosong jika tidak diubah" className={`p-2 border rounded-lg ${themeInput}`} />
                     </div>
                     <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
-                        Dipakai saat generate tagihan massal, isolir otomatis, dan notifikasi beruntun.
+                        Gateway Baileys disarankan di <span className="font-mono">http://127.0.0.1:3003</span>.
                     </p>
                 </div>
-                <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
-                    Gateway Baileys disarankan di <span className="font-mono">http://127.0.0.1:3003</span>.
-                </p>
-                <div className={`rounded-xl border p-3 space-y-3 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
+            </SettingsSectionCard>
+
+            <SettingsSectionCard
+                icon={QrCode}
+                accent="violet"
+                title="Hubungkan WhatsApp"
+                description="Simpan pengaturan gateway terlebih dahulu, lalu mulai sesi dan scan QR dari perangkat Anda."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
+                <div className={`rounded-xl border p-3 space-y-3 text-xs ${innerWidget}`}>
                     <div className="flex items-center justify-between gap-2">
-                        <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Hubungkan WhatsApp</p>
+                        <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Status sesi</p>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             waSession.status === 'open'
                                 ? (isDarkMode ? 'bg-emerald-500/15 text-emerald-300' : 'bg-emerald-50 text-emerald-700')
@@ -317,9 +292,6 @@ export default function WhatsAppGatewayPanel({
                             {waStatusLabel[waSession.status] || waSession.status}
                         </span>
                     </div>
-                    <p className={`text-[10px] ${themeTextDesc}`}>
-                        Simpan pengaturan gateway terlebih dahulu, lalu mulai sesi dan scan QR dari sini.
-                    </p>
                     <div className="flex flex-wrap gap-2">
                         <button
                             type="button"
@@ -358,33 +330,31 @@ export default function WhatsAppGatewayPanel({
                         </div>
                     )}
                     {waSession.status === 'open' && (
-                        <div className="space-y-2">
-                            <div className={`flex items-center gap-3 rounded-xl border p-3 ${isDarkMode ? 'border-emerald-500/25 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/80'}`}>
-                                {showWaProfileImage ? (
-                                    <img
-                                        src={waProfileImageSrc}
-                                        alt="Foto profil WhatsApp"
-                                        onError={() => setWaAvatarBroken(true)}
-                                        className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm shrink-0"
-                                    />
-                                ) : (
-                                    <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-white text-zinc-500 border border-zinc-200'}`}>
-                                        <MessageSquare className="w-6 h-6" />
-                                    </div>
-                                )}
-                                <div className="min-w-0">
-                                    <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-emerald-100' : 'text-emerald-950'}`}>
-                                        {linkedWaDisplayName}
-                                    </p>
-                                    {waSession.profile?.name && waSession.profile?.id && (
-                                        <p className={`text-[10px] font-mono truncate ${isDarkMode ? 'text-emerald-300/80' : 'text-emerald-800/70'}`}>
-                                            +{waSession.profile.id}
-                                        </p>
-                                    )}
-                                    <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
-                                        Sesi <span className="font-mono">{waSession.session}</span> aktif
-                                    </p>
+                        <div className={`flex items-center gap-3 rounded-xl border p-3 ${isDarkMode ? 'border-emerald-500/25 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/80'}`}>
+                            {showWaProfileImage ? (
+                                <img
+                                    src={waProfileImageSrc}
+                                    alt="Foto profil WhatsApp"
+                                    onError={() => setWaAvatarBroken(true)}
+                                    className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm shrink-0"
+                                />
+                            ) : (
+                                <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${isDarkMode ? 'bg-zinc-800 text-zinc-300' : 'bg-white text-zinc-500 border border-zinc-200'}`}>
+                                    <MessageSquare className="w-6 h-6" />
                                 </div>
+                            )}
+                            <div className="min-w-0">
+                                <p className={`text-sm font-bold truncate ${isDarkMode ? 'text-emerald-100' : 'text-emerald-950'}`}>
+                                    {linkedWaDisplayName}
+                                </p>
+                                {waSession.profile?.name && waSession.profile?.id && (
+                                    <p className={`text-[10px] font-mono truncate ${isDarkMode ? 'text-emerald-300/80' : 'text-emerald-800/70'}`}>
+                                        +{waSession.profile.id}
+                                    </p>
+                                )}
+                                <p className={`text-[10px] mt-0.5 ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>
+                                    Sesi <span className="font-mono">{waSession.session}</span> aktif
+                                </p>
                             </div>
                         </div>
                     )}
@@ -394,8 +364,19 @@ export default function WhatsAppGatewayPanel({
                         </p>
                     )}
                 </div>
-                <div className={`rounded-xl border p-3 space-y-2 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Uji kirim pesan</p>
+            </SettingsSectionCard>
+
+            <SettingsSectionCard
+                icon={MessageSquare}
+                accent="sky"
+                title="Uji Kirim Pesan"
+                description="Kirim pesan percobaan setelah gateway tersimpan dan sesi WhatsApp terhubung."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
+                <div className={`rounded-xl border p-3 space-y-2 text-xs ${innerWidget}`}>
                     <div className="flex flex-col sm:flex-row gap-2">
                         <input
                             type="text"
@@ -416,7 +397,56 @@ export default function WhatsAppGatewayPanel({
                     </div>
                     <p className={`text-[10px] ${themeTextDesc}`}>Simpan pengaturan terlebih dahulu sebelum uji coba.</p>
                 </div>
-            </div>
-        </SettingsSectionCard>
+            </SettingsSectionCard>
+
+            <SettingsSectionCard
+                icon={Clock}
+                accent="amber"
+                title="Pembatasan Pengiriman Massal"
+                description="Kontrol kecepatan kirim saat generate tagihan massal, isolir otomatis, dan notifikasi beruntun."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
+                <div className={`rounded-xl border p-3 space-y-3 text-xs ${innerWidget}`}>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                            type="checkbox"
+                            name="whatsapp_bulk_delay_enabled_ui"
+                            defaultChecked={whatsappBulkDelayEnabledDefault}
+                            className={`rounded text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}
+                        />
+                        <span className={`font-bold ${themeTextTitle}`}>Aktifkan pembatasan pengiriman massal</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Jumlah pesan</label>
+                            <input
+                                name="whatsapp_bulk_batch_size_ui"
+                                type="number"
+                                min={1}
+                                max={100}
+                                step={1}
+                                defaultValue={whatsappBulkBatchSizeDefault}
+                                className={`p-2 border rounded-lg ${themeInput}`}
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Periode waktu (menit)</label>
+                            <input
+                                name="whatsapp_bulk_window_minutes_ui"
+                                type="number"
+                                min={0.1}
+                                max={120}
+                                step={0.1}
+                                defaultValue={whatsappBulkWindowMinutesDefault}
+                                className={`p-2 border rounded-lg ${themeInput}`}
+                            />
+                        </div>
+                    </div>
+                </div>
+            </SettingsSectionCard>
+        </div>
     );
 }

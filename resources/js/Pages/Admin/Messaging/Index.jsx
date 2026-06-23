@@ -92,7 +92,7 @@ function MessagingPageContent({
                 icon={MessageSquare}
                 accent="violet"
                 title="WhatsApp & Telegram"
-                description="Template pesan, gateway WhatsApp, dan integrasi Telegram (segera)."
+                description="Atur gateway WhatsApp terlebih dahulu, lalu sesuaikan template pesan. Tab Telegram menyusul."
                 themeCard={themeCard}
                 isDarkMode={isDarkMode}
                 themeTextTitle={themeTextTitle}

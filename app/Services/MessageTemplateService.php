@@ -5,11 +5,41 @@ namespace App\Services;
 class MessageTemplateService
 {
     /**
+     * Urutan tampilan template di halaman WhatsApp & Telegram (alur siklus pelanggan).
+     *
+     * @return array<int, string>
+     */
+    public static function templateDisplayOrder(): array
+    {
+        return [
+            'whatsapp.template.customer_registered',
+            'whatsapp.template.invoice_new',
+            'whatsapp.template.invoice_unpaid',
+            'whatsapp.template.invoice_accumulated_new',
+            'whatsapp.template.invoice_accumulated',
+            'whatsapp.template.isolation',
+            'whatsapp.template.payment_reactivated',
+            'whatsapp.template.payment_received',
+            'whatsapp.template.admin_scheduler',
+        ];
+    }
+
+    /**
      * @return array<string, array{label: string, description: string, placeholders: array<int, string>}>
      */
     public static function definitions(): array
     {
-        return [
+        $definitions = [
+            'whatsapp.template.customer_registered' => [
+                'label' => 'Selamat datang (pendaftaran pelanggan baru)',
+                'description' => 'Dikirim otomatis ke pelanggan setelah pendaftaran berhasil di panel admin.',
+                'placeholders' => [
+                    'customer_name', 'brand_name', 'service_type', 'package_name',
+                    'username', 'password', 'billing_date', 'status_label',
+                    'billing_info', 'billing_period', 'due_date', 'monthly_price',
+                    'estimated_subtotal', 'estimated_total', 'prorata_line',
+                ],
+            ],
             'whatsapp.template.invoice_new' => [
                 'label' => 'Tagihan baru (generate otomatis)',
                 'description' => 'Dikirim saat invoice baru dibuat oleh penjadwal tagihan.',
@@ -77,15 +107,32 @@ class MessageTemplateService
                     'brand_name', 'run_date', 'days_before', 'invoice_count', 'invoice_list', 'total',
                 ],
             ],
-            'whatsapp.template.customer_registered' => [
-                'label' => 'Selamat datang (pendaftaran pelanggan baru)',
-                'description' => 'Dikirim otomatis ke pelanggan setelah pendaftaran berhasil di panel admin.',
-                'placeholders' => [
-                    'customer_name', 'brand_name', 'service_type', 'package_name',
-                    'username', 'password', 'billing_date', 'status_label',
-                ],
-            ],
         ];
+
+        return self::sortDefinitions($definitions);
+    }
+
+    /**
+     * @param  array<string, array{label: string, description: string, placeholders: array<int, string>}>  $definitions
+     * @return array<string, array{label: string, description: string, placeholders: array<int, string>}>
+     */
+    public static function sortDefinitions(array $definitions): array
+    {
+        $ordered = [];
+
+        foreach (self::templateDisplayOrder() as $key) {
+            if (isset($definitions[$key])) {
+                $ordered[$key] = $definitions[$key];
+            }
+        }
+
+        foreach ($definitions as $key => $meta) {
+            if (!isset($ordered[$key])) {
+                $ordered[$key] = $meta;
+            }
+        }
+
+        return $ordered;
     }
 
     /**
@@ -93,7 +140,30 @@ class MessageTemplateService
      */
     public static function defaults(): array
     {
-        return [
+        $defaults = [
+            'whatsapp.template.customer_registered' => <<<'TEMPLATE'
+*SELAMAT DATANG · {brand_name}*
+
+Yth. Bapak/Ibu *{customer_name}*,
+
+Pendaftaran layanan internet Anda telah kami terima. Berikut data akses Anda:
+
+*Data Layanan*
+• Layanan     : {service_type}
+• Paket       : {package_name}
+• Username    : *{username}*
+• Password    : *{password}*
+• Tgl Tagihan : Setiap tanggal *{billing_date}*
+• Status      : {status_label}
+
+{billing_info}
+
+Simpan pesan ini sebagai referensi login layanan Anda.
+
+Hormat kami,
+*{brand_name}*
+TEMPLATE,
+
             'whatsapp.template.invoice_new' => <<<'TEMPLATE'
 *INFORMASI TAGIHAN · {brand_name}*
 
@@ -250,28 +320,32 @@ Ringkasan penjadwalan otomatis:
 
 Detail lengkap tersedia di panel Admin → Invoice.
 TEMPLATE,
-
-            'whatsapp.template.customer_registered' => <<<'TEMPLATE'
-*SELAMAT DATANG · {brand_name}*
-
-Yth. Bapak/Ibu *{customer_name}*,
-
-Pendaftaran layanan internet Anda telah kami terima. Berikut data akses Anda:
-
-*Data Layanan*
-• Layanan     : {service_type}
-• Paket       : {package_name}
-• Username    : *{username}*
-• Password    : *{password}*
-• Tgl Tagihan : Setiap tanggal *{billing_date}*
-• Status      : {status_label}
-
-Simpan pesan ini sebagai referensi login layanan Anda.
-
-Hormat kami,
-*{brand_name}*
-TEMPLATE,
         ];
+
+        return self::sortDefaults($defaults);
+    }
+
+    /**
+     * @param  array<string, string>  $defaults
+     * @return array<string, string>
+     */
+    public static function sortDefaults(array $defaults): array
+    {
+        $ordered = [];
+
+        foreach (self::templateDisplayOrder() as $key) {
+            if (isset($defaults[$key])) {
+                $ordered[$key] = $defaults[$key];
+            }
+        }
+
+        foreach ($defaults as $key => $value) {
+            if (!isset($ordered[$key])) {
+                $ordered[$key] = $value;
+            }
+        }
+
+        return $ordered;
     }
 
     public static function get(string $key): string
@@ -403,6 +477,22 @@ TEMPLATE,
                 'password' => 'gantengmax',
                 'billing_date' => '20',
                 'status_label' => 'Aktif',
+                'billing_info' => BillingService::buildRegistrationBillingInfoBlock(
+                    'Juni 2026',
+                    '20-06-2026',
+                    120000,
+                    80000,
+                    80000,
+                    true,
+                    20,
+                    false
+                ),
+                'billing_period' => 'Juni 2026',
+                'due_date' => '20-06-2026',
+                'monthly_price' => 'Rp 120.000',
+                'estimated_subtotal' => 'Rp 80.000',
+                'estimated_total' => 'Rp 80.000',
+                'prorata_line' => BillingService::buildProrataLine(true, 20),
             ],
             default => [],
         };

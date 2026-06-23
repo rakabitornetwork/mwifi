@@ -58,6 +58,12 @@ class CustomerRegistrationWhatsAppTest extends TestCase
             'mikrotik_profile' => '10M',
         ]);
 
+        Setting::updateOrCreate(['key' => 'system.billing_prorata_enabled'], [
+            'group' => 'system',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+
         $response = $this->actingAs($admin)->post('/admin/customers/save', [
             'router_id' => $router->id,
             'package_id' => $package->id,
@@ -69,6 +75,7 @@ class CustomerRegistrationWhatsAppTest extends TestCase
             'address' => 'Jl. Test No. 1',
             'status' => 'active',
             'billing_date' => 20,
+            'service_start_date' => now()->format('Y-m-d'),
         ]);
 
         $response->assertRedirect();
@@ -77,7 +84,8 @@ class CustomerRegistrationWhatsAppTest extends TestCase
         Http::assertSent(fn ($request) => $request->url() === 'http://127.0.0.1:3003/send-message'
             && $request['to'] === '6281234567890'
             && str_contains($request['text'], 'pelanggan_baru')
-            && str_contains($request['text'], 'SELAMAT DATANG'));
+            && str_contains($request['text'], 'SELAMAT DATANG')
+            && str_contains($request['text'], 'Estimasi Tagihan Pertama'));
     }
 
     public function test_update_existing_customer_does_not_send_registration_whatsapp(): void

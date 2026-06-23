@@ -34,7 +34,10 @@ class CustomerNotificationService
             return false;
         }
 
-        $message = MessageTemplateService::render('whatsapp.template.customer_registered', [
+        $customer->loadMissing('package');
+        $billingPreview = BillingService::previewRegistrationBilling($customer, $package?->price);
+
+        $variables = [
             'customer_name' => $customer->name,
             'brand_name' => BrandingService::companyName(),
             'service_type' => strtoupper((string) $customer->service_type),
@@ -43,7 +46,16 @@ class CustomerNotificationService
             'password' => $customer->password,
             'billing_date' => (string) $customer->billing_date,
             'status_label' => self::statusLabel((string) $customer->status),
-        ]);
+            'billing_info' => $billingPreview['billing_info'] ?? '',
+            'billing_period' => $billingPreview['period_label'] ?? '-',
+            'due_date' => $billingPreview['due_date'] ?? '-',
+            'monthly_price' => $billingPreview['monthly_price'] ?? '-',
+            'estimated_subtotal' => $billingPreview['estimated_subtotal'] ?? '-',
+            'estimated_total' => $billingPreview['estimated_total'] ?? '-',
+            'prorata_line' => $billingPreview['prorata_line'] ?? '',
+        ];
+
+        $message = MessageTemplateService::render('whatsapp.template.customer_registered', $variables);
 
         return WhatsAppService::sendText($phone, $message, skipBulkDelay: true);
     }

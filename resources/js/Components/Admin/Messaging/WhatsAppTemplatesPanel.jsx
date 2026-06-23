@@ -1,6 +1,18 @@
 import { useState } from 'react';
-import { Eye, FileText, RotateCcw } from 'lucide-react';
+import { Eye, FileText, RotateCcw, UserPlus, Receipt, Bell, Layers, ShieldOff, BadgeCheck, UserCog } from 'lucide-react';
 import SettingsSectionCard from '../SettingsSectionCard';
+
+const TEMPLATE_ACCENT = {
+    'whatsapp.template.customer_registered': { icon: UserPlus, accent: 'emerald' },
+    'whatsapp.template.invoice_new': { icon: Receipt, accent: 'indigo' },
+    'whatsapp.template.invoice_unpaid': { icon: Bell, accent: 'amber' },
+    'whatsapp.template.invoice_accumulated_new': { icon: Layers, accent: 'violet' },
+    'whatsapp.template.invoice_accumulated': { icon: Layers, accent: 'indigo' },
+    'whatsapp.template.isolation': { icon: ShieldOff, accent: 'amber' },
+    'whatsapp.template.payment_reactivated': { icon: BadgeCheck, accent: 'emerald' },
+    'whatsapp.template.payment_received': { icon: BadgeCheck, accent: 'sky' },
+    'whatsapp.template.admin_scheduler': { icon: UserCog, accent: 'sky' },
+};
 
 function templateFieldName(key) {
     return key.replace('whatsapp.template.', '');
@@ -79,23 +91,25 @@ export default function WhatsAppTemplatesPanel({
                 icon={FileText}
                 accent="violet"
                 title="Template Pesan WhatsApp"
-                description={`Sesuaikan format notifikasi tagihan dan pembayaran. Gunakan placeholder seperti {customer_name}. Format tebal WhatsApp: *teks*.`}
+                description="Diurutkan mengikuti alur pelanggan: pendaftaran → tagihan → isolir → pembayaran → notifikasi admin."
                 themeCard={themeCard}
                 isDarkMode={isDarkMode}
                 themeTextTitle={themeTextTitle}
                 themeTextSub={themeTextSub}
             />
 
-            {Object.entries(templateDefinitions).map(([key, meta]) => {
+            {Object.entries(templateDefinitions).map(([key, meta], index) => {
                 const fieldName = templateFieldName(key);
                 const placeholders = meta.placeholders || [];
+                const style = TEMPLATE_ACCENT[key] || { icon: FileText, accent: 'indigo' };
+                const TemplateIcon = style.icon;
 
                 return (
                     <SettingsSectionCard
                         key={key}
-                        icon={FileText}
-                        accent="indigo"
-                        title={meta.label}
+                        icon={TemplateIcon}
+                        accent={style.accent}
+                        title={`${index + 1}. ${meta.label}`}
                         description={meta.description}
                         themeCard={themeCard}
                         isDarkMode={isDarkMode}
