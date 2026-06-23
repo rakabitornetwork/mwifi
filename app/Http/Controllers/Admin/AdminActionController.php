@@ -502,8 +502,17 @@ class AdminActionController extends Controller
             ->exists();
 
         if ($duplicateProfile) {
+            $existing = Package::query()
+                ->whereRaw('LOWER(mikrotik_profile) = ?', [strtolower((string) $data['mikrotik_profile'])])
+                ->when($id, fn ($query) => $query->where('id', '!=', $id))
+                ->first();
+
+            $hint = $existing
+                ? ' Paket lama: "' . $existing->name . '" (ID #' . $existing->id . '). Buka halaman Paket Internet — panel biru/amber di atas tabel — lalu hapus entri tersebut.'
+                : '';
+
             return redirect()->back()
-                ->withErrors(['name' => 'Paket dengan profil MikroTik "' . $data['mikrotik_profile'] . '" sudah terdaftar. Hapus duplikat lama atau gunakan nama profil lain.'])
+                ->withErrors(['name' => 'Paket dengan profil MikroTik "' . $data['mikrotik_profile'] . '" sudah terdaftar di database.' . $hint])
                 ->withInput();
         }
 
@@ -628,9 +637,11 @@ class AdminActionController extends Controller
         $data = $request->validate([
             'id' => 'required|exists:packages,id',
             'router_id' => 'required|exists:routers,id',
+            'db_only' => 'nullable|boolean',
         ]);
 
         $package = Package::findOrFail($data['id']);
+        $dbOnly = $request->boolean('db_only');
 
         if ($package->customers()->exists()) {
             return redirect()->back()->with('error', 'Gagal menghapus paket karena masih digunakan oleh pelanggan.');
@@ -644,7 +655,7 @@ class AdminActionController extends Controller
             ->whereRaw('LOWER(mikrotik_profile) = ?', [strtolower((string) $profileName)])
             ->exists();
 
-        if (!$otherPackageUsesProfile && strtolower($profileName) !== 'default') {
+        if (!$dbOnly && !$otherPackageUsesProfile && strtolower($profileName) !== 'default') {
             try {
                 $connector = \App\Services\Router\RouterService::getConnector($router);
 

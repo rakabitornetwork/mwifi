@@ -232,15 +232,19 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         });
     };
 
-    const handleDeletePackage = (packageId) => {
+    const handleDeletePackage = (packageId, { dbOnly = false } = {}) => {
         if (!routerFilter) {
             alert('Pilih router Mikrotik di halaman utama terlebih dahulu.');
             return;
         }
 
-        if (!confirm('Apakah Anda yakin ingin menghapus paket layanan ini? Profil akan dihapus dari RouterOS.')) return;
+        const message = dbOnly
+            ? 'Hapus paket ini hanya dari database aplikasi? Profil di MikroTik tidak akan diubah.'
+            : 'Apakah Anda yakin ingin menghapus paket layanan ini? Profil akan dihapus dari RouterOS jika tidak dipakai paket lain.';
 
-        router.post('/admin/packages/delete', { id: packageId, router_id: routerFilter }, {
+        if (!confirm(message)) return;
+
+        router.post('/admin/packages/delete', { id: packageId, router_id: routerFilter, db_only: dbOnly ? 1 : 0 }, {
             onSuccess: (page) => {
                 const flash = page.props.flash || {};
                 if (flash.success) {
@@ -342,21 +346,24 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         return dedupePackagesByMikrotikProfile(matched);
     }, [packages, routerFilter, isLoadingRouterProfiles, routerProfileError, profileSet]);
 
-    const duplicatePackages = useMemo(() => {
-        if (routerFilter) {
-            if (isLoadingRouterProfiles || routerProfileError || profileSet.size === 0) {
-                return [];
-            }
-
-            const matched = packages.filter((pkg) => profileSet.has(String(pkg.mikrotik_profile || '').toLowerCase()));
-
-            return listDuplicatePackages(matched);
-        }
-
-        return listDuplicatePackages(packages);
-    }, [packages, routerFilter, isLoadingRouterProfiles, routerProfileError, profileSet]);
+    const duplicatePackages = useMemo(() => listDuplicatePackages(packages), [packages]);
 
     const duplicatePackageCount = duplicatePackages.length;
+
+    const displayedPackageIds = useMemo(() => new Set([
+        ...filteredPackages.map((pkg) => pkg.id),
+        ...duplicatePackages.map((pkg) => pkg.id),
+    ]), [filteredPackages, duplicatePackages]);
+
+    const hiddenDatabasePackages = useMemo(() => {
+        if (!routerFilter || isLoadingRouterProfiles) {
+            return [];
+        }
+
+        return packages
+            .filter((pkg) => !displayedPackageIds.has(pkg.id))
+            .sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
+    }, [packages, routerFilter, isLoadingRouterProfiles, displayedPackageIds]);
 
     const selectedRouter = routers.find((r) => String(r.id) === String(routerFilter));
     const modalFormOptions = filterRouterOs?.form_options || null;
@@ -447,13 +454,75 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                 Menampilkan {filteredPackages.length} paket yang ada di router{' '}
                                 <span className={themeTextTitle}>{selectedRouter?.name}</span>
                                 {' '}({routerProfiles.length} profil RouterOS)
+                                {hiddenDatabasePackages.length > 0 && (
+                                    <span className="block mt-1 text-amber-500">
+                                        {hiddenDatabasePackages.length} paket tersimpan di aplikasi tidak tampil di daftar router ini — lihat panel di bawah untuk menghapus.
+                                    </span>
+                                )}
                                 {duplicatePackageCount > 0 && (
                                     <span className="block mt-1 text-amber-500">
-                                        {duplicatePackageCount} paket duplikat terdeteksi — hapus dari daftar di bawah.
+                                        {duplicatePackageCount} paket duplikat di database — hapus dari daftar di bawah.
                                     </span>
                                 )}
                             </>
                         )}
+                    </div>
+                )}
+
+                {hiddenDatabasePackages.length > 0 && (
+                    <div className={`rounded-xl border p-3 space-y-2 ${isDarkMode ? 'border-sky-500/30 bg-sky-500/5' : 'border-sky-200 bg-sky-50/80'}`}>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-sky-600 dark:text-sky-400">
+                            Paket tersimpan di aplikasi (tidak tampil di router ini)
+                        </p>
+                        <p className={`text-[10px] leading-relaxed ${themeTextSub}`}>
+                            Paket berikut ada di database mWiFi tetapi tidak muncul di tabel utama untuk router{' '}
+                            <span className={themeTextTitle}>{selectedRouter?.name}</span>.
+                            Inilah penyebab error &quot;sudah terdaftar&quot; saat Anda membuat paket dengan nama yang sama.
+                        </p>
+                        <ul className="space-y-2">
+                            {hiddenDatabasePackages.map((pkg) => {
+                                const onRouter = profileSet.has(String(pkg.mikrotik_profile || pkg.name).toLowerCase());
+
+                                return (
+                                    <li
+                                        key={pkg.id}
+                                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border px-3 py-2 ${isDarkMode ? 'border-sky-500/20 bg-zinc-950/30' : 'border-sky-100 bg-white/80'}`}
+                                    >
+                                        <div className="min-w-0">
+                                            <p className={`text-xs font-bold truncate ${themeTextTitle}`}>{pkg.name}</p>
+                                            <p className={`text-[10px] font-mono truncate ${themeTextSub}`}>
+                                                Profil: {pkg.mikrotik_profile || pkg.name} · ID #{pkg.id}
+                                            </p>
+                                            {!onRouter && (
+                                                <p className="text-[10px] text-amber-500 mt-0.5">
+                                                    Profil tidak ditemukan di router saat ini (mungkin sudah dihapus atau namanya berbeda).
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+                                            {onRouter && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openEditModal(pkg)}
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-emerald-600 border border-emerald-300/60 hover:bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:hover:bg-emerald-500/10 cursor-pointer"
+                                                >
+                                                    <Edit className="w-3.5 h-3.5" />
+                                                    Edit
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleDeletePackage(pkg.id, { dbOnly: !onRouter })}
+                                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-rose-600 border border-rose-300/60 hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10 cursor-pointer"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                                Hapus
+                                            </button>
+                                        </div>
+                                    </li>
+                                );
+                            })}
+                        </ul>
                     </div>
                 )}
 
