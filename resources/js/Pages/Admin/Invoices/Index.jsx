@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useId } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
 import { Activity, CalendarClock, CreditCard, FileText, MessageSquare, PauseCircle, Printer, RefreshCw, RotateCcw, Search, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
@@ -94,8 +94,6 @@ function InvoicesPageContent({
         ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
     const themeLabel = theme.isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
-
-    const deferFormId = useId();
 
     const pendingDeferrals = billingDeferrals.filter((item) => item.status === 'pending');
 
@@ -833,7 +831,7 @@ function InvoicesPageContent({
             </div>
             </div>
 
-            <TransitionModal show={showDeferModal} onClose={resetDeferModal} themeCard={theme.themeCard} maxWidth="lg">
+            <TransitionModal show={showDeferModal} onClose={resetDeferModal} themeCard={theme.themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <div>
                         <h3 className={`text-sm font-bold ${theme.themeTextTitle}`}>Tunda Tagihan Pelanggan</h3>
@@ -846,7 +844,7 @@ function InvoicesPageContent({
                     </button>
                 </div>
 
-                <form id={deferFormId} onSubmit={handleSubmitDeferral} className="space-y-3 text-xs mt-3">
+                <form onSubmit={handleSubmitDeferral} className="space-y-3 text-xs mt-3 pb-14 sm:pb-0">
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Pelanggan PPPoE</label>
                         <p className={`p-2 border rounded-lg ${themeInput}`}>{deferCustomerLabel}</p>
@@ -924,7 +922,6 @@ function InvoicesPageContent({
                     </div>
 
                     <ModalFormActions
-                        formId={deferFormId}
                         isDarkMode={theme.isDarkMode}
                         onCancel={resetDeferModal}
                         submitTitle={isSubmittingDefer ? 'Menyimpan...' : 'Aktifkan Penundaan'}

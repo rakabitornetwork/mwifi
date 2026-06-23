@@ -1,4 +1,4 @@
-import { useEffect, useState, useId } from 'react';
+import { useEffect, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import {
     Activity,
@@ -56,11 +56,6 @@ function HotspotPageContent({
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
     const themeLabel = isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
-
-    const memberFormId = useId();
-    const generateVoucherFormId = useId();
-    const sellVoucherFormId = useId();
-    const printVoucherFormId = useId();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [hotspotSubTab, setHotspotSubTab] = useState('vouchers');
@@ -933,14 +928,14 @@ function HotspotPageContent({
                 )}
             </div>
 
-            <TransitionModal show={showMemberModal} onClose={closeMemberModal} themeCard={themeCard} maxWidth="lg">
+            <TransitionModal show={showMemberModal} onClose={closeMemberModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>
                         {editingMember ? 'Edit Member Hotspot' : 'Tambah Member Hotspot'}
                     </h3>
                     <button type="button" onClick={() => setShowMemberModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form id={memberFormId} onSubmit={handleSaveMember} className="space-y-3 text-xs">
+                <form onSubmit={handleSaveMember} className="space-y-3 text-xs pb-14 sm:pb-0">
                     <input type="hidden" name="id" value={editingMember ? editingMember.id : ''} />
                     <input type="hidden" name="service_type" value="hotspot" />
                     <input type="hidden" name="billing_date" value={editingMember?.billing_date || 1} />
@@ -1008,7 +1003,6 @@ function HotspotPageContent({
                     </div>
 
                     <ModalFormActions
-                        formId={memberFormId}
                         isDarkMode={isDarkMode}
                         onCancel={() => setShowMemberModal(false)}
                     />
@@ -1100,7 +1094,7 @@ function HotspotPageContent({
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Generate Voucher Hotspot (Bulk)</h3>
                     <button type="button" onClick={() => setShowGenerateVoucherModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form id={generateVoucherFormId} onSubmit={handleGenerateVouchersSubmit} className="space-y-3 text-xs">
+                <form onSubmit={handleGenerateVouchersSubmit} className="space-y-3 text-xs pb-14 sm:pb-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
@@ -1218,7 +1212,6 @@ function HotspotPageContent({
                     </div>
 
                     <ModalFormActions
-                        formId={generateVoucherFormId}
                         isDarkMode={isDarkMode}
                         onCancel={() => setShowGenerateVoucherModal(false)}
                         submitTitle={isGeneratingVouchers ? 'Generating...' : 'Generate'}
@@ -1241,7 +1234,7 @@ function HotspotPageContent({
                     <button type="button" onClick={() => { setShowSellVoucherModal(false); setSelectedVoucherForSale(null); }} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
                 {selectedVoucherForSale && (
-                    <form id={sellVoucherFormId} onSubmit={handleSellVoucherSubmit} className="space-y-3 text-xs">
+                    <form onSubmit={handleSellVoucherSubmit} className="space-y-3 text-xs pb-14 sm:pb-0">
                         <input type="hidden" name="voucher_id" value={selectedVoucherForSale.id} />
 
                         <div className={`p-3 rounded-lg border ${themeInnerWidget} space-y-2`}>
@@ -1272,7 +1265,6 @@ function HotspotPageContent({
                         </div>
 
                         <ModalFormActions
-                            formId={sellVoucherFormId}
                             isDarkMode={isDarkMode}
                             onCancel={() => { setShowSellVoucherModal(false); setSelectedVoucherForSale(null); }}
                             submitTitle={isSellingVoucher ? 'Memproses...' : 'Catat Penjualan'}
@@ -1295,7 +1287,7 @@ function HotspotPageContent({
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Cetak Voucher Hotspot (Bulk)</h3>
                     <button type="button" onClick={() => setShowPrintVouchersModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form id={printVoucherFormId} onSubmit={handlePrintVouchersSubmit} className="space-y-3 text-xs">
+                <form onSubmit={handlePrintVouchersSubmit} className="space-y-3 text-xs pb-14 sm:pb-0">
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
                         <select
@@ -1382,7 +1374,6 @@ function HotspotPageContent({
                         </select>
                     </div>
                     <ModalFormActions
-                        formId={printVoucherFormId}
                         isDarkMode={isDarkMode}
                         onCancel={() => setShowPrintVouchersModal(false)}
                         submitTitle="Cetak"

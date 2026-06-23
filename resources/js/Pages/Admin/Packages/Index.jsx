@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useId } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
 import { Edit, Layers, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
@@ -116,8 +116,6 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         themeInput,
         themeLabel,
     } = theme;
-
-    const packageFormId = useId();
 
     const defaultRouterId = (() => {
         const activeRouter = routers.find((r) => r.status);
@@ -630,7 +628,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                     </h3>
                     <button type="button" onClick={() => setShowPackageModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form id={packageFormId} onSubmit={handleSavePackage} className="space-y-3 text-xs">
+                <form onSubmit={handleSavePackage} className="space-y-3 text-xs pb-14 sm:pb-0">
                     {routerFilter && (
                         <div className={`text-[10px] font-semibold ${routerProfileError ? 'text-amber-500' : themeTextSub}`}>
                             Router: <span className={themeTextTitle}>{selectedRouter?.name || '—'}</span>
@@ -847,7 +845,6 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                         />
                     </div>
                     <ModalFormActions
-                        formId={packageFormId}
                         isDarkMode={isDarkMode}
                         onCancel={() => setShowPackageModal(false)}
                     />

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useId } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Search, Trash2, Upload, Users, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
@@ -40,9 +40,6 @@ function CustomersPageContent({
         ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
     const themeLabel = isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
-
-    const customerFormId = useId();
-    const importFormId = useId();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [routerFilter, setRouterFilter] = useState(() => {
@@ -822,7 +819,7 @@ function CustomersPageContent({
                 )}
             </div>
 
-            <TransitionModal show={showCustomerModal} onClose={closeCustomerModal} themeCard={themeCard} maxWidth="lg">
+            <TransitionModal show={showCustomerModal} onClose={closeCustomerModal} themeCard={themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold min-w-0 flex-1 pr-2 ${themeTextTitle}`}>
                         {editingCustomer ? 'Edit Pelanggan PPPoE' : 'Tambah Pelanggan PPPoE'}
@@ -831,7 +828,7 @@ function CustomersPageContent({
                         <X className="w-4 h-4" />
                     </button>
                 </div>
-                <form id={customerFormId} onSubmit={handleSaveCustomer} className="space-y-3 text-xs">
+                <form onSubmit={handleSaveCustomer} className="space-y-3 text-xs pb-14 sm:pb-0">
                     <input type="hidden" name="id" value={editingCustomer ? editingCustomer.id : ''} />
                     <input type="hidden" name="service_type" value="pppoe" />
 
@@ -948,7 +945,6 @@ function CustomersPageContent({
                     </div>
 
                     <ModalFormActions
-                        formId={customerFormId}
                         isDarkMode={isDarkMode}
                         onCancel={() => setShowCustomerModal(false)}
                     />
@@ -1114,7 +1110,7 @@ function CustomersPageContent({
             </TransitionModal>
 
             <TransitionModal show={showImportModal} onClose={closeImportModal} themeCard={themeCard} maxWidth="md">
-                <form id={importFormId} onSubmit={handleImportCsv} className="space-y-4 text-xs">
+                <form onSubmit={handleImportCsv} className="space-y-4 text-xs pb-14 sm:pb-0">
                     <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                         <div className="flex items-center gap-2">
                             <Upload className="w-4 h-4 text-emerald-500" />
@@ -1209,7 +1205,6 @@ function CustomersPageContent({
                     )}
 
                     <ModalFormActions
-                        formId={importFormId}
                         isDarkMode={isDarkMode}
                         onCancel={() => setShowImportModal(false)}
                         cancelTitle="Tutup"

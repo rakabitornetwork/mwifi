@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useId } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router } from '@inertiajs/react';
 import { Edit, Map, Plus, Search, Trash2, X } from 'lucide-react';
 import L from 'leaflet';
@@ -74,8 +74,6 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
         ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
     const themeLabel = isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
-
-    const odpFormId = useId();
 
     const [showOdpModal, setShowOdpModal] = useState(false);
     const [editingOdp, setEditingOdp] = useState(null);
@@ -538,7 +536,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                         <X className="w-4 h-4" />
                     </button>
                 </div>
-                <form id={odpFormId} onSubmit={handleSaveOdpSubmit} className="space-y-3 text-xs">
+                <form onSubmit={handleSaveOdpSubmit} className="space-y-3 text-xs pb-14 sm:pb-0">
                     <input type="hidden" name="id" value={editingOdp ? editingOdp.id : ''} />
 
                     <div className="flex flex-col gap-1">
@@ -575,7 +573,6 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                     </div>
 
                     <ModalFormActions
-                        formId={odpFormId}
                         isDarkMode={isDarkMode}
                         onCancel={closeOdpModal}
                     />
