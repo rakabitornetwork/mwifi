@@ -22,4 +22,9 @@ class Router extends Model
     {
         return $this->hasMany(Package::class);
     }
+
+    public function hotspotVouchers(): HasMany
+    {
+        return $this->hasMany(HotspotVoucher::class);
+    }
 }

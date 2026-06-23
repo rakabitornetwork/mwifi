@@ -76,6 +76,7 @@ Route::middleware('auth')->group(function () {
 
     // Admin CRUD Actions
     Route::post('admin/routers/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveRouter']);
+    Route::post('admin/routers/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteRouter']);
     Route::post('admin/routers/test-connection', [\App\Http\Controllers\Admin\AdminActionController::class, 'testConnection']);
     Route::post('admin/routers/sync', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncRouter']);
     Route::post('admin/routers/get-profiles', [\App\Http\Controllers\Admin\AdminActionController::class, 'getRouterProfiles']);

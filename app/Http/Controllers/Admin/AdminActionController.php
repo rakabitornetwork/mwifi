@@ -56,6 +56,28 @@ class AdminActionController extends Controller
         return redirect()->back()->with('success', 'Router berhasil disimpan.');
     }
 
+    public function deleteRouter(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:routers,id',
+        ]);
+
+        $router = Router::findOrFail($request->input('id'));
+        $customerCount = Customer::where('router_id', $router->id)->count();
+
+        if ($customerCount > 0) {
+            return redirect()->back()->with(
+                'error',
+                "Gagal menghapus router \"{$router->name}\". Masih ada {$customerCount} pelanggan terdaftar di router ini. Pindahkan atau hapus pelanggan terlebih dahulu."
+            );
+        }
+
+        $name = $router->name;
+        $router->delete();
+
+        return redirect()->back()->with('success', "Router \"{$name}\" berhasil dihapus.");
+    }
+
     /**
      * Create or update a Customer profile, linking their User account.
      */

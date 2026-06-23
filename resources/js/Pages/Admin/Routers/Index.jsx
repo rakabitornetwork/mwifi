@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Edit, PlugZap, Plus, RefreshCw, Save, Wifi, X } from 'lucide-react';
+import { Edit, PlugZap, Plus, RefreshCw, Save, Trash2, Wifi, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import SettingsSectionCard from '../../../Components/Admin/SettingsSectionCard';
@@ -13,6 +13,8 @@ function RoutersPageContent({ routers = [] }) {
     const [editingRouter, setEditingRouter] = useState(null);
     const [isTestingRouter, setIsTestingRouter] = useState(null);
     const [isSyncingRouter, setIsSyncingRouter] = useState(null);
+    const [showDeleteRouterModal, setShowDeleteRouterModal] = useState(false);
+    const [routerToDelete, setRouterToDelete] = useState(null);
 
     const themeInnerWidget = theme.isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeInput = theme.isDarkMode
@@ -96,6 +98,29 @@ function RoutersPageContent({ routers = [] }) {
         setShowRouterModal(false);
     };
 
+    const openDeleteRouterModal = (routerItem) => {
+        setRouterToDelete(routerItem);
+        setShowDeleteRouterModal(true);
+    };
+
+    const closeDeleteRouterModal = () => {
+        setShowDeleteRouterModal(false);
+        setTimeout(() => setRouterToDelete(null), 300);
+    };
+
+    const confirmDeleteRouter = () => {
+        if (!routerToDelete) return;
+
+        router.post('/admin/routers/delete', { id: routerToDelete.id }, {
+            onSuccess: () => {
+                setShowDeleteRouterModal(false);
+                setTimeout(() => setRouterToDelete(null), 300);
+            },
+        });
+    };
+
+    const routerDeleteBlocked = (routerItem) => (routerItem?.customers_count ?? 0) > 0;
+
     return (
         <>
             <div className="max-w-3xl mx-auto space-y-4 pb-2">
@@ -172,6 +197,14 @@ function RoutersPageContent({ routers = [] }) {
                                             >
                                                 <Edit className="w-4 h-4" />
                                             </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => openDeleteRouterModal(routerItem)}
+                                                title="Hapus"
+                                                className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -247,6 +280,65 @@ function RoutersPageContent({ routers = [] }) {
                         </button>
                     </div>
                 </form>
+            </TransitionModal>
+
+            <TransitionModal show={showDeleteRouterModal} onClose={closeDeleteRouterModal} themeCard={theme.themeCard} maxWidth="md">
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                    <h3 className="text-sm font-bold text-rose-500">
+                        Hapus Router Mikrotik
+                    </h3>
+                    <button
+                        type="button"
+                        onClick={closeDeleteRouterModal}
+                        className={`text-zinc-500 ${theme.isDarkMode ? 'hover:text-white' : 'hover:text-zinc-800'}`}
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                <div className="text-xs space-y-3">
+                    <p className={theme.themeTextTitle}>
+                        Apakah Anda yakin ingin menghapus router <strong>{routerToDelete?.name || ''}</strong>
+                        {' '}(<span className="font-mono">{routerToDelete?.host || ''}</span>)?
+                    </p>
+
+                    {routerToDelete && routerDeleteBlocked(routerToDelete) ? (
+                        <div className={`p-3 ${themeInnerWidget} rounded-xl text-[11px] ${theme.themeTextSub} leading-relaxed`}>
+                            Router ini masih memiliki <strong className={theme.themeTextTitle}>{routerToDelete.customers_count}</strong> pelanggan terdaftar.
+                            Pindahkan atau hapus pelanggan terlebih dahulu sebelum router dapat dihapus.
+                        </div>
+                    ) : routerToDelete && (
+                        <div className={`p-3 ${themeInnerWidget} rounded-xl text-[11px] ${theme.themeTextSub} leading-relaxed space-y-1`}>
+                            <p>Tindakan ini tidak dapat dibatalkan.</p>
+                            {(routerToDelete.packages_count ?? 0) > 0 && (
+                                <p>Paket terkait router: <strong className={theme.themeTextTitle}>{routerToDelete.packages_count}</strong> (referensi router akan dikosongkan).</p>
+                            )}
+                            {(routerToDelete.hotspot_vouchers_count ?? 0) > 0 && (
+                                <p>Voucher hotspot terkait: <strong className={theme.themeTextTitle}>{routerToDelete.hotspot_vouchers_count}</strong> (akan ikut dihapus).</p>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex justify-end pt-2 gap-2 text-xs">
+                    <button
+                        type="button"
+                        onClick={closeDeleteRouterModal}
+                        title="Batal"
+                        className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${theme.isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmDeleteRouter}
+                        disabled={routerToDelete && routerDeleteBlocked(routerToDelete)}
+                        title="Konfirmasi Hapus"
+                        className="p-2 rounded-lg text-white bg-rose-500 hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer inline-flex items-center justify-center"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                </div>
             </TransitionModal>
         </>
     );

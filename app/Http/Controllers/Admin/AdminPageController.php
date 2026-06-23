@@ -53,7 +53,10 @@ class AdminPageController extends Controller
     public function routers(): Response
     {
         return Inertia::render('Admin/Routers/Index', [
-            'routers' => Router::all(),
+            'routers' => Router::query()
+                ->withCount(['customers', 'packages', 'hotspotVouchers'])
+                ->orderBy('name')
+                ->get(),
         ]);
     }
 
