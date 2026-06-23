@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useId } from 'react';
 import { router } from '@inertiajs/react';
 import { Activity, CalendarClock, CreditCard, FileText, MessageSquare, PauseCircle, Printer, RefreshCw, RotateCcw, Search, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
@@ -94,6 +94,8 @@ function InvoicesPageContent({
         ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
     const themeLabel = theme.isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
+
+    const deferFormId = useId();
 
     const pendingDeferrals = billingDeferrals.filter((item) => item.status === 'pending');
 
@@ -844,7 +846,7 @@ function InvoicesPageContent({
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmitDeferral} className="space-y-3 text-xs mt-3">
+                <form id={deferFormId} onSubmit={handleSubmitDeferral} className="space-y-3 text-xs mt-3">
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Pelanggan PPPoE</label>
                         <p className={`p-2 border rounded-lg ${themeInput}`}>{deferCustomerLabel}</p>
@@ -922,6 +924,7 @@ function InvoicesPageContent({
                     </div>
 
                     <ModalFormActions
+                        formId={deferFormId}
                         isDarkMode={theme.isDarkMode}
                         onCancel={resetDeferModal}
                         submitTitle={isSubmittingDefer ? 'Menyimpan...' : 'Aktifkan Penundaan'}

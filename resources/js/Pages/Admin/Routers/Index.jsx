@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { router } from '@inertiajs/react';
 import { Edit, PlugZap, Plus, RefreshCw, Wifi, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
@@ -14,6 +14,7 @@ function RoutersPageContent({ routers = [] }) {
     const [editingRouter, setEditingRouter] = useState(null);
     const [isTestingRouter, setIsTestingRouter] = useState(null);
     const [isSyncingRouter, setIsSyncingRouter] = useState(null);
+    const routerFormId = useId();
 
     const themeInnerWidget = theme.isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeInput = theme.isDarkMode
@@ -192,7 +193,7 @@ function RoutersPageContent({ routers = [] }) {
                         <X className="w-4 h-4" />
                     </button>
                 </div>
-                <form onSubmit={handleSaveRouter} className="space-y-3 text-xs">
+                <form id={routerFormId} onSubmit={handleSaveRouter} className="space-y-3 text-xs">
                     <input type="hidden" name="id" value={editingRouter ? editingRouter.id : ''} />
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Nama Router</label>
@@ -235,6 +236,7 @@ function RoutersPageContent({ routers = [] }) {
                         </select>
                     </div>
                     <ModalFormActions
+                        formId={routerFormId}
                         isDarkMode={theme.isDarkMode}
                         onCancel={closeRouterModal}
                     />

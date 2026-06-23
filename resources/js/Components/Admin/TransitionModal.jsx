@@ -66,7 +66,7 @@ export default function TransitionModal({
             aria-modal="true"
         >
             <div
-                className={`w-full my-auto sm:my-0 ${maxWidthClasses[maxWidth] || 'max-w-md'} max-h-[min(90dvh,calc(100dvh-1.5rem))] overflow-y-auto overscroll-contain border rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl ${themeCard} transition-all duration-300 ease-out transform ${animateShow ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'} ${className}`}
+                className={`w-full my-auto sm:my-0 ${maxWidthClasses[maxWidth] || 'max-w-md'} max-h-[min(90dvh,calc(100dvh-1.5rem))] overflow-y-auto overscroll-contain border rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl ${themeCard} transition-opacity duration-300 ease-out ${animateShow ? 'opacity-100' : 'opacity-0'} ${className}`}
             >
                 {children}
             </div>
