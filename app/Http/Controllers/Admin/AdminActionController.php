@@ -497,12 +497,14 @@ class AdminActionController extends Controller
         unset($data['id'], $data['router_id']);
 
         $duplicateProfile = Package::query()
+            ->where('router_id', $routerId)
             ->whereRaw('LOWER(mikrotik_profile) = ?', [strtolower((string) $data['mikrotik_profile'])])
             ->when($id, fn ($query) => $query->where('id', '!=', $id))
             ->exists();
 
         if ($duplicateProfile) {
             $existing = Package::query()
+                ->where('router_id', $routerId)
                 ->whereRaw('LOWER(mikrotik_profile) = ?', [strtolower((string) $data['mikrotik_profile'])])
                 ->when($id, fn ($query) => $query->where('id', '!=', $id))
                 ->first();
@@ -618,6 +620,8 @@ class AdminActionController extends Controller
             $data['queue_type_tx'] = $data['queue_type_rx'];
         }
 
+        $data['router_id'] = $routerId;
+
         Package::updateOrCreate(['id' => $id], $data);
 
         \App\Services\Router\MikrotikPackageProfilesCache::forget($routerId);
@@ -650,8 +654,10 @@ class AdminActionController extends Controller
         $router = Router::findOrFail($data['router_id']);
         $profileName = $package->mikrotik_profile ?: $package->name;
         $routerError = null;
+        $packageRouterId = $package->router_id ?? $router->id;
         $otherPackageUsesProfile = Package::query()
             ->where('id', '!=', $package->id)
+            ->where('router_id', $packageRouterId)
             ->whereRaw('LOWER(mikrotik_profile) = ?', [strtolower((string) $profileName)])
             ->exists();
 
@@ -716,7 +722,7 @@ class AdminActionController extends Controller
             ];
 
             if ($result['removed'] > 0) {
-                $parts[] = sprintf('%d paket dihapus dari database (tidak ada di router)', $result['removed']);
+                $parts[] = sprintf('%d paket dihapus dari database untuk router ini (tidak ada di RouterOS)', $result['removed']);
             }
 
             if ($result['duplicates_removed'] > 0) {

@@ -87,6 +87,10 @@ function CustomersPageContent({
 
         const profileSet = new Set(allowedProfiles.map((p) => String(p).toLowerCase()));
         return pppoePackages.filter((pkg) => {
+            if (pkg.router_id != null && String(pkg.router_id) !== String(selectedRouterId)) {
+                return false;
+            }
+
             const profile = String(pkg.mikrotik_profile || '').toLowerCase();
             return profileSet.has(profile);
         });

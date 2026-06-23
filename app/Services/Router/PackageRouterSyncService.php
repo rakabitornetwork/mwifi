@@ -67,7 +67,7 @@ class PackageRouterSyncService
         }
 
         foreach ($routerProfiles as $meta) {
-            $result = self::upsertPackage($meta['payload'], $meta['type']);
+            $result = self::upsertPackage($router, $meta['payload'], $meta['type']);
             if ($result === 'created') {
                 $imported++;
             } elseif ($result === 'updated') {
@@ -75,8 +75,8 @@ class PackageRouterSyncService
             }
         }
 
-        $duplicatesRemoved = self::removeDuplicatePackages($routerProfiles);
-        $cleanup = self::removePackagesMissingOnRouter($routerProfiles);
+        $duplicatesRemoved = self::removeDuplicatePackages($router, $routerProfiles);
+        $cleanup = self::removePackagesMissingOnRouter($router, $routerProfiles);
 
         MikrotikPackageProfilesCache::forget($router->id);
 
@@ -139,15 +139,29 @@ class PackageRouterSyncService
     /**
      * @param  array<string, mixed>  $payload
      */
-    private static function upsertPackage(array $payload, string $type): string
+    private static function upsertPackage(Router $router, array $payload, string $type): string
     {
         $profileName = (string) ($payload['mikrotik_profile'] ?? '');
+        $profileKey = strtolower($profileName);
+
         $existing = Package::query()
-            ->whereRaw('LOWER(mikrotik_profile) = ?', [strtolower($profileName)])
+            ->where('router_id', $router->id)
+            ->whereRaw('LOWER(mikrotik_profile) = ?', [$profileKey])
             ->orderByDesc('id')
             ->first();
 
-        $routerFields = array_merge($payload, ['type' => $type]);
+        if (!$existing) {
+            $existing = Package::query()
+                ->whereNull('router_id')
+                ->whereRaw('LOWER(mikrotik_profile) = ?', [$profileKey])
+                ->orderByDesc('id')
+                ->first();
+        }
+
+        $routerFields = array_merge($payload, [
+            'type' => $type,
+            'router_id' => $router->id,
+        ]);
 
         if (!$existing) {
             Package::create(array_merge($routerFields, [
@@ -165,12 +179,13 @@ class PackageRouterSyncService
     /**
      * @param  array<string, array{name: string, type: string, payload: array<string, mixed>}>  $routerProfiles
      */
-    private static function removeDuplicatePackages(array $routerProfiles): int
+    private static function removeDuplicatePackages(Router $router, array $routerProfiles): int
     {
         $removed = 0;
 
         foreach ($routerProfiles as $key => $meta) {
             $duplicates = Package::query()
+                ->where('router_id', $router->id)
                 ->whereRaw('LOWER(mikrotik_profile) = ?', [$key])
                 ->orderByDesc('id')
                 ->get();
@@ -196,12 +211,15 @@ class PackageRouterSyncService
      * @param  array<string, array{name: string, type: string, payload: array<string, mixed>}>  $routerProfiles
      * @return array{removed: int, skipped_in_use: int}
      */
-    private static function removePackagesMissingOnRouter(array $routerProfiles): array
+    private static function removePackagesMissingOnRouter(Router $router, array $routerProfiles): array
     {
         $removed = 0;
         $skippedInUse = 0;
 
-        $packages = Package::query()->orderBy('name')->get();
+        $packages = Package::query()
+            ->where('router_id', $router->id)
+            ->orderBy('name')
+            ->get();
 
         foreach ($packages as $package) {
             $key = strtolower((string) ($package->mikrotik_profile ?: $package->name));

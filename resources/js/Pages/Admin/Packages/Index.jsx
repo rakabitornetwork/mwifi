@@ -24,12 +24,25 @@ function profileHasNumericPrefix(name) {
     return /^\d/.test(String(name ?? '').trim());
 }
 
+function packageBelongsToRouter(pkg, routerId) {
+    if (!routerId) {
+        return true;
+    }
+
+    if (pkg.router_id == null) {
+        return true;
+    }
+
+    return String(pkg.router_id) === String(routerId);
+}
+
 function dedupePackagesByMikrotikProfile(items = []) {
     const byProfile = new Map();
 
     for (const pkg of items) {
-        const key = String(pkg.mikrotik_profile || pkg.name || '').trim().toLowerCase();
-        if (key === '') {
+        const profileKey = String(pkg.mikrotik_profile || pkg.name || '').trim().toLowerCase();
+        const key = `${pkg.router_id ?? 'global'}:${profileKey}`;
+        if (profileKey === '') {
             continue;
         }
 
@@ -345,6 +358,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     const filteredPackages = useMemo(() => {
         const sorted = [...packages]
             .filter(packageHasNumericPrefix)
+            .filter((pkg) => packageBelongsToRouter(pkg, routerFilter))
             .sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
 
         if (!routerFilter) {
@@ -364,10 +378,13 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         return dedupePackagesByMikrotikProfile(matched);
     }, [packages, routerFilter, isLoadingRouterProfiles, routerProfileError, profileSet]);
 
-    const duplicatePackages = useMemo(
-        () => listDuplicatePackages(packages.filter(packageHasNumericPrefix)),
-        [packages],
-    );
+    const duplicatePackages = useMemo(() => {
+        const scoped = packages
+            .filter(packageHasNumericPrefix)
+            .filter((pkg) => packageBelongsToRouter(pkg, routerFilter));
+
+        return listDuplicatePackages(scoped);
+    }, [packages, routerFilter]);
 
     const duplicatePackageCount = duplicatePackages.length;
 
@@ -422,8 +439,9 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         const routerName = selectedRouter?.name || 'router ini';
         const confirmed = confirm(
             `Sinkronkan paket dari ${routerName}?\n\n`
-            + '• Profil PPPoE & Hotspot di RouterOS akan diimpor/diperbarui ke database.\n'
-            + '• Paket di database yang tidak ada di router ini akan dihapus (kecuali masih dipakai pelanggan).\n'
+            + '• Profil PPPoE & Hotspot di RouterOS akan diimpor/diperbarui ke database untuk router ini.\n'
+            + '• Paket milik router ini yang tidak ada di RouterOS akan dihapus (kecuali masih dipakai pelanggan).\n'
+            + '• Paket router lain tidak diubah.\n'
             + '• Harga paket yang sudah ada tidak diubah otomatis.',
         );
 
