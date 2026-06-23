@@ -26,6 +26,7 @@ import {
 } from 'recharts';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
+import ModalFormActions from '../../../Components/Admin/ModalFormActions';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useAdminToast } from '../../../hooks/useAdminToast';
 import { formatRupiah } from '../../../utils/formatRupiah';
@@ -934,7 +935,7 @@ function HotspotPageContent({
                     </h3>
                     <button type="button" onClick={() => setShowMemberModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form onSubmit={handleSaveMember} className="space-y-3 text-xs">
+                <form onSubmit={handleSaveMember} className="space-y-3 text-xs pb-14 sm:pb-0">
                     <input type="hidden" name="id" value={editingMember ? editingMember.id : ''} />
                     <input type="hidden" name="service_type" value="hotspot" />
                     <input type="hidden" name="billing_date" value={editingMember?.billing_date || 1} />
@@ -1001,10 +1002,10 @@ function HotspotPageContent({
                         </select>
                     </div>
 
-                    <div className="flex justify-end pt-3 gap-2">
-                        <button type="button" onClick={() => setShowMemberModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center transition-colors ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
-                        <button type="submit" title="Simpan" className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg inline-flex items-center justify-center"><Save className="w-4 h-4" /></button>
-                    </div>
+                    <ModalFormActions
+                        isDarkMode={isDarkMode}
+                        onCancel={() => setShowMemberModal(false)}
+                    />
                 </form>
             </TransitionModal>
 
@@ -1093,7 +1094,7 @@ function HotspotPageContent({
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Generate Voucher Hotspot (Bulk)</h3>
                     <button type="button" onClick={() => setShowGenerateVoucherModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form onSubmit={handleGenerateVouchersSubmit} className="space-y-3 text-xs">
+                <form onSubmit={handleGenerateVouchersSubmit} className="space-y-3 text-xs pb-14 sm:pb-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
@@ -1210,12 +1211,20 @@ function HotspotPageContent({
                         />
                     </div>
 
-                    <div className="flex justify-end pt-3 gap-2">
-                        <button type="button" onClick={() => setShowGenerateVoucherModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
-                        <button type="submit" disabled={isGeneratingVouchers} title={isGeneratingVouchers ? 'Generating...' : 'Generate'} className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50">
+                    <ModalFormActions
+                        isDarkMode={isDarkMode}
+                        onCancel={() => setShowGenerateVoucherModal(false)}
+                        submitTitle={isGeneratingVouchers ? 'Generating...' : 'Generate'}
+                    >
+                        <button
+                            type="submit"
+                            disabled={isGeneratingVouchers}
+                            title={isGeneratingVouchers ? 'Generating...' : 'Generate'}
+                            className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50"
+                        >
                             <Plus className={`w-4 h-4 ${isGeneratingVouchers ? 'animate-pulse' : ''}`} />
                         </button>
-                    </div>
+                    </ModalFormActions>
                 </form>
             </TransitionModal>
 
@@ -1225,7 +1234,7 @@ function HotspotPageContent({
                     <button type="button" onClick={() => { setShowSellVoucherModal(false); setSelectedVoucherForSale(null); }} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
                 {selectedVoucherForSale && (
-                    <form onSubmit={handleSellVoucherSubmit} className="space-y-3 text-xs">
+                    <form onSubmit={handleSellVoucherSubmit} className="space-y-3 text-xs pb-14 sm:pb-0">
                         <input type="hidden" name="voucher_id" value={selectedVoucherForSale.id} />
 
                         <div className={`p-3 rounded-lg border ${themeInnerWidget} space-y-2`}>
@@ -1255,12 +1264,20 @@ function HotspotPageContent({
                             </select>
                         </div>
 
-                        <div className="flex justify-end pt-3 gap-2">
-                            <button type="button" onClick={() => { setShowSellVoucherModal(false); setSelectedVoucherForSale(null); }} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
-                            <button type="submit" disabled={isSellingVoucher} title={isSellingVoucher ? 'Memproses...' : 'Catat Penjualan'} className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50">
+                        <ModalFormActions
+                            isDarkMode={isDarkMode}
+                            onCancel={() => { setShowSellVoucherModal(false); setSelectedVoucherForSale(null); }}
+                            submitTitle={isSellingVoucher ? 'Memproses...' : 'Catat Penjualan'}
+                        >
+                            <button
+                                type="submit"
+                                disabled={isSellingVoucher}
+                                title={isSellingVoucher ? 'Memproses...' : 'Catat Penjualan'}
+                                className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50"
+                            >
                                 <ShoppingCart className={`w-4 h-4 ${isSellingVoucher ? 'animate-pulse' : ''}`} />
                             </button>
-                        </div>
+                        </ModalFormActions>
                     </form>
                 )}
             </TransitionModal>
@@ -1270,7 +1287,7 @@ function HotspotPageContent({
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Cetak Voucher Hotspot (Bulk)</h3>
                     <button type="button" onClick={() => setShowPrintVouchersModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form onSubmit={handlePrintVouchersSubmit} className="space-y-3 text-xs">
+                <form onSubmit={handlePrintVouchersSubmit} className="space-y-3 text-xs pb-14 sm:pb-0">
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
                         <select
@@ -1356,10 +1373,20 @@ function HotspotPageContent({
                             <option value="slate">Slate / Gray (Monokrom / Cetak Hemat)</option>
                         </select>
                     </div>
-                    <div className="flex justify-end pt-3 gap-2">
-                        <button type="button" onClick={() => setShowPrintVouchersModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
-                        <button type="submit" title="Cetak" className="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"><Printer className="w-4 h-4" /></button>
-                    </div>
+                    <ModalFormActions
+                        isDarkMode={isDarkMode}
+                        onCancel={() => setShowPrintVouchersModal(false)}
+                        submitTitle="Cetak"
+                        submitClassName="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"
+                    >
+                        <button
+                            type="submit"
+                            title="Cetak"
+                            className="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"
+                        >
+                            <Printer className="w-4 h-4" />
+                        </button>
+                    </ModalFormActions>
                 </form>
             </TransitionModal>
 
