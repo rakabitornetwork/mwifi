@@ -670,45 +670,34 @@ class RestApiRouterConnector implements RouterConnectorInterface
         ]);
     }
 
-    /**
-     * @param  array<string, string>  $paths
-     * @return array<string, array<int, mixed>>
-     */
     private function fetchRouterPathsParallel(array $paths): array
     {
         $baseUrl = $this->baseUrl;
 
-        try {
-            $responses = Http::pool(function (\Illuminate\Http\Client\Pool $pool) use ($paths, $baseUrl) {
-                foreach ($paths as $key => $path) {
-                    $request = $pool->as($key)
-                        ->withBasicAuth($this->username, $this->password)
-                        ->withoutVerifying()
-                        ->connectTimeout($this->apiConnectTimeout())
-                        ->timeout($this->apiTimeout());
+        $options = [
+            'auth' => [$this->username, $this->password],
+            'verify' => false,
+            'connect_timeout' => $this->apiConnectTimeout(),
+            'timeout' => $this->apiTimeout(),
+        ];
 
-                    if (config('mikrotik.prefer_ipv4', true)) {
-                        $request = $request->withOptions([
-                            'curl' => [
-                                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-                            ],
-                        ]);
-                    }
-
-                    $request->get("{$baseUrl}{$path}");
-                }
-            });
-        } catch (Exception $e) {
-            $responses = [];
+        if (config('mikrotik.prefer_ipv4', true)) {
+            $options['curl'] = [
+                CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+            ];
         }
+
+        $client = new \GuzzleHttp\Client($options);
 
         $result = [];
         foreach ($paths as $key => $path) {
-            $response = $responses[$key] ?? null;
-            $payload = ($response && method_exists($response, 'successful') && $response->successful())
-                ? $response->json()
-                : [];
-            $result[$key] = is_array($payload) ? $payload : [];
+            try {
+                $response = $client->request('GET', "{$baseUrl}{$path}");
+                $payload = json_decode((string) $response->getBody(), true);
+                $result[$key] = is_array($payload) ? $payload : [];
+            } catch (Exception $e) {
+                $result[$key] = [];
+            }
         }
 
         return $result;
