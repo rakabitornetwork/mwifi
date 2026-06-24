@@ -80,24 +80,22 @@ export function PremiumPanelHeader({
     const styles = getCardAccentStyles(accent);
 
     return (
-        <div className={`flex items-center justify-between gap-2 ${className}`}>
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div className={`p-1.5 rounded-lg shrink-0 ${isDarkMode ? styles.wrapDark : styles.wrapLight}`}>
+        <div className={className}>
+            <div className="flex items-center gap-2 min-h-[28px]">
+                <div className={`p-1.5 rounded-lg shrink-0 flex items-center justify-center ${isDarkMode ? styles.wrapDark : styles.wrapLight}`}>
                     <Icon className={`w-4 h-4 ${styles.icon}`} />
                 </div>
-                <div className="min-w-0">
-                    <h3 className={`text-[11px] sm:text-xs font-bold uppercase tracking-wider truncate ${themeTextTitle}`}>
-                        {title}
-                    </h3>
-                    {subtitle ? (
-                        <p className={`text-[10px] mt-0.5 truncate ${themeTextDesc || ''}`}>{subtitle}</p>
-                    ) : null}
-                </div>
+                <h3 className={`flex-1 min-w-0 truncate text-[11px] sm:text-xs font-bold uppercase tracking-wider leading-tight ${themeTextTitle}`}>
+                    {title}
+                </h3>
+                {trailing ? (
+                    <div className="shrink-0 flex items-center">
+                        {trailing}
+                    </div>
+                ) : null}
             </div>
-            {trailing ? (
-                <div className="shrink-0 self-center">
-                    {trailing}
-                </div>
+            {subtitle ? (
+                <p className={`text-[10px] mt-1.5 pl-9 truncate ${themeTextDesc || ''}`}>{subtitle}</p>
             ) : null}
         </div>
     );

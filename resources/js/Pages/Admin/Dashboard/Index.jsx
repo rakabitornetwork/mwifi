@@ -577,7 +577,7 @@ function DashboardContent({
                             trailing={(
                                 <Link
                                     href="/inventory"
-                                    className="inline-flex items-center justify-center shrink-0 whitespace-nowrap text-[9px] sm:text-[10px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg text-white bg-sky-500 hover:bg-sky-600 shadow-sm shadow-sky-500/25 transition-colors"
+                                    className="inline-flex h-6 sm:h-7 items-center justify-center shrink-0 whitespace-nowrap text-[9px] sm:text-[10px] font-bold px-2 sm:px-2.5 rounded-md sm:rounded-lg text-white bg-sky-500 hover:bg-sky-600 shadow-sm shadow-sky-500/25 transition-colors"
                                 >
                                     Kelola
                                 </Link>
@@ -674,7 +674,7 @@ function DashboardContent({
                             trailing={(
                                 <Link
                                     href={invoicesHref}
-                                    className="inline-flex items-center justify-center shrink-0 whitespace-nowrap text-[9px] sm:text-[10px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg text-white bg-rose-500 hover:bg-rose-600 shadow-sm shadow-rose-500/25 transition-colors"
+                                    className="inline-flex h-6 sm:h-7 items-center justify-center shrink-0 whitespace-nowrap text-[9px] sm:text-[10px] font-bold px-2 sm:px-2.5 rounded-md sm:rounded-lg text-white bg-rose-500 hover:bg-rose-600 shadow-sm shadow-rose-500/25 transition-colors"
                                 >
                                     Tagihan
                                 </Link>
@@ -724,20 +724,20 @@ function DashboardContent({
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                             <div className={`rounded-xl border p-3 space-y-2.5 ${isDarkMode ? 'border-amber-500/25 bg-amber-950/15' : 'border-amber-200 bg-amber-50/70'}`}>
-                                <div className="flex items-start justify-between gap-2">
-                                    <div className="flex items-center gap-2 min-w-0">
+                                <div>
+                                    <div className="flex items-center gap-2 min-h-[28px]">
                                         <ShieldOff className="w-4 h-4 text-amber-500 shrink-0" />
-                                        <div>
-                                            <h4 className={`text-[10px] font-bold uppercase tracking-wider ${themeTextTitle}`}>Pelanggan Terisolir</h4>
-                                            <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>PPPoE dengan status isolir</p>
-                                        </div>
+                                        <h4 className={`flex-1 min-w-0 text-[10px] font-bold uppercase tracking-wider leading-tight truncate ${themeTextTitle}`}>
+                                            Pelanggan Terisolir
+                                        </h4>
+                                        <Link
+                                            href="/invoices?status=isolated&router=all"
+                                            className={`inline-flex h-6 sm:h-7 items-center justify-center shrink-0 whitespace-nowrap text-[9px] sm:text-[10px] font-bold px-2 sm:px-2.5 rounded-md sm:rounded-lg border transition-colors ${isDarkMode ? 'border-amber-500/30 text-amber-300 hover:bg-amber-500/10' : 'border-amber-200 text-amber-800 hover:bg-amber-100'}`}
+                                        >
+                                            Lihat ({customerStats.isolated ?? isolatedCustomers.length})
+                                        </Link>
                                     </div>
-                                    <Link
-                                        href="/invoices?status=isolated&router=all"
-                                        className={`text-[10px] font-bold px-2 py-1 rounded-lg border shrink-0 transition-colors ${isDarkMode ? 'border-amber-500/30 text-amber-300 hover:bg-amber-500/10' : 'border-amber-200 text-amber-800 hover:bg-amber-100'}`}
-                                    >
-                                        Lihat ({customerStats.isolated ?? isolatedCustomers.length})
-                                    </Link>
+                                    <p className={`text-[10px] mt-1 pl-6 truncate ${themeTextDesc}`}>PPPoE dengan status isolir</p>
                                 </div>
 
                                 <div className="space-y-1.5 max-h-[195px] overflow-y-auto pr-1">
