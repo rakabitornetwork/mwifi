@@ -287,7 +287,7 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                         {branding.footer_copyright && (
                             <div className={`rounded-lg border px-3 py-2 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-zinc-50'}`}>
                                 <p className={`text-[10px] font-bold ${themeTextSub} mb-1`}>Pratinjau footer:</p>
-                                <p className={`text-[11px] ${themeTextTitle}`}>{branding.footer_copyright}</p>
+                                <p className={`text-xs sm:text-sm ${themeTextTitle}`}>{branding.footer_copyright}</p>
                             </div>
                         )}
                     </div>

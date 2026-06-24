@@ -109,7 +109,7 @@ export default function Login() {
                 <AppFooter
                     branding={branding}
                     className="py-4 px-6 border-t border-slate-800/80 text-center"
-                    textClassName="text-[11px] text-slate-500"
+                    textClassName="text-xs sm:text-sm text-slate-500 leading-relaxed"
                 />
             </div>
         </>

@@ -49,7 +49,7 @@ export default function Welcome() {
                 <AppFooter
                     branding={branding}
                     className="py-4 px-6 border-t border-slate-800 text-center"
-                    textClassName="text-xs text-slate-500"
+                    textClassName="text-xs sm:text-sm text-slate-500 leading-relaxed"
                 />
             </div>
         </>

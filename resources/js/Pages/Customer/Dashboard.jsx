@@ -408,7 +408,7 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                         <AppFooter
                             branding={branding}
                             className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'} text-center`}
-                            textClassName={`text-[10px] ${themeTextDesc}`}
+                            textClassName={`text-xs sm:text-sm leading-relaxed ${themeTextDesc}`}
                         />
                     </footer>
                 )}

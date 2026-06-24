@@ -141,8 +141,8 @@ function AdminLayoutShell({ title, children }) {
 
                     <AppFooter
                         branding={branding}
-                        className={`noc-main-footer relative z-10 shrink-0 px-4 sm:px-6 py-2 border-t text-center ${theme.themeFooterBar}`}
-                        textClassName={`text-[10px] ${theme.themeTextDesc}`}
+                        className={`noc-main-footer relative z-10 shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 border-t text-center ${theme.themeFooterBar}`}
+                        textClassName={`text-xs sm:text-sm leading-relaxed ${theme.themeTextDesc}`}
                     />
                 </div>
             </div>
