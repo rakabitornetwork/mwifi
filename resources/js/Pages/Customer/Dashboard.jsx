@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useScheduledTheme } from '../../hooks/useScheduledTheme';
 import { router, usePage } from '@inertiajs/react';
 import PullToRefresh from '../../Components/PullToRefresh';
+import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
 import { formatRupiah } from '../../utils/formatRupiah';
