@@ -709,19 +709,6 @@ function DashboardContent({
                                 <p className={`text-[10px] font-bold mt-1 ${themeTextDesc}`}>Mikrotik online</p>
                             </div>
                         </div>
-
-                        {(overdueCount > 0 || customerStats.isolated > 0) && (
-                            <Link
-                                href={invoicesHref}
-                                className={`block rounded-lg border px-2.5 py-2 transition-colors ${isDarkMode ? 'border-rose-500/25 bg-rose-500/5 hover:bg-rose-500/10' : 'border-rose-200 bg-rose-50/80 hover:bg-rose-100/80'}`}
-                            >
-                                <p className={`text-[10px] font-bold leading-snug ${isDarkMode ? 'text-rose-300' : 'text-rose-800'}`}>
-                                    {overdueCount > 0 && `${overdueCount} tagihan lewat jatuh tempo. `}
-                                    {customerStats.isolated > 0 && `${customerStats.isolated} pelanggan terisolir.`}
-                                    <span className={`ml-1 underline ${isDarkMode ? 'text-rose-200' : 'text-rose-700'}`}>Lihat di Tagihan →</span>
-                                </p>
-                            </Link>
-                        )}
                     </PremiumPanel>
 
                     <PremiumPanel accent="amber" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3">
