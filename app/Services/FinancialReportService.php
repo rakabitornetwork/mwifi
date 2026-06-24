@@ -270,6 +270,7 @@ class FinancialReportService
             $to,
             fn (Carbon $dayStart, Carbon $dayEnd) => self::sumIncomeForRange($dayStart, $dayEnd, $scope, $routerFilter),
             ['invoice_total', 'voucher_total'],
+            ['payment_count', 'voucher_sale_count'],
         );
 
         $expenseTotal = self::sumExpensesForRange($from, $to, $scope, $routerFilter, null);
@@ -408,12 +409,18 @@ class FinancialReportService
     }
 
     /**
-     * @param  callable(Carbon, Carbon): array<string, float>  $summarizeDay
+     * @param  callable(Carbon, Carbon): array<string, float|int>  $summarizeDay
      * @param  list<string>  $valueKeys
+     * @param  list<string>  $metaKeys
      * @return list<array<string, mixed>>
      */
-    private static function buildDailySeries(Carbon $from, Carbon $to, callable $summarizeDay, array $valueKeys): array
-    {
+    private static function buildDailySeries(
+        Carbon $from,
+        Carbon $to,
+        callable $summarizeDay,
+        array $valueKeys,
+        array $metaKeys = [],
+    ): array {
         $series = [];
         $cursor = $from->copy()->startOfDay();
         $end = $to->copy()->startOfDay();
@@ -433,6 +440,10 @@ class FinancialReportService
                 $value = round((float) ($values[$key] ?? 0), 2);
                 $row[$key] = $value;
                 $rowTotal += $value;
+            }
+
+            foreach ($metaKeys as $key) {
+                $row[$key] = (int) ($values[$key] ?? 0);
             }
 
             $row['total'] = round($rowTotal, 2);
@@ -469,8 +480,10 @@ class FinancialReportService
         }
 
         return [
-            'invoice_total' => round((float) $invoiceQuery->sum('total_amount'), 2),
-            'voucher_total' => round((float) $voucherQuery->sum('price'), 2),
+            'invoice_total' => round((float) (clone $invoiceQuery)->sum('total_amount'), 2),
+            'voucher_total' => round((float) (clone $voucherQuery)->sum('price'), 2),
+            'payment_count' => (clone $invoiceQuery)->count(),
+            'voucher_sale_count' => (clone $voucherQuery)->count(),
         ];
     }
 

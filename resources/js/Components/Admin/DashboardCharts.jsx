@@ -193,10 +193,13 @@ export const DailyRevenueAreaChart = memo(function DailyRevenueAreaChart({ data,
             return label;
         }
 
-        const invoiceCount = row.payment_count ?? 0;
-        const voucherCount = row.voucher_sale_count ?? 0;
+        const invoiceTotal = Number(row.invoice_total ?? 0);
+        const voucherTotal = Number(row.voucher_total ?? 0);
+        const displayTotal = Number(row.gross_total ?? row.total ?? invoiceTotal + voucherTotal);
+        const invoiceCount = Number(row.payment_count ?? 0) || (invoiceTotal > 0 ? 1 : 0);
+        const voucherCount = Number(row.voucher_sale_count ?? 0) || (voucherTotal > 0 ? 1 : 0);
 
-        return `${label} · Total ${formatRupiah(row.total ?? 0)} (${invoiceCount} tagihan, ${voucherCount} voucher)`;
+        return `${label} · Total ${formatRupiah(displayTotal)} (${invoiceCount} tagihan, ${voucherCount} voucher)`;
     };
 
     return (
