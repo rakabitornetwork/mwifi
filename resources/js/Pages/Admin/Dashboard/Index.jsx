@@ -11,6 +11,7 @@ import {
     MessageSquare,
     Plug,
     Router as RouterIcon,
+    ShieldOff,
     UserX,
     Users,
     Radio,
@@ -53,6 +54,7 @@ function DashboardContent({
     customerStats = {},
     odpSummary = {},
     billingActivityLogs = [],
+    isolatedCustomers = [],
     todayRevenue = {},
     inventorySummary = {},
     recentInventoryMovements = [],
@@ -733,27 +735,100 @@ function DashboardContent({
                             trailing={<span className={`text-[10px] ${themeTextSub} font-bold shrink-0`}>Auto Refresh</span>}
                         />
 
-                        <div className="space-y-1.5 max-h-[195px] overflow-y-auto pr-1">
-                            {waLogs.length === 0 ? (
-                                <div className="py-6 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                                    Belum ada log generate tagihan otomatis.
-                                </div>
-                            ) : (
-                                waLogs.map((log, idx) => (
-                                    <div key={idx} className={`p-2 border rounded-lg flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between text-[10px] font-semibold transition-colors duration-150 ${isDarkMode ? 'bg-zinc-950/40 border-zinc-900/50' : 'bg-zinc-50 border-zinc-200/50'}`}>
-                                        <div className="space-y-0.5 min-w-0 flex-1">
-                                            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border shrink-0 ${isDarkMode ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-zinc-200 text-zinc-600 border-zinc-300'}`}>
-                                                    {log.type}
-                                                </span>
-                                                <span className={`${themeTextTitle} font-bold truncate`}>{log.target}</span>
-                                            </div>
-                                            <p className={`${themeTextDesc} text-[10px] leading-snug line-clamp-2 sm:line-clamp-1`}>{log.text}</p>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                            <div className={`rounded-xl border p-3 space-y-2.5 ${isDarkMode ? 'border-amber-500/25 bg-amber-950/15' : 'border-amber-200 bg-amber-50/70'}`}>
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <ShieldOff className="w-4 h-4 text-amber-500 shrink-0" />
+                                        <div>
+                                            <h4 className={`text-[10px] font-bold uppercase tracking-wider ${themeTextTitle}`}>Pelanggan Terisolir</h4>
+                                            <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>PPPoE dengan status isolir</p>
                                         </div>
-                                        <span className={`text-[10px] ${themeTextSub} font-mono shrink-0 self-end sm:self-auto`}>{log.time}</span>
                                     </div>
-                                ))
-                            )}
+                                    <Link
+                                        href="/invoices?status=isolated&router=all"
+                                        className={`text-[10px] font-bold px-2 py-1 rounded-lg border shrink-0 transition-colors ${isDarkMode ? 'border-amber-500/30 text-amber-300 hover:bg-amber-500/10' : 'border-amber-200 text-amber-800 hover:bg-amber-100'}`}
+                                    >
+                                        Lihat ({customerStats.isolated ?? isolatedCustomers.length})
+                                    </Link>
+                                </div>
+
+                                <div className="space-y-1.5 max-h-[195px] overflow-y-auto pr-1">
+                                    {isolatedCustomers.length === 0 ? (
+                                        <div className="py-6 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+                                            Tidak ada pelanggan terisolir.
+                                        </div>
+                                    ) : (
+                                        isolatedCustomers.map((customer) => (
+                                            <div
+                                                key={customer.id}
+                                                className={`p-2 border rounded-lg text-[10px] font-semibold ${isDarkMode ? 'bg-zinc-950/40 border-zinc-900/50' : 'bg-white/80 border-amber-100'}`}
+                                            >
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0 flex-1 space-y-0.5">
+                                                        <p className={`font-bold truncate ${themeTextTitle}`}>
+                                                            {customer.name}
+                                                            <span className="font-mono font-normal opacity-70"> ({customer.username})</span>
+                                                        </p>
+                                                        <p className={`${themeTextDesc} truncate`}>
+                                                            {customer.router_name || '—'}
+                                                            {customer.package_name ? ` · ${customer.package_name}` : ''}
+                                                        </p>
+                                                        {customer.unpaid_invoice ? (
+                                                            <p className={customer.unpaid_invoice.is_overdue ? 'text-amber-500 font-bold' : themeTextSub}>
+                                                                {customer.unpaid_invoice.invoice_number}
+                                                                {' · '}{formatRupiah(customer.unpaid_invoice.total_amount)}
+                                                                {' · '}jatuh tempo {customer.unpaid_invoice.due_date || '—'}
+                                                            </p>
+                                                        ) : (
+                                                            <p className="text-amber-500 font-bold">Tidak ada tagihan belum bayar</p>
+                                                        )}
+                                                    </div>
+                                                    <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                                        Isolir
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {(customerStats.isolated ?? 0) > isolatedCustomers.length && (
+                                    <p className={`text-[10px] text-center ${themeTextDesc}`}>
+                                        + {(customerStats.isolated ?? 0) - isolatedCustomers.length} pelanggan lainnya di halaman Tagihan
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className={`rounded-xl border p-3 space-y-2.5 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/20' : 'border-zinc-200 bg-white/60'}`}>
+                                <div className="flex items-center gap-2">
+                                    <History className="w-4 h-4 text-amber-500 shrink-0" />
+                                    <h4 className={`text-[10px] font-bold uppercase tracking-wider ${themeTextTitle}`}>Riwayat Generate</h4>
+                                </div>
+
+                                <div className="space-y-1.5 max-h-[195px] overflow-y-auto pr-1">
+                                    {waLogs.length === 0 ? (
+                                        <div className="py-6 text-center text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+                                            Belum ada log generate tagihan otomatis.
+                                        </div>
+                                    ) : (
+                                        waLogs.map((log, idx) => (
+                                            <div key={idx} className={`p-2 border rounded-lg flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between text-[10px] font-semibold transition-colors duration-150 ${isDarkMode ? 'bg-zinc-950/40 border-zinc-900/50' : 'bg-zinc-50 border-zinc-200/50'}`}>
+                                                <div className="space-y-0.5 min-w-0 flex-1">
+                                                    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border shrink-0 ${isDarkMode ? 'bg-zinc-900 text-zinc-400 border-zinc-800' : 'bg-zinc-200 text-zinc-600 border-zinc-300'}`}>
+                                                            {log.type}
+                                                        </span>
+                                                        <span className={`${themeTextTitle} font-bold truncate`}>{log.target}</span>
+                                                    </div>
+                                                    <p className={`${themeTextDesc} text-[10px] leading-snug line-clamp-2 sm:line-clamp-1`}>{log.text}</p>
+                                                </div>
+                                                <span className={`text-[10px] ${themeTextSub} font-mono shrink-0 self-end sm:self-auto`}>{log.time}</span>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </PremiumPanel>
                 </div>

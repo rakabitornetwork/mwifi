@@ -52,6 +52,42 @@ class AdminPageController extends Controller
         $deferralBase = BillingDeferral::query()->where('status', 'pending');
         $scope->scopeBillingDeferrals($deferralBase);
 
+        $isolatedCustomerQuery = Customer::query()
+            ->where('service_type', 'pppoe')
+            ->where('status', 'isolated');
+        $scope->scopeCustomers($isolatedCustomerQuery);
+
+        $isolatedCustomers = $isolatedCustomerQuery
+            ->with([
+                'router:id,name',
+                'package:id,name',
+                'invoices' => fn ($query) => $query
+                    ->where('status', 'unpaid')
+                    ->orderBy('due_date')
+                    ->limit(1),
+            ])
+            ->orderBy('name')
+            ->limit(8)
+            ->get()
+            ->map(function (Customer $customer) {
+                $unpaid = $customer->invoices->first();
+
+                return [
+                    'id' => $customer->id,
+                    'name' => $customer->name,
+                    'username' => $customer->username,
+                    'router_name' => $customer->router?->name,
+                    'package_name' => $customer->package?->name,
+                    'unpaid_invoice' => $unpaid ? [
+                        'invoice_number' => $unpaid->invoice_number,
+                        'total_amount' => (float) $unpaid->total_amount,
+                        'due_date' => $unpaid->due_date?->format('Y-m-d'),
+                        'is_overdue' => $unpaid->due_date?->isPast() ?? false,
+                    ] : null,
+                ];
+            })
+            ->values();
+
         return Inertia::render('Admin/Dashboard/Index', [
             'routers' => $scope->routersQuery()->get(),
             'customerStats' => [
@@ -71,6 +107,7 @@ class AdminPageController extends Controller
             ],
             'odpSummary' => $scope->odpSummary(),
             'billingActivityLogs' => $billingLogs,
+            'isolatedCustomers' => $isolatedCustomers,
             'todayRevenue' => $this->summarizeTodayRevenue($scope),
             'inventorySummary' => InventoryItem::watchCategorySummaries(),
             'recentInventoryMovements' => InventoryService::recentMovements(5),
