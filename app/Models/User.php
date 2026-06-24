@@ -98,7 +98,7 @@ class User extends Authenticatable
 
         $version = $this->updated_at?->timestamp ?? time();
 
-        return route('profile.avatar') . '?v=' . $version;
+        return route('profile.avatar', ['user' => $this->id]) . '?v=' . $version;
     }
 
     public function initials(): string

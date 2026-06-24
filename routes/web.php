@@ -53,7 +53,8 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
-    Route::get('profile/avatar', [\App\Http\Controllers\ProfileAvatarController::class, 'show'])
+    Route::get('profile/avatar/{user}', [\App\Http\Controllers\ProfileAvatarController::class, 'show'])
+        ->whereNumber('user')
         ->name('profile.avatar');
 
     Route::get('customer/dashboard', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'index']);

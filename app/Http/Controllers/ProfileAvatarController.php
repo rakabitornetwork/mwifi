@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use App\Services\SettingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -9,10 +10,19 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ProfileAvatarController extends Controller
 {
-    public function show(Request $request): Response
+    public function show(Request $request, User $user): Response
     {
-        $user = $request->user();
-        $path = $user?->avatar;
+        $viewer = $request->user();
+
+        if (!$viewer) {
+            abort(401);
+        }
+
+        if ($viewer->id !== $user->id && !$viewer->canManageUsers()) {
+            abort(403);
+        }
+
+        $path = $user->avatar;
 
         if (!$path || SettingService::isBrokenUploadPath($path) || !Storage::disk('public')->exists($path)) {
             abort(404);
@@ -30,7 +40,7 @@ class ProfileAvatarController extends Controller
 
         return response()->file($absolute, [
             'Content-Type' => $mime,
-            'Cache-Control' => 'public, max-age=86400',
+            'Cache-Control' => 'private, max-age=86400',
         ]);
     }
 }
