@@ -34,6 +34,7 @@ function HutangPiutangContent({
         ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
+    const filterControlClass = `px-3 py-2 border rounded-xl text-xs min-w-0 focus:outline-none focus:ring-2 focus:ring-violet-500/30 ${themeInput}`;
 
     const [dateFrom, setDateFrom] = useState(filters.from || '');
     const [dateTo, setDateTo] = useState(filters.to || '');
@@ -189,7 +190,7 @@ function HutangPiutangContent({
                                     value={dateFrom}
                                     onChange={(e) => setDateFrom(e.target.value)}
                                     aria-label="Tanggal mulai"
-                                    className={`admin-filter-date w-full px-2 sm:px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/30 ${themeInput}`}
+                                    className={`admin-filter-date w-full ${filterControlClass}`}
                                 />
                             </div>
                             <div className="admin-filter-date-field">
@@ -198,12 +199,12 @@ function HutangPiutangContent({
                                     value={dateTo}
                                     onChange={(e) => setDateTo(e.target.value)}
                                     aria-label="Tanggal akhir"
-                                    className={`admin-filter-date w-full px-2 sm:px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/30 ${themeInput}`}
+                                    className={`admin-filter-date w-full ${filterControlClass}`}
                                 />
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                        <select value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)} className={`px-3 py-2 border rounded-xl text-xs font-bold min-w-0 ${themeInput}`}>
+                        <select value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)} className={`font-bold ${filterControlClass}`}>
                             <option value="all">Semua teknisi</option>
                             {technicians.map((technician) => (
                                 <option key={technician.id} value={technician.id}>
@@ -211,7 +212,7 @@ function HutangPiutangContent({
                                 </option>
                             ))}
                         </select>
-                        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={`px-3 py-2 border rounded-xl text-xs font-bold min-w-0 ${themeInput}`}>
+                        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={`font-bold ${filterControlClass}`}>
                             <option value="all">Semua jenis</option>
                             {Object.entries(types).map(([value, label]) => (
                                 <option key={value} value={value}>{label}</option>

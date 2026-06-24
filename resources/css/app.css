@@ -705,24 +705,32 @@
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
   -webkit-tap-highlight-color: transparent;
 }
 
 .admin-filter-date::-webkit-date-and-time-value {
   min-width: 0;
   text-align: left;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
 }
 
 .admin-filter-date::-webkit-datetime-edit,
-.admin-filter-date::-webkit-datetime-edit-fields-wrapper {
+.admin-filter-date::-webkit-datetime-edit-fields-wrapper,
+.admin-filter-date::-webkit-datetime-edit-year-field,
+.admin-filter-date::-webkit-datetime-edit-month-field,
+.admin-filter-date::-webkit-datetime-edit-day-field {
   min-width: 0;
   padding: 0;
+  font-size: 0.75rem;
 }
 
-@media (max-width: 767px) {
-  .admin-filter-date {
-    font-size: 16px;
-    line-height: 1.25;
-  }
+.admin-filter-date::-webkit-calendar-picker-indicator {
+  margin: 0;
+  padding: 0;
+  opacity: 0.55;
+  transform: scale(0.8);
 }
 
