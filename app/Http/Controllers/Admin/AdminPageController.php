@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BillingActivityLog;
 use App\Models\BillingDeferral;
 use App\Models\Customer;
+use App\Models\FinancialExpense;
 use App\Models\HotspotSale;
 use App\Models\HotspotVoucher;
 use App\Models\InventoryItem;
@@ -18,10 +19,12 @@ use App\Models\User;
 use App\Services\AppUpdateService;
 use App\Services\BillingService;
 use App\Services\DatabaseBackupService;
+use App\Services\FinancialReportService;
 use App\Services\InventoryService;
 use App\Services\MessageTemplateService;
 use App\Services\SettingService;
 use App\Services\StaffRouterScope;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -489,5 +492,64 @@ class AdminPageController extends Controller
             'change_percent' => $changePercent,
             'series' => $series,
         ];
+    }
+
+    public function financeIncome(Request $request): Response
+    {
+        $scope = $this->routerScope();
+        [$from, $to, $routerFilter] = $this->resolveFinanceFilters($request, $scope);
+
+        return Inertia::render('Admin/Finance/Income/Index', [
+            'routers' => $scope->routersQuery()->orderBy('name')->get(['id', 'name']),
+            'filters' => [
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'router' => $routerFilter ? (string) $routerFilter : 'all',
+            ],
+            'report' => FinancialReportService::incomeReport($from, $to, $scope, $routerFilter),
+        ]);
+    }
+
+    public function financeExpenses(Request $request): Response
+    {
+        $scope = $this->routerScope();
+        [$from, $to, $routerFilter] = $this->resolveFinanceFilters($request, $scope);
+        $categoryFilter = $request->query('category', 'all');
+
+        return Inertia::render('Admin/Finance/Expenses/Index', [
+            'routers' => $scope->routersQuery()->orderBy('name')->get(['id', 'name']),
+            'categories' => FinancialExpense::CATEGORIES,
+            'filters' => [
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'router' => $routerFilter ? (string) $routerFilter : 'all',
+                'category' => $categoryFilter,
+            ],
+            'report' => FinancialReportService::expenseReport($from, $to, $scope, $routerFilter, $categoryFilter),
+        ]);
+    }
+
+    /**
+     * @return array{0: \Carbon\Carbon, 1: \Carbon\Carbon, 2: ?int}
+     */
+    private function resolveFinanceFilters(Request $request, StaffRouterScope $scope): array
+    {
+        $from = $request->query('from')
+            ? \Carbon\Carbon::parse($request->query('from'))->startOfDay()
+            : now()->startOfMonth();
+        $to = $request->query('to')
+            ? \Carbon\Carbon::parse($request->query('to'))->endOfDay()
+            : now()->endOfDay();
+
+        $routerFilter = $request->query('router');
+        $routerId = ($routerFilter && $routerFilter !== 'all') ? (int) $routerFilter : null;
+
+        if ($scope->isScoped()) {
+            $routerId = $scope->routerId();
+        } elseif ($routerId) {
+            $scope->ensureCanAccessRouter($routerId);
+        }
+
+        return [$from, $to, $routerId];
     }
 }

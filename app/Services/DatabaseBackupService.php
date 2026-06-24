@@ -229,6 +229,7 @@ class DatabaseBackupService
                 $deleted['payments'] = $this->deleteAllFromTable('payments');
                 $deleted['invoices'] = $this->deleteAllFromTable('invoices');
                 $deleted['hotspot_sales'] = $this->deleteAllFromTable('hotspot_sales');
+                $deleted['financial_expenses'] = $this->deleteAllFromTable('financial_expenses');
                 $deleted['hotspot_vouchers'] = $this->deleteAllFromTable('hotspot_vouchers');
                 $deleted['billing_activity_logs'] = $this->deleteAllFromTable('billing_activity_logs');
                 $deleted['customers'] = $this->deleteAllFromTable('customers');

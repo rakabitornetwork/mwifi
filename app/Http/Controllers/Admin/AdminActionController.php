@@ -24,6 +24,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
+use App\Models\FinancialExpense;
 use App\Models\HotspotVoucher;
 use App\Models\HotspotSale;
 use App\Models\InventoryItem;
@@ -2762,5 +2763,73 @@ class AdminActionController extends Controller
         $odp->delete();
 
         return redirect()->back()->with('success', 'ODP berhasil dihapus dari sistem.');
+    }
+
+    public function saveFinancialExpense(Request $request)
+    {
+        $data = $request->validate([
+            'id' => 'nullable|integer|exists:financial_expenses,id',
+            'router_id' => 'nullable|exists:routers,id',
+            'category' => 'required|in:' . implode(',', array_keys(FinancialExpense::CATEGORIES)),
+            'title' => 'required|string|max:150',
+            'amount' => 'required|numeric|min:0',
+            'expense_date' => 'required|date',
+            'payment_method' => 'nullable|string|max:50',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $scope = StaffRouterScope::for($request->user());
+        $routerId = $data['router_id'] ?? null;
+
+        if ($scope->isScoped()) {
+            $routerId = $scope->routerId();
+        } elseif ($routerId) {
+            $scope->ensureCanAccessRouter((int) $routerId);
+        }
+
+        $payload = [
+            'router_id' => $routerId,
+            'category' => $data['category'],
+            'title' => $data['title'],
+            'amount' => $data['amount'],
+            'expense_date' => $data['expense_date'],
+            'payment_method' => $data['payment_method'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'recorded_by' => $request->user()?->id,
+        ];
+
+        if (!empty($data['id'])) {
+            $expense = FinancialExpense::findOrFail($data['id']);
+
+            if ($scope->isScoped() && (int) $expense->router_id !== (int) $scope->routerId()) {
+                abort(403, 'Anda tidak memiliki akses ke pengeluaran ini.');
+            }
+
+            $expense->update($payload);
+
+            return redirect()->back()->with('success', 'Pengeluaran berhasil diperbarui.');
+        }
+
+        FinancialExpense::create($payload);
+
+        return redirect()->back()->with('success', 'Pengeluaran berhasil dicatat.');
+    }
+
+    public function deleteFinancialExpense(Request $request)
+    {
+        $data = $request->validate([
+            'id' => 'required|integer|exists:financial_expenses,id',
+        ]);
+
+        $scope = StaffRouterScope::for($request->user());
+        $expense = FinancialExpense::findOrFail($data['id']);
+
+        if ($scope->isScoped() && (int) $expense->router_id !== (int) $scope->routerId()) {
+            abort(403, 'Anda tidak memiliki akses ke pengeluaran ini.');
+        }
+
+        $expense->delete();
+
+        return redirect()->back()->with('success', 'Pengeluaran berhasil dihapus.');
     }
 }

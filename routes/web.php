@@ -76,6 +76,8 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::get('profile', [AdminPageController::class, 'profile']);
     Route::get('network-map', [AdminPageController::class, 'networkMap']);
     Route::get('inventory', [AdminPageController::class, 'inventory']);
+    Route::get('finance-income', [AdminPageController::class, 'financeIncome']);
+    Route::get('finance-expenses', [AdminPageController::class, 'financeExpenses']);
     Route::get('users', [AdminPageController::class, 'users']);
 
     // GenieACS (TR-069) Routes
@@ -104,6 +106,8 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::post('admin/inventory/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveInventoryItem']);
     Route::post('admin/inventory/adjust', [\App\Http\Controllers\Admin\AdminActionController::class, 'adjustInventoryStock']);
     Route::post('admin/inventory/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteInventoryItem']);
+    Route::post('admin/finance/expenses/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveFinancialExpense']);
+    Route::post('admin/finance/expenses/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteFinancialExpense']);
     Route::post('admin/users/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveStaffUser']);
     Route::post('admin/users/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteStaffUser']);
     Route::post('admin/users/toggle-active', [\App\Http\Controllers\Admin\AdminActionController::class, 'toggleStaffUserActive']);

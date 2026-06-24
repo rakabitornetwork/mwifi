@@ -268,6 +268,58 @@ export const DailyRevenueAreaChart = memo(function DailyRevenueAreaChart({ data,
     );
 });
 
+export const ExpenseAreaChart = memo(function ExpenseAreaChart({ data, isDarkMode }) {
+    const isAnimationActive = useMountAnimation(Boolean(data?.length));
+
+    if (!data?.length) {
+        return null;
+    }
+
+    const gridStroke = isDarkMode ? '#27272a' : '#e4e4e7';
+    const axisStroke = isDarkMode ? '#a1a1aa' : '#71717a';
+    const animation = animatedSeriesProps(isAnimationActive);
+
+    return (
+        <ChartShell className="h-52 w-full">
+            {(dimensions) => (
+                <AreaChart
+                    width={dimensions.width}
+                    height={dimensions.height}
+                    data={data}
+                    margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
+                >
+                    <defs>
+                        <linearGradient id="dashboardDailyExpense" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.35} />
+                            <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.02} />
+                        </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+                    <XAxis dataKey="label" stroke={axisStroke} fontSize={9} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                    <YAxis stroke={axisStroke} fontSize={9} tickLine={false} axisLine={false} width={42} tickFormatter={(value) => `${Math.round(value / 1000)}k`} />
+                    <Tooltip
+                        formatter={(value) => [formatRupiah(value), 'Pengeluaran']}
+                        labelFormatter={(label) => label}
+                        contentStyle={tooltipStyle(isDarkMode)}
+                    />
+                    <Area
+                        type="monotone"
+                        dataKey="total"
+                        name="Pengeluaran"
+                        stroke="#f43f5e"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#dashboardDailyExpense)"
+                        dot={{ r: 2.5, strokeWidth: 0, fill: '#f43f5e' }}
+                        activeDot={{ r: 4, strokeWidth: 0 }}
+                        {...animation}
+                    />
+                </AreaChart>
+            )}
+        </ChartShell>
+    );
+});
+
 export const ResourceAreaChart = memo(function ResourceAreaChart({ data, isDarkMode }) {
     const animation = useLiveChartAnimation(data?.length ?? 0);
 

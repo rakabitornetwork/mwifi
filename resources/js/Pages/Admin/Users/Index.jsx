@@ -25,6 +25,8 @@ const TAB_LABELS = {
     customers: 'PPPoE',
     hotspot: 'Hotspot',
     invoices: 'Tagihan',
+    'finance-income': 'Laporan Pemasukan',
+    'finance-expenses': 'Laporan Pengeluaran',
     inventory: 'Inventaris',
     messaging: 'WhatsApp',
     settings: 'Pengaturan',

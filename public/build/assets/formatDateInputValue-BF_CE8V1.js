@@ -1,0 +1,1 @@
+function e(e){if(e==null||e===``)return``;let t=String(e).trim(),n=t.match(/^(\d{4}-\d{2}-\d{2})/);if(n&&!t.includes(`T`))return n[1];let r=new Date(t);return Number.isNaN(r.getTime())?n?.[1]??``:`${r.getFullYear()}-${String(r.getMonth()+1).padStart(2,`0`)}-${String(r.getDate()).padStart(2,`0`)}`}function t(){return e(new Date)}export{t as n,e as t};
