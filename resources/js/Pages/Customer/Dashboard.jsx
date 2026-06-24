@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useScheduledTheme } from '../../hooks/useScheduledTheme';
 import { router, usePage } from '@inertiajs/react';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
@@ -25,16 +26,12 @@ import {
 
 export default function CustomerDashboard({ auth, customer, invoices = [], activeGateway }) {
     const { branding = {} } = usePage().props;
-    const [isDarkMode, setIsDarkMode] = useState(false);
+    const { isDarkMode, isAutoTheme, toggleTheme } = useScheduledTheme('mwifi.customer.theme');
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('qris');
     const [isPaying, setIsPaying] = useState(null); // stores invoice ID currently processing
 
     const handleLogout = () => {
         router.post('/logout');
-    };
-
-    const toggleTheme = () => {
-        setIsDarkMode(!isDarkMode);
     };
 
     // Calculate dates/amounts
@@ -136,6 +133,8 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                                 <button 
                                     onClick={toggleTheme}
                                     className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white' : 'bg-zinc-100 border-zinc-200 text-zinc-600 hover:text-zinc-900'}`}
+                                    aria-label={isAutoTheme ? 'Tema otomatis mengikuti waktu. Klik untuk ganti.' : 'Ganti tema'}
+                                    title={isAutoTheme ? 'Otomatis (06:00–18:00 terang)' : undefined}
                                 >
                                     {isDarkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
                                 </button>
