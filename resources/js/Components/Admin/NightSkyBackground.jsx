@@ -61,7 +61,7 @@ export default function NightSkyBackground() {
 
             {/* Comet */}
             <div
-                className="absolute w-28 h-[2.5px] bg-gradient-to-r from-transparent via-blue-300/40 to-white rounded-full shadow-[0_0_8px_rgba(147,197,253,0.55)] origin-left comet-glow"
+                className="absolute w-28 h-[2.5px] bg-gradient-to-r from-transparent via-cyan-400/40 via-teal-400/70 to-teal-100 rounded-full shadow-[0_0_12px_rgba(45,212,191,0.65)] origin-left comet-glow"
                 style={{
                     top: '12%',
                     left: '5%',
