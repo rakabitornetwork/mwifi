@@ -10,9 +10,8 @@ export default function SidebarMountain({ isDarkMode }) {
             >
                 <defs>
                     <linearGradient id="lightSkyGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#bae6fd" stopOpacity="0.45"/>
-                        <stop offset="60%" stopColor="#fef08a" stopOpacity="0.15"/>
-                        <stop offset="100%" stopColor="#fef9c3" stopOpacity="0.05"/>
+                        <stop offset="0%" stopColor="#7dd3fc" stopOpacity="0.9"/>
+                        <stop offset="100%" stopColor="#e0f2fe" stopOpacity="0.5"/>
                     </linearGradient>
                     <linearGradient id="darkSkyGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#0f172a" stopOpacity="0.75"/>
