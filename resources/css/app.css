@@ -685,6 +685,28 @@
   animation: drift-right 100s linear infinite;
 }
 
+.sidebar-scene-cloud-slow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sidebar-cloud-drift 28s ease-in-out infinite;
+}
+
+.sidebar-scene-cloud-fast {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sidebar-cloud-drift-reverse 20s ease-in-out infinite;
+}
+
+@keyframes sidebar-cloud-drift {
+  0%, 100% { transform: translateX(-6px); }
+  50% { transform: translateX(10px); }
+}
+
+@keyframes sidebar-cloud-drift-reverse {
+  0%, 100% { transform: translateX(8px); }
+  50% { transform: translateX(-8px); }
+}
+
 /* Filter tanggal — perbaikan tampilan native date input di HP (iOS/Android) */
 .admin-filter-date-row {
   display: flex;
