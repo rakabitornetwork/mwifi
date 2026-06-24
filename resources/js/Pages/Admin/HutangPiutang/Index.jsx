@@ -181,10 +181,29 @@ function HutangPiutangContent({
                         <Filter className="w-4 h-4 text-violet-500" />
                         <p className={`text-xs font-bold ${themeTextTitle}`}>Filter Laporan</p>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className={`px-3 py-2 border rounded-xl text-xs min-w-0 ${themeInput}`} />
-                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className={`px-3 py-2 border rounded-xl text-xs min-w-0 ${themeInput}`} />
-                        <select value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)} className={`col-span-2 md:col-span-1 px-3 py-2 border rounded-xl text-xs font-bold min-w-0 ${themeInput}`}>
+                    <div className="space-y-2">
+                        <div className="admin-filter-date-row">
+                            <div className="admin-filter-date-field">
+                                <input
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={(e) => setDateFrom(e.target.value)}
+                                    aria-label="Tanggal mulai"
+                                    className={`admin-filter-date w-full px-2 sm:px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/30 ${themeInput}`}
+                                />
+                            </div>
+                            <div className="admin-filter-date-field">
+                                <input
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={(e) => setDateTo(e.target.value)}
+                                    aria-label="Tanggal akhir"
+                                    className={`admin-filter-date w-full px-2 sm:px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/30 ${themeInput}`}
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <select value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)} className={`px-3 py-2 border rounded-xl text-xs font-bold min-w-0 ${themeInput}`}>
                             <option value="all">Semua teknisi</option>
                             {technicians.map((technician) => (
                                 <option key={technician.id} value={technician.id}>
@@ -192,15 +211,16 @@ function HutangPiutangContent({
                                 </option>
                             ))}
                         </select>
-                        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={`col-span-2 md:col-span-1 px-3 py-2 border rounded-xl text-xs font-bold min-w-0 ${themeInput}`}>
+                        <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={`px-3 py-2 border rounded-xl text-xs font-bold min-w-0 ${themeInput}`}>
                             <option value="all">Semua jenis</option>
                             {Object.entries(types).map(([value, label]) => (
                                 <option key={value} value={value}>{label}</option>
                             ))}
                         </select>
-                        <button type="button" onClick={applyFilters} className="col-span-2 md:col-span-1 px-3 py-2 rounded-xl text-xs font-bold bg-violet-500 hover:bg-violet-600 text-white cursor-pointer">
+                        <button type="button" onClick={applyFilters} className="px-3 py-2 rounded-xl text-xs font-bold bg-violet-500 hover:bg-violet-600 text-white cursor-pointer">
                             Terapkan Filter
                         </button>
+                        </div>
                     </div>
                 </div>
 

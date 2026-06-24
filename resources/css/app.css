@@ -685,3 +685,44 @@
   animation: drift-right 100s linear infinite;
 }
 
+/* Filter tanggal — perbaikan tampilan native date input di HP (iOS/Android) */
+.admin-filter-date-row {
+  display: flex;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.admin-filter-date-field {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+}
+
+.admin-filter-date {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.admin-filter-date::-webkit-date-and-time-value {
+  min-width: 0;
+  text-align: left;
+}
+
+.admin-filter-date::-webkit-datetime-edit,
+.admin-filter-date::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
+  padding: 0;
+}
+
+@media (max-width: 767px) {
+  .admin-filter-date {
+    font-size: 16px;
+    line-height: 1.25;
+  }
+}
+
