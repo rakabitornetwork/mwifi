@@ -66,7 +66,6 @@ function FinanceContent({
         initialRouterId || (filters.router && filters.router !== 'all' ? filters.router : '')
     );
     const [categoryFilter, setCategoryFilter] = useState(filters.category || 'all');
-    const [incomeSearchTerm, setIncomeSearchTerm] = useState('');
     const [expenseSearchTerm, setExpenseSearchTerm] = useState('');
     const [showExpenseModal, setShowExpenseModal] = useState(false);
     const [editingExpense, setEditingExpense] = useState(null);
@@ -80,7 +79,6 @@ function FinanceContent({
 
     const incomeSummary = incomeReport.summary || {};
     const incomeSeries = incomeReport.series || [];
-    const incomeEntries = incomeReport.entries || [];
 
     const expenseSummary = expenseReport.summary || {};
     const expenseSeries = expenseReport.series || [];
@@ -99,21 +97,6 @@ function FinanceContent({
         });
     };
 
-    const filteredIncomeEntries = useMemo(() => {
-        const term = incomeSearchTerm.trim().toLowerCase();
-        if (!term) {
-            return incomeEntries;
-        }
-
-        return incomeEntries.filter((entry) => [
-            entry.reference,
-            entry.description,
-            entry.router_name,
-            entry.type_label,
-            entry.payment_method,
-        ].some((value) => String(value || '').toLowerCase().includes(term)));
-    }, [incomeEntries, incomeSearchTerm]);
-
     const filteredExpenseEntries = useMemo(() => {
         const term = expenseSearchTerm.trim().toLowerCase();
         if (!term) {
@@ -128,14 +111,6 @@ function FinanceContent({
             entry.payment_method,
         ].some((value) => String(value || '').toLowerCase().includes(term)));
     }, [expenseEntries, expenseSearchTerm]);
-
-    const incomeTypeBadgeClass = (type) => {
-        if (type === 'voucher') {
-            return isDarkMode ? 'bg-sky-500/10 text-sky-300 border-sky-500/20' : 'bg-sky-50 text-sky-700 border-sky-200';
-        }
-
-        return isDarkMode ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 border-emerald-200';
-    };
 
     const openExpenseModal = (expense = null) => {
         setEditingExpense(expense);
@@ -264,56 +239,6 @@ function FinanceContent({
                                     <DailyRevenueAreaChart data={incomeSeries} isDarkMode={isDarkMode} />
                                 </Suspense>
                             )}
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <div className="relative">
-                            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
-                            <input
-                                type="text"
-                                value={incomeSearchTerm}
-                                onChange={(e) => setIncomeSearchTerm(e.target.value)}
-                                placeholder="Cari referensi, pelanggan, router..."
-                                className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs ${themeInput}`}
-                            />
-                        </div>
-
-                        <div className="admin-table-scroll">
-                            <table>
-                                <thead>
-                                    <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
-                                        <th className="py-3 px-2 text-left">Tanggal</th>
-                                        <th className="py-3 px-2 text-left">Jenis</th>
-                                        <th className="py-3 px-2 text-left">Referensi</th>
-                                        <th className="py-3 px-2 text-left">Keterangan</th>
-                                        <th className="py-3 px-2 text-left">Router</th>
-                                        <th className="py-3 px-2 text-left">Metode</th>
-                                        <th className="py-3 px-2 text-right">Nominal</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-800/20 text-xs">
-                                    {filteredIncomeEntries.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={7} className={`py-8 text-center ${themeTextDesc}`}>Tidak ada data pemasukan pada periode ini.</td>
-                                        </tr>
-                                    ) : filteredIncomeEntries.map((entry) => (
-                                        <tr key={entry.id} className={themeTextSub}>
-                                            <td className="py-3 px-2 whitespace-nowrap">{entry.label}</td>
-                                            <td className="py-3 px-2">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${incomeTypeBadgeClass(entry.type)}`}>
-                                                    {entry.type_label}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 px-2 font-mono text-[10px]">{entry.reference}</td>
-                                            <td className="py-3 px-2">{entry.description}</td>
-                                            <td className="py-3 px-2">{entry.router_name || '—'}</td>
-                                            <td className="py-3 px-2">{entry.payment_method}</td>
-                                            <td className="py-3 px-2 text-right font-bold text-emerald-500">{formatRupiah(entry.amount)}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
                         </div>
                     </div>
                 </div>
