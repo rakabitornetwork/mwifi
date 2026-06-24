@@ -7,6 +7,8 @@ import TransitionModal from '../../../Components/Admin/TransitionModal';
 import MonthlyRevenuePanel from '../../../Components/Admin/MonthlyRevenuePanel';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
+import { useAssignedRouter } from '../../../hooks/useAssignedRouter';
+import AssignedRouterFilter from '../../../Components/Admin/AssignedRouterFilter';
 import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import { formatRupiah } from '../../../utils/formatRupiah';
 import getVisiblePages from '../../../utils/getVisiblePages';
@@ -79,15 +81,9 @@ function InvoicesPageContent({
 }) {
     const theme = useAdminTheme();
     const { canWrite } = useStaffPermissions();
+    const { lockedRouterId, initialRouterId } = useAssignedRouter(routers);
     const [searchTerm, setSearchTerm] = useState('');
-    const [routerFilter, setRouterFilter] = useState(() => {
-        const activeRouter = routers.find((item) => item.status);
-        if (activeRouter) {
-            return String(activeRouter.id);
-        }
-
-        return routers[0] ? String(routers[0].id) : '';
-    });
+    const [routerFilter, setRouterFilter] = useState(initialRouterId);
     const [statusFilter, setStatusFilter] = useState('all');
     const [invoicePage, setInvoicePage] = useState(1);
     const invoicePageSize = 10;
@@ -141,6 +137,12 @@ function InvoicesPageContent({
         && inv.customer?.service_type === 'pppoe'
         && !customerHasPendingDeferral(inv.customer.id)
     );
+
+    useEffect(() => {
+        if (lockedRouterId) {
+            setRouterFilter(lockedRouterId);
+        }
+    }, [lockedRouterId]);
 
     useEffect(() => {
         setInvoicePage(1);
@@ -501,19 +503,13 @@ function InvoicesPageContent({
                 ) : null}
             >
                 <div className="flex flex-col lg:flex-row gap-2">
-                    <select
+                    <AssignedRouterFilter
+                        routers={routers}
                         value={routerFilter}
                         onChange={(e) => setRouterFilter(e.target.value)}
                         className={`lg:w-56 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
-                    >
-                        {routers.length === 0 ? (
-                            <option value="">Belum ada router</option>
-                        ) : routers.map((routerItem) => (
-                            <option key={routerItem.id} value={routerItem.id}>
-                                {routerItem.name} ({routerInvoiceCounts[routerItem.id] || 0})
-                            </option>
-                        ))}
-                    </select>
+                        renderOption={(routerItem) => `${routerItem.name} (${routerInvoiceCounts[routerItem.id] || 0})`}
+                    />
                     <div className="relative flex-1">
                         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${theme.themeTextDesc}`} />
                         <input

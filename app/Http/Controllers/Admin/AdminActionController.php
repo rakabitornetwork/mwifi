@@ -172,6 +172,12 @@ class AdminActionController extends Controller
             'role' => 'required|in:' . implode(',', $assignableRoleKeys),
             'profile_title' => 'nullable|string|max:100',
             'is_active' => 'nullable|boolean',
+            'assigned_router_id' => [
+                Rule::requiredIf(fn () => $request->input('role') === User::ROLE_TECHNICIAN),
+                'nullable',
+                'integer',
+                'exists:routers,id',
+            ],
         ];
 
         if ($id) {
@@ -189,6 +195,9 @@ class AdminActionController extends Controller
             'role' => $data['role'],
             'profile_title' => $data['profile_title'] ?? null,
             'is_active' => $request->boolean('is_active', true),
+            'assigned_router_id' => $data['role'] === User::ROLE_TECHNICIAN
+                ? ($data['assigned_router_id'] ?? null)
+                : null,
         ];
 
         if (!empty($data['password'])) {

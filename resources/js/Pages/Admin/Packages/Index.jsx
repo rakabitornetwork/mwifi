@@ -7,6 +7,8 @@ import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 import { useAdminToast } from '../../../hooks/useAdminToast';
 import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
+import { useAssignedRouter } from '../../../hooks/useAssignedRouter';
+import AssignedRouterFilter from '../../../Components/Admin/AssignedRouterFilter';
 import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import { formatRupiah } from '../../../utils/formatRupiah';
 import {
@@ -139,6 +141,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
     const theme = useAdminFormTheme();
     const { showToast } = useAdminToast();
     const { canWrite } = useStaffPermissions();
+    const { lockedRouterId, initialRouterId } = useAssignedRouter(routers);
     const {
         isDarkMode,
         themeCard,
@@ -149,10 +152,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         themeLabel,
     } = theme;
 
-    const defaultRouterId = (() => {
-        const activeRouter = routers.find((r) => r.status);
-        return activeRouter ? String(activeRouter.id) : '';
-    })();
+    const defaultRouterId = initialRouterId;
 
     const [showPackageModal, setShowPackageModal] = useState(false);
     const [editingPackage, setEditingPackage] = useState(null);
@@ -289,6 +289,12 @@ function PackagesPageContent({ packages = [], routers = [] }) {
             },
         });
     };
+
+    useEffect(() => {
+        if (lockedRouterId) {
+            setRouterFilter(lockedRouterId);
+        }
+    }, [lockedRouterId]);
 
     useEffect(() => {
         if (!routerFilter) {
@@ -487,19 +493,14 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                 themeTextDesc={themeTextDesc}
                 actions={(
                     <>
-                        <select
+                        <AssignedRouterFilter
+                            routers={routers}
                             value={routerFilter}
                             onChange={(e) => setRouterFilter(e.target.value)}
                             className={`p-1.5 border rounded-xl text-xs min-w-[160px] ${themeInput}`}
-                            title="Filter berdasarkan router Mikrotik"
-                        >
-                            <option value="">Semua Router</option>
-                            {routers.map((r) => (
-                                <option key={r.id} value={r.id}>
-                                    {r.name}{r.status ? '' : ' (nonaktif)'}
-                                </option>
-                            ))}
-                        </select>
+                            showAllOption
+                            renderOption={(r) => `${r.name}${r.status ? '' : ' (nonaktif)'}`}
+                        />
                         {canWrite && (
                         <>
                         <button

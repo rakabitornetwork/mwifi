@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\BrandingService;
+use App\Services\StaffRouterScope;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -38,6 +39,11 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
         $customer = $user ? $user->customer : null;
+        $routerScope = StaffRouterScope::for($user);
+
+        if ($user && !$customer) {
+            $user->loadMissing('assignedRouter:id,name');
+        }
 
         return [
             ...parent::share($request),
@@ -55,6 +61,9 @@ class HandleInertiaRequests extends Middleware
                     'can_manage_users' => $user->canManageUsers(),
                     'can_write' => $customer ? false : $user->canWriteData(),
                     'is_read_only' => $customer ? false : $user->isReadOnly(),
+                    'assigned_router_id' => $customer ? null : $user->assigned_router_id,
+                    'assigned_router_name' => $customer ? null : ($user->assignedRouter?->name),
+                    'is_router_scoped' => $customer ? false : $routerScope->isScoped(),
                     'updated_at' => $user->updated_at?->timestamp,
                     'customer' => $customer ? [
                         'id' => $customer->id,

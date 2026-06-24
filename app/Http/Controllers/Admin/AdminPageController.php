@@ -21,57 +21,77 @@ use App\Services\DatabaseBackupService;
 use App\Services\InventoryService;
 use App\Services\MessageTemplateService;
 use App\Services\SettingService;
+use App\Services\StaffRouterScope;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class AdminPageController extends Controller
 {
+    private function routerScope(): StaffRouterScope
+    {
+        return StaffRouterScope::for(auth()->user());
+    }
+
     public function dashboard(): Response
     {
+        $scope = $this->routerScope();
+        $customerBase = Customer::query();
+        $scope->scopeCustomers($customerBase);
+
+        $billingLogs = $scope->filterBillingActivityLogs(
+            BillingActivityLog::orderByDesc('created_at')->limit(8)->get()
+        );
+
+        $invoiceBase = Invoice::query();
+        $scope->scopeInvoices($invoiceBase);
+
+        $deferralBase = BillingDeferral::query()->where('status', 'pending');
+        $scope->scopeBillingDeferrals($deferralBase);
+
         return Inertia::render('Admin/Dashboard/Index', [
-            'routers' => Router::all(),
+            'routers' => $scope->routersQuery()->get(),
             'customerStats' => [
-                'ppp_active' => Customer::query()
+                'ppp_active' => (clone $customerBase)
                     ->where('service_type', 'pppoe')
                     ->where('status', 'active')
                     ->count(),
-                'hotspot_active' => Customer::query()
-                    ->where('service_type', 'hotspot')
-                    ->where('status', 'active')
-                    ->count(),
-                'isolated' => Customer::query()
+                'hotspot_active' => $scope->isScoped()
+                    ? 0
+                    : Customer::query()
+                        ->where('service_type', 'hotspot')
+                        ->where('status', 'active')
+                        ->count(),
+                'isolated' => (clone $customerBase)
                     ->where('status', 'isolated')
                     ->count(),
             ],
-            'odpSummary' => [
-                'node_count' => Odp::query()->count(),
-                'total_ports' => (int) Odp::query()->sum('total_ports'),
-                'used_ports' => (int) Customer::query()->whereNotNull('odp_id')->count(),
-            ],
-            'billingActivityLogs' => BillingActivityLog::orderByDesc('created_at')->limit(8)->get(),
-            'todayRevenue' => BillingService::summarizeTodayRevenue(),
+            'odpSummary' => $scope->odpSummary(),
+            'billingActivityLogs' => $billingLogs,
+            'todayRevenue' => $this->summarizeTodayRevenue($scope),
             'inventorySummary' => InventoryItem::watchCategorySummaries(),
             'recentInventoryMovements' => InventoryService::recentMovements(5),
             'billingSummary' => [
-                'unpaid_count' => Invoice::query()->where('status', 'unpaid')->count(),
-                'unpaid_total' => (float) Invoice::query()->where('status', 'unpaid')->sum('total_amount'),
-                'overdue_count' => Invoice::query()
+                'unpaid_count' => (clone $invoiceBase)->where('status', 'unpaid')->count(),
+                'unpaid_total' => (float) (clone $invoiceBase)->where('status', 'unpaid')->sum('total_amount'),
+                'overdue_count' => (clone $invoiceBase)
                     ->where('status', 'unpaid')
                     ->whereDate('due_date', '<', now()->toDateString())
                     ->count(),
-                'pending_deferrals' => BillingDeferral::query()->where('status', 'pending')->count(),
+                'pending_deferrals' => (clone $deferralBase)->count(),
             ],
             'routerSummary' => [
-                'total' => Router::query()->count(),
-                'active' => Router::query()->where('status', true)->count(),
+                'total' => $scope->routersQuery()->count(),
+                'active' => $scope->routersQuery()->where('status', true)->count(),
             ],
         ]);
     }
 
     public function routers(): Response
     {
+        $scope = $this->routerScope();
+
         return Inertia::render('Admin/Routers/Index', [
-            'routers' => Router::query()
+            'routers' => $scope->routersQuery()
                 ->withCount(['customers', 'packages', 'hotspotVouchers'])
                 ->orderBy('name')
                 ->get(),
@@ -80,8 +100,13 @@ class AdminPageController extends Controller
 
     public function customers(): Response
     {
+        $scope = $this->routerScope();
+
         $customers = Customer::query()
-            ->where('service_type', 'pppoe')
+            ->where('service_type', 'pppoe');
+        $scope->scopeCustomers($customers);
+
+        $customers = $customers
             ->with([
                 'odp',
                 'package',
@@ -126,24 +151,45 @@ class AdminPageController extends Controller
             })
             ->values();
 
+        $packageQuery = Package::query();
+        $scope->scopePackages($packageQuery);
+
+        $odpQuery = Odp::withCount('customers');
+        if ($scope->isScoped()) {
+            $odpQuery->whereHas(
+                'customers',
+                fn ($query) => $query->where('router_id', $scope->routerId())
+            );
+        }
+
         return Inertia::render('Admin/Customers/Index', [
             'customers' => $customers,
-            'routers' => Router::all(),
-            'packages' => Package::all(),
-            'odps' => Odp::withCount('customers')->get(),
+            'routers' => $scope->routersQuery()->orderBy('name')->get(),
+            'packages' => $packageQuery->orderBy('name')->get(),
+            'odps' => $odpQuery->get(),
         ]);
     }
 
     public function networkMap(): Response
     {
+        $scope = $this->routerScope();
+
+        $customerQuery = Customer::with(['odp', 'package', 'router']);
+        $scope->scopeCustomers($customerQuery);
+
         return Inertia::render('Admin/NetworkMap/Index', [
-            'odps' => Odp::withCount('customers')->get(),
-            'customers' => Customer::with(['odp', 'package', 'router'])->get(),
+            'odps' => $scope->odpsForNetworkMap(),
+            'customers' => $customerQuery->get(),
         ]);
     }
 
     public function inventory(): Response
     {
+        $scope = $this->routerScope();
+
+        $customerQuery = Customer::query()->orderBy('name');
+        $scope->scopeCustomers($customerQuery);
+
         return Inertia::render('Admin/Inventory/Index', [
             'items' => InventoryItem::query()->orderBy('name')->get(),
             'categories' => InventoryItem::CATEGORIES,
@@ -151,7 +197,7 @@ class AdminPageController extends Controller
             'units' => InventoryItem::UNITS,
             'watchCategories' => InventoryItem::watchCategorySummaries(),
             'recentMovements' => InventoryService::recentMovements(),
-            'customers' => Customer::query()->orderBy('name')->get(['id', 'name', 'username']),
+            'customers' => $customerQuery->get(['id', 'name', 'username']),
         ]);
     }
 
@@ -164,6 +210,7 @@ class AdminPageController extends Controller
             'staffUsers' => User::query()
                 ->whereNotNull('role')
                 ->whereDoesntHave('customer')
+                ->with('assignedRouter:id,name')
                 ->orderBy('name')
                 ->get()
                 ->map(fn (User $user) => [
@@ -175,6 +222,8 @@ class AdminPageController extends Controller
                     'role_description' => $user->roleDescription(),
                     'profile_title' => $user->profile_title,
                     'is_active' => (bool) $user->is_active,
+                    'assigned_router_id' => $user->assigned_router_id,
+                    'assigned_router_name' => $user->assignedRouter?->name,
                     'initials' => $user->initials(),
                     'avatar_url' => $user->avatarUrl(),
                     'created_at' => $user->created_at?->format('d/m/Y H:i'),
@@ -185,15 +234,21 @@ class AdminPageController extends Controller
                 ->map(fn (array $meta, string $key) => ['value' => $key, 'label' => $meta['label'], 'description' => $meta['description']])
                 ->values()
                 ->all(),
+            'routers' => Router::orderBy('name')->get(['id', 'name', 'status']),
             'currentUserId' => $actor->id,
         ]);
     }
 
     public function packages(): Response
     {
+        $scope = $this->routerScope();
+
+        $packageQuery = Package::query();
+        $scope->scopePackages($packageQuery);
+
         return Inertia::render('Admin/Packages/Index', [
-            'packages' => Package::orderBy('name')->get(),
-            'routers' => Router::orderBy('name')->get(['id', 'name', 'host', 'status']),
+            'packages' => $packageQuery->orderBy('name')->get(),
+            'routers' => $scope->routersQuery()->orderBy('name')->get(['id', 'name', 'host', 'status']),
         ]);
     }
 
@@ -201,23 +256,32 @@ class AdminPageController extends Controller
     {
         BillingService::repairSplitDeferralInvoices();
 
+        $scope = $this->routerScope();
+
+        $invoiceQuery = Invoice::with(['customer.package', 'customer.router', 'payments'])->orderByDesc('created_at');
+        $scope->scopeInvoices($invoiceQuery);
+
+        $deferralQuery = BillingDeferral::with(['customer.package', 'customer.router', 'invoice'])
+            ->whereIn('status', ['pending', 'invoiced'])
+            ->orderByDesc('created_at')
+            ->limit(50);
+        $scope->scopeBillingDeferrals($deferralQuery);
+
+        $customerQuery = Customer::with(['package', 'router'])
+            ->where('service_type', 'pppoe');
+        $scope->scopeCustomers($customerQuery);
+
+        $billingLogs = $scope->filterBillingActivityLogs(
+            BillingActivityLog::orderByDesc('created_at')->limit(50)->get()
+        );
+
         return Inertia::render('Admin/Invoices/Index', [
-            'invoices' => BillingService::appendNextBillingToInvoices(
-                Invoice::with(['customer.package', 'customer.router', 'payments'])->orderByDesc('created_at')->get()
-            ),
-            'routers' => Router::orderBy('name')->get(['id', 'name', 'status']),
-            'customers' => Customer::with(['package', 'router'])
-                ->where('service_type', 'pppoe')
-                ->get(),
-            'billingDeferrals' => BillingService::serializeBillingDeferrals(
-                BillingDeferral::with(['customer.package', 'customer.router', 'invoice'])
-                    ->whereIn('status', ['pending', 'invoiced'])
-                    ->orderByDesc('created_at')
-                    ->limit(50)
-                    ->get()
-            ),
-            'billingActivityLogs' => BillingActivityLog::orderByDesc('created_at')->limit(50)->get(),
-            'monthlyRevenue' => BillingService::summarizeMonthlyRevenue(),
+            'invoices' => BillingService::appendNextBillingToInvoices($invoiceQuery->get()),
+            'routers' => $scope->routersQuery()->orderBy('name')->get(['id', 'name', 'status']),
+            'customers' => $customerQuery->get(),
+            'billingDeferrals' => BillingService::serializeBillingDeferrals($deferralQuery->get()),
+            'billingActivityLogs' => $billingLogs,
+            'monthlyRevenue' => $this->summarizeMonthlyRevenue($scope),
         ]);
     }
 
@@ -269,5 +333,87 @@ class AdminPageController extends Controller
     public function profile(): Response
     {
         return Inertia::render('Admin/Profile/Index');
+    }
+
+    /**
+     * @return array{date: string, label: string, total: float, payment_count: int}
+     */
+    private function summarizeTodayRevenue(StaffRouterScope $scope): array
+    {
+        $summary = BillingService::summarizeTodayRevenue();
+
+        if (!$scope->isScoped()) {
+            return $summary;
+        }
+
+        $paid = Invoice::query()
+            ->where('status', 'paid')
+            ->whereNotNull('paid_at')
+            ->whereDate('paid_at', now()->toDateString());
+        $scope->scopeInvoices($paid);
+
+        return [
+            ...$summary,
+            'total' => round((float) $paid->sum('total_amount'), 2),
+            'payment_count' => $paid->count(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function summarizeMonthlyRevenue(StaffRouterScope $scope): array
+    {
+        $summary = BillingService::summarizeMonthlyRevenue();
+
+        if (!$scope->isScoped()) {
+            return $summary;
+        }
+
+        $routerId = $scope->routerId();
+        $scopeInvoices = fn ($query) => $query->whereHas(
+            'customer',
+            fn ($customerQuery) => $customerQuery->where('router_id', $routerId)
+        );
+
+        $resummarize = function (string $periodStart) use ($scopeInvoices): array {
+            $monthStart = \Carbon\Carbon::createFromFormat('Y-m', $periodStart)->startOfMonth();
+            $rangeStart = $monthStart->copy()->startOfDay();
+            $rangeEnd = $monthStart->copy()->endOfMonth()->endOfDay();
+
+            $paid = Invoice::query()
+                ->where('status', 'paid')
+                ->whereNotNull('paid_at')
+                ->whereBetween('paid_at', [$rangeStart, $rangeEnd]);
+            $scopeInvoices($paid);
+
+            return [
+                'period' => $monthStart->format('Y-m'),
+                'label' => $monthStart->locale('id')->translatedFormat('M Y'),
+                'total' => round((float) $paid->sum('total_amount'), 2),
+                'invoice_count' => $paid->count(),
+            ];
+        };
+
+        $currentMonth = $resummarize($summary['current_month']['period']);
+        $previousMonth = $resummarize($summary['previous_month']['period']);
+        $series = array_map(
+            fn (array $item) => $resummarize($item['period']),
+            $summary['series']
+        );
+
+        $changePercent = 0.0;
+        if ($previousMonth['total'] > 0) {
+            $changePercent = round((($currentMonth['total'] - $previousMonth['total']) / $previousMonth['total']) * 100, 1);
+        } elseif ($currentMonth['total'] > 0) {
+            $changePercent = 100.0;
+        }
+
+        return [
+            'current_month' => $currentMonth,
+            'previous_month' => $previousMonth,
+            'change_percent' => $changePercent,
+            'series' => $series,
+        ];
     }
 }

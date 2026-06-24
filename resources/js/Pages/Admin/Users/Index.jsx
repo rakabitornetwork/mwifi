@@ -45,6 +45,7 @@ function UsersPageContent({
     staffUsers = [],
     roles = {},
     assignableRoles = [],
+    routers = [],
     currentUserId,
 }) {
     const { auth } = usePage().props;
@@ -70,6 +71,13 @@ function UsersPageContent({
     const [editingUser, setEditingUser] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [userToDelete, setUserToDelete] = useState(null);
+    const [formRole, setFormRole] = useState('operator');
+
+    useEffect(() => {
+        if (showUserModal) {
+            setFormRole(editingUser?.role || assignableRoles[0]?.value || 'operator');
+        }
+    }, [showUserModal, editingUser, assignableRoles]);
 
     useEffect(() => {
         if (!showUserModal) {
@@ -285,6 +293,7 @@ function UsersPageContent({
                                 <th className="py-3 px-2">User</th>
                                 <th className="py-3 px-2">Email</th>
                                 <th className="py-3 px-2">Role</th>
+                                <th className="py-3 px-2">Router</th>
                                 <th className="py-3 px-2">Status</th>
                                 <th className="py-3 px-2">Diperbarui</th>
                                 <th className="py-3 px-2 text-right">Aksi</th>
@@ -293,7 +302,7 @@ function UsersPageContent({
                         <tbody className="divide-y divide-zinc-800/20 text-xs">
                             {filteredUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className={`py-8 text-center ${themeTextDesc}`}>
+                                    <td colSpan={7} className={`py-8 text-center ${themeTextDesc}`}>
                                         {searchTerm.trim() || roleFilter !== 'all' || statusFilter !== 'all'
                                             ? 'Tidak ada user staff yang cocok dengan filter.'
                                             : 'Belum ada user staff. Klik + untuk menambah.'}
@@ -327,6 +336,15 @@ function UsersPageContent({
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${ROLE_BADGE_CLASS[user.role] || ROLE_BADGE_CLASS.admin}`}>
                                                 {user.role_label}
                                             </span>
+                                        </td>
+                                        <td className="py-3 px-2 text-[10px]">
+                                            {user.role === 'technician' ? (
+                                                user.assigned_router_name
+                                                    ? <span className={`font-bold ${themeTextTitle}`}>{user.assigned_router_name}</span>
+                                                    : <span className="text-amber-500 font-bold">Belum diatur</span>
+                                            ) : (
+                                                <span className={themeTextDesc}>—</span>
+                                            )}
                                         </td>
                                         <td className="py-3 px-2">
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${user.is_active
@@ -407,12 +425,39 @@ function UsersPageContent({
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Role</label>
-                            <select name="role" required defaultValue={editingUser?.role || assignableRoles[0]?.value || 'operator'} className={`p-2 border rounded-lg ${themeInput}`}>
+                            <select
+                                name="role"
+                                required
+                                value={formRole}
+                                onChange={(e) => setFormRole(e.target.value)}
+                                className={`p-2 border rounded-lg ${themeInput}`}
+                            >
                                 {assignableRoles.map((role) => (
                                     <option key={role.value} value={role.value}>{role.label}</option>
                                 ))}
                             </select>
                         </div>
+                        {formRole === 'technician' && (
+                            <div className="flex flex-col gap-1 sm:col-span-2">
+                                <label className={`font-bold ${themeLabel}`}>Router Mikrotik (wajib)</label>
+                                <select
+                                    name="assigned_router_id"
+                                    required
+                                    defaultValue={editingUser?.assigned_router_id || ''}
+                                    className={`p-2 border rounded-lg ${themeInput}`}
+                                >
+                                    <option value="">Pilih router area kerja teknisi...</option>
+                                    {routers.map((routerItem) => (
+                                        <option key={routerItem.id} value={routerItem.id}>
+                                            {routerItem.name}{routerItem.status ? '' : ' (nonaktif)'}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className={`text-[10px] ${themeTextDesc}`}>
+                                    Teknisi hanya dapat melihat data pelanggan, paket, tagihan, dan peta untuk router ini.
+                                </p>
+                            </div>
+                        )}
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Jabatan (opsional)</label>
                             <input name="profile_title" type="text" defaultValue={editingUser?.profile_title || ''} placeholder="Contoh: NOC Engineer" className={`p-2 border rounded-lg ${themeInput}`} />

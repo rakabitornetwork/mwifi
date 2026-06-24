@@ -8,6 +8,8 @@ import CustomerDetailPanel from '../../../Components/Admin/CustomerDetailPanel';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
+import { useAssignedRouter } from '../../../hooks/useAssignedRouter';
+import AssignedRouterFilter from '../../../Components/Admin/AssignedRouterFilter';
 import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import getVisiblePages from '../../../utils/getVisiblePages';
 import { formatDateInputValue, todayDateInputValue } from '../../../utils/formatDateInputValue';
@@ -23,6 +25,7 @@ function CustomersPageContent({
 }) {
     const theme = useAdminTheme();
     const { canWrite } = useStaffPermissions();
+    const { lockedRouterId, initialRouterId } = useAssignedRouter(routers);
     const { showToast } = useAdminToast();
     const { branding = {} } = usePage().props;
 
@@ -41,14 +44,7 @@ function CustomersPageContent({
     const themeLabel = isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
 
     const [searchTerm, setSearchTerm] = useState('');
-    const [routerFilter, setRouterFilter] = useState(() => {
-        const activeRouter = routers.find((router) => router.status);
-        if (activeRouter) {
-            return String(activeRouter.id);
-        }
-
-        return routers[0] ? String(routers[0].id) : '';
-    });
+    const [routerFilter, setRouterFilter] = useState(initialRouterId);
     const [pageSize, setPageSize] = useState(10);
     const [sortColumn, setSortColumn] = useState('package');
     const [sortDirection, setSortDirection] = useState('desc');
@@ -99,6 +95,12 @@ function CustomersPageContent({
             return profileSet.has(profile);
         });
     }, [pppoePackages, selectedRouterId, routerProfilesMap]);
+
+    useEffect(() => {
+        if (lockedRouterId) {
+            setRouterFilter(lockedRouterId);
+        }
+    }, [lockedRouterId]);
 
     useEffect(() => {
         setCustomerPage(1);
@@ -543,19 +545,13 @@ function CustomersPageContent({
                 ) : undefined}
             >
                 <div className="flex flex-col lg:flex-row gap-2">
-                    <select
+                    <AssignedRouterFilter
+                        routers={routers}
                         value={routerFilter}
                         onChange={(e) => setRouterFilter(e.target.value)}
                         className={`lg:w-56 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
-                    >
-                        {routers.length === 0 ? (
-                            <option value="">Belum ada router</option>
-                        ) : routers.map((routerItem) => (
-                            <option key={routerItem.id} value={routerItem.id}>
-                                {routerItem.name} ({routerCustomerCounts[routerItem.id] || 0})
-                            </option>
-                        ))}
-                    </select>
+                        renderOption={(routerItem) => `${routerItem.name} (${routerCustomerCounts[routerItem.id] || 0})`}
+                    />
                     <div className="relative flex-1">
                         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
                         <input

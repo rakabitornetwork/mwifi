@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'email', 'password', 'profile_title', 'avatar', 'role', 'is_active'])]
+#[Fillable(['name', 'email', 'password', 'profile_title', 'avatar', 'role', 'is_active', 'assigned_router_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -41,7 +41,7 @@ class User extends Authenticatable
         ],
         self::ROLE_TECHNICIAN => [
             'label' => 'Teknisi Lapangan',
-            'description' => 'Lihat router, peta jaringan, pelanggan, paket, inventaris, dan tagihan. Tidak dapat mengubah atau menghapus data.',
+            'description' => 'Lihat data satu router Mikrotik (pelanggan, paket, tagihan, peta). Tidak dapat mengubah atau menghapus.',
         ],
         self::ROLE_OPERATOR => [
             'label' => 'Operator Hotspot',
@@ -119,6 +119,25 @@ class User extends Authenticatable
     public function customer(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(Customer::class);
+    }
+
+    public function assignedRouter(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Router::class, 'assigned_router_id');
+    }
+
+    public function isRouterScoped(): bool
+    {
+        return $this->role === self::ROLE_TECHNICIAN && $this->assigned_router_id !== null;
+    }
+
+    public function canAccessRouter(?int $routerId): bool
+    {
+        if (!$this->isRouterScoped()) {
+            return true;
+        }
+
+        return $routerId !== null && (int) $this->assigned_router_id === (int) $routerId;
     }
 
     public function isStaff(): bool

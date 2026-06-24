@@ -8,5 +8,8 @@ export function useStaffPermissions() {
         canWrite: user?.can_write !== false,
         isReadOnly: user?.is_read_only === true,
         roleLabel: user?.role_label || '',
+        assignedRouterId: user?.assigned_router_id ?? null,
+        assignedRouterName: user?.assigned_router_name || '',
+        isRouterScoped: user?.is_router_scoped === true,
     };
 }

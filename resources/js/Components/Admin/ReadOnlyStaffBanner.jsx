@@ -3,7 +3,7 @@ import { useStaffPermissions } from '../../hooks/useStaffPermissions';
 import { useAdminTheme } from '../../hooks/useAdminTheme.jsx';
 
 export default function ReadOnlyStaffBanner() {
-    const { isReadOnly, roleLabel } = useStaffPermissions();
+    const { isReadOnly, roleLabel, isRouterScoped, assignedRouterName } = useStaffPermissions();
     const { isDarkMode } = useAdminTheme();
 
     if (!isReadOnly) {
@@ -19,6 +19,9 @@ export default function ReadOnlyStaffBanner() {
                 </p>
                 <p className={`text-[10px] mt-0.5 leading-snug ${isDarkMode ? 'text-sky-300/80' : 'text-sky-700'}`}>
                     Anda dapat melihat data termasuk tagihan/billing, tetapi tidak dapat menambah, mengubah, atau menghapus.
+                    {isRouterScoped && assignedRouterName && (
+                        <> Hanya data router <span className="font-bold">{assignedRouterName}</span>.</>
+                    )}
                 </p>
             </div>
         </div>
