@@ -1,6 +1,6 @@
 import React from 'react';
-import { usePage } from '@inertiajs/react';
-import { Wifi } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import { Wifi, UserCircle } from 'lucide-react';
 import PullToRefresh from '../Components/PullToRefresh';
 import SeoHead from '../Components/SeoHead';
 import AppFooter from '../Components/AppFooter';
@@ -45,6 +45,13 @@ export default function Welcome() {
                                 )}
                             </div>
                         )}
+                        <Link
+                            href="/portal"
+                            className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl shadow-lg shadow-sky-500/20 hover:shadow-sky-400/30 transition-all duration-200"
+                        >
+                            <UserCircle className="w-5 h-5" />
+                            Portal Pelanggan
+                        </Link>
                     </div>
                 </div>
                 <AppFooter

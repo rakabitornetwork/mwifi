@@ -48,6 +48,15 @@ Route::get('admin', function () {
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
+
+    Route::get('portal', [\App\Http\Controllers\Customer\CustomerOtpAuthController::class, 'create'])
+        ->name('portal.login');
+    Route::post('portal/otp/request', [\App\Http\Controllers\Customer\CustomerOtpAuthController::class, 'requestOtp'])
+        ->name('portal.otp.request');
+    Route::post('portal/otp/verify', [\App\Http\Controllers\Customer\CustomerOtpAuthController::class, 'verifyOtp'])
+        ->name('portal.otp.verify');
+    Route::post('portal/otp/reset', [\App\Http\Controllers\Customer\CustomerOtpAuthController::class, 'resetOtp'])
+        ->name('portal.otp.reset');
 });
 
 Route::middleware('auth')->group(function () {
@@ -56,7 +65,9 @@ Route::middleware('auth')->group(function () {
     Route::get('profile/avatar/{user}', [\App\Http\Controllers\ProfileAvatarController::class, 'show'])
         ->whereNumber('user')
         ->name('profile.avatar');
+});
 
+Route::middleware(['auth', 'customer'])->group(function () {
     Route::get('customer/dashboard', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'index']);
     Route::get('customer/invoice/{invoice}/print', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'printInvoice']);
     Route::post('customer/invoice/{invoice}/pay', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'payInvoice']);

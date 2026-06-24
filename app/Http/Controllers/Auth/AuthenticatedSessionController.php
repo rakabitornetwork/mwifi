@@ -33,23 +33,27 @@ class AuthenticatedSessionController extends Controller
 
         $user = null;
 
-        if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
-            $user = \App\Models\User::where('email', $login)->first();
-        } else {
-            // Try to match customer username
-            $customer = \App\Models\Customer::where('username', $login)->first();
-            if ($customer && $customer->user) {
-                $user = $customer->user;
-            }
-        }
-
-        if (!$user || !\Illuminate\Support\Facades\Hash::check($password, $user->password)) {
+        if (!filter_var($login, FILTER_VALIDATE_EMAIL)) {
             throw ValidationException::withMessages([
-                'email' => 'Username/Email atau password yang Anda masukkan salah.',
+                'email' => 'Gunakan email staff untuk masuk. Pelanggan masuk melalui Portal Pelanggan.',
             ]);
         }
 
-        if (!$user->customer && $user->role && !$user->is_active) {
+        $user = \App\Models\User::where('email', $login)->first();
+
+        if (!$user || !\Illuminate\Support\Facades\Hash::check($password, $user->password)) {
+            throw ValidationException::withMessages([
+                'email' => 'Email atau password yang Anda masukkan salah.',
+            ]);
+        }
+
+        if ($user->customer) {
+            throw ValidationException::withMessages([
+                'email' => 'Akun pelanggan masuk melalui Portal Pelanggan dengan OTP WhatsApp.',
+            ]);
+        }
+
+        if ($user->role && !$user->is_active) {
             throw ValidationException::withMessages([
                 'email' => 'Akun staff dinonaktifkan. Hubungi Super Admin.',
             ]);
@@ -57,11 +61,6 @@ class AuthenticatedSessionController extends Controller
 
         Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
-
-        // Check if customer
-        if ($user->customer) {
-            return redirect()->intended('/customer/dashboard');
-        }
 
         return redirect()->intended('/dashboard');
     }
@@ -71,11 +70,15 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request)
     {
+        $isCustomer = (bool) $request->user()?->customer;
+
         Auth::logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/login');
+        return $isCustomer
+            ? redirect()->route('portal.login')
+            : redirect()->route('login');
     }
 }

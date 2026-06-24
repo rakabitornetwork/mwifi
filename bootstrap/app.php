@@ -18,6 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'staff' => \App\Http\Middleware\EnsureStaffActive::class,
+            'customer' => \App\Http\Middleware\EnsureCustomer::class,
             'admin.tab' => \App\Http\Middleware\EnsureAdminTabAccess::class,
             'staff.write' => \App\Http\Middleware\EnsureStaffCanWrite::class,
         ]);
