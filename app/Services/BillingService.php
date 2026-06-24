@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\BillingActivityLog;
 use App\Models\BillingDeferral;
 use App\Models\Customer;
+use App\Models\HotspotSale;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\User;
@@ -612,56 +613,95 @@ class BillingService
     }
 
     /**
-     * Daily revenue trend from paid invoices (paid_at).
+     * Daily revenue trend from paid invoices (paid_at) and hotspot voucher sales.
      *
      * @param  callable(\Illuminate\Database\Eloquent\Builder): void|null  $scopeInvoices
+     * @param  callable(\Illuminate\Database\Eloquent\Builder): void|null  $scopeHotspotSales
      * @return array{
      *     days: int,
      *     total: float,
+     *     invoice_total: float,
+     *     voucher_total: float,
      *     payment_count: int,
+     *     voucher_sale_count: int,
      *     change_percent: float,
-     *     series: array<int, array{date: string, label: string, total: float, payment_count: int}>
+     *     series: array<int, array{
+     *         date: string,
+     *         label: string,
+     *         total: float,
+     *         invoice_total: float,
+     *         voucher_total: float,
+     *         payment_count: int,
+     *         voucher_sale_count: int
+     *     }>
      * }
      */
-    public static function summarizeDailyRevenue(int $days = 14, ?Carbon $today = null, ?callable $scopeInvoices = null): array
-    {
+    public static function summarizeDailyRevenue(
+        int $days = 14,
+        ?Carbon $today = null,
+        ?callable $scopeInvoices = null,
+        ?callable $scopeHotspotSales = null,
+    ): array {
         $today = ($today ?? Carbon::today())->copy()->startOfDay()->locale('id');
         $days = max(7, min(31, $days));
 
         $rangeStart = $today->copy()->subDays($days - 1)->startOfDay();
         $rangeEnd = $today->copy()->endOfDay();
 
-        $query = Invoice::query()
+        $invoiceQuery = Invoice::query()
             ->where('status', 'paid')
             ->whereNotNull('paid_at')
             ->whereBetween('paid_at', [$rangeStart, $rangeEnd]);
 
         if ($scopeInvoices) {
-            $scopeInvoices($query);
+            $scopeInvoices($invoiceQuery);
         }
 
-        $grouped = (clone $query)
-            ->selectRaw('DATE(paid_at) as paid_date, SUM(total_amount) as total, COUNT(*) as payment_count')
-            ->groupBy('paid_date')
+        $invoiceGrouped = (clone $invoiceQuery)
+            ->selectRaw('DATE(paid_at) as sale_date, SUM(total_amount) as total, COUNT(*) as sale_count')
+            ->groupBy('sale_date')
             ->get()
-            ->keyBy(fn ($row) => (string) $row->paid_date);
+            ->keyBy(fn ($row) => (string) $row->sale_date);
+
+        $voucherQuery = HotspotSale::query()
+            ->whereBetween('created_at', [$rangeStart, $rangeEnd]);
+
+        if ($scopeHotspotSales) {
+            $scopeHotspotSales($voucherQuery);
+        }
+
+        $voucherGrouped = (clone $voucherQuery)
+            ->selectRaw('DATE(created_at) as sale_date, SUM(price) as total, COUNT(*) as sale_count')
+            ->groupBy('sale_date')
+            ->get()
+            ->keyBy(fn ($row) => (string) $row->sale_date);
 
         $series = [];
         for ($i = $days - 1; $i >= 0; $i--) {
             $day = $today->copy()->subDays($i);
             $dateKey = $day->toDateString();
-            $row = $grouped->get($dateKey);
+            $invoiceRow = $invoiceGrouped->get($dateKey);
+            $voucherRow = $voucherGrouped->get($dateKey);
+
+            $invoiceTotal = round((float) ($invoiceRow->total ?? 0), 2);
+            $voucherTotal = round((float) ($voucherRow->total ?? 0), 2);
 
             $series[] = [
                 'date' => $dateKey,
                 'label' => $day->translatedFormat('d M'),
-                'total' => round((float) ($row->total ?? 0), 2),
-                'payment_count' => (int) ($row->payment_count ?? 0),
+                'invoice_total' => $invoiceTotal,
+                'voucher_total' => $voucherTotal,
+                'total' => round($invoiceTotal + $voucherTotal, 2),
+                'payment_count' => (int) ($invoiceRow->sale_count ?? 0),
+                'voucher_sale_count' => (int) ($voucherRow->sale_count ?? 0),
             ];
         }
 
-        $total = round((float) array_sum(array_column($series, 'total')), 2);
+        $invoiceTotal = round((float) array_sum(array_column($series, 'invoice_total')), 2);
+        $voucherTotal = round((float) array_sum(array_column($series, 'voucher_total')), 2);
+        $total = round($invoiceTotal + $voucherTotal, 2);
         $paymentCount = (int) array_sum(array_column($series, 'payment_count'));
+        $voucherSaleCount = (int) array_sum(array_column($series, 'voucher_sale_count'));
 
         $half = (int) floor($days / 2);
         $olderTotal = round((float) array_sum(array_column(array_slice($series, 0, $half), 'total')), 2);
@@ -677,7 +717,10 @@ class BillingService
         return [
             'days' => $days,
             'total' => $total,
+            'invoice_total' => $invoiceTotal,
+            'voucher_total' => $voucherTotal,
             'payment_count' => $paymentCount,
+            'voucher_sale_count' => $voucherSaleCount,
             'change_percent' => $changePercent,
             'series' => $series,
         ];

@@ -185,6 +185,20 @@ export const DailyRevenueAreaChart = memo(function DailyRevenueAreaChart({ data,
     const axisStroke = isDarkMode ? '#a1a1aa' : '#71717a';
     const animation = animatedSeriesProps(isAnimationActive);
 
+    const tooltipFormatter = (value, name) => [formatRupiah(value), name];
+
+    const tooltipLabelFormatter = (label, payload) => {
+        const row = payload?.[0]?.payload;
+        if (!row) {
+            return label;
+        }
+
+        const invoiceCount = row.payment_count ?? 0;
+        const voucherCount = row.voucher_sale_count ?? 0;
+
+        return `${label} · Total ${formatRupiah(row.total ?? 0)} (${invoiceCount} tagihan, ${voucherCount} voucher)`;
+    };
+
     return (
         <ChartShell className="h-52 w-full">
             {(dimensions) => (
@@ -195,9 +209,13 @@ export const DailyRevenueAreaChart = memo(function DailyRevenueAreaChart({ data,
                     margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
                 >
                     <defs>
-                        <linearGradient id="dashboardDailyRevenue" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
-                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                        <linearGradient id="dashboardDailyInvoiceRevenue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                        </linearGradient>
+                        <linearGradient id="dashboardDailyVoucherRevenue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.45} />
+                            <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.05} />
                         </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
@@ -218,25 +236,30 @@ export const DailyRevenueAreaChart = memo(function DailyRevenueAreaChart({ data,
                         tickFormatter={(value) => `${Math.round(value / 1000)}k`}
                     />
                     <Tooltip
-                        formatter={(value, name, item) => {
-                            const count = item?.payload?.payment_count ?? 0;
-                            const countLabel = count === 1 ? '1 pembayaran' : `${count} pembayaran`;
-
-                            return [formatRupiah(value), `Pemasukan · ${countLabel}`];
-                        }}
-                        labelFormatter={(label) => label}
+                        formatter={tooltipFormatter}
+                        labelFormatter={tooltipLabelFormatter}
                         contentStyle={tooltipStyle(isDarkMode)}
                     />
                     <Area
                         type="monotone"
-                        dataKey="total"
-                        name="Pemasukan"
-                        stroke="#f59e0b"
+                        dataKey="invoice_total"
+                        name="Tagihan PPPoE"
+                        stackId="dailyRevenue"
+                        stroke="#10b981"
                         strokeWidth={2}
                         fillOpacity={1}
-                        fill="url(#dashboardDailyRevenue)"
-                        dot={{ r: 2.5, strokeWidth: 0, fill: '#f59e0b' }}
-                        activeDot={{ r: 4, strokeWidth: 0 }}
+                        fill="url(#dashboardDailyInvoiceRevenue)"
+                        {...animation}
+                    />
+                    <Area
+                        type="monotone"
+                        dataKey="voucher_total"
+                        name="Voucher Hotspot"
+                        stackId="dailyRevenue"
+                        stroke="#0ea5e9"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#dashboardDailyVoucherRevenue)"
                         {...animation}
                     />
                 </AreaChart>

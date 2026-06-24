@@ -419,11 +419,16 @@ class AdminPageController extends Controller
      */
     private function summarizeDailyRevenue(StaffRouterScope $scope): array
     {
+        $routerId = $scope->routerId();
+
         return BillingService::summarizeDailyRevenue(
             14,
             null,
             $scope->isScoped()
                 ? fn ($query) => $scope->scopeInvoices($query)
+                : null,
+            $scope->isScoped()
+                ? fn ($query) => $query->where('router_id', $routerId)
                 : null,
         );
     }

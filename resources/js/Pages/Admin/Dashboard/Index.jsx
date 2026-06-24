@@ -266,8 +266,15 @@ function DashboardContent({
     const todayPaymentCount = todayRevenue?.payment_count ?? 0;
     const dailyRevenueSeries = dailyRevenue?.series ?? [];
     const dailyRevenueTotal = Number(dailyRevenue?.total ?? 0);
+    const dailyInvoiceTotal = Number(dailyRevenue?.invoice_total ?? 0);
+    const dailyVoucherTotal = Number(dailyRevenue?.voucher_total ?? 0);
     const dailyRevenuePaymentCount = Number(dailyRevenue?.payment_count ?? 0);
+    const dailyVoucherSaleCount = Number(dailyRevenue?.voucher_sale_count ?? 0);
     const dailyRevenueChangePercent = Number(dailyRevenue?.change_percent ?? 0);
+    const todayDailyEntry = dailyRevenueSeries.length > 0
+        ? dailyRevenueSeries[dailyRevenueSeries.length - 1]
+        : null;
+    const todayCombinedTotal = Number(todayDailyEntry?.total ?? todayRevenue?.total ?? 0);
     const dailyRevenueTrendLabel = dailyRevenueChangePercent > 0
         ? `+${dailyRevenueChangePercent}% vs periode sebelumnya`
         : dailyRevenueChangePercent < 0
@@ -419,14 +426,19 @@ function DashboardContent({
                         </p>
                         <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(dailyRevenueTotal)}</p>
                         <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
-                            {dailyRevenuePaymentCount} pembayaran lunas
+                            {formatRupiah(dailyInvoiceTotal)} tagihan · {formatRupiah(dailyVoucherTotal)} voucher
+                        </p>
+                        <p className={`text-[10px] font-medium mt-0.5 ${themeTextDesc}`}>
+                            {dailyRevenuePaymentCount} tagihan · {dailyVoucherSaleCount} voucher terjual
                         </p>
                     </div>
                     <div className={`rounded-xl border p-3 ${themeInnerWidget}`}>
                         <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Hari Ini</p>
-                        <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(todayRevenue?.total || 0)}</p>
+                        <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(todayCombinedTotal)}</p>
                         <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
-                            {todayPaymentCount === 1 ? '1 pembayaran lunas' : `${todayPaymentCount} pembayaran lunas`}
+                            {formatRupiah(todayDailyEntry?.invoice_total ?? todayRevenue?.total ?? 0)} tagihan
+                            {' · '}
+                            {formatRupiah(todayDailyEntry?.voucher_total ?? 0)} voucher
                         </p>
                     </div>
                     <div className={`rounded-xl border p-3 ${themeInnerWidget}`}>
@@ -445,9 +457,21 @@ function DashboardContent({
                 </div>
 
                 <div className="space-y-1.5">
-                    <p className={`text-[10px] font-bold ${themeTextSub}`}>Grafik pemasukan per hari (invoice lunas)</p>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className={`text-[10px] font-bold ${themeTextSub}`}>Grafik pemasukan per hari</p>
+                        <div className={`flex flex-wrap items-center gap-3 text-[10px] font-semibold ${themeTextDesc}`}>
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+                                Tagihan PPPoE
+                            </span>
+                            <span className="inline-flex items-center gap-1.5">
+                                <span className="w-2.5 h-2.5 rounded-sm bg-sky-500" />
+                                Voucher Hotspot
+                            </span>
+                        </div>
+                    </div>
                     <div className="h-52 w-full">
-                        {dailyRevenueSeries.length === 0 ? (
+                        {dailyRevenueSeries.every((row) => Number(row.total || 0) === 0) ? (
                             <div className={`h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider ${themeTextDesc}`}>
                                 Belum ada data pemasukan harian
                             </div>

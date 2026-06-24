@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\HotspotSale;
 use App\Models\Invoice;
 use App\Models\Package;
 use App\Models\Router;
@@ -114,6 +115,35 @@ class BillingMonthlyRevenueTest extends TestCase
         $this->assertSame('2026-06-22', $summary['date']);
     }
 
+    private function makeHotspotSale(string $suffix, string $soldAt, float $price = 25000): HotspotSale
+    {
+        $router = Router::first() ?? Router::create([
+            'name' => 'Router Test',
+            'host' => '127.0.0.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'protocol_type' => 'legacy_socket',
+            'status' => false,
+        ]);
+
+        $sale = HotspotSale::create([
+            'router_id' => $router->id,
+            'username' => 'voucher_' . $suffix,
+            'package_name' => 'Hotspot Profile: 1 Jam',
+            'price' => $price,
+            'payment_method' => 'cash',
+        ]);
+
+        $timestamp = Carbon::parse($soldAt);
+        $sale->forceFill([
+            'created_at' => $timestamp,
+            'updated_at' => $timestamp,
+        ])->saveQuietly();
+
+        return $sale->fresh();
+    }
+
     public function test_summarize_daily_revenue_groups_by_paid_at_per_day(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-22 15:00:00'));
@@ -122,18 +152,26 @@ class BillingMonthlyRevenueTest extends TestCase
         $this->makePaidInvoice('D2', '2026-06-21 11:00:00', 50000);
         $this->makePaidInvoice('D3', '2026-06-22 09:00:00', 75000);
         $this->makePaidInvoice('D4', '2026-06-22 14:00:00', 25000);
+        $this->makeHotspotSale('V1', '2026-06-22 12:00:00', 30000);
+        $this->makeHotspotSale('V2', '2026-06-21 16:00:00', 20000);
 
         $summary = BillingService::summarizeDailyRevenue(14, Carbon::parse('2026-06-22'));
 
         $this->assertSame(14, $summary['days']);
-        $this->assertSame(250000.0, $summary['total']);
+        $this->assertSame(300000.0, $summary['total']);
+        $this->assertSame(250000.0, $summary['invoice_total']);
+        $this->assertSame(50000.0, $summary['voucher_total']);
         $this->assertSame(4, $summary['payment_count']);
+        $this->assertSame(2, $summary['voucher_sale_count']);
         $this->assertCount(14, $summary['series']);
 
         $today = collect($summary['series'])->firstWhere('date', '2026-06-22');
         $this->assertNotNull($today);
-        $this->assertSame(100000.0, $today['total']);
+        $this->assertSame(100000.0, $today['invoice_total']);
+        $this->assertSame(30000.0, $today['voucher_total']);
+        $this->assertSame(130000.0, $today['total']);
         $this->assertSame(2, $today['payment_count']);
+        $this->assertSame(1, $today['voucher_sale_count']);
     }
 
     public function test_dashboard_includes_daily_revenue_payload(): void
@@ -142,6 +180,7 @@ class BillingMonthlyRevenueTest extends TestCase
 
         $admin = User::factory()->create();
         $this->makePaidInvoice('DR1', '2026-06-22 10:00:00', 125000);
+        $this->makeHotspotSale('DRV1', '2026-06-22 11:00:00', 15000);
 
         $response = $this->actingAs($admin)->get('/dashboard');
 
@@ -149,8 +188,11 @@ class BillingMonthlyRevenueTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->component('Admin/Dashboard/Index')
             ->has('dailyRevenue.series')
-            ->where('dailyRevenue.total', 125000)
+            ->where('dailyRevenue.total', 140000)
+            ->where('dailyRevenue.invoice_total', 125000)
+            ->where('dailyRevenue.voucher_total', 15000)
             ->where('dailyRevenue.payment_count', 1)
+            ->where('dailyRevenue.voucher_sale_count', 1)
         );
     }
 
