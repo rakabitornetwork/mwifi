@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\StaffAdvanceLedger;
+use App\Models\Setting;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class StaffAdvanceLedgerTest extends TestCase
@@ -74,5 +76,89 @@ class StaffAdvanceLedgerTest extends TestCase
         $technician = User::factory()->create(['role' => User::ROLE_TECHNICIAN]);
 
         $this->actingAs($technician)->get('/hutang-piutang')->assertForbidden();
+    }
+
+    public function test_kasbon_sends_whatsapp_to_admin_and_technician(): void
+    {
+        Setting::updateOrCreate(['key' => 'whatsapp.enabled'], [
+            'group' => 'whatsapp',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.api_url'], [
+            'group' => 'whatsapp',
+            'value' => 'http://127.0.0.1:3003',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.session_id'], [
+            'group' => 'whatsapp',
+            'value' => 'mwifi_session',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'system.billing_admin_phone'], [
+            'group' => 'system',
+            'value' => '628999888777',
+            'is_encrypted' => false,
+        ]);
+
+        Http::fake([
+            'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
+        ]);
+
+        $admin = User::factory()->create();
+        $technician = User::factory()->create([
+            'role' => User::ROLE_TECHNICIAN,
+            'phone_number' => '628111222333',
+        ]);
+
+        $this->actingAs($admin)->post('/admin/hutang-piutang/save', [
+            'type' => StaffAdvanceLedger::TYPE_KASBON,
+            'staff_user_id' => $technician->id,
+            'title' => 'Kasbon BBM',
+            'amount' => 100000,
+            'transaction_date' => '2026-06-24',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        Http::assertSentCount(2);
+    }
+
+    public function test_hutang_sends_whatsapp_to_admin_only(): void
+    {
+        Setting::updateOrCreate(['key' => 'whatsapp.enabled'], [
+            'group' => 'whatsapp',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.api_url'], [
+            'group' => 'whatsapp',
+            'value' => 'http://127.0.0.1:3003',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.session_id'], [
+            'group' => 'whatsapp',
+            'value' => 'mwifi_session',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'system.billing_admin_phone'], [
+            'group' => 'system',
+            'value' => '628999888777',
+            'is_encrypted' => false,
+        ]);
+
+        Http::fake([
+            'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
+        ]);
+
+        $admin = User::factory()->create();
+
+        $this->actingAs($admin)->post('/admin/hutang-piutang/save', [
+            'type' => StaffAdvanceLedger::TYPE_HUTANG,
+            'counterparty' => 'Toko Kabel Jaya',
+            'title' => 'Hutang kabel UTP',
+            'amount' => 500000,
+            'transaction_date' => '2026-06-24',
+        ])->assertRedirect()->assertSessionHas('success');
+
+        Http::assertSentCount(1);
     }
 }

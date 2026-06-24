@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Eye, FileText, RotateCcw, UserPlus, Receipt, Bell, Layers, ShieldOff, BadgeCheck, UserCog } from 'lucide-react';
+import { Eye, FileText, RotateCcw, UserPlus, Receipt, Bell, Layers, ShieldOff, BadgeCheck, UserCog, HandCoins } from 'lucide-react';
 import SettingsSectionCard from '../SettingsSectionCard';
 
 const TEMPLATE_ACCENT = {
@@ -12,6 +12,8 @@ const TEMPLATE_ACCENT = {
     'whatsapp.template.payment_reactivated': { icon: BadgeCheck, accent: 'emerald' },
     'whatsapp.template.payment_received': { icon: BadgeCheck, accent: 'sky' },
     'whatsapp.template.admin_scheduler': { icon: UserCog, accent: 'sky' },
+    'whatsapp.template.staff_advance_admin': { icon: HandCoins, accent: 'amber' },
+    'whatsapp.template.staff_advance_technician': { icon: HandCoins, accent: 'violet' },
 };
 
 function templateFieldName(key) {

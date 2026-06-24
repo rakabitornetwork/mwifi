@@ -58,6 +58,28 @@ class MessagingTemplateTest extends TestCase
         $response->assertJsonFragment(['preview' => 'Halo Budi Santoso, tagihan INV-202606-0001-AB12.']);
     }
 
+    public function test_staff_advance_template_renders_placeholders(): void
+    {
+        $rendered = MessageTemplateService::render('whatsapp.template.staff_advance_admin', [
+            'brand_name' => 'mWiFi',
+            'action_header' => 'Transaksi hutang/piutang *baru dicatat*.',
+            'type_label' => 'Kasbon Teknisi',
+            'staff_name' => 'Teknisi A',
+            'router_name' => 'Router Utama',
+            'counterparty' => '—',
+            'title' => 'Kasbon BBM',
+            'amount' => 'Rp 100.000',
+            'transaction_date' => '24 Jun 2026',
+            'payment_method' => 'Tunai',
+            'notes' => '—',
+            'recorded_by' => 'Admin',
+            'balance_line' => "\n• Sisa kasbon teknisi : *Rp 100.000*",
+        ]);
+
+        $this->assertStringContainsString('Kasbon BBM', $rendered);
+        $this->assertStringContainsString('Teknisi A', $rendered);
+    }
+
     public function test_migration_seeds_whatsapp_templates(): void
     {
         $this->assertTrue(Setting::where('key', 'whatsapp.template.invoice_unpaid')->exists());

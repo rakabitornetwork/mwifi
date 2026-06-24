@@ -460,6 +460,21 @@ function UsersPageContent({
                                 </p>
                             </div>
                         )}
+                        {formRole === 'technician' && (
+                            <div className="flex flex-col gap-1 sm:col-span-2">
+                                <label className={`font-bold ${themeLabel}`}>Nomor WhatsApp (opsional)</label>
+                                <input
+                                    name="phone_number"
+                                    type="text"
+                                    defaultValue={editingUser?.phone_number || ''}
+                                    placeholder="6281234567890"
+                                    className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                                />
+                                <p className={`text-[10px] ${themeTextDesc}`}>
+                                    Dipakai untuk notifikasi kasbon dan pelunasan dari menu Hutang & Piutang.
+                                </p>
+                            </div>
+                        )}
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Jabatan (opsional)</label>
                             <input name="profile_title" type="text" defaultValue={editingUser?.profile_title || ''} placeholder="Contoh: NOC Engineer" className={`p-2 border rounded-lg ${themeInput}`} />

@@ -17,6 +17,7 @@ use App\Services\StaffRouterScope;
 use App\Services\InventoryService;
 use App\Services\MessageTemplateService;
 use App\Services\SettingService;
+use App\Services\StaffAdvanceNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -172,6 +173,7 @@ class AdminActionController extends Controller
             'id' => 'nullable|exists:users,id',
             'name' => 'required|string|max:150',
             'email' => 'required|email|max:150|unique:users,email' . ($id ? ",{$id}" : ''),
+            'phone_number' => 'nullable|string|max:20',
             'role' => 'required|in:' . implode(',', $assignableRoleKeys),
             'profile_title' => 'nullable|string|max:100',
             'is_active' => 'nullable|boolean',
@@ -195,6 +197,9 @@ class AdminActionController extends Controller
         $payload = [
             'name' => $data['name'],
             'email' => $data['email'],
+            'phone_number' => $data['role'] === User::ROLE_TECHNICIAN
+                ? ($data['phone_number'] ?? null)
+                : null,
             'role' => $data['role'],
             'profile_title' => $data['profile_title'] ?? null,
             'is_active' => $request->boolean('is_active', true),
@@ -2880,14 +2885,20 @@ class AdminActionController extends Controller
         ];
 
         if (!empty($data['id'])) {
-            StaffAdvanceLedger::findOrFail($data['id'])->update($payload);
+            $entry = StaffAdvanceLedger::findOrFail($data['id']);
+            $entry->update($payload);
+            $entry->refresh();
 
-            return redirect()->back()->with('success', 'Transaksi hutang/piutang berhasil diperbarui.');
+            $whatsAppWarning = $this->notifyStaffAdvanceLedger($entry, StaffAdvanceNotificationService::ACTION_UPDATED, $request->user());
+
+            return $this->staffAdvanceRedirect('Transaksi hutang/piutang berhasil diperbarui.', $whatsAppWarning);
         }
 
-        StaffAdvanceLedger::create($payload);
+        $entry = StaffAdvanceLedger::create($payload);
 
-        return redirect()->back()->with('success', 'Transaksi hutang/piutang berhasil dicatat.');
+        $whatsAppWarning = $this->notifyStaffAdvanceLedger($entry, StaffAdvanceNotificationService::ACTION_CREATED, $request->user());
+
+        return $this->staffAdvanceRedirect('Transaksi hutang/piutang berhasil dicatat.', $whatsAppWarning);
     }
 
     public function deleteStaffAdvanceLedger(Request $request)
@@ -2896,8 +2907,39 @@ class AdminActionController extends Controller
             'id' => 'required|integer|exists:staff_advance_ledgers,id',
         ]);
 
-        StaffAdvanceLedger::findOrFail($data['id'])->delete();
+        $entry = StaffAdvanceLedger::findOrFail($data['id']);
+        $whatsAppWarning = $this->notifyStaffAdvanceLedger($entry, StaffAdvanceNotificationService::ACTION_DELETED, $request->user());
+        $entry->delete();
 
-        return redirect()->back()->with('success', 'Transaksi hutang/piutang berhasil dihapus.');
+        return $this->staffAdvanceRedirect('Transaksi hutang/piutang berhasil dihapus.', $whatsAppWarning);
+    }
+
+    private function notifyStaffAdvanceLedger(StaffAdvanceLedger $entry, string $action, ?User $recorder): ?string
+    {
+        try {
+            return StaffAdvanceNotificationService::notify($entry, $action, $recorder);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Staff advance WhatsApp failed', [
+                'ledger_id' => $entry->id,
+                'action' => $action,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 'Notifikasi WhatsApp gagal: ' . $e->getMessage();
+        }
+    }
+
+    /**
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    private function staffAdvanceRedirect(string $successMessage, ?string $whatsAppWarning)
+    {
+        $redirect = redirect()->back()->with('success', $successMessage);
+
+        if ($whatsAppWarning) {
+            return $redirect->with('warning', $whatsAppWarning);
+        }
+
+        return $redirect;
     }
 }

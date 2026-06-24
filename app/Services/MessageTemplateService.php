@@ -21,6 +21,8 @@ class MessageTemplateService
             'whatsapp.template.payment_reactivated',
             'whatsapp.template.payment_received',
             'whatsapp.template.admin_scheduler',
+            'whatsapp.template.staff_advance_admin',
+            'whatsapp.template.staff_advance_technician',
         ];
     }
 
@@ -120,6 +122,22 @@ class MessageTemplateService
                 'description' => 'Notifikasi ke nomor admin setelah generate tagihan otomatis.',
                 'placeholders' => [
                     'brand_name', 'run_date', 'days_before', 'invoice_count', 'invoice_list', 'total',
+                ],
+            ],
+            'whatsapp.template.staff_advance_admin' => [
+                'label' => 'Hutang & piutang (admin)',
+                'description' => 'Notifikasi ke admin saat transaksi kasbon, pelunasan, hutang, atau bayar hutang dicatat/diperbarui/dihapus.',
+                'placeholders' => [
+                    'brand_name', 'action_header', 'type_label', 'staff_name', 'router_name', 'counterparty',
+                    'title', 'amount', 'transaction_date', 'payment_method', 'notes', 'recorded_by', 'balance_line',
+                ],
+            ],
+            'whatsapp.template.staff_advance_technician' => [
+                'label' => 'Kasbon teknisi (teknisi lapangan)',
+                'description' => 'Notifikasi ke teknisi saat kasbon atau pelunasan kasbon dicatat, diperbarui, atau dihapus.',
+                'placeholders' => [
+                    'brand_name', 'action_header', 'type_label', 'staff_name', 'router_name', 'title', 'amount',
+                    'transaction_date', 'payment_method', 'notes', 'recorded_by', 'balance_line',
                 ],
             ],
         ];
@@ -347,6 +365,44 @@ Ringkasan penjadwalan otomatis:
 
 Detail lengkap tersedia di panel Admin → Invoice.
 TEMPLATE,
+
+            'whatsapp.template.staff_advance_admin' => <<<'TEMPLATE'
+*HUTANG & PIUTANG · {brand_name}*
+
+{action_header}
+
+• Jenis       : {type_label}
+• Teknisi     : {staff_name}
+• Router      : {router_name}
+• Pihak hutang: {counterparty}
+• Keterangan  : {title}
+• Nominal     : *{amount}*
+• Tanggal     : {transaction_date}
+• Metode      : {payment_method}
+• Catatan     : {notes}
+• Dicatat oleh: {recorded_by}{balance_line}
+
+Panel Admin → Hutang & Piutang
+TEMPLATE,
+
+            'whatsapp.template.staff_advance_technician' => <<<'TEMPLATE'
+*{brand_name}*
+
+Yth. *{staff_name}*,
+
+{action_header}
+
+• Jenis      : {type_label}
+• Router     : {router_name}
+• Keterangan : {title}
+• Nominal    : *{amount}*
+• Tanggal    : {transaction_date}
+• Metode     : {payment_method}
+• Catatan    : {notes}
+• Admin      : {recorded_by}{balance_line}
+
+Jika ada ketidaksesuaian, hubungi admin.
+TEMPLATE,
         ];
 
         return self::sortDefaults($defaults);
@@ -494,6 +550,22 @@ TEMPLATE,
                 'invoice_count' => '2',
                 'invoice_list' => "- *INV-202606-0001* — Budi Santoso (2026-06) Rp 150.000\n- *INV-202606-0002* — Ani Wijaya (2026-06) Rp 200.000",
                 'total' => 'Rp 350.000',
+            ],
+            'whatsapp.template.staff_advance_admin',
+            'whatsapp.template.staff_advance_technician' => [
+                'brand_name' => BrandingService::companyName(),
+                'action_header' => 'Transaksi hutang/piutang *baru dicatat*.',
+                'type_label' => 'Kasbon Teknisi',
+                'staff_name' => 'Teknisi A',
+                'router_name' => 'Router Utama',
+                'counterparty' => '—',
+                'title' => 'Kasbon BBM lapangan',
+                'amount' => 'Rp 200.000',
+                'transaction_date' => '24 Jun 2026',
+                'payment_method' => 'Tunai',
+                'notes' => 'Instalasi pelanggan baru',
+                'recorded_by' => 'Admin',
+                'balance_line' => "\n• Sisa kasbon teknisi : *Rp 200.000*",
             ],
             'whatsapp.template.customer_registered' => [
                 'customer_name' => 'Budi Santoso',
