@@ -24,7 +24,7 @@ function CustomersPageContent({
     odps = [],
 }) {
     const theme = useAdminTheme();
-    const { canWrite } = useStaffPermissions();
+    const { canWrite, canCreateCustomers } = useStaffPermissions();
     const { lockedRouterId, initialRouterId } = useAssignedRouter(routers);
     const { showToast } = useAdminToast();
     const { branding = {} } = usePage().props;
@@ -542,6 +542,15 @@ function CustomersPageContent({
                             <Plus className="w-4 h-4" />
                         </button>
                     </>
+                ) : canCreateCustomers ? (
+                    <button
+                        type="button"
+                        onClick={() => openCustomerModal()}
+                        title="Tambah Pelanggan PPPoE"
+                        className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center"
+                    >
+                        <Plus className="w-4 h-4" />
+                    </button>
                 ) : undefined}
             >
                 <div className="flex flex-col lg:flex-row gap-2">

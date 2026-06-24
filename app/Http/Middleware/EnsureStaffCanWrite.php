@@ -24,15 +24,27 @@ class EnsureStaffCanWrite
         if ($user && !$user->canWriteData()) {
             $path = trim($request->path(), '/');
 
-            if (!in_array($path, self::ALLOWED_PATHS, true)) {
-                $message = 'Role Teknisi hanya dapat melihat data. Tidak dapat menambah, mengubah, atau menghapus.';
-
-                if ($request->expectsJson()) {
-                    return response()->json(['message' => $message, 'success' => false], 403);
-                }
-
-                return redirect()->back()->with('error', $message);
+            if (in_array($path, self::ALLOWED_PATHS, true)) {
+                return $next($request);
             }
+
+            if (
+                $path === 'admin/customers/save'
+                && $user->canCreateCustomers()
+                && !$request->filled('id')
+            ) {
+                return $next($request);
+            }
+
+            $message = $user->canCreateCustomers()
+                ? 'Role Teknisi hanya dapat menambah pelanggan baru. Tidak dapat mengubah atau menghapus data lain.'
+                : 'Anda hanya dapat melihat data. Tidak dapat menambah, mengubah, atau menghapus.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message, 'success' => false], 403);
+            }
+
+            return redirect()->back()->with('error', $message);
         }
 
         return $next($request);

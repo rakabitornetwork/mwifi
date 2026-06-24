@@ -13,6 +13,7 @@ use App\Services\BrandingService;
 use App\Services\CustomerNotificationService;
 use App\Services\Customer\LegacyCsvImportService;
 use App\Services\HotspotVoucherService;
+use App\Services\StaffRouterScope;
 use App\Services\InventoryService;
 use App\Services\MessageTemplateService;
 use App\Services\SettingService;
@@ -332,6 +333,15 @@ class AdminActionController extends Controller
         $id = $data['id'] ?? null;
         unset($data['id']);
         $isNewCustomer = $id === null;
+
+        $actor = $request->user();
+        if (!$actor->canWriteData()) {
+            if (!$actor->canCreateCustomers() || !$isNewCustomer) {
+                abort(403, 'Anda tidak memiliki izin untuk mengubah data pelanggan.');
+            }
+        }
+
+        StaffRouterScope::for($actor)->ensureCanAccessRouter((int) $data['router_id']);
 
         // Create or update linked user first
         $email = $data['username'] . '@mwifi.test';

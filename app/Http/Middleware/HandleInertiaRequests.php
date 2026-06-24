@@ -60,6 +60,7 @@ class HandleInertiaRequests extends Middleware
                     'allowed_tabs' => $customer ? [] : $user->allowedTabs(),
                     'can_manage_users' => $user->canManageUsers(),
                     'can_write' => $customer ? false : $user->canWriteData(),
+                    'can_create_customers' => $customer ? false : $user->canCreateCustomers(),
                     'is_read_only' => $customer ? false : $user->isReadOnly(),
                     'assigned_router_id' => $customer ? null : $user->assigned_router_id,
                     'assigned_router_name' => $customer ? null : ($user->assignedRouter?->name),

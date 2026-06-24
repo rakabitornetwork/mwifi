@@ -41,7 +41,7 @@ class User extends Authenticatable
         ],
         self::ROLE_TECHNICIAN => [
             'label' => 'Teknisi Lapangan',
-            'description' => 'Lihat data satu router Mikrotik (pelanggan, paket, tagihan, peta). Tidak dapat mengubah atau menghapus.',
+            'description' => 'Dashboard, peta jaringan, PPPoE (tambah pelanggan), dan tagihan untuk satu router Mikrotik.',
         ],
         self::ROLE_OPERATOR => [
             'label' => 'Operator Hotspot',
@@ -51,7 +51,6 @@ class User extends Authenticatable
 
     /** @var list<string> */
     public const READ_ONLY_ROLES = [
-        self::ROLE_TECHNICIAN,
         self::ROLE_FINANCE,
     ];
 
@@ -63,12 +62,10 @@ class User extends Authenticatable
             'invoices', 'inventory', 'messaging', 'settings', 'profile',
         ],
         self::ROLE_TECHNICIAN => [
-            'dashboard', 'routers', 'network-map', 'packages', 'customers', 'inventory',
-            'invoices', 'profile',
+            'dashboard', 'network-map', 'customers', 'invoices', 'profile',
         ],
         self::ROLE_FINANCE => [
-            'dashboard', 'routers', 'network-map', 'packages', 'customers', 'inventory',
-            'invoices', 'profile',
+            'dashboard', 'network-map', 'customers', 'invoices', 'profile',
         ],
         self::ROLE_OPERATOR => [
             'dashboard', 'customers', 'hotspot', 'invoices', 'profile',
@@ -162,7 +159,20 @@ class User extends Authenticatable
 
     public function canWriteData(): bool
     {
-        return $this->isStaff() && !$this->isReadOnly();
+        return $this->isStaff() && !$this->isReadOnly() && $this->role !== self::ROLE_TECHNICIAN;
+    }
+
+    public function canCreateCustomers(): bool
+    {
+        if (!$this->isStaff()) {
+            return false;
+        }
+
+        if ($this->canWriteData()) {
+            return true;
+        }
+
+        return $this->role === self::ROLE_TECHNICIAN;
     }
 
     public function roleLabel(): string

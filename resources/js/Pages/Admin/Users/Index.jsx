@@ -454,7 +454,7 @@ function UsersPageContent({
                                     ))}
                                 </select>
                                 <p className={`text-[10px] ${themeTextDesc}`}>
-                                    Teknisi hanya dapat melihat data pelanggan, paket, tagihan, dan peta untuk router ini.
+                                    Teknisi hanya melihat menu Dashboard, Peta Jaringan, PPPoE (tambah pelanggan), dan Tagihan untuk router ini.
                                 </p>
                             </div>
                         )}

@@ -6,6 +6,7 @@ export function useStaffPermissions() {
 
     return {
         canWrite: user?.can_write !== false,
+        canCreateCustomers: user?.can_create_customers === true,
         isReadOnly: user?.is_read_only === true,
         roleLabel: user?.role_label || '',
         assignedRouterId: user?.assigned_router_id ?? null,

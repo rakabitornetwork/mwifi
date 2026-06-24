@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
-import { Link } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import {
     AlertTriangle,
     ArrowDownLeft,
@@ -62,6 +62,9 @@ function DashboardContent({
     routerSummary = {},
 }) {
     const theme = useAdminTheme();
+    const { auth } = usePage().props;
+    const allowedTabs = auth?.user?.allowed_tabs || [];
+    const canAccessInventory = allowedTabs.includes('inventory');
     const { isDarkMode, themeCard, themeTextTitle, themeTextSub, themeTextDesc } = theme;
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeSelect = isDarkMode
@@ -567,6 +570,7 @@ function DashboardContent({
                 </div>
 
                 <div className="space-y-4">
+                    {canAccessInventory && (
                     <PremiumPanel accent="sky" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3">
                         <PremiumPanelHeader
                             icon={Boxes}
@@ -663,6 +667,7 @@ function DashboardContent({
                             </div>
                         )}
                     </PremiumPanel>
+                    )}
 
                     <PremiumPanel accent="rose" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-3">
                         <PremiumPanelHeader
