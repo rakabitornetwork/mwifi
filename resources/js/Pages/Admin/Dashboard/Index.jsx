@@ -71,7 +71,7 @@ function DashboardContent({
     const { auth } = usePage().props;
     const allowedTabs = auth?.user?.allowed_tabs || [];
     const canAccessInventory = allowedTabs.includes('inventory');
-    const canAccessFinanceExpenses = allowedTabs.includes('finance-expenses');
+    const canAccessFinance = allowedTabs.includes('finance');
     const { isDarkMode, themeCard, themeTextTitle, themeTextSub, themeTextDesc } = theme;
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeSelect = isDarkMode
@@ -429,7 +429,7 @@ function DashboardContent({
                 })}
             </div>
 
-            <div className={`grid grid-cols-1 ${canAccessFinanceExpenses ? 'lg:grid-cols-2' : ''} gap-4`}>
+            <div className={`grid grid-cols-1 ${canAccessFinance ? 'lg:grid-cols-2' : ''} gap-4`}>
                 <PremiumPanel accent="amber" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-4">
                     <PremiumPanelHeader
                         icon={TrendingUp}
@@ -519,7 +519,7 @@ function DashboardContent({
                     </div>
                 </PremiumPanel>
 
-                {canAccessFinanceExpenses && (
+                {canAccessFinance && (
                     <PremiumPanel accent="rose" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-4">
                         <PremiumPanelHeader
                             icon={TrendingDown}
@@ -529,7 +529,7 @@ function DashboardContent({
                             title="Tren Pengeluaran Harian"
                             trailing={(
                                 <Link
-                                    href="/finance-expenses"
+                                    href="/finance"
                                     className={`text-[10px] font-bold uppercase tracking-wide shrink-0 whitespace-nowrap hover:underline ${isDarkMode ? 'text-rose-300/90' : 'text-rose-700'}`}
                                 >
                                     Lihat laporan

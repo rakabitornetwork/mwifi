@@ -59,7 +59,7 @@ class User extends Authenticatable
         self::ROLE_SUPER_ADMIN => ['*'],
         self::ROLE_ADMIN => [
             'dashboard', 'routers', 'network-map', 'packages', 'customers', 'hotspot',
-            'invoices', 'finance-income', 'finance-expenses', 'inventory', 'messaging', 'settings', 'profile',
+            'invoices', 'finance', 'inventory', 'messaging', 'settings', 'profile',
         ],
         self::ROLE_TECHNICIAN => [
             'dashboard', 'network-map', 'customers', 'invoices', 'profile',
@@ -204,7 +204,7 @@ class User extends Authenticatable
         if (in_array('*', $permissions, true)) {
             return [
                 'dashboard', 'routers', 'network-map', 'packages', 'customers', 'hotspot',
-                'invoices', 'finance-income', 'finance-expenses', 'inventory', 'messaging', 'settings', 'database', 'update',
+                'invoices', 'finance', 'inventory', 'messaging', 'settings', 'database', 'update',
                 'users', 'profile',
             ];
         }

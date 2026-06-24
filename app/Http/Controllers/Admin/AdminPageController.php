@@ -501,29 +501,13 @@ class AdminPageController extends Controller
         ];
     }
 
-    public function financeIncome(Request $request): Response
-    {
-        $scope = $this->routerScope();
-        [$from, $to, $routerFilter] = $this->resolveFinanceFilters($request, $scope);
-
-        return Inertia::render('Admin/Finance/Income/Index', [
-            'routers' => $scope->routersQuery()->orderBy('name')->get(['id', 'name']),
-            'filters' => [
-                'from' => $from->toDateString(),
-                'to' => $to->toDateString(),
-                'router' => $routerFilter ? (string) $routerFilter : 'all',
-            ],
-            'report' => FinancialReportService::incomeReport($from, $to, $scope, $routerFilter),
-        ]);
-    }
-
-    public function financeExpenses(Request $request): Response
+    public function finance(Request $request): Response
     {
         $scope = $this->routerScope();
         [$from, $to, $routerFilter] = $this->resolveFinanceFilters($request, $scope);
         $categoryFilter = $request->query('category', 'all');
 
-        return Inertia::render('Admin/Finance/Expenses/Index', [
+        return Inertia::render('Admin/Finance/Index', [
             'routers' => $scope->routersQuery()->orderBy('name')->get(['id', 'name']),
             'categories' => FinancialExpense::CATEGORIES,
             'filters' => [
@@ -532,7 +516,8 @@ class AdminPageController extends Controller
                 'router' => $routerFilter ? (string) $routerFilter : 'all',
                 'category' => $categoryFilter,
             ],
-            'report' => FinancialReportService::expenseReport($from, $to, $scope, $routerFilter, $categoryFilter),
+            'incomeReport' => FinancialReportService::incomeReport($from, $to, $scope, $routerFilter),
+            'expenseReport' => FinancialReportService::expenseReport($from, $to, $scope, $routerFilter, $categoryFilter),
         ]);
     }
 

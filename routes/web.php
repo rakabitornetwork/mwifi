@@ -76,8 +76,9 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::get('profile', [AdminPageController::class, 'profile']);
     Route::get('network-map', [AdminPageController::class, 'networkMap']);
     Route::get('inventory', [AdminPageController::class, 'inventory']);
-    Route::get('finance-income', [AdminPageController::class, 'financeIncome']);
-    Route::get('finance-expenses', [AdminPageController::class, 'financeExpenses']);
+    Route::get('finance', [AdminPageController::class, 'finance']);
+    Route::redirect('finance-income', '/finance');
+    Route::redirect('finance-expenses', '/finance');
     Route::get('users', [AdminPageController::class, 'users']);
 
     // GenieACS (TR-069) Routes

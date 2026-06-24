@@ -13,8 +13,7 @@ import {
     ShieldCheck,
     Settings,
     Users,
-    TrendingDown,
-    TrendingUp,
+    Wallet,
     Wifi,
     X,
 } from 'lucide-react';
@@ -32,8 +31,7 @@ export const adminNavItems = [
     { tab: 'customers', icon: Users, label: 'Manajemen PPPoE' },
     { tab: 'hotspot', icon: Radio, label: 'Manajemen Hotspot' },
     { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
-    { tab: 'finance-income', icon: TrendingUp, label: 'Laporan Pemasukan' },
-    { tab: 'finance-expenses', icon: TrendingDown, label: 'Laporan Pengeluaran' },
+    { tab: 'finance', icon: Wallet, label: 'Laporan Keuangan' },
     { tab: 'inventory', icon: Boxes, label: 'Manajemen Inventaris' },
     // Administrasi sistem
     { tab: 'users', icon: ShieldCheck, label: 'Manajemen User' },
