@@ -3,14 +3,14 @@ import { useStaffPermissions } from '../../hooks/useStaffPermissions';
 import { useAdminTheme } from '../../hooks/useAdminTheme.jsx';
 
 export default function ReadOnlyStaffBanner() {
-    const { isReadOnly, canWrite, canCreateCustomers, roleLabel, isRouterScoped, assignedRouterName } = useStaffPermissions();
+    const { isReadOnly, canWrite, canCreateCustomers, canPayManual, roleLabel, isRouterScoped, assignedRouterName } = useStaffPermissions();
     const { isDarkMode } = useAdminTheme();
 
     if (canWrite) {
         return null;
     }
 
-    const isLimitedWrite = canCreateCustomers && !isReadOnly;
+    const isLimitedWrite = (canCreateCustomers || canPayManual) && !isReadOnly;
 
     if (!isReadOnly && !isLimitedWrite) {
         return null;
@@ -19,6 +19,16 @@ export default function ReadOnlyStaffBanner() {
     const routerNote = isRouterScoped && assignedRouterName
         ? <> Hanya data router <span className="font-bold">{assignedRouterName}</span>.</>
         : null;
+
+    const limitedWriteMessage = (() => {
+        if (canCreateCustomers && canPayManual) {
+            return <>Anda dapat menambah pelanggan PPPoE baru dan menerima bayar manual tagihan.{routerNote}</>;
+        }
+        if (canPayManual) {
+            return <>Anda dapat menerima bayar manual tagihan di menu Tagihan.{routerNote}</>;
+        }
+        return <>Anda dapat melihat data dan menambah pelanggan PPPoE baru. Tidak dapat mengubah atau menghapus data.{routerNote}</>;
+    })();
 
     return (
         <div className={`rounded-xl border px-3 py-2.5 flex items-start gap-2.5 ${isDarkMode ? 'border-sky-500/30 bg-sky-500/5' : 'border-sky-200 bg-sky-50/90'}`}>
@@ -33,10 +43,7 @@ export default function ReadOnlyStaffBanner() {
                 </p>
                 <p className={`text-[10px] mt-0.5 leading-snug ${isDarkMode ? 'text-sky-300/80' : 'text-sky-700'}`}>
                     {isLimitedWrite ? (
-                        <>
-                            Anda dapat melihat data dan menambah pelanggan PPPoE baru. Tidak dapat mengubah atau menghapus data.
-                            {routerNote}
-                        </>
+                        limitedWriteMessage
                     ) : (
                         <>
                             Anda dapat melihat data termasuk tagihan/billing, tetapi tidak dapat menambah, mengubah, atau menghapus.

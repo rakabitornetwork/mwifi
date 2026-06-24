@@ -279,6 +279,7 @@ class AdminPageController extends Controller
                     'is_active' => (bool) $user->is_active,
                     'assigned_router_id' => $user->assigned_router_id,
                     'assigned_router_name' => $user->assignedRouter?->name,
+                    'can_manual_payment' => (bool) $user->can_manual_payment,
                     'initials' => $user->initials(),
                     'avatar_url' => $user->avatarUrl(),
                     'created_at' => $user->created_at?->format('d/m/Y H:i'),

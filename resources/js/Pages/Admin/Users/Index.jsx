@@ -53,10 +53,12 @@ function UsersPageContent({
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [userToDelete, setUserToDelete] = useState(null);
     const [formRole, setFormRole] = useState('operator');
+    const [formCanManualPayment, setFormCanManualPayment] = useState(false);
 
     useEffect(() => {
         if (showUserModal) {
             setFormRole(editingUser?.role || assignableRoles[0]?.value || 'operator');
+            setFormCanManualPayment(Boolean(editingUser?.can_manual_payment));
         }
     }, [showUserModal, editingUser, assignableRoles]);
 
@@ -299,9 +301,16 @@ function UsersPageContent({
                                         </td>
                                         <td className="py-3 px-2 text-[10px]">
                                             {user.role === 'technician' ? (
-                                                user.assigned_router_name
-                                                    ? <span className={`font-bold ${themeTextTitle}`}>{user.assigned_router_name}</span>
-                                                    : <span className="text-amber-500 font-bold">Belum diatur</span>
+                                                <div className="space-y-1">
+                                                    {user.assigned_router_name
+                                                        ? <span className={`font-bold ${themeTextTitle}`}>{user.assigned_router_name}</span>
+                                                        : <span className="text-amber-500 font-bold">Belum diatur</span>}
+                                                    {user.can_manual_payment && (
+                                                        <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold border bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                                                            Bayar manual
+                                                        </span>
+                                                    )}
+                                                </div>
                                             ) : (
                                                 <span className={themeTextDesc}>—</span>
                                             )}
@@ -417,6 +426,24 @@ function UsersPageContent({
                                     Teknisi hanya melihat menu Dashboard, Peta Jaringan, PPPoE (tambah pelanggan), dan Tagihan untuk router ini.
                                 </p>
                             </div>
+                        )}
+                        {formRole === 'technician' && (
+                            <label className={`sm:col-span-2 flex items-start gap-2 cursor-pointer ${themeTextSub}`}>
+                                <input
+                                    type="checkbox"
+                                    name="can_manual_payment"
+                                    value="1"
+                                    checked={formCanManualPayment}
+                                    onChange={(e) => setFormCanManualPayment(e.target.checked)}
+                                    className="rounded border-zinc-600 mt-0.5"
+                                />
+                                <span>
+                                    <span className="font-bold block">Izinkan bayar manual tunai</span>
+                                    <span className={`text-[10px] ${themeTextDesc}`}>
+                                        Teknisi dapat menerima pembayaran tunai di menu Tagihan untuk router area kerjanya. Tidak dapat membatalkan pembayaran atau generate tagihan.
+                                    </span>
+                                </span>
+                            </label>
                         )}
                         {formRole === 'technician' && (
                             <div className="flex flex-col gap-1 sm:col-span-2">

@@ -36,9 +36,23 @@ class EnsureStaffCanWrite
                 return $next($request);
             }
 
-            $message = $user->canCreateCustomers()
-                ? 'Role Teknisi hanya dapat menambah pelanggan baru. Tidak dapat mengubah atau menghapus data lain.'
-                : 'Anda hanya dapat melihat data. Tidak dapat menambah, mengubah, atau menghapus.';
+            if (
+                in_array($path, ['admin/invoices/pay-manual', 'admin/invoices/pay-manual-bulk'], true)
+                && $user->canPayManual()
+            ) {
+                return $next($request);
+            }
+
+            $message = match (true) {
+                $user->canCreateCustomers() && $user->canPayManual() =>
+                    'Role Teknisi: hanya menambah pelanggan baru dan bayar manual tagihan. Tidak dapat mengubah atau menghapus data lain.',
+                $user->canPayManual() =>
+                    'Role Teknisi: hanya dapat bayar manual tagihan. Tidak dapat mengubah atau menghapus data lain.',
+                $user->canCreateCustomers() =>
+                    'Role Teknisi hanya dapat menambah pelanggan baru. Tidak dapat mengubah atau menghapus data lain.',
+                default =>
+                    'Anda hanya dapat melihat data. Tidak dapat menambah, mengubah, atau menghapus.',
+            };
 
             if ($request->expectsJson()) {
                 return response()->json(['message' => $message, 'success' => false], 403);

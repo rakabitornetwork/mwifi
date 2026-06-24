@@ -183,6 +183,7 @@ class AdminActionController extends Controller
                 'integer',
                 'exists:routers,id',
             ],
+            'can_manual_payment' => 'nullable|boolean',
         ];
 
         if ($id) {
@@ -206,6 +207,9 @@ class AdminActionController extends Controller
             'assigned_router_id' => $data['role'] === User::ROLE_TECHNICIAN
                 ? ($data['assigned_router_id'] ?? null)
                 : null,
+            'can_manual_payment' => $data['role'] === User::ROLE_TECHNICIAN
+                ? $request->boolean('can_manual_payment')
+                : false,
         ];
 
         if (!empty($data['password'])) {
@@ -1016,6 +1020,7 @@ class AdminActionController extends Controller
         ]);
 
         $invoice = Invoice::with(['customer.package', 'customer.router'])->findOrFail($request->input('invoice_id'));
+        $this->authorizeManualPayment($request, $invoice);
 
         $success = BillingService::processPaidInvoice(
             $invoice,
@@ -1060,6 +1065,8 @@ class AdminActionController extends Controller
      */
     public function payInvoicesManualBulk(Request $request)
     {
+        abort_unless($request->user()?->canPayManual(), 403);
+
         $data = $request->validate([
             'invoice_ids' => 'required|array|min:1',
             'invoice_ids.*' => 'integer|exists:invoices,id',
@@ -1072,11 +1079,17 @@ class AdminActionController extends Controller
         $paidCount = 0;
         $skippedCount = 0;
         $failedCount = 0;
+        $deniedCount = 0;
         $batchRef = 'ADMIN-CASH-BULK-' . time();
 
         foreach ($invoices as $invoice) {
             if ($invoice->status !== 'unpaid') {
                 $skippedCount++;
+                continue;
+            }
+
+            if (!$this->canPerformManualPayment($request->user(), $invoice)) {
+                $deniedCount++;
                 continue;
             }
 
@@ -1096,13 +1109,16 @@ class AdminActionController extends Controller
             }
         }
 
-        if ($paidCount === 0 && $failedCount === 0) {
+        if ($paidCount === 0 && $failedCount === 0 && $deniedCount === 0) {
             return redirect()->back()->with('warning', 'Tidak ada invoice belum bayar yang diproses.');
         }
 
         $message = "{$paidCount} tagihan berhasil dibayar secara manual.";
         if ($skippedCount > 0) {
             $message .= " {$skippedCount} invoice dilewati (bukan status belum bayar).";
+        }
+        if ($deniedCount > 0) {
+            $message .= " {$deniedCount} invoice di luar area kerja Anda.";
         }
         if ($failedCount > 0) {
             $message .= " {$failedCount} invoice gagal diproses.";
@@ -2699,6 +2715,26 @@ class AdminActionController extends Controller
     /**
      * @return array<string, mixed>
      */
+    private function canPerformManualPayment(?User $actor, Invoice $invoice): bool
+    {
+        if (!$actor?->canPayManual()) {
+            return false;
+        }
+
+        return $actor->canAccessRouter($invoice->customer?->router_id);
+    }
+
+    private function authorizeManualPayment(Request $request, Invoice $invoice): void
+    {
+        abort_unless(
+            $this->canPerformManualPayment($request->user(), $invoice),
+            403,
+            $request->user()?->canPayManual()
+                ? 'Invoice ini berada di luar router area kerja Anda.'
+                : 'Anda tidak memiliki izin bayar manual.'
+        );
+    }
+
     private function invoicePrintViewData(Invoice $invoice, Request $request): array
     {
         $invoice->load(['customer.package', 'payments']);

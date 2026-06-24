@@ -99,7 +99,7 @@ function InvoicesPageContent({
     monthlyRevenue = {},
 }) {
     const theme = useAdminTheme();
-    const { canWrite } = useStaffPermissions();
+    const { canWrite, canPayManual } = useStaffPermissions();
     const { isRouterScoped, lockedRouterId } = useAssignedRouter(routers);
     const pageUrl = usePage().url;
     const initialQuery = useMemo(() => parseInvoicesPageQuery(pageUrl), [pageUrl]);
@@ -574,8 +574,9 @@ function InvoicesPageContent({
                 isDarkMode={theme.isDarkMode}
                 themeTextTitle={theme.themeTextTitle}
                 themeTextDesc={theme.themeTextDesc}
-                actions={canWrite ? (
+                actions={(canPayManual || canWrite) ? (
                     <>
+                        {canPayManual && (
                         <button
                             type="button"
                             onClick={handleBulkPayManual}
@@ -591,6 +592,8 @@ function InvoicesPageContent({
                         >
                             <Wallet className={`w-4 h-4 ${isSubmittingBulkPay ? 'animate-pulse' : ''}`} />
                         </button>
+                        )}
+                        {canWrite && (
                         <button
                             type="button"
                             onClick={handleGenerateInvoices}
@@ -599,6 +602,7 @@ function InvoicesPageContent({
                         >
                             <RefreshCw className="w-4 h-4" />
                         </button>
+                        )}
                     </>
                 ) : null}
             >
@@ -763,7 +767,7 @@ function InvoicesPageContent({
                     <table>
                         <thead>
                             <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${theme.themeTextSub}`}>
-                                {canWrite && (
+                                {canPayManual && (
                                 <th className="py-3 px-2 w-8">
                                     <input
                                         type="checkbox"
@@ -789,7 +793,7 @@ function InvoicesPageContent({
                         <tbody className="divide-y divide-zinc-800/20 text-xs">
                             {paginatedInvoices.length === 0 ? (
                                 <tr>
-                                    <td colSpan={canWrite ? 10 : 9} className={`py-8 text-center text-xs ${theme.themeTextDesc}`}>
+                                    <td colSpan={canPayManual ? 10 : 9} className={`py-8 text-center text-xs ${theme.themeTextDesc}`}>
                                         {!routerFilter
                                             ? 'Pilih router Mikrotik terlebih dahulu.'
                                             : searchTerm.trim()
@@ -799,7 +803,7 @@ function InvoicesPageContent({
                                 </tr>
                             ) : paginatedInvoices.map((inv) => (
                                 <tr key={inv.id} className={`${theme.themeTextSub} hover:bg-zinc-900/10 ${selectedInvoiceIds.includes(inv.id) ? 'bg-emerald-500/5' : ''}`}>
-                                    {canWrite && (
+                                    {canPayManual && (
                                     <td className="py-3 px-2 w-8">
                                         {inv.status === 'unpaid' ? (
                                             <input
@@ -908,7 +912,7 @@ function InvoicesPageContent({
                                                     </button>
                                                 </>
                                             )}
-                                            {canWrite ? (
+                                            {canWrite && (
                                             <>
                                             {canSendInvoiceWhatsApp(inv) && (
                                                 <button
@@ -923,14 +927,6 @@ function InvoicesPageContent({
                                             )}
                                             {inv.status === 'unpaid' ? (
                                                 <>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handlePayManual(inv.id)}
-                                                        title="Bayar Manual"
-                                                        className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
-                                                    >
-                                                        <Wallet className="w-4 h-4" />
-                                                    </button>
                                                     {canDeferInvoice(inv) && (
                                                         <button
                                                             type="button"
@@ -976,8 +972,19 @@ function InvoicesPageContent({
                                                 </button>
                                             )}
                                             </>
-                                            ) : (
-                                                !canPrintInvoice(inv) && <ReadOnlyTableActionsPlaceholder />
+                                            )}
+                                            {canPayManual && inv.status === 'unpaid' && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handlePayManual(inv.id)}
+                                                    title="Bayar Manual"
+                                                    className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
+                                                >
+                                                    <Wallet className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                            {!canWrite && !canPayManual && !canPrintInvoice(inv) && (
+                                                <ReadOnlyTableActionsPlaceholder />
                                             )}
                                         </div>
                                     </td>
