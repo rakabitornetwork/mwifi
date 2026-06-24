@@ -68,11 +68,11 @@ class MidtransGateway implements PaymentGatewayInterface
             ]
         ];
 
-        // If specific payment method is specified, we can configure enabled_payments
-        // e.g. for qris, va_mandiri, etc.
-        if ($paymentMethod && $paymentMethod !== 'all') {
-            $payload['enabled_payments'] = [$paymentMethod];
-        }
+        // Snap Redirect mode requires enabled_payments in the API request.
+        // Dashboard Snap Preferences only apply to Snap Popup (snap.js), not redirect.
+        $payload['enabled_payments'] = ($paymentMethod && $paymentMethod !== 'all')
+            ? [$paymentMethod]
+            : $this->defaultEnabledPayments();
 
         try {
             $response = PaymentHttp::client()
@@ -162,6 +162,27 @@ class MidtransGateway implements PaymentGatewayInterface
             'amount_paid'    => (float) ($payload['gross_amount'] ?? 0),
             'fee'            => 0.0, // Midtrans handles merchant fee inside their dashboard invoice
             'payment_method' => $payload['payment_type'] ?? 'unknown',
+        ];
+    }
+
+    /**
+     * Default Snap payment channels for Indonesian ISP billing (Snap Redirect mode).
+     *
+     * @return list<string>
+     */
+    protected function defaultEnabledPayments(): array
+    {
+        return [
+            'gopay',
+            'qris',
+            'other_qris',
+            'shopeepay',
+            'ovo',
+            'dana',
+            'bank_transfer',
+            'other_va',
+            'alfamart',
+            'indomaret',
         ];
     }
 }

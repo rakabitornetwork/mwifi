@@ -93,7 +93,16 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
         { id: 'briva', label: 'Virtual Account BRI' },
         { id: 'alfamart', label: 'Alfamart' }
     ] : [
-        { id: 'all', label: 'Semua Metode (Midtrans Snap)' }
+        { id: 'all', label: 'Semua Metode (Midtrans Snap)' },
+        { id: 'gopay', label: 'GoPay' },
+        { id: 'qris', label: 'QRIS' },
+        { id: 'ovo', label: 'OVO' },
+        { id: 'shopeepay', label: 'ShopeePay' },
+        { id: 'bca_va', label: 'Virtual Account BCA' },
+        { id: 'bri_va', label: 'Virtual Account BRI' },
+        { id: 'bni_va', label: 'Virtual Account BNI' },
+        { id: 'permata_va', label: 'Virtual Account Permata' },
+        { id: 'alfamart', label: 'Alfamart' },
     ];
 
     const formatDate = (dateStr) => {
