@@ -53,7 +53,7 @@ class TripayGateway implements PaymentGatewayInterface
             'merchant_ref'   => $merchantRef,
             'amount'         => $amount,
             'customer_name'  => $customer->name,
-            'customer_email' => $customer->user->email ?? ($customer->username . '@mwifi.test'),
+            'customer_email' => $customer->paymentGatewayEmail(),
             'customer_phone' => $customer->phone_number,
             'order_items'    => [
                 [

@@ -70,6 +70,59 @@ class Customer extends Model
         return strtolower($this->username) . '@mwifi.test';
     }
 
+    /**
+     * Email address safe for external payment gateways (Midtrans, Tripay).
+     */
+    public function paymentGatewayEmail(): string
+    {
+        foreach ([$this->displayPortalEmail(), $this->user?->email] as $email) {
+            if ($this->isValidPaymentGatewayEmail($email)) {
+                return strtolower(trim($email));
+            }
+        }
+
+        return $this->syntheticPaymentGatewayEmail();
+    }
+
+    public function isValidPaymentGatewayEmail(?string $email): bool
+    {
+        if (! is_string($email) || trim($email) === '') {
+            return false;
+        }
+
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+
+        $domain = strtolower((string) substr(strrchr($email, '@'), 1));
+
+        return ! in_array($domain, ['mwifi.test', 'localhost', 'invalid'], true)
+            && ! str_ends_with($domain, '.local')
+            && ! str_ends_with($domain, '.test');
+    }
+
+    public function syntheticPaymentGatewayEmail(): string
+    {
+        $local = preg_replace('/[^a-z0-9]/', '', strtolower((string) $this->username));
+
+        if ($local === '') {
+            $local = 'customer' . $this->id;
+        }
+
+        return $local . '@' . $this->paymentGatewayEmailDomain();
+    }
+
+    protected function paymentGatewayEmailDomain(): string
+    {
+        $companyEmail = (string) setting('system.company_email', '');
+
+        if ($this->isValidPaymentGatewayEmail($companyEmail)) {
+            return strtolower((string) substr(strrchr($companyEmail, '@'), 1));
+        }
+
+        return 'example.com';
+    }
+
     public function displayPortalEmail(): ?string
     {
         $email = $this->user?->email;

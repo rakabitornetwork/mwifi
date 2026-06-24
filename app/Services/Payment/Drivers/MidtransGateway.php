@@ -49,7 +49,7 @@ class MidtransGateway implements PaymentGatewayInterface
             ],
             'customer_details' => [
                 'first_name' => $customer->name,
-                'email'      => $customer->user->email ?? ($customer->username . '@mwifi.test'),
+                'email'      => $customer->paymentGatewayEmail(),
                 'phone'      => $customer->phone_number,
             ],
             'item_details' => [
