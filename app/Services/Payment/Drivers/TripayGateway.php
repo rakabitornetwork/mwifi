@@ -4,8 +4,8 @@ namespace App\Services\Payment\Drivers;
 
 use App\Models\Invoice;
 use App\Services\Payment\PaymentGatewayInterface;
+use App\Services\Payment\PaymentHttp;
 use App\Services\SettingService;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
@@ -34,6 +34,13 @@ class TripayGateway implements PaymentGatewayInterface
      */
     public function createTransaction(Invoice $invoice, string $paymentMethod): array
     {
+        if ($this->apiKey === '' || $this->privateKey === '' || $this->merchantCode === '') {
+            return [
+                'success' => false,
+                'message' => 'Kredensial Tripay belum lengkap. Isi API Key, Merchant Code, dan Private Key di menu Pengaturan.',
+            ];
+        }
+
         $customer = $invoice->customer;
         $merchantRef = $invoice->invoice_number;
         $amount = (int) $invoice->total_amount;
@@ -61,10 +68,10 @@ class TripayGateway implements PaymentGatewayInterface
         ];
 
         try {
-            $response = Http::withHeaders([
+            $response = PaymentHttp::client()
+            ->withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
             ])
-            ->timeout(15)
             ->post($this->baseUrl . '/transaction/create', $payload);
 
             if ($response->successful()) {

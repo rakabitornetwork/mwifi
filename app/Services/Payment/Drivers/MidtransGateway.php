@@ -4,8 +4,8 @@ namespace App\Services\Payment\Drivers;
 
 use App\Models\Invoice;
 use App\Services\Payment\PaymentGatewayInterface;
+use App\Services\Payment\PaymentHttp;
 use App\Services\SettingService;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
@@ -31,6 +31,13 @@ class MidtransGateway implements PaymentGatewayInterface
      */
     public function createTransaction(Invoice $invoice, string $paymentMethod): array
     {
+        if ($this->serverKey === '') {
+            return [
+                'success' => false,
+                'message' => 'Server Key Midtrans belum dikonfigurasi. Isi di menu Pengaturan → Midtrans Gateway.',
+            ];
+        }
+
         $customer = $invoice->customer;
         $orderId = $invoice->invoice_number;
         $amount = (int) $invoice->total_amount;
@@ -68,12 +75,12 @@ class MidtransGateway implements PaymentGatewayInterface
         }
 
         try {
-            $response = Http::withHeaders([
+            $response = PaymentHttp::client()
+            ->withHeaders([
                 'Content-Type'  => 'application/json',
                 'Accept'        => 'application/json',
                 'Authorization' => 'Basic ' . base64_encode($this->serverKey . ':'),
             ])
-            ->timeout(15)
             ->post($this->baseUrl, $payload);
 
             if ($response->successful()) {
