@@ -3,6 +3,7 @@ import { router, usePage } from '@inertiajs/react';
 import {
     Building2,
     Copyright,
+    CreditCard,
     FileText,
     Globe,
     Image as ImageIcon,
@@ -630,6 +631,41 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                 </div>
             </SettingsSectionCard>
 
+            <SettingsSectionCard
+                icon={CreditCard}
+                accent="sky"
+                title="Gateway Pembayaran Online"
+                description="Pilih gateway aktif untuk checkout pelanggan di portal. Hanya satu gateway yang dipakai pada satu waktu."
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                themeTextTitle={themeTextTitle}
+                themeTextSub={themeTextSub}
+            >
+                <div className="space-y-3 text-xs max-w-md">
+                    <div className="flex flex-col gap-1">
+                        <label className={`font-bold ${themeLabel}`}>Gateway Aktif</label>
+                        <select
+                            name="payment[active_gateway]"
+                            defaultValue={settingsMap['payment.active_gateway'] || 'tripay'}
+                            className={`p-2 border rounded-lg font-semibold ${themeInput}`}
+                        >
+                            <option value="tripay">Tripay (default)</option>
+                            <option value="midtrans">Midtrans Snap</option>
+                        </select>
+                        <span className={`text-[10px] ${themeTextDesc}`}>
+                            Metode bayar di portal pelanggan menyesuaikan gateway yang dipilih.
+                        </span>
+                    </div>
+                    <div className={`p-3 rounded-lg border text-[10px] leading-relaxed ${isDarkMode ? 'bg-zinc-950/40 border-zinc-800 text-zinc-400' : 'bg-sky-50 border-sky-200 text-sky-800'}`}>
+                        <p className="font-bold uppercase tracking-wide mb-1">URL Webhook / Callback</p>
+                        <p className="font-mono break-all">/api/payment/callback</p>
+                        <p className="mt-1.5 opacity-80">
+                            Daftarkan URL lengkap (mis. https://domain-anda.com/api/payment/callback) di dashboard Tripay atau Midtrans agar status pembayaran terupdate otomatis.
+                        </p>
+                    </div>
+                </div>
+            </SettingsSectionCard>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <SettingsSectionCard
                     icon={Landmark}
@@ -642,6 +678,17 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                     themeTextSub={themeTextSub}
                 >
                     <div className="space-y-3 text-xs">
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Mode</label>
+                            <select
+                                name="payment[tripay][mode]"
+                                defaultValue={settingsMap['payment.tripay.mode'] || 'sandbox'}
+                                className={`p-2 border rounded-lg font-semibold ${themeInput}`}
+                            >
+                                <option value="sandbox">Sandbox (uji coba)</option>
+                                <option value="production">Production (live)</option>
+                            </select>
+                        </div>
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>API Key</label>
                             <input name="payment[tripay][api_key]" type="password" placeholder="Tetap kosong jika tidak diubah" className={`p-2 border rounded-lg ${themeInput}`} />
@@ -668,6 +715,17 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                     themeTextSub={themeTextSub}
                 >
                     <div className="space-y-3 text-xs">
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Mode</label>
+                            <select
+                                name="payment[midtrans][mode]"
+                                defaultValue={settingsMap['payment.midtrans.mode'] || 'sandbox'}
+                                className={`p-2 border rounded-lg font-semibold ${themeInput}`}
+                            >
+                                <option value="sandbox">Sandbox (uji coba)</option>
+                                <option value="production">Production (live)</option>
+                            </select>
+                        </div>
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Server Key</label>
                             <input name="payment[midtrans][server_key]" type="password" placeholder="Tetap kosong jika tidak diubah" className={`p-2 border rounded-lg ${themeInput}`} />
