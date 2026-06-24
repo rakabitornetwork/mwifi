@@ -32,10 +32,18 @@ export default function AdminNavbar({
             <button
                 type="button"
                 onClick={toggleTheme}
-                className={`p-1.5 rounded-lg border transition-colors cursor-pointer shrink-0 ${themeHeaderBtn}`}
+                className={`p-1.5 rounded-lg border transition-all duration-200 cursor-pointer shrink-0 ${
+                    isDarkMode
+                        ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 hover:border-yellow-500/50 shadow-[0_0_8px_rgba(234,179,8,0.2)]'
+                        : 'border-white/22 bg-white/10 text-yellow-100 hover:bg-white/18 hover:text-white hover:border-white/32 shadow-sm'
+                }`}
                 aria-label="Ganti tema"
             >
-                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                {isDarkMode ? (
+                    <Sun className="w-4 h-4 fill-yellow-400/25" />
+                ) : (
+                    <Moon className="w-4 h-4 fill-yellow-100/20" />
+                )}
             </button>
         </header>
     );
