@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Edit, PlugZap, Plus, RefreshCw, Save, Trash2, Wifi, X } from 'lucide-react';
+import { Edit, PlugZap, Plus, Save, Trash2, Wifi, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import SettingsSectionCard from '../../../Components/Admin/SettingsSectionCard';
@@ -15,7 +15,6 @@ function RoutersPageContent({ routers = [] }) {
     const [showRouterModal, setShowRouterModal] = useState(false);
     const [editingRouter, setEditingRouter] = useState(null);
     const [isTestingRouter, setIsTestingRouter] = useState(null);
-    const [isSyncingRouter, setIsSyncingRouter] = useState(null);
     const [showDeleteRouterModal, setShowDeleteRouterModal] = useState(false);
     const [routerToDelete, setRouterToDelete] = useState(null);
 
@@ -42,35 +41,6 @@ function RoutersPageContent({ routers = [] }) {
             showToast('Gagal melakukan tes koneksi: Jaringan error atau IP Router tidak dapat dihubungi.', 'error');
         } finally {
             setIsTestingRouter(null);
-        }
-    };
-
-    const handleSyncRouter = async (routerId) => {
-        const id = routerId || (routers && routers[0] ? routers[0].id : null);
-        if (!id) {
-            showToast('Tidak ada router yang dapat disinkronkan.', 'warning');
-            return;
-        }
-
-        setIsSyncingRouter(id);
-        try {
-            const response = await fetch('/admin/routers/sync', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({ router_id: id }),
-            });
-            const result = await response.json();
-            showToast(result.message, result.success ? 'success' : 'error');
-            if (result.success) {
-                router.reload();
-            }
-        } catch {
-            showToast('Error: Gagal menghubungi server saat melakukan sinkronisasi.', 'error');
-        } finally {
-            setIsSyncingRouter(null);
         }
     };
 
@@ -131,7 +101,7 @@ function RoutersPageContent({ routers = [] }) {
                     icon={Wifi}
                     accent="emerald"
                     title="Manajemen Router Mikrotik"
-                    description="Daftar router untuk koneksi API, tes koneksi, sinkronisasi pelanggan PPPoE, dan isolir otomatis."
+                    description="Daftar router untuk koneksi API, tes koneksi, dan isolir otomatis."
                     themeCard={theme.themeCard}
                     isDarkMode={theme.isDarkMode}
                     themeTextTitle={theme.themeTextTitle}
@@ -185,15 +155,6 @@ function RoutersPageContent({ routers = [] }) {
                                                 className="inline-block p-1 text-amber-500 hover:text-amber-400 cursor-pointer transition-colors disabled:opacity-50"
                                             >
                                                 <PlugZap className={`w-4 h-4 ${isTestingRouter === routerItem.id ? 'animate-pulse' : ''}`} />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSyncRouter(routerItem.id)}
-                                                disabled={isSyncingRouter === routerItem.id}
-                                                title={isSyncingRouter === routerItem.id ? 'Sinkronisasi...' : 'Sync Pelanggan'}
-                                                className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors disabled:opacity-50"
-                                            >
-                                                <RefreshCw className={`w-4 h-4 ${isSyncingRouter === routerItem.id ? 'animate-spin' : ''}`} />
                                             </button>
                                             <button
                                                 type="button"

@@ -67,6 +67,7 @@ function CustomersPageContent({
     const [importDryRun, setImportDryRun] = useState(true);
     const [isImporting, setIsImporting] = useState(false);
     const [importResult, setImportResult] = useState(null);
+    const [isSyncingCustomers, setIsSyncingCustomers] = useState(false);
 
     const [selectedRouterId, setSelectedRouterId] = useState('');
     const [selectedPackageId, setSelectedPackageId] = useState('');
@@ -429,6 +430,35 @@ function CustomersPageContent({
         setShowImportModal(true);
     };
 
+    const handleSyncCustomers = async () => {
+        const id = routerFilter || (routers[0] ? String(routers[0].id) : '');
+        if (!id) {
+            showToast('Pilih router terlebih dahulu untuk sinkronisasi.', 'warning');
+            return;
+        }
+
+        setIsSyncingCustomers(true);
+        try {
+            const response = await fetch('/admin/routers/sync', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({ router_id: Number(id) }),
+            });
+            const result = await response.json();
+            showToast(result.message, result.success ? 'success' : 'error');
+            if (result.success) {
+                router.reload({ only: ['customers', 'packages'] });
+            }
+        } catch {
+            showToast('Error: Gagal menghubungi server saat melakukan sinkronisasi.', 'error');
+        } finally {
+            setIsSyncingCustomers(false);
+        }
+    };
+
     const handleImportCsv = async (e) => {
         e.preventDefault();
 
@@ -525,6 +555,15 @@ function CustomersPageContent({
                                 <Trash2 className="w-4 h-4" />
                             </button>
                         )}
+                        <button
+                            type="button"
+                            onClick={handleSyncCustomers}
+                            disabled={isSyncingCustomers || !routerFilter}
+                            title={isSyncingCustomers ? 'Sinkronisasi...' : 'Sync Pelanggan dari Mikrotik'}
+                            className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center disabled:opacity-50"
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isSyncingCustomers ? 'animate-spin' : ''}`} />
+                        </button>
                         <button
                             type="button"
                             onClick={openImportModal}
