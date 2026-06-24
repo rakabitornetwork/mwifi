@@ -46,7 +46,7 @@ export function AdminThemeProvider({ children }) {
             sidebarTextSub: 'text-blue-100/80',
             sidebarTextDesc: 'text-blue-200/60',
             sidebarBorder: 'border-white/10',
-            themeCard: isDarkMode ? 'bg-zinc-900/50 border-zinc-800/80 backdrop-blur-md' : 'bg-white border-zinc-200/80 shadow-xs',
+            themeCard: isDarkMode ? 'bg-zinc-900/30 border-zinc-800/80 backdrop-blur-[2px]' : 'bg-white border-zinc-200/80 shadow-xs',
             themeTextTitle: isDarkMode ? 'text-white' : 'text-zinc-900',
             themeTextSub: isDarkMode ? 'text-zinc-400' : 'text-zinc-500',
             themeTextDesc: isDarkMode ? 'text-zinc-500' : 'text-zinc-400',
