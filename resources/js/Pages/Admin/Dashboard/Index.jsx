@@ -17,6 +17,7 @@ import {
     Radio,
     Wallet,
     Wifi,
+    TrendingDown,
     TrendingUp,
 } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
@@ -29,6 +30,7 @@ const chartModule = () => import('../../../Components/Admin/DashboardCharts');
 const ResourceAreaChart = lazy(() => chartModule().then((module) => ({ default: module.ResourceAreaChart })));
 const TrafficAreaChart = lazy(() => chartModule().then((module) => ({ default: module.TrafficAreaChart })));
 const DailyRevenueAreaChart = lazy(() => chartModule().then((module) => ({ default: module.DailyRevenueAreaChart })));
+const ExpenseAreaChart = lazy(() => chartModule().then((module) => ({ default: module.ExpenseAreaChart })));
 
 const WATCH_CATEGORY_ICONS = {
     ont: RouterIcon,
@@ -59,6 +61,7 @@ function DashboardContent({
     isolatedCustomers = [],
     todayRevenue = {},
     dailyRevenue = {},
+    dailyExpenses = {},
     inventorySummary = {},
     recentInventoryMovements = [],
     billingSummary = {},
@@ -68,6 +71,7 @@ function DashboardContent({
     const { auth } = usePage().props;
     const allowedTabs = auth?.user?.allowed_tabs || [];
     const canAccessInventory = allowedTabs.includes('inventory');
+    const canAccessFinanceExpenses = allowedTabs.includes('finance-expenses');
     const { isDarkMode, themeCard, themeTextTitle, themeTextSub, themeTextDesc } = theme;
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeSelect = isDarkMode
@@ -281,6 +285,21 @@ function DashboardContent({
             ? `${dailyRevenueChangePercent}% vs periode sebelumnya`
             : 'Stabil vs periode sebelumnya';
 
+    const dailyExpenseSeries = dailyExpenses?.series ?? [];
+    const dailyExpenseTotal = Number(dailyExpenses?.total ?? 0);
+    const dailyExpenseEntryCount = Number(dailyExpenses?.entry_count ?? 0);
+    const dailyExpenseChangePercent = Number(dailyExpenses?.change_percent ?? 0);
+    const todayExpenseEntry = dailyExpenseSeries.length > 0
+        ? dailyExpenseSeries[dailyExpenseSeries.length - 1]
+        : null;
+    const todayExpenseTotal = Number(todayExpenseEntry?.total ?? 0);
+    const todayExpenseEntryCount = Number(todayExpenseEntry?.entry_count ?? 0);
+    const dailyExpenseTrendLabel = dailyExpenseChangePercent > 0
+        ? `+${dailyExpenseChangePercent}% vs periode sebelumnya`
+        : dailyExpenseChangePercent < 0
+            ? `${dailyExpenseChangePercent}% vs periode sebelumnya`
+            : 'Stabil vs periode sebelumnya';
+
     const stats = useMemo(() => [
         {
             name: 'Pendapatan Hari Ini',
@@ -405,84 +424,153 @@ function DashboardContent({
                 })}
             </div>
 
-            <PremiumPanel accent="amber" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-4">
-                <PremiumPanelHeader
-                    icon={TrendingUp}
-                    accent="amber"
-                    isDarkMode={isDarkMode}
-                    themeTextTitle={themeTextTitle}
-                    title="Tren Pemasukan Harian"
-                    trailing={(
-                        <span className={`text-[10px] ${themeTextDesc} shrink-0 whitespace-nowrap`}>
-                            {dailyRevenue?.days || 14} hari terakhir
-                        </span>
-                    )}
-                />
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className={`rounded-xl border p-3 ${isDarkMode ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200 bg-amber-50/80'}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-amber-300/90' : 'text-amber-700'}`}>
-                            Total {dailyRevenue?.days || 14} Hari
-                        </p>
-                        <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(dailyRevenueTotal)}</p>
-                        <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
-                            {formatRupiah(dailyInvoiceTotal)} tagihan · {formatRupiah(dailyVoucherTotal)} voucher
-                        </p>
-                        <p className={`text-[10px] font-medium mt-0.5 ${themeTextDesc}`}>
-                            {dailyRevenuePaymentCount} tagihan · {dailyVoucherSaleCount} voucher terjual
-                        </p>
-                    </div>
-                    <div className={`rounded-xl border p-3 ${themeInnerWidget}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Hari Ini</p>
-                        <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(todayCombinedTotal)}</p>
-                        <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
-                            {formatRupiah(todayDailyEntry?.invoice_total ?? todayRevenue?.total ?? 0)} tagihan
-                            {' · '}
-                            {formatRupiah(todayDailyEntry?.voucher_total ?? 0)} voucher
-                        </p>
-                    </div>
-                    <div className={`rounded-xl border p-3 ${themeInnerWidget}`}>
-                        <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Perbandingan Mingguan</p>
-                        <p className={`text-xl font-black mt-1 leading-none ${
-                            dailyRevenueChangePercent > 0
-                                ? 'text-emerald-500'
-                                : dailyRevenueChangePercent < 0
-                                    ? 'text-rose-500'
-                                    : themeTextTitle
-                        }`}>
-                            {dailyRevenueChangePercent > 0 ? `+${dailyRevenueChangePercent}%` : `${dailyRevenueChangePercent}%`}
-                        </p>
-                        <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>{dailyRevenueTrendLabel}</p>
-                    </div>
-                </div>
-
-                <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className={`text-[10px] font-bold ${themeTextSub}`}>Grafik pemasukan per hari</p>
-                        <div className={`flex flex-wrap items-center gap-3 text-[10px] font-semibold ${themeTextDesc}`}>
-                            <span className="inline-flex items-center gap-1.5">
-                                <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
-                                Tagihan PPPoE
+            <div className={`grid grid-cols-1 ${canAccessFinanceExpenses ? 'lg:grid-cols-2' : ''} gap-4`}>
+                <PremiumPanel accent="amber" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-4">
+                    <PremiumPanelHeader
+                        icon={TrendingUp}
+                        accent="amber"
+                        isDarkMode={isDarkMode}
+                        themeTextTitle={themeTextTitle}
+                        title="Tren Pemasukan Harian"
+                        trailing={(
+                            <span className={`text-[10px] ${themeTextDesc} shrink-0 whitespace-nowrap`}>
+                                {dailyRevenue?.days || 14} hari terakhir
                             </span>
-                            <span className="inline-flex items-center gap-1.5">
-                                <span className="w-2.5 h-2.5 rounded-sm bg-sky-500" />
-                                Voucher Hotspot
-                            </span>
+                        )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className={`rounded-xl border p-3 ${isDarkMode ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200 bg-amber-50/80'}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-amber-300/90' : 'text-amber-700'}`}>
+                                Total {dailyRevenue?.days || 14} Hari
+                            </p>
+                            <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(dailyRevenueTotal)}</p>
+                            <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
+                                {formatRupiah(dailyInvoiceTotal)} tagihan · {formatRupiah(dailyVoucherTotal)} voucher
+                            </p>
+                            <p className={`text-[10px] font-medium mt-0.5 ${themeTextDesc}`}>
+                                {dailyRevenuePaymentCount} tagihan · {dailyVoucherSaleCount} voucher terjual
+                            </p>
+                        </div>
+                        <div className={`rounded-xl border p-3 ${themeInnerWidget}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Hari Ini</p>
+                            <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(todayCombinedTotal)}</p>
+                            <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
+                                {formatRupiah(todayDailyEntry?.invoice_total ?? todayRevenue?.total ?? 0)} tagihan
+                                {' · '}
+                                {formatRupiah(todayDailyEntry?.voucher_total ?? 0)} voucher
+                            </p>
+                        </div>
+                        <div className={`col-span-2 rounded-xl border p-3 ${themeInnerWidget}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Perbandingan Mingguan</p>
+                            <p className={`text-xl font-black mt-1 leading-none ${
+                                dailyRevenueChangePercent > 0
+                                    ? 'text-emerald-500'
+                                    : dailyRevenueChangePercent < 0
+                                        ? 'text-rose-500'
+                                        : themeTextTitle
+                            }`}>
+                                {dailyRevenueChangePercent > 0 ? `+${dailyRevenueChangePercent}%` : `${dailyRevenueChangePercent}%`}
+                            </p>
+                            <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>{dailyRevenueTrendLabel}</p>
                         </div>
                     </div>
-                    <div className="h-52 w-full">
-                        {dailyRevenueSeries.every((row) => Number(row.total || 0) === 0) ? (
-                            <div className={`h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider ${themeTextDesc}`}>
-                                Belum ada data pemasukan harian
+
+                    <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className={`text-[10px] font-bold ${themeTextSub}`}>Grafik pemasukan per hari</p>
+                            <div className={`flex flex-wrap items-center gap-3 text-[10px] font-semibold ${themeTextDesc}`}>
+                                <span className="inline-flex items-center gap-1.5">
+                                    <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+                                    Tagihan PPPoE
+                                </span>
+                                <span className="inline-flex items-center gap-1.5">
+                                    <span className="w-2.5 h-2.5 rounded-sm bg-sky-500" />
+                                    Voucher Hotspot
+                                </span>
                             </div>
-                        ) : (
-                            <Suspense fallback={<ChartFallback className="h-52" />}>
-                                <DailyRevenueAreaChart data={dailyRevenueSeries} isDarkMode={isDarkMode} />
-                            </Suspense>
-                        )}
+                        </div>
+                        <div className="h-52 w-full">
+                            {dailyRevenueSeries.every((row) => Number(row.total || 0) === 0) ? (
+                                <div className={`h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider ${themeTextDesc}`}>
+                                    Belum ada data pemasukan harian
+                                </div>
+                            ) : (
+                                <Suspense fallback={<ChartFallback className="h-52" />}>
+                                    <DailyRevenueAreaChart data={dailyRevenueSeries} isDarkMode={isDarkMode} />
+                                </Suspense>
+                            )}
+                        </div>
                     </div>
-                </div>
-            </PremiumPanel>
+                </PremiumPanel>
+
+                {canAccessFinanceExpenses && (
+                    <PremiumPanel accent="rose" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-4">
+                        <PremiumPanelHeader
+                            icon={TrendingDown}
+                            accent="rose"
+                            isDarkMode={isDarkMode}
+                            themeTextTitle={themeTextTitle}
+                            title="Tren Pengeluaran Harian"
+                            trailing={(
+                                <Link
+                                    href="/finance-expenses"
+                                    className={`text-[10px] font-bold uppercase tracking-wide shrink-0 whitespace-nowrap hover:underline ${isDarkMode ? 'text-rose-300/90' : 'text-rose-700'}`}
+                                >
+                                    Lihat laporan
+                                </Link>
+                            )}
+                        />
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className={`rounded-xl border p-3 ${isDarkMode ? 'border-rose-500/20 bg-rose-500/5' : 'border-rose-200 bg-rose-50/80'}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-rose-300/90' : 'text-rose-700'}`}>
+                                    Total {dailyExpenses?.days || 14} Hari
+                                </p>
+                                <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(dailyExpenseTotal)}</p>
+                                <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
+                                    {dailyExpenseEntryCount} entri pengeluaran
+                                </p>
+                            </div>
+                            <div className={`rounded-xl border p-3 ${themeInnerWidget}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Hari Ini</p>
+                                <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(todayExpenseTotal)}</p>
+                                <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
+                                    {todayExpenseEntryCount} entri dicatat
+                                </p>
+                            </div>
+                            <div className={`col-span-2 rounded-xl border p-3 ${themeInnerWidget}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Perbandingan Mingguan</p>
+                                <p className={`text-xl font-black mt-1 leading-none ${
+                                    dailyExpenseChangePercent > 0
+                                        ? 'text-rose-500'
+                                        : dailyExpenseChangePercent < 0
+                                            ? 'text-emerald-500'
+                                            : themeTextTitle
+                                }`}>
+                                    {dailyExpenseChangePercent > 0 ? `+${dailyExpenseChangePercent}%` : `${dailyExpenseChangePercent}%`}
+                                </p>
+                                <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>{dailyExpenseTrendLabel}</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <p className={`text-[10px] font-bold ${themeTextSub}`}>Grafik pengeluaran per hari</p>
+                            <div className="h-52 w-full">
+                                {dailyExpenseSeries.every((row) => Number(row.total || 0) === 0) ? (
+                                    <div className={`h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider ${themeTextDesc}`}>
+                                        Belum ada data pengeluaran harian
+                                    </div>
+                                ) : (
+                                    <Suspense fallback={<ChartFallback className="h-52" />}>
+                                        <ExpenseAreaChart data={dailyExpenseSeries} isDarkMode={isDarkMode} />
+                                    </Suspense>
+                                )}
+                            </div>
+                        </div>
+                    </PremiumPanel>
+                )}
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-4">

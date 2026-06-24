@@ -113,6 +113,7 @@ class AdminPageController extends Controller
             'isolatedCustomers' => $isolatedCustomers,
             'todayRevenue' => $this->summarizeTodayRevenue($scope),
             'dailyRevenue' => $this->summarizeDailyRevenue($scope),
+            'dailyExpenses' => FinancialReportService::summarizeDailyExpenses($scope),
             'inventorySummary' => InventoryItem::watchCategorySummaries(),
             'recentInventoryMovements' => InventoryService::recentMovements(5),
             'billingSummary' => [

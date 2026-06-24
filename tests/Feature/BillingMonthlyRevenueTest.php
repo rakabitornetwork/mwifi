@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\FinancialExpense;
 use App\Models\HotspotSale;
 use App\Models\Invoice;
 use App\Models\Package;
@@ -193,6 +194,39 @@ class BillingMonthlyRevenueTest extends TestCase
             ->where('dailyRevenue.voucher_total', 15000)
             ->where('dailyRevenue.payment_count', 1)
             ->where('dailyRevenue.voucher_sale_count', 1)
+        );
+    }
+
+    public function test_dashboard_includes_daily_expenses_payload(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 12:00:00'));
+
+        $admin = User::factory()->create();
+
+        FinancialExpense::create([
+            'recorded_by' => $admin->id,
+            'category' => 'operasional',
+            'title' => 'Biaya listrik',
+            'amount' => 50000,
+            'expense_date' => '2026-06-22',
+        ]);
+
+        FinancialExpense::create([
+            'recorded_by' => $admin->id,
+            'category' => 'transportasi',
+            'title' => 'Bensin lapangan',
+            'amount' => 25000,
+            'expense_date' => '2026-06-21',
+        ]);
+
+        $response = $this->actingAs($admin)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/Dashboard/Index')
+            ->has('dailyExpenses.series')
+            ->where('dailyExpenses.total', 75000)
+            ->where('dailyExpenses.entry_count', 2)
         );
     }
 

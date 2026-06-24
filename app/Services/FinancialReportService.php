@@ -13,6 +13,78 @@ class FinancialReportService
 {
     /**
      * @return array{
+     *     days: int,
+     *     total: float,
+     *     entry_count: int,
+     *     change_percent: float,
+     *     series: list<array<string, mixed>>
+     * }
+     */
+    public static function summarizeDailyExpenses(
+        StaffRouterScope $scope,
+        int $days = 14,
+        ?Carbon $today = null,
+    ): array {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay()->locale('id');
+        $days = max(7, min(31, $days));
+
+        $rangeStart = $today->copy()->subDays($days - 1)->startOfDay();
+        $rangeEnd = $today->copy()->endOfDay();
+
+        $query = FinancialExpense::query()
+            ->whereDate('expense_date', '>=', $rangeStart)
+            ->whereDate('expense_date', '<=', $rangeEnd);
+
+        if ($scope->isScoped()) {
+            $query->where('router_id', $scope->routerId());
+        }
+
+        $grouped = (clone $query)
+            ->selectRaw('DATE(expense_date) as expense_day, SUM(amount) as total, COUNT(*) as entry_count')
+            ->groupBy('expense_day')
+            ->get()
+            ->keyBy(fn ($row) => (string) $row->expense_day);
+
+        $series = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $day = $today->copy()->subDays($i);
+            $dateKey = $day->toDateString();
+            $row = $grouped->get($dateKey);
+            $total = round((float) ($row->total ?? 0), 2);
+
+            $series[] = [
+                'date' => $dateKey,
+                'label' => $day->translatedFormat('d M'),
+                'total' => $total,
+                'entry_count' => (int) ($row->entry_count ?? 0),
+            ];
+        }
+
+        $total = round((float) array_sum(array_column($series, 'total')), 2);
+        $entryCount = (int) array_sum(array_column($series, 'entry_count'));
+
+        $half = (int) floor($days / 2);
+        $olderTotal = round((float) array_sum(array_column(array_slice($series, 0, $half), 'total')), 2);
+        $recentTotal = round((float) array_sum(array_column(array_slice($series, $half), 'total')), 2);
+
+        $changePercent = 0.0;
+        if ($olderTotal > 0) {
+            $changePercent = round((($recentTotal - $olderTotal) / $olderTotal) * 100, 1);
+        } elseif ($recentTotal > 0) {
+            $changePercent = 100.0;
+        }
+
+        return [
+            'days' => $days,
+            'total' => $total,
+            'entry_count' => $entryCount,
+            'change_percent' => $changePercent,
+            'series' => $series,
+        ];
+    }
+
+    /**
+     * @return array{
      *     from: string,
      *     to: string,
      *     summary: array<string, float|int>,
@@ -159,7 +231,8 @@ class FinancialReportService
 
         $query = FinancialExpense::query()
             ->with(['router', 'recorder:id,name'])
-            ->whereBetween('expense_date', [$from->toDateString(), $to->toDateString()])
+            ->whereDate('expense_date', '>=', $from)
+            ->whereDate('expense_date', '<=', $to)
             ->orderByDesc('expense_date')
             ->orderByDesc('id');
 
@@ -305,7 +378,8 @@ class FinancialReportService
         ?string $categoryFilter,
     ): float {
         $query = FinancialExpense::query()
-            ->whereBetween('expense_date', [$from->toDateString(), $to->toDateString()]);
+            ->whereDate('expense_date', '>=', $from)
+            ->whereDate('expense_date', '<=', $to);
 
         if ($scope->isScoped()) {
             $query->where('router_id', $scope->routerId());
