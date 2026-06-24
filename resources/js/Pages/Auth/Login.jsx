@@ -1,6 +1,7 @@
 import React from 'react';
 import { useForm, usePage } from '@inertiajs/react';
 import { Mail, Lock, LogIn, ShieldAlert, Wifi } from 'lucide-react';
+import PullToRefresh from '../../Components/PullToRefresh';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline from '../../Components/BrandingTagline';
@@ -21,7 +22,7 @@ export default function Login() {
     return (
         <>
             <SeoHead title="Login Admin" branding={branding} />
-            <div className="min-h-screen flex flex-col bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-950/20 via-slate-950 to-slate-950 font-sans">
+            <PullToRefresh useWindowScroll isDarkMode className="min-h-screen flex flex-col bg-slate-950 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-950/20 via-slate-950 to-slate-950 font-sans">
                 <div className="flex-1 flex items-center justify-center p-6">
                 <div className="w-full max-w-md bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-8 shadow-2xl space-y-6">
                     <div className="text-center space-y-2">
@@ -111,7 +112,7 @@ export default function Login() {
                     className="py-4 px-6 border-t border-slate-800/80 text-center"
                     textClassName="text-xs sm:text-sm text-slate-500 leading-relaxed"
                 />
-            </div>
+            </PullToRefresh>
         </>
     );
 }

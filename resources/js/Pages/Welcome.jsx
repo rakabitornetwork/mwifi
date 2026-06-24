@@ -1,6 +1,7 @@
 import React from 'react';
 import { usePage } from '@inertiajs/react';
 import { Wifi } from 'lucide-react';
+import PullToRefresh from '../Components/PullToRefresh';
 import SeoHead from '../Components/SeoHead';
 import AppFooter from '../Components/AppFooter';
 import BrandingTagline from '../Components/BrandingTagline';
@@ -11,7 +12,7 @@ export default function Welcome() {
     return (
         <>
             <SeoHead title="Selamat Datang" branding={branding} />
-            <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
+            <PullToRefresh useWindowScroll isDarkMode className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
                 <div className="flex-1 flex flex-col items-center justify-center p-6">
                     <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center space-y-6">
                         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 overflow-hidden">
@@ -51,7 +52,7 @@ export default function Welcome() {
                     className="py-4 px-6 border-t border-slate-800 text-center"
                     textClassName="text-xs sm:text-sm text-slate-500 leading-relaxed"
                 />
-            </div>
+            </PullToRefresh>
         </>
     );
 }

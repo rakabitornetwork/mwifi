@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useScheduledTheme } from '../../hooks/useScheduledTheme';
 import { router, usePage } from '@inertiajs/react';
-import SeoHead from '../../Components/SeoHead';
+import PullToRefresh from '../../Components/PullToRefresh';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
 import { formatRupiah } from '../../utils/formatRupiah';
@@ -104,7 +104,7 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
     return (
         <>
             <SeoHead title={`Portal Pelanggan${branding.company_name ? ` — ${branding.company_name}` : ''}`} branding={branding} />
-            <div className={`min-h-screen font-sans antialiased transition-colors duration-250 ${themeBg}`}>
+            <PullToRefresh useWindowScroll isDarkMode={isDarkMode} className={`min-h-screen font-sans antialiased transition-colors duration-250 ${themeBg}`}>
                 
                 {/* Navbar */}
                 <nav className={`sticky top-0 z-40 backdrop-blur-md border-b transition-colors duration-250 ${themeNav}`}>
@@ -411,7 +411,7 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                         />
                     </footer>
                 )}
-            </div>
+            </PullToRefresh>
         </>
     );
 }
