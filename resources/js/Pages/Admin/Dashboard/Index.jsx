@@ -344,6 +344,12 @@ function DashboardContent({
     const routerActive = Number(routerSummary?.active ?? 0);
     const routerTotal = Number(routerSummary?.total ?? 0);
 
+    const invoicesHref = customerStats.isolated > 0
+        ? '/invoices?status=isolated&router=all'
+        : overdueCount > 0
+            ? '/invoices?status=unpaid&router=all'
+            : '/invoices';
+
     const movementTypeClass = (type) => {
         switch (type) {
             case 'in':
@@ -665,7 +671,7 @@ function DashboardContent({
                             title="Ringkasan Tagihan & Operasional"
                             trailing={(
                                 <Link
-                                    href="/invoices"
+                                    href={invoicesHref}
                                     className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors ${isDarkMode ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10' : 'border-rose-200 text-rose-700 hover:bg-rose-50'}`}
                                 >
                                     Tagihan
@@ -703,12 +709,16 @@ function DashboardContent({
                         </div>
 
                         {(overdueCount > 0 || customerStats.isolated > 0) && (
-                            <div className={`rounded-lg border px-2.5 py-2 ${isDarkMode ? 'border-rose-500/25 bg-rose-500/5' : 'border-rose-200 bg-rose-50/80'}`}>
+                            <Link
+                                href={invoicesHref}
+                                className={`block rounded-lg border px-2.5 py-2 transition-colors ${isDarkMode ? 'border-rose-500/25 bg-rose-500/5 hover:bg-rose-500/10' : 'border-rose-200 bg-rose-50/80 hover:bg-rose-100/80'}`}
+                            >
                                 <p className={`text-[10px] font-bold leading-snug ${isDarkMode ? 'text-rose-300' : 'text-rose-800'}`}>
                                     {overdueCount > 0 && `${overdueCount} tagihan lewat jatuh tempo. `}
                                     {customerStats.isolated > 0 && `${customerStats.isolated} pelanggan terisolir.`}
+                                    <span className={`ml-1 underline ${isDarkMode ? 'text-rose-200' : 'text-rose-700'}`}>Lihat di Tagihan →</span>
                                 </p>
-                            </div>
+                            </Link>
                         )}
                     </PremiumPanel>
 

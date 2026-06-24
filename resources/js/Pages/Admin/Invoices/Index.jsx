@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { router } from '@inertiajs/react';
+import { Link, router, usePage } from '@inertiajs/react';
 import { Activity, CalendarClock, CreditCard, FileText, MessageSquare, PauseCircle, Printer, RefreshCw, RotateCcw, Search, ShieldOff, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import AdminPageCard from '../../../Components/Admin/AdminPageCard';
@@ -7,7 +7,7 @@ import TransitionModal from '../../../Components/Admin/TransitionModal';
 import MonthlyRevenuePanel from '../../../Components/Admin/MonthlyRevenuePanel';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
-import { useAssignedRouter } from '../../../hooks/useAssignedRouter';
+import { useAssignedRouter, resolveDefaultRouterId } from '../../../hooks/useAssignedRouter';
 import AssignedRouterFilter from '../../../Components/Admin/AssignedRouterFilter';
 import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import { formatRupiah } from '../../../utils/formatRupiah';
@@ -72,9 +72,27 @@ function getInvoiceRouterId(invoice) {
     return invoice?.customer?.router_id ?? invoice?.customer?.router?.id ?? null;
 }
 
+const INVOICE_STATUS_FILTERS = new Set(['all', 'unpaid', 'paid', 'canceled', 'expired', 'isolated']);
+
+function parseInvoicesPageQuery(url = '') {
+    try {
+        const { searchParams } = new URL(url, window.location.origin);
+        const status = searchParams.get('status');
+        const routerParam = searchParams.get('router');
+
+        return {
+            status: INVOICE_STATUS_FILTERS.has(status) ? status : 'all',
+            router: routerParam === 'all' ? '' : (routerParam || null),
+        };
+    } catch {
+        return { status: 'all', router: null };
+    }
+}
+
 function InvoicesPageContent({
     invoices = [],
     routers = [],
+    customers = [],
     billingActivityLogs = [],
     isolationActivityLogs = [],
     billingDeferrals = [],
@@ -82,10 +100,23 @@ function InvoicesPageContent({
 }) {
     const theme = useAdminTheme();
     const { canWrite } = useStaffPermissions();
-    const { lockedRouterId, initialRouterId } = useAssignedRouter(routers);
+    const { isRouterScoped, lockedRouterId } = useAssignedRouter(routers);
+    const pageUrl = usePage().url;
+    const initialQuery = useMemo(() => parseInvoicesPageQuery(pageUrl), [pageUrl]);
+
     const [searchTerm, setSearchTerm] = useState('');
-    const [routerFilter, setRouterFilter] = useState(initialRouterId);
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [routerFilter, setRouterFilter] = useState(() => {
+        if (lockedRouterId) {
+            return lockedRouterId;
+        }
+
+        if (initialQuery.router !== null) {
+            return initialQuery.router;
+        }
+
+        return resolveDefaultRouterId(routers);
+    });
+    const [statusFilter, setStatusFilter] = useState(initialQuery.status);
     const [invoicePage, setInvoicePage] = useState(1);
     const invoicePageSize = 10;
     const [showDeferModal, setShowDeferModal] = useState(false);
@@ -142,8 +173,17 @@ function InvoicesPageContent({
     useEffect(() => {
         if (lockedRouterId) {
             setRouterFilter(lockedRouterId);
+            return;
         }
-    }, [lockedRouterId]);
+
+        const query = parseInvoicesPageQuery(pageUrl);
+        if (query.router !== null) {
+            setRouterFilter(query.router);
+        }
+        if (query.status !== 'all') {
+            setStatusFilter(query.status);
+        }
+    }, [pageUrl, lockedRouterId]);
 
     useEffect(() => {
         setInvoicePage(1);
@@ -341,6 +381,36 @@ function InvoicesPageContent({
         });
     };
 
+    const isolatedCustomers = useMemo(() => {
+        const today = new Date().toISOString().slice(0, 10);
+
+        return customers
+            .filter((customer) => customer.status === 'isolated' && matchesRouterFilter(customer.router_id))
+            .map((customer) => {
+                const customerInvoices = invoices.filter(
+                    (inv) => String(inv.customer_id ?? inv.customer?.id) === String(customer.id)
+                );
+                const unpaidInvoices = customerInvoices
+                    .filter((inv) => inv.status === 'unpaid')
+                    .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')));
+                const overdueInvoice = unpaidInvoices.find(
+                    (inv) => inv.due_date && inv.due_date.substring(0, 10) < today
+                );
+
+                return {
+                    ...customer,
+                    unpaidInvoice: overdueInvoice || unpaidInvoices[0] || null,
+                    invoiceCount: customerInvoices.length,
+                };
+            })
+            .sort((a, b) => {
+                if (a.unpaidInvoice && !b.unpaidInvoice) return -1;
+                if (!a.unpaidInvoice && b.unpaidInvoice) return 1;
+
+                return (a.name || '').localeCompare(b.name || '');
+            });
+    }, [customers, invoices, routerFilter]);
+
     const filteredInvoices = invoices.filter((inv) => {
         if (!matchesRouterFilter(getInvoiceRouterId(inv))) {
             return false;
@@ -380,6 +450,26 @@ function InvoicesPageContent({
         );
     });
 
+    const displayInvoices = useMemo(() => {
+        if (statusFilter !== 'isolated') {
+            return filteredInvoices;
+        }
+
+        const statusRank = (inv) => {
+            if (inv.status === 'unpaid') return 0;
+            if (inv.status === 'paid') return 1;
+
+            return 2;
+        };
+
+        return [...filteredInvoices].sort((a, b) => {
+            const rankDiff = statusRank(a) - statusRank(b);
+            if (rankDiff !== 0) return rankDiff;
+
+            return String(b.created_at || '').localeCompare(String(a.created_at || ''));
+        });
+    }, [filteredInvoices, statusFilter]);
+
     const unpaidInvoicesCount = useMemo(
         () => invoices.filter(
             (inv) => inv.status === 'unpaid' && matchesRouterFilter(getInvoiceRouterId(inv))
@@ -388,10 +478,8 @@ function InvoicesPageContent({
     );
 
     const isolatedInvoicesCount = useMemo(
-        () => invoices.filter(
-            (inv) => inv.customer?.status === 'isolated' && matchesRouterFilter(getInvoiceRouterId(inv))
-        ).length,
-        [invoices, routerFilter]
+        () => isolatedCustomers.length,
+        [isolatedCustomers]
     );
 
     const unpaidSummary = useMemo(() => {
@@ -403,9 +491,9 @@ function InvoicesPageContent({
         };
     }, [invoices]);
 
-    const totalInvoicePages = Math.ceil(filteredInvoices.length / invoicePageSize) || 1;
+    const totalInvoicePages = Math.ceil(displayInvoices.length / invoicePageSize) || 1;
     const visibleInvoicePages = getVisiblePages(invoicePage, totalInvoicePages);
-    const paginatedInvoices = filteredInvoices.slice(
+    const paginatedInvoices = displayInvoices.slice(
         (invoicePage - 1) * invoicePageSize,
         invoicePage * invoicePageSize
     );
@@ -520,6 +608,7 @@ function InvoicesPageContent({
                         value={routerFilter}
                         onChange={(e) => setRouterFilter(e.target.value)}
                         className={`lg:w-56 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                        showAllOption={!isRouterScoped}
                         renderOption={(routerItem) => `${routerItem.name} (${routerInvoiceCounts[routerItem.id] || 0})`}
                     />
                     <div className="relative flex-1">
@@ -547,17 +636,74 @@ function InvoicesPageContent({
                 </div>
                 {statusFilter === 'unpaid' && (
                     <p className={`text-[10px] ${theme.themeTextSub}`}>
-                        Menampilkan <span className="font-bold text-rose-500">{filteredInvoices.length}</span> invoice belum bayar
+                        Menampilkan <span className="font-bold text-rose-500">{displayInvoices.length}</span> invoice belum bayar
                         {selectedRouter ? ` di ${selectedRouter.name}` : ''}
                         {searchTerm.trim() ? ' yang cocok dengan pencarian' : ''}.
                     </p>
                 )}
                 {statusFilter === 'isolated' && (
                     <p className={`text-[10px] ${theme.themeTextSub}`}>
-                        Menampilkan <span className="font-bold text-amber-500">{filteredInvoices.length}</span> invoice pelanggan terisolir
-                        {selectedRouter ? ` di ${selectedRouter.name}` : ''}
+                        Menampilkan <span className="font-bold text-amber-500">{displayInvoices.length}</span> invoice dari{' '}
+                        <span className="font-bold text-amber-500">{isolatedCustomers.length}</span> pelanggan terisolir
+                        {routerFilter ? (selectedRouter ? ` di ${selectedRouter.name}` : '') : ' di semua router'}
                         {searchTerm.trim() ? ' yang cocok dengan pencarian' : ''}.
                     </p>
+                )}
+
+                {statusFilter === 'isolated' && isolatedCustomers.length > 0 && (
+                    <div className={`border rounded-xl p-4 space-y-3 ${theme.isDarkMode ? 'border-amber-500/25 bg-amber-950/20' : 'border-amber-200 bg-amber-50/70'}`}>
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center space-x-2">
+                                <ShieldOff className="w-4 h-4 text-amber-500" />
+                                <h3 className={`text-xs font-bold uppercase tracking-wider ${theme.themeTextTitle}`}>Pelanggan Terisolir</h3>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme.isDarkMode ? 'bg-amber-500/15 text-amber-300' : 'bg-amber-100 text-amber-800'}`}>
+                                {isolatedCustomers.length} pelanggan
+                            </span>
+                        </div>
+                        <div className="space-y-2">
+                            {isolatedCustomers.map((customer) => (
+                                <div key={customer.id} className={`p-3 border rounded-xl text-xs ${themeInnerWidget}`}>
+                                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                        <div className="space-y-1 min-w-0">
+                                            <p className={`font-bold ${theme.themeTextTitle}`}>
+                                                {customer.name}{' '}
+                                                <span className="font-mono text-[10px] opacity-70">({customer.username})</span>
+                                            </p>
+                                            <p className={theme.themeTextSub}>
+                                                {customer.router?.name || '—'}
+                                                {customer.package?.name ? ` · ${customer.package.name}` : ''}
+                                            </p>
+                                            {customer.unpaidInvoice ? (
+                                                <p className={theme.themeTextDesc}>
+                                                    Tagihan tertunggak:{' '}
+                                                    <span className="font-mono font-bold">{customer.unpaidInvoice.invoice_number}</span>
+                                                    {' · '}{formatRupiah(customer.unpaidInvoice.total_amount || 0)}
+                                                    {' · '}jatuh tempo {customer.unpaidInvoice.due_date?.substring?.(0, 10) || '—'}
+                                                </p>
+                                            ) : (
+                                                <p className="text-[10px] text-amber-500 font-bold">
+                                                    {customer.invoiceCount > 0
+                                                        ? 'Tidak ada tagihan belum bayar — periksa riwayat invoice lunas di bawah.'
+                                                        : 'Belum ada invoice — generate tagihan dari menu Pelanggan.'}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <span className="shrink-0 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                            Isolir
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {statusFilter === 'isolated' && isolatedCustomers.length === 0 && (
+                    <div className={`rounded-xl border px-3 py-2.5 text-[10px] ${theme.isDarkMode ? 'border-amber-500/25 bg-amber-500/5 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                        Tidak ada pelanggan terisolir{routerFilter && selectedRouter ? ` di ${selectedRouter.name}` : ''}.
+                        {routerFilter && !isRouterScoped && ' Coba pilih "Semua Router" pada filter.'}
+                    </div>
                 )}
 
                 {visiblePendingDeferrals.length > 0 && (
@@ -1089,12 +1235,21 @@ function InvoicesPageContent({
     );
 }
 
-export default function InvoicesIndex({ invoices, routers, billingActivityLogs, isolationActivityLogs, billingDeferrals, monthlyRevenue }) {
+export default function InvoicesIndex({
+    invoices,
+    routers,
+    customers,
+    billingActivityLogs,
+    isolationActivityLogs,
+    billingDeferrals,
+    monthlyRevenue,
+}) {
     return (
         <AdminLayout title="Tagihan / Billing">
             <InvoicesPageContent
                 invoices={invoices}
                 routers={routers}
+                customers={customers}
                 billingActivityLogs={billingActivityLogs}
                 isolationActivityLogs={isolationActivityLogs}
                 billingDeferrals={billingDeferrals}
