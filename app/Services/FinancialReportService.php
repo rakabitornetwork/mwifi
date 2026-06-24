@@ -84,6 +84,91 @@ class FinancialReportService
     }
 
     /**
+     * Pengeluaran hanya mengurangi pemasukan tagihan PPPoE, bukan penjualan voucher.
+     */
+    private static function calculateNetIncomeTotal(float $invoiceTotal, float $voucherTotal, float $expenseTotal): float
+    {
+        return round(max(0, $invoiceTotal - $expenseTotal) + $voucherTotal, 2);
+    }
+
+    /**
+     * @param  array<string, mixed>  $revenue
+     * @return array<string, mixed>
+     */
+    public static function applyNetIncomeToTodayRevenue(array $revenue, StaffRouterScope $scope, ?Carbon $today = null): array
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+        $expenseTotal = self::sumExpensesForRange(
+            $today,
+            $today->copy()->endOfDay(),
+            $scope,
+            null,
+            null,
+        );
+        $invoiceTotal = round((float) ($revenue['total'] ?? 0), 2);
+
+        return [
+            ...$revenue,
+            'gross_total' => $invoiceTotal,
+            'expense_total' => $expenseTotal,
+            'total' => self::calculateNetIncomeTotal($invoiceTotal, 0, $expenseTotal),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $revenue
+     * @return array<string, mixed>
+     */
+    public static function applyNetIncomeToDailyRevenue(array $revenue, StaffRouterScope $scope): array
+    {
+        $days = (int) ($revenue['days'] ?? 14);
+        $expenses = self::summarizeDailyExpenses($scope, $days);
+        $expenseByDate = collect($expenses['series'])->keyBy('date');
+
+        $series = [];
+        foreach ($revenue['series'] as $row) {
+            $invoiceTotal = round((float) ($row['invoice_total'] ?? 0), 2);
+            $voucherTotal = round((float) ($row['voucher_total'] ?? 0), 2);
+            $grossTotal = round($invoiceTotal + $voucherTotal, 2);
+            $expenseTotal = round((float) ($expenseByDate->get($row['date'])['total'] ?? 0), 2);
+
+            $series[] = [
+                ...$row,
+                'gross_total' => $grossTotal,
+                'expense_total' => $expenseTotal,
+                'total' => self::calculateNetIncomeTotal($invoiceTotal, $voucherTotal, $expenseTotal),
+            ];
+        }
+
+        $invoiceTotal = round((float) ($revenue['invoice_total'] ?? 0), 2);
+        $voucherTotal = round((float) ($revenue['voucher_total'] ?? 0), 2);
+        $grossTotal = round($invoiceTotal + $voucherTotal, 2);
+        $expenseTotal = round((float) $expenses['total'], 2);
+
+        $half = (int) floor($days / 2);
+        $olderNet = round((float) array_sum(array_column(array_slice($series, 0, $half), 'total')), 2);
+        $recentNet = round((float) array_sum(array_column(array_slice($series, $half), 'total')), 2);
+
+        $changePercent = 0.0;
+        if ($olderNet > 0) {
+            $changePercent = round((($recentNet - $olderNet) / $olderNet) * 100, 1);
+        } elseif ($recentNet > 0) {
+            $changePercent = 100.0;
+        } elseif ($recentNet < 0 && $olderNet < 0) {
+            $changePercent = round((($recentNet - $olderNet) / abs($olderNet)) * 100, 1);
+        }
+
+        return [
+            ...$revenue,
+            'gross_total' => $grossTotal,
+            'expense_total' => $expenseTotal,
+            'total' => self::calculateNetIncomeTotal($invoiceTotal, $voucherTotal, $expenseTotal),
+            'change_percent' => $changePercent,
+            'series' => $series,
+        ];
+    }
+
+    /**
      * @return array{
      *     from: string,
      *     to: string,
@@ -187,13 +272,32 @@ class FinancialReportService
             ['invoice_total', 'voucher_total'],
         );
 
-        $total = round($invoiceTotal + $voucherTotal, 2);
+        $expenseTotal = self::sumExpensesForRange($from, $to, $scope, $routerFilter, null);
+        $grossTotal = round($invoiceTotal + $voucherTotal, 2);
+
+        $series = array_map(function (array $row) use ($scope, $routerFilter) {
+            $dayStart = Carbon::parse($row['date'])->startOfDay();
+            $dayEnd = $dayStart->copy()->endOfDay();
+            $dayExpenseTotal = self::sumExpensesForRange($dayStart, $dayEnd, $scope, $routerFilter, null);
+            $invoiceTotal = round((float) ($row['invoice_total'] ?? 0), 2);
+            $voucherTotal = round((float) ($row['voucher_total'] ?? 0), 2);
+            $dayGrossTotal = round($invoiceTotal + $voucherTotal, 2);
+
+            return [
+                ...$row,
+                'gross_total' => $dayGrossTotal,
+                'expense_total' => $dayExpenseTotal,
+                'total' => self::calculateNetIncomeTotal($invoiceTotal, $voucherTotal, $dayExpenseTotal),
+            ];
+        }, $series);
 
         return [
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
             'summary' => [
-                'total' => $total,
+                'total' => self::calculateNetIncomeTotal($invoiceTotal, $voucherTotal, $expenseTotal),
+                'gross_total' => $grossTotal,
+                'expense_total' => round($expenseTotal, 2),
                 'invoice_total' => round($invoiceTotal, 2),
                 'voucher_total' => round($voucherTotal, 2),
                 'invoice_count' => $invoiceCount,

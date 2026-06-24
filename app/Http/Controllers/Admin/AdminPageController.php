@@ -111,8 +111,14 @@ class AdminPageController extends Controller
             'odpSummary' => $scope->odpSummary(),
             'billingActivityLogs' => $billingLogs,
             'isolatedCustomers' => $isolatedCustomers,
-            'todayRevenue' => $this->summarizeTodayRevenue($scope),
-            'dailyRevenue' => $this->summarizeDailyRevenue($scope),
+            'todayRevenue' => FinancialReportService::applyNetIncomeToTodayRevenue(
+                $this->summarizeTodayRevenue($scope),
+                $scope,
+            ),
+            'dailyRevenue' => FinancialReportService::applyNetIncomeToDailyRevenue(
+                $this->summarizeDailyRevenue($scope),
+                $scope,
+            ),
             'dailyExpenses' => FinancialReportService::summarizeDailyExpenses($scope),
             'inventorySummary' => InventoryItem::watchCategorySummaries(),
             'recentInventoryMovements' => InventoryService::recentMovements(5),

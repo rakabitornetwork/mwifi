@@ -243,8 +243,68 @@ class BillingMonthlyRevenueTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->component('Admin/Dashboard/Index')
             ->has('todayRevenue')
+            ->where('todayRevenue.gross_total', 125000)
+            ->where('todayRevenue.expense_total', 0)
             ->where('todayRevenue.total', 125000)
             ->where('todayRevenue.payment_count', 1)
+        );
+    }
+
+    public function test_dashboard_subtracts_expenses_from_revenue_totals(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 12:00:00'));
+
+        $admin = User::factory()->create();
+        $this->makePaidInvoice('NET1', '2026-06-22 10:00:00', 100000);
+
+        FinancialExpense::create([
+            'recorded_by' => $admin->id,
+            'category' => 'operasional',
+            'title' => 'Biaya operasional',
+            'amount' => 35000,
+            'expense_date' => '2026-06-22',
+        ]);
+
+        $response = $this->actingAs($admin)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/Dashboard/Index')
+            ->where('todayRevenue.gross_total', 100000)
+            ->where('todayRevenue.expense_total', 35000)
+            ->where('todayRevenue.total', 65000)
+            ->where('dailyRevenue.gross_total', 100000)
+            ->where('dailyRevenue.expense_total', 35000)
+            ->where('dailyRevenue.total', 65000)
+        );
+    }
+
+    public function test_expenses_only_reduce_invoice_income_not_voucher_sales(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 12:00:00'));
+
+        $admin = User::factory()->create();
+        $this->makePaidInvoice('MIX1', '2026-06-22 10:00:00', 30000);
+        $this->makeHotspotSale('MIXV1', '2026-06-22 11:00:00', 80000);
+
+        FinancialExpense::create([
+            'recorded_by' => $admin->id,
+            'category' => 'operasional',
+            'title' => 'Biaya operasional',
+            'amount' => 50000,
+            'expense_date' => '2026-06-22',
+        ]);
+
+        $response = $this->actingAs($admin)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/Dashboard/Index')
+            ->where('dailyRevenue.invoice_total', 30000)
+            ->where('dailyRevenue.voucher_total', 80000)
+            ->where('dailyRevenue.gross_total', 110000)
+            ->where('dailyRevenue.expense_total', 50000)
+            ->where('dailyRevenue.total', 80000)
         );
     }
 }

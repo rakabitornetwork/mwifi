@@ -114,9 +114,14 @@ function FinanceIncomeContent({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className={`rounded-xl border p-3.5 ${isDarkMode ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50/80'}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>Total Pemasukan</p>
+                    <p className={`text-[10px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-emerald-300' : 'text-emerald-700'}`}>Total Pemasukan Bersih</p>
                     <p className={`text-2xl font-black mt-1 ${themeTextTitle}`}>{formatRupiah(summary.total || 0)}</p>
                     <p className={`text-[10px] mt-1 ${themeTextDesc}`}>{summary.entry_count || 0} transaksi</p>
+                    {Number(summary.expense_total || 0) > 0 && (
+                        <p className={`text-[10px] mt-1 font-semibold ${isDarkMode ? 'text-rose-300/90' : 'text-rose-700'}`}>
+                            Bruto {formatRupiah(summary.gross_total || 0)} · −{formatRupiah(summary.expense_total || 0)} pengeluaran tagihan
+                        </p>
+                    )}
                 </div>
                 <div className={`rounded-xl border p-3.5 ${themeInnerWidget}`}>
                     <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Tagihan PPPoE</p>

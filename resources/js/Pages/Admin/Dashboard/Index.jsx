@@ -268,8 +268,11 @@ function DashboardContent({
     }, [interfaceTraffic]);
 
     const todayPaymentCount = todayRevenue?.payment_count ?? 0;
+    const todayRevenueExpenseTotal = Number(todayRevenue?.expense_total ?? 0);
     const dailyRevenueSeries = dailyRevenue?.series ?? [];
     const dailyRevenueTotal = Number(dailyRevenue?.total ?? 0);
+    const dailyRevenueGrossTotal = Number(dailyRevenue?.gross_total ?? dailyRevenueTotal);
+    const dailyRevenueExpenseTotal = Number(dailyRevenue?.expense_total ?? 0);
     const dailyInvoiceTotal = Number(dailyRevenue?.invoice_total ?? 0);
     const dailyVoucherTotal = Number(dailyRevenue?.voucher_total ?? 0);
     const dailyRevenuePaymentCount = Number(dailyRevenue?.payment_count ?? 0);
@@ -304,9 +307,11 @@ function DashboardContent({
         {
             name: 'Pendapatan Hari Ini',
             value: formatRupiah(todayRevenue?.total || 0),
-            change: todayPaymentCount === 1
-                ? '1 pembayaran lunas hari ini'
-                : `${todayPaymentCount} pembayaran lunas hari ini`,
+            change: todayRevenueExpenseTotal > 0
+                ? `Pengeluaran tagihan ${formatRupiah(todayRevenueExpenseTotal)}`
+                : todayPaymentCount === 1
+                    ? '1 pembayaran lunas hari ini'
+                    : `${todayPaymentCount} pembayaran lunas hari ini`,
             icon: Wallet,
             cardClass: 'bg-gradient-to-br from-amber-500 to-orange-600 border-amber-400/20 text-white shadow-md shadow-amber-500/5',
             iconClass: 'text-amber-100',
@@ -347,7 +352,7 @@ function DashboardContent({
             valClass: 'text-white',
             changeClass: 'text-rose-100/70',
         },
-    ], [customerStats.hotspot_active, customerStats.isolated, customerStats.ppp_active, todayPaymentCount, todayRevenue?.total]);
+    ], [customerStats.hotspot_active, customerStats.isolated, customerStats.ppp_active, todayPaymentCount, todayRevenue?.total, todayRevenueExpenseTotal]);
 
     const waLogs = useMemo(
         () => (billingActivityLogs || []).map((log) => ({
@@ -448,6 +453,11 @@ function DashboardContent({
                             <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
                                 {formatRupiah(dailyInvoiceTotal)} tagihan · {formatRupiah(dailyVoucherTotal)} voucher
                             </p>
+                            {dailyRevenueExpenseTotal > 0 && (
+                                <p className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-rose-300/90' : 'text-rose-700'}`}>
+                                    −{formatRupiah(dailyRevenueExpenseTotal)} pengeluaran dari tagihan · bruto {formatRupiah(dailyRevenueGrossTotal)}
+                                </p>
+                            )}
                             <p className={`text-[10px] font-medium mt-0.5 ${themeTextDesc}`}>
                                 {dailyRevenuePaymentCount} tagihan · {dailyVoucherSaleCount} voucher terjual
                             </p>
@@ -456,10 +466,15 @@ function DashboardContent({
                             <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Hari Ini</p>
                             <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(todayCombinedTotal)}</p>
                             <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
-                                {formatRupiah(todayDailyEntry?.invoice_total ?? todayRevenue?.total ?? 0)} tagihan
+                                {formatRupiah(todayDailyEntry?.invoice_total ?? todayRevenue?.gross_total ?? todayRevenue?.total ?? 0)} tagihan
                                 {' · '}
                                 {formatRupiah(todayDailyEntry?.voucher_total ?? 0)} voucher
                             </p>
+                            {Number(todayDailyEntry?.expense_total ?? todayRevenueExpenseTotal) > 0 && (
+                                <p className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-rose-300/90' : 'text-rose-700'}`}>
+                                    −{formatRupiah(todayDailyEntry?.expense_total ?? todayRevenueExpenseTotal)} pengeluaran dari tagihan
+                                </p>
+                            )}
                         </div>
                         <div className={`col-span-2 rounded-xl border p-3 ${themeInnerWidget}`}>
                             <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Perbandingan Mingguan</p>
