@@ -2,11 +2,39 @@ import { createContext, useContext, useMemo, useState } from 'react';
 
 const AdminThemeContext = createContext(null);
 
+const THEME_STORAGE_KEY = 'mwifi.admin.theme';
+
+function readStoredDarkMode() {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+
+    try {
+        return window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark';
+    } catch {
+        return false;
+    }
+}
+
+function persistDarkMode(isDarkMode) {
+    try {
+        window.localStorage.setItem(THEME_STORAGE_KEY, isDarkMode ? 'dark' : 'light');
+    } catch {
+        // Ignore private browsing / storage quota errors.
+    }
+}
+
 export function AdminThemeProvider({ children }) {
-    const [isDarkMode, setIsDarkMode] = useState(false);
+    const [isDarkMode, setIsDarkMode] = useState(readStoredDarkMode);
 
     const theme = useMemo(() => {
-        const toggleTheme = () => setIsDarkMode((prev) => !prev);
+        const toggleTheme = () => {
+            setIsDarkMode((prev) => {
+                const next = !prev;
+                persistDarkMode(next);
+                return next;
+            });
+        };
 
         return {
             isDarkMode,
