@@ -114,6 +114,46 @@ class BillingMonthlyRevenueTest extends TestCase
         $this->assertSame('2026-06-22', $summary['date']);
     }
 
+    public function test_summarize_daily_revenue_groups_by_paid_at_per_day(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 15:00:00'));
+
+        $this->makePaidInvoice('D1', '2026-06-20 10:00:00', 100000);
+        $this->makePaidInvoice('D2', '2026-06-21 11:00:00', 50000);
+        $this->makePaidInvoice('D3', '2026-06-22 09:00:00', 75000);
+        $this->makePaidInvoice('D4', '2026-06-22 14:00:00', 25000);
+
+        $summary = BillingService::summarizeDailyRevenue(14, Carbon::parse('2026-06-22'));
+
+        $this->assertSame(14, $summary['days']);
+        $this->assertSame(250000.0, $summary['total']);
+        $this->assertSame(4, $summary['payment_count']);
+        $this->assertCount(14, $summary['series']);
+
+        $today = collect($summary['series'])->firstWhere('date', '2026-06-22');
+        $this->assertNotNull($today);
+        $this->assertSame(100000.0, $today['total']);
+        $this->assertSame(2, $today['payment_count']);
+    }
+
+    public function test_dashboard_includes_daily_revenue_payload(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-22 12:00:00'));
+
+        $admin = User::factory()->create();
+        $this->makePaidInvoice('DR1', '2026-06-22 10:00:00', 125000);
+
+        $response = $this->actingAs($admin)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/Dashboard/Index')
+            ->has('dailyRevenue.series')
+            ->where('dailyRevenue.total', 125000)
+            ->where('dailyRevenue.payment_count', 1)
+        );
+    }
+
     public function test_dashboard_includes_today_revenue_payload(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-22 12:00:00'));

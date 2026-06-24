@@ -109,6 +109,7 @@ class AdminPageController extends Controller
             'billingActivityLogs' => $billingLogs,
             'isolatedCustomers' => $isolatedCustomers,
             'todayRevenue' => $this->summarizeTodayRevenue($scope),
+            'dailyRevenue' => $this->summarizeDailyRevenue($scope),
             'inventorySummary' => InventoryItem::watchCategorySummaries(),
             'recentInventoryMovements' => InventoryService::recentMovements(5),
             'billingSummary' => [
@@ -411,6 +412,20 @@ class AdminPageController extends Controller
             'total' => round((float) $paid->sum('total_amount'), 2),
             'payment_count' => $paid->count(),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function summarizeDailyRevenue(StaffRouterScope $scope): array
+    {
+        return BillingService::summarizeDailyRevenue(
+            14,
+            null,
+            $scope->isScoped()
+                ? fn ($query) => $scope->scopeInvoices($query)
+                : null,
+        );
     }
 
     /**

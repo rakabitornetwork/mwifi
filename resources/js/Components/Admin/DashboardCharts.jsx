@@ -174,6 +174,77 @@ export const RevenueBarChart = memo(function RevenueBarChart({ data, isDarkMode 
     );
 });
 
+export const DailyRevenueAreaChart = memo(function DailyRevenueAreaChart({ data, isDarkMode }) {
+    const isAnimationActive = useMountAnimation(Boolean(data?.length));
+
+    if (!data?.length) {
+        return null;
+    }
+
+    const gridStroke = isDarkMode ? '#27272a' : '#e4e4e7';
+    const axisStroke = isDarkMode ? '#a1a1aa' : '#71717a';
+    const animation = animatedSeriesProps(isAnimationActive);
+
+    return (
+        <ChartShell className="h-52 w-full">
+            {(dimensions) => (
+                <AreaChart
+                    width={dimensions.width}
+                    height={dimensions.height}
+                    data={data}
+                    margin={{ top: 8, right: 8, left: -8, bottom: 0 }}
+                >
+                    <defs>
+                        <linearGradient id="dashboardDailyRevenue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
+                            <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                        </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+                    <XAxis
+                        dataKey="label"
+                        stroke={axisStroke}
+                        fontSize={9}
+                        tickLine={false}
+                        axisLine={false}
+                        interval="preserveStartEnd"
+                    />
+                    <YAxis
+                        stroke={axisStroke}
+                        fontSize={9}
+                        tickLine={false}
+                        axisLine={false}
+                        width={42}
+                        tickFormatter={(value) => `${Math.round(value / 1000)}k`}
+                    />
+                    <Tooltip
+                        formatter={(value, name, item) => {
+                            const count = item?.payload?.payment_count ?? 0;
+                            const countLabel = count === 1 ? '1 pembayaran' : `${count} pembayaran`;
+
+                            return [formatRupiah(value), `Pemasukan · ${countLabel}`];
+                        }}
+                        labelFormatter={(label) => label}
+                        contentStyle={tooltipStyle(isDarkMode)}
+                    />
+                    <Area
+                        type="monotone"
+                        dataKey="total"
+                        name="Pemasukan"
+                        stroke="#f59e0b"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#dashboardDailyRevenue)"
+                        dot={{ r: 2.5, strokeWidth: 0, fill: '#f59e0b' }}
+                        activeDot={{ r: 4, strokeWidth: 0 }}
+                        {...animation}
+                    />
+                </AreaChart>
+            )}
+        </ChartShell>
+    );
+});
+
 export const ResourceAreaChart = memo(function ResourceAreaChart({ data, isDarkMode }) {
     const animation = useLiveChartAnimation(data?.length ?? 0);
 

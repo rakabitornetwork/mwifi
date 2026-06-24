@@ -17,6 +17,7 @@ import {
     Radio,
     Wallet,
     Wifi,
+    TrendingUp,
 } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import { PremiumPanel, PremiumPanelHeader } from '../../../Components/Admin/AdminPageCard';
@@ -27,6 +28,7 @@ import { bpsToMbps, formatSpeedBps } from '../../../utils/formatSpeedBps';
 const chartModule = () => import('../../../Components/Admin/DashboardCharts');
 const ResourceAreaChart = lazy(() => chartModule().then((module) => ({ default: module.ResourceAreaChart })));
 const TrafficAreaChart = lazy(() => chartModule().then((module) => ({ default: module.TrafficAreaChart })));
+const DailyRevenueAreaChart = lazy(() => chartModule().then((module) => ({ default: module.DailyRevenueAreaChart })));
 
 const WATCH_CATEGORY_ICONS = {
     ont: RouterIcon,
@@ -56,6 +58,7 @@ function DashboardContent({
     billingActivityLogs = [],
     isolatedCustomers = [],
     todayRevenue = {},
+    dailyRevenue = {},
     inventorySummary = {},
     recentInventoryMovements = [],
     billingSummary = {},
@@ -261,6 +264,15 @@ function DashboardContent({
     }, [interfaceTraffic]);
 
     const todayPaymentCount = todayRevenue?.payment_count ?? 0;
+    const dailyRevenueSeries = dailyRevenue?.series ?? [];
+    const dailyRevenueTotal = Number(dailyRevenue?.total ?? 0);
+    const dailyRevenuePaymentCount = Number(dailyRevenue?.payment_count ?? 0);
+    const dailyRevenueChangePercent = Number(dailyRevenue?.change_percent ?? 0);
+    const dailyRevenueTrendLabel = dailyRevenueChangePercent > 0
+        ? `+${dailyRevenueChangePercent}% vs periode sebelumnya`
+        : dailyRevenueChangePercent < 0
+            ? `${dailyRevenueChangePercent}% vs periode sebelumnya`
+            : 'Stabil vs periode sebelumnya';
 
     const stats = useMemo(() => [
         {
@@ -385,6 +397,68 @@ function DashboardContent({
                     );
                 })}
             </div>
+
+            <PremiumPanel accent="amber" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-4">
+                <PremiumPanelHeader
+                    icon={TrendingUp}
+                    accent="amber"
+                    isDarkMode={isDarkMode}
+                    themeTextTitle={themeTextTitle}
+                    title="Tren Pemasukan Harian"
+                    trailing={(
+                        <span className={`text-[10px] ${themeTextDesc} shrink-0 whitespace-nowrap`}>
+                            {dailyRevenue?.days || 14} hari terakhir
+                        </span>
+                    )}
+                />
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className={`rounded-xl border p-3 ${isDarkMode ? 'border-amber-500/20 bg-amber-500/5' : 'border-amber-200 bg-amber-50/80'}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-wide ${isDarkMode ? 'text-amber-300/90' : 'text-amber-700'}`}>
+                            Total {dailyRevenue?.days || 14} Hari
+                        </p>
+                        <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(dailyRevenueTotal)}</p>
+                        <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
+                            {dailyRevenuePaymentCount} pembayaran lunas
+                        </p>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${themeInnerWidget}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Hari Ini</p>
+                        <p className={`text-xl font-black mt-1 leading-none ${themeTextTitle}`}>{formatRupiah(todayRevenue?.total || 0)}</p>
+                        <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>
+                            {todayPaymentCount === 1 ? '1 pembayaran lunas' : `${todayPaymentCount} pembayaran lunas`}
+                        </p>
+                    </div>
+                    <div className={`rounded-xl border p-3 ${themeInnerWidget}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Perbandingan Mingguan</p>
+                        <p className={`text-xl font-black mt-1 leading-none ${
+                            dailyRevenueChangePercent > 0
+                                ? 'text-emerald-500'
+                                : dailyRevenueChangePercent < 0
+                                    ? 'text-rose-500'
+                                    : themeTextTitle
+                        }`}>
+                            {dailyRevenueChangePercent > 0 ? `+${dailyRevenueChangePercent}%` : `${dailyRevenueChangePercent}%`}
+                        </p>
+                        <p className={`text-[10px] font-semibold mt-1 ${themeTextDesc}`}>{dailyRevenueTrendLabel}</p>
+                    </div>
+                </div>
+
+                <div className="space-y-1.5">
+                    <p className={`text-[10px] font-bold ${themeTextSub}`}>Grafik pemasukan per hari (invoice lunas)</p>
+                    <div className="h-52 w-full">
+                        {dailyRevenueSeries.length === 0 ? (
+                            <div className={`h-full flex items-center justify-center text-[10px] font-bold uppercase tracking-wider ${themeTextDesc}`}>
+                                Belum ada data pemasukan harian
+                            </div>
+                        ) : (
+                            <Suspense fallback={<ChartFallback className="h-52" />}>
+                                <DailyRevenueAreaChart data={dailyRevenueSeries} isDarkMode={isDarkMode} />
+                            </Suspense>
+                        )}
+                    </div>
+                </div>
+            </PremiumPanel>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-4">

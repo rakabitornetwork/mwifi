@@ -612,6 +612,78 @@ class BillingService
     }
 
     /**
+     * Daily revenue trend from paid invoices (paid_at).
+     *
+     * @param  callable(\Illuminate\Database\Eloquent\Builder): void|null  $scopeInvoices
+     * @return array{
+     *     days: int,
+     *     total: float,
+     *     payment_count: int,
+     *     change_percent: float,
+     *     series: array<int, array{date: string, label: string, total: float, payment_count: int}>
+     * }
+     */
+    public static function summarizeDailyRevenue(int $days = 14, ?Carbon $today = null, ?callable $scopeInvoices = null): array
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay()->locale('id');
+        $days = max(7, min(31, $days));
+
+        $rangeStart = $today->copy()->subDays($days - 1)->startOfDay();
+        $rangeEnd = $today->copy()->endOfDay();
+
+        $query = Invoice::query()
+            ->where('status', 'paid')
+            ->whereNotNull('paid_at')
+            ->whereBetween('paid_at', [$rangeStart, $rangeEnd]);
+
+        if ($scopeInvoices) {
+            $scopeInvoices($query);
+        }
+
+        $grouped = (clone $query)
+            ->selectRaw('DATE(paid_at) as paid_date, SUM(total_amount) as total, COUNT(*) as payment_count')
+            ->groupBy('paid_date')
+            ->get()
+            ->keyBy(fn ($row) => (string) $row->paid_date);
+
+        $series = [];
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $day = $today->copy()->subDays($i);
+            $dateKey = $day->toDateString();
+            $row = $grouped->get($dateKey);
+
+            $series[] = [
+                'date' => $dateKey,
+                'label' => $day->translatedFormat('d M'),
+                'total' => round((float) ($row->total ?? 0), 2),
+                'payment_count' => (int) ($row->payment_count ?? 0),
+            ];
+        }
+
+        $total = round((float) array_sum(array_column($series, 'total')), 2);
+        $paymentCount = (int) array_sum(array_column($series, 'payment_count'));
+
+        $half = (int) floor($days / 2);
+        $olderTotal = round((float) array_sum(array_column(array_slice($series, 0, $half), 'total')), 2);
+        $recentTotal = round((float) array_sum(array_column(array_slice($series, $half), 'total')), 2);
+
+        $changePercent = 0.0;
+        if ($olderTotal > 0) {
+            $changePercent = round((($recentTotal - $olderTotal) / $olderTotal) * 100, 1);
+        } elseif ($recentTotal > 0) {
+            $changePercent = 100.0;
+        }
+
+        return [
+            'days' => $days,
+            'total' => $total,
+            'payment_count' => $paymentCount,
+            'change_percent' => $changePercent,
+            'series' => $series,
+        ];
+    }
+
+    /**
      * Generate invoices for all eligible PPPoE customers in a billing period (manual / CLI).
      *
      * @param string|null $period Format YYYY-MM (e.g., "2026-06"). Defaults to current month.
