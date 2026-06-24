@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Activity, CalendarClock, CreditCard, FileText, MessageSquare, PauseCircle, Printer, RefreshCw, RotateCcw, Search, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
+import { Activity, CalendarClock, CreditCard, FileText, MessageSquare, PauseCircle, Printer, RefreshCw, RotateCcw, Search, ShieldOff, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
@@ -76,6 +76,7 @@ function InvoicesPageContent({
     invoices = [],
     routers = [],
     billingActivityLogs = [],
+    isolationActivityLogs = [],
     billingDeferrals = [],
     monthlyRevenue = {},
 }) {
@@ -345,7 +346,11 @@ function InvoicesPageContent({
             return false;
         }
 
-        if (statusFilter !== 'all' && inv.status !== statusFilter) {
+        if (statusFilter === 'isolated') {
+            if (inv.customer?.status !== 'isolated') {
+                return false;
+            }
+        } else if (statusFilter !== 'all' && inv.status !== statusFilter) {
             return false;
         }
 
@@ -378,6 +383,13 @@ function InvoicesPageContent({
     const unpaidInvoicesCount = useMemo(
         () => invoices.filter(
             (inv) => inv.status === 'unpaid' && matchesRouterFilter(getInvoiceRouterId(inv))
+        ).length,
+        [invoices, routerFilter]
+    );
+
+    const isolatedInvoicesCount = useMemo(
+        () => invoices.filter(
+            (inv) => inv.customer?.status === 'isolated' && matchesRouterFilter(getInvoiceRouterId(inv))
         ).length,
         [invoices, routerFilter]
     );
@@ -527,6 +539,7 @@ function InvoicesPageContent({
                     >
                         <option value="all">Semua status</option>
                         <option value="unpaid">Belum Bayar ({unpaidInvoicesCount})</option>
+                        <option value="isolated">Isolir ({isolatedInvoicesCount})</option>
                         <option value="paid">Lunas</option>
                         <option value="canceled">Dibatalkan</option>
                         <option value="expired">Kedaluwarsa</option>
@@ -535,6 +548,13 @@ function InvoicesPageContent({
                 {statusFilter === 'unpaid' && (
                     <p className={`text-[10px] ${theme.themeTextSub}`}>
                         Menampilkan <span className="font-bold text-rose-500">{filteredInvoices.length}</span> invoice belum bayar
+                        {selectedRouter ? ` di ${selectedRouter.name}` : ''}
+                        {searchTerm.trim() ? ' yang cocok dengan pencarian' : ''}.
+                    </p>
+                )}
+                {statusFilter === 'isolated' && (
+                    <p className={`text-[10px] ${theme.themeTextSub}`}>
+                        Menampilkan <span className="font-bold text-amber-500">{filteredInvoices.length}</span> invoice pelanggan terisolir
                         {selectedRouter ? ` di ${selectedRouter.name}` : ''}
                         {searchTerm.trim() ? ' yang cocok dengan pencarian' : ''}.
                     </p>
@@ -672,9 +692,16 @@ function InvoicesPageContent({
                                             const isDeferredPending = inv.status === 'canceled' && inv.is_deferred_by_pending;
                                             const status = invoiceStatusMeta(isDeferredPending ? 'deferred' : inv.status);
                                             return (
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${status.className}`}>
-                                                    {status.label}
-                                                </span>
+                                                <div className="flex flex-col gap-1">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold w-fit ${status.className}`}>
+                                                        {status.label}
+                                                    </span>
+                                                    {inv.customer?.status === 'isolated' && (
+                                                        <span className="px-2 py-0.5 rounded text-[10px] font-bold w-fit bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                                            Isolir
+                                                        </span>
+                                                    )}
+                                                </div>
                                             );
                                         })()}
                                         {inv.status === 'canceled' && inv.is_deferred_by_pending && (
@@ -860,6 +887,7 @@ function InvoicesPageContent({
                     </div>
                 )}
 
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div className={`border rounded-xl p-4 space-y-3 ${theme.isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-center gap-2 min-w-0">
@@ -899,6 +927,50 @@ function InvoicesPageContent({
                             </div>
                         ))}
                     </div>
+                </div>
+
+                <div className={`border rounded-xl p-4 space-y-3 ${theme.isDarkMode ? 'border-amber-500/20 bg-amber-950/10' : 'border-amber-200 bg-amber-50/60'}`}>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <ShieldOff className="w-4 h-4 text-amber-500 shrink-0" />
+                            <h3 className={`text-xs font-bold uppercase tracking-wider ${theme.themeTextTitle}`}>Log Isolir Otomatis</h3>
+                        </div>
+                        <span className={`text-[10px] ${theme.themeTextDesc} shrink-0`}>Scheduler pengecekan jatuh tempo</span>
+                    </div>
+                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        {isolationActivityLogs.length === 0 ? (
+                            <p className={`text-xs text-center py-6 ${theme.themeTextDesc}`}>Belum ada riwayat isolir otomatis.</p>
+                        ) : isolationActivityLogs.map((log) => (
+                            <div key={log.id} className={`p-3 border rounded-xl text-xs ${themeInnerWidget}`}>
+                                <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="space-y-1 min-w-0 flex-1">
+                                        <p className={`font-bold ${theme.themeTextTitle}`}>{log.message}</p>
+                                        <p className={`text-[10px] ${theme.themeTextDesc}`}>
+                                            {log.run_date?.substring?.(0, 10) || '-'}
+                                            {log.meta?.isolation_count > 0 ? ` · ${log.meta.isolation_count} pelanggan` : ''}
+                                        </p>
+                                        {Array.isArray(log.meta?.customers) && log.meta.customers.length > 0 && (
+                                            <ul className={`text-[10px] ${theme.themeTextSub} space-y-0.5 pt-1`}>
+                                                {log.meta.customers.slice(0, 5).map((item, idx) => (
+                                                    <li key={idx}>
+                                                        {item.invoice_number} — {item.customer_name}
+                                                        <span className="font-mono opacity-70"> ({item.customer_username})</span>
+                                                        {' · '}{formatRupiah(item.total_amount || 0)}
+                                                        {item.wa_notified ? ' · WA terkirim' : ''}
+                                                    </li>
+                                                ))}
+                                                {log.meta.customers.length > 5 && (
+                                                    <li className={theme.themeTextDesc}>+ {log.meta.customers.length - 5} pelanggan lainnya</li>
+                                                )}
+                                            </ul>
+                                        )}
+                                    </div>
+                                    <span className={`text-[10px] ${theme.themeTextSub} font-mono whitespace-nowrap`}>{formatTimeAgo(log.created_at)}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
                 </div>
             </AdminPageCard>
             </div>
@@ -1017,13 +1089,14 @@ function InvoicesPageContent({
     );
 }
 
-export default function InvoicesIndex({ invoices, routers, billingActivityLogs, billingDeferrals, monthlyRevenue }) {
+export default function InvoicesIndex({ invoices, routers, billingActivityLogs, isolationActivityLogs, billingDeferrals, monthlyRevenue }) {
     return (
         <AdminLayout title="Tagihan / Billing">
             <InvoicesPageContent
                 invoices={invoices}
                 routers={routers}
                 billingActivityLogs={billingActivityLogs}
+                isolationActivityLogs={isolationActivityLogs}
                 billingDeferrals={billingDeferrals}
                 monthlyRevenue={monthlyRevenue}
             />

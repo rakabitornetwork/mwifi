@@ -771,6 +771,7 @@ class BillingService
     {
         $count = 0;
         $today = Carbon::today();
+        $isolatedCustomers = [];
 
         $invoices = Invoice::where('status', 'unpaid')
             ->where('due_date', '<', $today)
@@ -813,6 +814,7 @@ class BillingService
                     }
                 }
 
+                $waNotified = false;
                 try {
                     $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.isolation', [
                         'customer_name' => $customer->name,
@@ -823,7 +825,7 @@ class BillingService
                         'due_date' => $invoice->due_date->format('d-m-Y'),
                     ]);
                     if (class_exists(\App\Services\WhatsAppService::class)) {
-                        \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
+                        $waNotified = \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
                     }
                 } catch (Exception $waEx) {
                     Log::error("Failed to send WhatsApp isolation alert to {$customer->phone_number}: " . $waEx->getMessage());
@@ -831,13 +833,53 @@ class BillingService
 
                 DB::commit();
                 $count++;
+                $isolatedCustomers[] = [
+                    'customer_name' => $customer->name,
+                    'customer_username' => $customer->username,
+                    'invoice_number' => $invoice->invoice_number,
+                    'total_amount' => (float) $invoice->total_amount,
+                    'due_date' => $invoice->due_date->toDateString(),
+                    'router_name' => $router?->name,
+                    'wa_notified' => $waNotified,
+                ];
             } catch (Exception $e) {
                 DB::rollBack();
                 Log::error("Failed to isolate customer {$customer->username}: " . $e->getMessage());
             }
         }
 
+        self::recordAutoIsolationRun($today, $count, $isolatedCustomers);
+
         return $count;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $isolatedCustomers
+     */
+    public static function recordAutoIsolationRun(Carbon $runDate, int $count, array $isolatedCustomers): BillingActivityLog
+    {
+        $dateLabel = $runDate->format('d-m-Y');
+
+        if ($count === 0) {
+            $message = "Pengecekan isolir otomatis pada {$dateLabel}: tidak ada pelanggan yang di-isolir.";
+        } else {
+            $message = "Pengecekan isolir otomatis pada {$dateLabel}: {$count} pelanggan di-isolir karena tagihan jatuh tempo.";
+        }
+
+        Log::info('Billing auto-isolation run completed.', [
+            'run_date' => $runDate->toDateString(),
+            'isolation_count' => $count,
+        ]);
+
+        return BillingActivityLog::create([
+            'event_type' => 'auto_isolation',
+            'message' => $message,
+            'meta' => [
+                'isolation_count' => $count,
+                'customers' => $isolatedCustomers,
+            ],
+            'run_date' => $runDate->toDateString(),
+        ]);
     }
 
     /**

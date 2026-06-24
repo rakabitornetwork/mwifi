@@ -109,17 +109,19 @@ class StaffRouterScope
             ->flip();
 
         return $logs->filter(function (BillingActivityLog $log) use ($customerNames) {
-            $invoices = $log->meta['invoices'] ?? [];
+            foreach (['invoices', 'customers'] as $metaKey) {
+                $items = $log->meta[$metaKey] ?? [];
 
-            if (!is_array($invoices) || $invoices === []) {
-                return false;
-            }
+                if (!is_array($items) || $items === []) {
+                    continue;
+                }
 
-            foreach ($invoices as $invoice) {
-                $name = $invoice['customer_name'] ?? null;
+                foreach ($items as $item) {
+                    $name = $item['customer_name'] ?? null;
 
-                if ($name !== null && $customerNames->has($name)) {
-                    return true;
+                    if ($name !== null && $customerNames->has($name)) {
+                        return true;
+                    }
                 }
             }
 

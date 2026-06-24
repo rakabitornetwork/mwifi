@@ -39,7 +39,11 @@ class AdminPageController extends Controller
         $scope->scopeCustomers($customerBase);
 
         $billingLogs = $scope->filterBillingActivityLogs(
-            BillingActivityLog::orderByDesc('created_at')->limit(8)->get()
+            BillingActivityLog::query()
+                ->where('event_type', 'scheduled_invoice')
+                ->orderByDesc('created_at')
+                ->limit(8)
+                ->get()
         );
 
         $invoiceBase = Invoice::query();
@@ -272,7 +276,19 @@ class AdminPageController extends Controller
         $scope->scopeCustomers($customerQuery);
 
         $billingLogs = $scope->filterBillingActivityLogs(
-            BillingActivityLog::orderByDesc('created_at')->limit(50)->get()
+            BillingActivityLog::query()
+                ->where('event_type', 'scheduled_invoice')
+                ->orderByDesc('created_at')
+                ->limit(50)
+                ->get()
+        );
+
+        $isolationLogs = $scope->filterBillingActivityLogs(
+            BillingActivityLog::query()
+                ->where('event_type', 'auto_isolation')
+                ->orderByDesc('created_at')
+                ->limit(50)
+                ->get()
         );
 
         return Inertia::render('Admin/Invoices/Index', [
@@ -281,6 +297,7 @@ class AdminPageController extends Controller
             'customers' => $customerQuery->get(),
             'billingDeferrals' => BillingService::serializeBillingDeferrals($deferralQuery->get()),
             'billingActivityLogs' => $billingLogs,
+            'isolationActivityLogs' => $isolationLogs,
             'monthlyRevenue' => $this->summarizeMonthlyRevenue($scope),
         ]);
     }
