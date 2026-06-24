@@ -17,6 +17,13 @@ class PaymentWebhookController extends Controller
      */
     public function handle(Request $request)
     {
+        if ($request->isMethod('GET')) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'mWiFi payment webhook endpoint is reachable.',
+            ]);
+        }
+
         $payload = $request->json()->all();
         $headers = $request->headers->all();
 

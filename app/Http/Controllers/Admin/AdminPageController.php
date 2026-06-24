@@ -385,6 +385,7 @@ class AdminPageController extends Controller
         return Inertia::render('Admin/Settings/Index', [
             'settings' => Setting::all(),
             'routers' => Router::all(),
+            'paymentCallbackUrl' => rtrim((string) config('app.url'), '/') . '/api/payment/callback',
         ]);
     }
 

@@ -21,7 +21,7 @@ import BrandingFileUpload from '../../../Components/Admin/BrandingFileUpload';
 import SettingsSectionCard from '../../../Components/Admin/SettingsSectionCard';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 
-function SettingsPageContent({ settings = [], routers = [] }) {
+function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl = '' }) {
     const { branding = {} } = usePage().props;
     const { showToast } = useAdminToast();
     const {
@@ -658,9 +658,15 @@ function SettingsPageContent({ settings = [], routers = [] }) {
                     </div>
                     <div className={`p-3 rounded-lg border text-[10px] leading-relaxed ${isDarkMode ? 'bg-zinc-950/40 border-zinc-800 text-zinc-400' : 'bg-sky-50 border-sky-200 text-sky-800'}`}>
                         <p className="font-bold uppercase tracking-wide mb-1">URL Webhook / Callback</p>
-                        <p className="font-mono break-all">/api/payment/callback</p>
+                        <p className="font-mono break-all text-[11px]">
+                            {paymentCallbackUrl || '/api/payment/callback'}
+                        </p>
                         <p className="mt-1.5 opacity-80">
-                            Daftarkan URL lengkap (mis. https://domain-anda.com/api/payment/callback) di dashboard Tripay atau Midtrans agar status pembayaran terupdate otomatis.
+                            Salin URL di atas ke dashboard Midtrans (Payment notification URL) atau Tripay (Callback URL).
+                            URL harus bisa dibuka dari internet dan mengembalikan respons JSON — bukan halaman 404.
+                        </p>
+                        <p className="mt-1 opacity-70">
+                            Domain diambil dari <span className="font-mono">APP_URL</span> di server. Jika salah, perbaiki di file <span className="font-mono">.env</span> lalu jalankan <span className="font-mono">php artisan config:cache</span>.
                         </p>
                     </div>
                 </div>
@@ -747,10 +753,10 @@ function SettingsPageContent({ settings = [], routers = [] }) {
     );
 }
 
-export default function SettingsIndex({ settings, routers }) {
+export default function SettingsIndex({ settings, routers, paymentCallbackUrl }) {
     return (
         <AdminLayout title="Pengaturan">
-            <SettingsPageContent settings={settings} routers={routers} />
+            <SettingsPageContent settings={settings} routers={routers} paymentCallbackUrl={paymentCallbackUrl} />
         </AdminLayout>
     );
 }

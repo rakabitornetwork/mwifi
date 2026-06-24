@@ -174,7 +174,7 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::get('admin/hotspot/print-vouchers', [\App\Http\Controllers\Admin\AdminActionController::class, 'printVouchers']);
 });
 
-// Webhook Callback Payment Gateway
-Route::post('api/payment/callback', [\App\Http\Controllers\Api\PaymentWebhookController::class, 'handle']);
+// Webhook Callback Payment Gateway (GET = health check for Midtrans/Tripay URL validation)
+Route::match(['get', 'post'], 'api/payment/callback', [\App\Http\Controllers\Api\PaymentWebhookController::class, 'handle']);
 
 
