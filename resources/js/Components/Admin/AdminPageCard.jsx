@@ -80,8 +80,8 @@ export function PremiumPanelHeader({
     const styles = getCardAccentStyles(accent);
 
     return (
-        <div className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${className}`}>
-            <div className="flex items-center gap-2 min-w-0">
+        <div className={`flex items-center justify-between gap-2 ${className}`}>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
                 <div className={`p-1.5 rounded-lg shrink-0 ${isDarkMode ? styles.wrapDark : styles.wrapLight}`}>
                     <Icon className={`w-4 h-4 ${styles.icon}`} />
                 </div>
@@ -90,11 +90,15 @@ export function PremiumPanelHeader({
                         {title}
                     </h3>
                     {subtitle ? (
-                        <p className={`text-[10px] mt-0.5 ${themeTextDesc || ''}`}>{subtitle}</p>
+                        <p className={`text-[10px] mt-0.5 truncate ${themeTextDesc || ''}`}>{subtitle}</p>
                     ) : null}
                 </div>
             </div>
-            {trailing}
+            {trailing ? (
+                <div className="shrink-0 self-center">
+                    {trailing}
+                </div>
+            ) : null}
         </div>
     );
 }
