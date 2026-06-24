@@ -4,6 +4,7 @@ export default function SidebarMountain({ isDarkMode }) {
             <svg
                 viewBox="0 0 224 80"
                 className="w-full h-full"
+                preserveAspectRatio="none"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
             >
