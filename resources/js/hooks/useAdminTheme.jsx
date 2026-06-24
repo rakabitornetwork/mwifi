@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useEffect, useMemo } from 'react';
 import { useScheduledTheme } from './useScheduledTheme';
 
 const AdminThemeContext = createContext(null);
@@ -7,6 +7,14 @@ const THEME_STORAGE_KEY = 'mwifi.admin.theme';
 
 export function AdminThemeProvider({ children }) {
     const { isDarkMode, themePreference, isAutoTheme, toggleTheme } = useScheduledTheme(THEME_STORAGE_KEY);
+
+    useEffect(() => {
+        document.documentElement.style.colorScheme = isDarkMode ? 'dark' : 'light';
+        document.body.classList.toggle('bg-zinc-950', isDarkMode);
+        document.body.classList.toggle('text-zinc-100', isDarkMode);
+        document.body.classList.toggle('bg-gray-50', !isDarkMode);
+        document.body.classList.toggle('text-gray-900', !isDarkMode);
+    }, [isDarkMode]);
 
     const theme = useMemo(() => ({
         isDarkMode,

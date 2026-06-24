@@ -32,6 +32,21 @@ $branding = BrandingService::get();
         <!-- Scripts & Styles -->
         @viteReactRefresh
         @vite(['resources/js/app.jsx', 'resources/css/app.css'])
+        <script>
+            (function () {
+                try {
+                    var hour = new Date().getHours();
+                    var preference = localStorage.getItem('mwifi.admin.theme');
+                    var isDark = preference === 'dark'
+                        || (preference !== 'light' && (hour >= 18 || hour < 6));
+                    if (isDark) {
+                        document.documentElement.style.backgroundColor = '#09090b';
+                        document.body.style.backgroundColor = '#09090b';
+                        document.body.style.color = '#f4f4f5';
+                    }
+                } catch (e) {}
+            })();
+        </script>
         @inertiaHead
     </head>
     <body class="font-sans antialiased bg-gray-50 text-gray-900">

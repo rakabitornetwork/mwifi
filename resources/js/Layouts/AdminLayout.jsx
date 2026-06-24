@@ -6,6 +6,7 @@ import AdminSidebar from '../Components/Admin/AdminSidebar';
 import AdminNavbar from '../Components/Admin/AdminNavbar';
 import ToastStack from '../Components/Admin/ToastStack';
 import ReadOnlyStaffBanner from '../Components/Admin/ReadOnlyStaffBanner';
+import NightSkyBackground from '../Components/Admin/NightSkyBackground';
 import PullToRefresh from '../Components/PullToRefresh';
 import { AdminToastProvider, useAdminToast } from '../hooks/useAdminToast';
 import { AdminThemeProvider, useAdminTheme } from '../hooks/useAdminTheme.jsx';
