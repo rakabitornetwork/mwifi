@@ -577,7 +577,7 @@ function DashboardContent({
                             trailing={(
                                 <Link
                                     href="/inventory"
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors ${isDarkMode ? 'border-sky-500/30 text-sky-300 hover:bg-sky-500/10' : 'border-sky-200 text-sky-700 hover:bg-sky-50'}`}
+                                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg text-white bg-sky-500 hover:bg-sky-600 shadow-sm shadow-sky-500/25 transition-colors"
                                 >
                                     Kelola
                                 </Link>
@@ -674,7 +674,7 @@ function DashboardContent({
                             trailing={(
                                 <Link
                                     href={invoicesHref}
-                                    className={`text-[10px] font-bold px-2 py-1 rounded-lg border transition-colors ${isDarkMode ? 'border-rose-500/30 text-rose-300 hover:bg-rose-500/10' : 'border-rose-200 text-rose-700 hover:bg-rose-50'}`}
+                                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg text-white bg-rose-500 hover:bg-rose-600 shadow-sm shadow-rose-500/25 transition-colors"
                                 >
                                     Tagihan
                                 </Link>
