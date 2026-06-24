@@ -575,3 +575,113 @@
     max-width: 100%;
     box-sizing: border-box;
 }
+
+/* Celestial night sky animations */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.85); }
+  50% { opacity: 0.95; transform: scale(1.15); }
+}
+
+.star-twinkle-slow {
+  animation: twinkle 4s infinite ease-in-out;
+}
+
+.star-twinkle-medium {
+  animation: twinkle 2.5s infinite ease-in-out;
+}
+
+.star-twinkle-fast {
+  animation: twinkle 1.5s infinite ease-in-out;
+}
+
+@keyframes meteor-shoot-1 {
+  0% {
+    transform: translate(0, 0) rotate(-40deg) scale(0);
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+  }
+  8% {
+    transform: translate(-320px, 268px) rotate(-40deg) scale(1);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-320px, 268px) rotate(-40deg) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes meteor-shoot-2 {
+  0% {
+    transform: translate(0, 0) rotate(-40deg) scale(0);
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+  }
+  6% {
+    transform: translate(-450px, 377px) rotate(-40deg) scale(1);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-450px, 377px) rotate(-40deg) scale(1);
+    opacity: 0;
+  }
+}
+
+.meteor-1 {
+  animation: meteor-shoot-1 14s infinite linear;
+}
+
+.meteor-2 {
+  animation: meteor-shoot-2 20s infinite linear;
+}
+
+.meteor-3 {
+  animation: meteor-shoot-1 17s infinite linear;
+}
+
+@keyframes comet-glide {
+  0% {
+    transform: translate(0, 0) rotate(22deg);
+    opacity: 0;
+  }
+  3% {
+    opacity: 0.5;
+  }
+  35% {
+    opacity: 0.5;
+  }
+  40% {
+    transform: translate(480px, 194px) rotate(22deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(480px, 194px) rotate(22deg);
+    opacity: 0;
+  }
+}
+
+.comet-glow {
+  animation: comet-glide 60s infinite linear;
+}
+
+@keyframes drift-left {
+  0% { transform: translateX(110%); }
+  100% { transform: translateX(-110%); }
+}
+
+@keyframes drift-right {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(110%); }
+}
+
+.cloud-drift-slow {
+  animation: drift-left 140s linear infinite;
+}
+
+.cloud-drift-medium {
+  animation: drift-right 100s linear infinite;
+}
+

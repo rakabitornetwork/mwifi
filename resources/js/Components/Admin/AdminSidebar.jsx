@@ -17,6 +17,7 @@ import {
     X,
 } from 'lucide-react';
 import BrandingTagline, { BrandingCompanyName } from '../BrandingTagline';
+import SidebarMountain from './SidebarMountain';
 
 export const adminNavItems = [
     // Ringkasan
@@ -122,6 +123,9 @@ export default function AdminSidebar({
             </div>
 
             <div className={`shrink-0 p-3 ${themeSidebarBottom} transition-colors duration-200`}>
+                <div className="-mx-3 -mt-3 mb-2.5 overflow-hidden">
+                    <SidebarMountain isDarkMode={isDarkMode} />
+                </div>
                 <div className="flex items-center gap-3 mb-2.5 px-1.5">
                     {auth.user.avatar_url ? (
                         <img
