@@ -17,24 +17,6 @@ import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 
-const TAB_LABELS = {
-    dashboard: 'Dashboard',
-    routers: 'Router',
-    'network-map': 'Peta Jaringan',
-    packages: 'Paket',
-    customers: 'PPPoE',
-    hotspot: 'Hotspot',
-    invoices: 'Tagihan',
-    'finance': 'Laporan Keuangan',
-    'hutang-piutang': 'Hutang & Piutang',
-    inventory: 'Inventaris',
-    messaging: 'WhatsApp',
-    settings: 'Pengaturan',
-    database: 'Database',
-    update: 'Update',
-    users: 'Manajemen User',
-};
-
 const ROLE_BADGE_CLASS = {
     super_admin: 'bg-violet-500/10 text-violet-500 border-violet-500/20',
     admin: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
@@ -45,7 +27,6 @@ const ROLE_BADGE_CLASS = {
 
 function UsersPageContent({
     staffUsers = [],
-    roles = {},
     assignableRoles = [],
     routers = [],
     currentUserId,
@@ -64,8 +45,6 @@ function UsersPageContent({
         ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
     const themeLabel = isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
-    const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
-
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -194,8 +173,6 @@ function UsersPageContent({
         router.post('/admin/users/toggle-active', { id: user.id });
     };
 
-    const roleEntries = useMemo(() => Object.entries(roles), [roles]);
-
     return (
         <>
             <AdminPageCard
@@ -235,25 +212,6 @@ function UsersPageContent({
                             </div>
                         );
                     })}
-                </div>
-
-                <div className={`rounded-xl border p-3 space-y-2 ${isDarkMode ? 'border-zinc-800/80 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/80'}`}>
-                    <p className={`text-xs font-bold ${themeTextTitle}`}>Hak Akses per Role</p>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                        {roleEntries.map(([roleKey, roleMeta]) => (
-                            <div key={roleKey} className={`rounded-lg border p-2.5 ${themeInnerWidget}`}>
-                                <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${ROLE_BADGE_CLASS[roleKey] || ROLE_BADGE_CLASS.admin}`}>
-                                        {roleMeta.label}
-                                    </span>
-                                </div>
-                                <p className={`text-[10px] mt-1.5 leading-snug ${themeTextDesc}`}>{roleMeta.description}</p>
-                                <p className={`text-[10px] mt-1.5 ${themeTextSub}`}>
-                                    Menu: {(roleMeta.tabs || []).map((tab) => TAB_LABELS[tab] || tab).join(' · ') || '—'}
-                                </p>
-                            </div>
-                        ))}
-                    </div>
                 </div>
 
                 <div className="flex flex-col lg:flex-row gap-2">

@@ -282,7 +282,6 @@ class AdminPageController extends Controller
                     'created_at' => $user->created_at?->format('d/m/Y H:i'),
                     'updated_at' => $user->updated_at?->format('d/m/Y H:i'),
                 ]),
-            'roles' => User::roleCatalog(),
             'assignableRoles' => collect(User::assignableRoles($actor))
                 ->map(fn (array $meta, string $key) => ['value' => $key, 'label' => $meta['label'], 'description' => $meta['description']])
                 ->values()
