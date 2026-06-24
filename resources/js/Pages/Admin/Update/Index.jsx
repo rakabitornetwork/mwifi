@@ -448,7 +448,11 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
                                 onClick={() => refreshRemoteStatus(true)}
                                 disabled={isCheckingRemote || isRunningUpdate}
                                 title={isCheckingRemote ? 'Memeriksa...' : 'Cek Ulang'}
-                                className="p-2.5 disabled:opacity-45 border rounded-xl cursor-pointer inline-flex items-center justify-center transition-colors border-violet-300/60 text-violet-700 hover:bg-violet-50 dark:border-violet-500/30 dark:text-violet-200 dark:hover:bg-violet-500/10"
+                                className={`p-2.5 disabled:opacity-45 border rounded-xl cursor-pointer inline-flex items-center justify-center transition-colors ${
+                                    theme.isDarkMode
+                                        ? 'border-violet-500/35 text-violet-200 hover:bg-violet-500/10 hover:border-violet-400/50'
+                                        : 'border-violet-500 bg-violet-50 text-violet-800 hover:bg-violet-100 hover:border-violet-600 shadow-sm'
+                                }`}
                             >
                                 <RefreshCw className={`w-4 h-4 ${isCheckingRemote ? 'animate-spin' : ''}`} />
                             </button>
