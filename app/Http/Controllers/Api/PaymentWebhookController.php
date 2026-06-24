@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Services\BillingService;
 use App\Services\Payment\PaymentService;
-use App\Services\SettingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -27,37 +26,42 @@ class PaymentWebhookController extends Controller
         $payload = $request->json()->all();
         $headers = $request->headers->all();
 
-        Log::info("Payment webhook callback received.", [
+        Log::info('Payment webhook callback received.', [
             'headers' => $headers,
-            'payload' => $payload
+            'payload' => $payload,
         ]);
 
         try {
-            $driver = PaymentService::getDriver();
-            $gatewayName = SettingService::get('payment.active_gateway', 'tripay');
+            [$driver, $gatewayName] = PaymentService::resolveDriverForWebhook($headers, $payload);
 
-            // Verify webhook signature
-            if (!$driver->verifyWebhook($headers, $payload)) {
+            if (! $driver->verifyWebhook($headers, $payload)) {
                 Log::warning("Payment webhook signature verification failed for gateway: {$gatewayName}");
                 return response()->json(['message' => 'Invalid signature'], 401);
             }
 
-            // Extract callback details
             $data = $driver->extractWebhookData($payload);
 
             if (empty($data['invoice_number'])) {
-                Log::warning("Payment webhook: missing invoice number in payload.");
-                return response()->json(['message' => 'Missing invoice number'], 400);
+                Log::warning('Payment webhook: missing invoice number in payload.');
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Webhook acknowledged; missing invoice number.',
+                ]);
             }
 
             $invoice = Invoice::where('invoice_number', $data['invoice_number'])->with('customer')->first();
 
-            if (!$invoice) {
+            if (! $invoice) {
                 Log::warning("Payment webhook: Invoice {$data['invoice_number']} not found.");
-                return response()->json(['message' => 'Invoice not found'], 404);
+
+                // Midtrans expects HTTP 200 even for unknown order IDs (e.g. test notifications).
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Webhook acknowledged; invoice not found.',
+                ]);
             }
 
-            // Process invoice status
             if ($data['status'] === 'paid') {
                 $processed = BillingService::processPaidInvoice(
                     $invoice,
@@ -78,7 +82,8 @@ class PaymentWebhookController extends Controller
             return response()->json(['success' => true, 'message' => 'Webhook received with status: ' . $data['status']]);
 
         } catch (\Exception $e) {
-            Log::error("Payment webhook error: " . $e->getMessage());
+            Log::error('Payment webhook error: ' . $e->getMessage());
+
             return response()->json(['message' => 'Internal Server Error: ' . $e->getMessage()], 500);
         }
     }
