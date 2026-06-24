@@ -240,14 +240,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         };
 
         router.post('/admin/packages/save', payload, {
-            onSuccess: (page) => {
-                const flash = page.props.flash || {};
-                if (flash.success) {
-                    showToast(flash.success, 'success');
-                } else if (flash.warning) {
-                    showToast(flash.warning, 'warning');
-                }
-
+            onSuccess: () => {
                 setShowPackageModal(false);
                 setEditingPackage(null);
                 setPackageForm(emptyPackageForm);
@@ -273,15 +266,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         if (!confirm(message)) return;
 
         router.post('/admin/packages/delete', { id: packageId, router_id: routerFilter, db_only: dbOnly ? 1 : 0 }, {
-            onSuccess: (page) => {
-                const flash = page.props.flash || {};
-                if (flash.success) {
-                    showToast(flash.success, 'success');
-                } else if (flash.error) {
-                    showToast(flash.error, 'error');
-                } else if (flash.warning) {
-                    showToast(flash.warning, 'warning');
-                }
+            onSuccess: () => {
                 refreshRouterOsData(routerFilter);
             },
             onError: () => {
@@ -462,13 +447,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         setIsSyncingPackages(true);
 
         router.post('/admin/packages/sync-from-router', { router_id: routerFilter }, {
-            onSuccess: (page) => {
-                const flash = page.props.flash || {};
-                if (flash.success) {
-                    showToast(flash.success, 'success');
-                } else if (flash.error) {
-                    showToast(flash.error, 'error');
-                }
+            onSuccess: () => {
                 clearRouterPackageProfilesCache(routerFilter);
                 refreshRouterOsData(routerFilter);
             },

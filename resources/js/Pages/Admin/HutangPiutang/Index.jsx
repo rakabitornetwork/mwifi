@@ -98,7 +98,6 @@ function HutangPiutangContent({
             preserveScroll: true,
             onSuccess: () => {
                 setShowModal(false);
-                showToast(editingEntry ? 'Transaksi diperbarui.' : 'Transaksi dicatat.', 'success');
             },
             onError: () => showToast('Gagal menyimpan transaksi.', 'error'),
         });
@@ -113,7 +112,6 @@ function HutangPiutangContent({
             preserveScroll: true,
             onSuccess: () => {
                 setEntryToDelete(null);
-                showToast('Transaksi dihapus.', 'success');
             },
             onError: () => showToast('Gagal menghapus transaksi.', 'error'),
         });

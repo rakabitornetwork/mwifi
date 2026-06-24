@@ -125,7 +125,6 @@ function FinanceContent({
             preserveScroll: true,
             onSuccess: () => {
                 setShowExpenseModal(false);
-                showToast(editingExpense ? 'Pengeluaran diperbarui.' : 'Pengeluaran dicatat.', 'success');
             },
             onError: () => showToast('Gagal menyimpan pengeluaran.', 'error'),
         });
@@ -140,7 +139,6 @@ function FinanceContent({
             preserveScroll: true,
             onSuccess: () => {
                 setExpenseToDelete(null);
-                showToast('Pengeluaran dihapus.', 'success');
             },
             onError: () => showToast('Gagal menghapus pengeluaran.', 'error'),
         });
