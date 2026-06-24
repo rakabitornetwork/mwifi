@@ -5,6 +5,7 @@ import {
     CreditCard,
     Database,
     GitBranch,
+    HandCoins,
     Layers,
     LogOut,
     Map,
@@ -32,6 +33,7 @@ export const adminNavItems = [
     { tab: 'hotspot', icon: Radio, label: 'Manajemen Hotspot' },
     { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
     { tab: 'finance', icon: Wallet, label: 'Laporan Keuangan' },
+    { tab: 'hutang-piutang', icon: HandCoins, label: 'Hutang & Piutang' },
     { tab: 'inventory', icon: Boxes, label: 'Manajemen Inventaris' },
     // Administrasi sistem
     { tab: 'users', icon: ShieldCheck, label: 'Manajemen User' },

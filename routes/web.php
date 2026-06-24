@@ -79,6 +79,7 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::get('finance', [AdminPageController::class, 'finance']);
     Route::redirect('finance-income', '/finance');
     Route::redirect('finance-expenses', '/finance');
+    Route::get('hutang-piutang', [AdminPageController::class, 'hutangPiutang']);
     Route::get('users', [AdminPageController::class, 'users']);
 
     // GenieACS (TR-069) Routes
@@ -109,6 +110,8 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::post('admin/inventory/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteInventoryItem']);
     Route::post('admin/finance/expenses/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveFinancialExpense']);
     Route::post('admin/finance/expenses/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteFinancialExpense']);
+    Route::post('admin/hutang-piutang/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveStaffAdvanceLedger']);
+    Route::post('admin/hutang-piutang/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteStaffAdvanceLedger']);
     Route::post('admin/users/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveStaffUser']);
     Route::post('admin/users/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deleteStaffUser']);
     Route::post('admin/users/toggle-active', [\App\Http\Controllers\Admin\AdminActionController::class, 'toggleStaffUserActive']);

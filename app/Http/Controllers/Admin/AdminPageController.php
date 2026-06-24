@@ -14,7 +14,7 @@ use App\Models\Invoice;
 use App\Models\Odp;
 use App\Models\Package;
 use App\Models\Router;
-use App\Models\Setting;
+use App\Models\StaffAdvanceLedger;
 use App\Models\User;
 use App\Services\AppUpdateService;
 use App\Services\BillingService;
@@ -22,7 +22,7 @@ use App\Services\DatabaseBackupService;
 use App\Services\FinancialReportService;
 use App\Services\InventoryService;
 use App\Services\MessageTemplateService;
-use App\Services\SettingService;
+use App\Services\StaffAdvanceReportService;
 use App\Services\StaffRouterScope;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -518,6 +518,32 @@ class AdminPageController extends Controller
             ],
             'incomeReport' => FinancialReportService::incomeReport($from, $to, $scope, $routerFilter),
             'expenseReport' => FinancialReportService::expenseReport($from, $to, $scope, $routerFilter, $categoryFilter),
+        ]);
+    }
+
+    public function hutangPiutang(Request $request): Response
+    {
+        $from = $request->query('from')
+            ? \Carbon\Carbon::parse($request->query('from'))->startOfDay()
+            : now()->startOfMonth();
+        $to = $request->query('to')
+            ? \Carbon\Carbon::parse($request->query('to'))->endOfDay()
+            : now()->endOfDay();
+
+        $staffFilter = $request->query('staff');
+        $staffId = ($staffFilter && $staffFilter !== 'all') ? (int) $staffFilter : null;
+        $typeFilter = $request->query('type', 'all');
+
+        return Inertia::render('Admin/HutangPiutang/Index', [
+            'technicians' => StaffAdvanceReportService::technicianOptions(),
+            'types' => StaffAdvanceLedger::TYPES,
+            'filters' => [
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'staff' => $staffId ? (string) $staffId : 'all',
+                'type' => $typeFilter,
+            ],
+            'report' => StaffAdvanceReportService::report($from, $to, $staffId, $typeFilter),
         ]);
     }
 

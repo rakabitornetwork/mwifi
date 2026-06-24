@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use App\Models\FinancialExpense;
+use App\Models\StaffAdvanceLedger;
 use App\Models\HotspotVoucher;
 use App\Models\HotspotSale;
 use App\Models\InventoryItem;
@@ -2831,5 +2832,72 @@ class AdminActionController extends Controller
         $expense->delete();
 
         return redirect()->back()->with('success', 'Pengeluaran berhasil dihapus.');
+    }
+
+    public function saveStaffAdvanceLedger(Request $request)
+    {
+        $data = $request->validate([
+            'id' => 'nullable|integer|exists:staff_advance_ledgers,id',
+            'type' => 'required|in:' . implode(',', array_keys(StaffAdvanceLedger::TYPES)),
+            'staff_user_id' => 'nullable|integer|exists:users,id',
+            'counterparty' => 'nullable|string|max:150',
+            'title' => 'required|string|max:150',
+            'amount' => 'required|numeric|min:0.01',
+            'transaction_date' => 'required|date',
+            'payment_method' => 'nullable|string|max:50',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        if (in_array($data['type'], StaffAdvanceLedger::PIUTANG_TYPES, true)) {
+            if (empty($data['staff_user_id'])) {
+                return redirect()->back()->with('error', 'Pilih teknisi untuk kasbon atau pelunasan.');
+            }
+
+            $technician = User::query()
+                ->where('id', $data['staff_user_id'])
+                ->where('role', User::ROLE_TECHNICIAN)
+                ->first();
+
+            if (!$technician) {
+                return redirect()->back()->with('error', 'Teknisi tidak valid.');
+            }
+        }
+
+        $payload = [
+            'type' => $data['type'],
+            'staff_user_id' => in_array($data['type'], StaffAdvanceLedger::PIUTANG_TYPES, true)
+                ? $data['staff_user_id']
+                : null,
+            'counterparty' => in_array($data['type'], StaffAdvanceLedger::HUTANG_TYPES, true)
+                ? ($data['counterparty'] ?? null)
+                : null,
+            'title' => $data['title'],
+            'amount' => $data['amount'],
+            'transaction_date' => $data['transaction_date'],
+            'payment_method' => $data['payment_method'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'recorded_by' => $request->user()?->id,
+        ];
+
+        if (!empty($data['id'])) {
+            StaffAdvanceLedger::findOrFail($data['id'])->update($payload);
+
+            return redirect()->back()->with('success', 'Transaksi hutang/piutang berhasil diperbarui.');
+        }
+
+        StaffAdvanceLedger::create($payload);
+
+        return redirect()->back()->with('success', 'Transaksi hutang/piutang berhasil dicatat.');
+    }
+
+    public function deleteStaffAdvanceLedger(Request $request)
+    {
+        $data = $request->validate([
+            'id' => 'required|integer|exists:staff_advance_ledgers,id',
+        ]);
+
+        StaffAdvanceLedger::findOrFail($data['id'])->delete();
+
+        return redirect()->back()->with('success', 'Transaksi hutang/piutang berhasil dihapus.');
     }
 }

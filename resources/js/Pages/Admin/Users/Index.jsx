@@ -26,6 +26,7 @@ const TAB_LABELS = {
     hotspot: 'Hotspot',
     invoices: 'Tagihan',
     'finance': 'Laporan Keuangan',
+    'hutang-piutang': 'Hutang & Piutang',
     inventory: 'Inventaris',
     messaging: 'WhatsApp',
     settings: 'Pengaturan',
