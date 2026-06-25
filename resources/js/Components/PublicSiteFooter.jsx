@@ -10,7 +10,7 @@ function BrandMark({ branding, isDark }) {
             <img
                 src={branding.logo_url}
                 alt=""
-                className={`w-9 h-9 rounded-lg object-contain bg-white border p-1 ${isDark ? 'border-slate-800' : 'border-slate-200'}`}
+                className="w-9 h-9 rounded-lg object-contain bg-transparent"
             />
         );
     }

@@ -35,6 +35,11 @@ const STARS = [
     { top: '82%', left: '25%', size: 'w-1.5 h-1.5', anim: 'star-twinkle-medium' },
 ];
 
+const HEADER_NAV_LINK =
+    'text-sm font-semibold text-slate-400 hover:text-indigo-400 transition-colors';
+const HEADER_MOBILE_NAV_LINK =
+    'pb-2 border-b border-slate-900 text-sm font-semibold text-slate-400 hover:text-indigo-400 transition-colors';
+
 export default function Welcome({
     termsDocument = null,
     termsSections = [],
@@ -114,34 +119,38 @@ export default function Welcome({
                 className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-indigo-600/40 selection:text-indigo-200"
             >
                 {/* STICKY GLASSMORPHIC HEADER */}
-                <header className="sticky top-0 z-50 w-full border-b border-slate-900 bg-slate-950/80 backdrop-blur-md">
+                <header className="sticky top-0 z-50 w-full border-b border-slate-900 bg-slate-950/80 backdrop-blur-md relative">
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
                         {/* Logo & Brand */}
                         <Link href="/" className="flex items-center gap-3 group">
-                            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-sky-500 text-white font-extrabold shadow-md shadow-indigo-600/10 overflow-hidden">
-                                {branding.logo_url ? (
-                                    <img src={branding.logo_url} alt="" className="w-full h-full object-contain p-1.5 bg-white/5" />
-                                ) : (
+                            {branding.logo_url ? (
+                                <img
+                                    src={branding.logo_url}
+                                    alt=""
+                                    className="w-9 h-9 object-contain"
+                                />
+                            ) : (
+                                <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-sky-500 text-white font-extrabold shadow-md shadow-indigo-600/10 overflow-hidden">
                                     <Server className="w-4 h-4" />
-                                )}
-                            </div>
+                                </div>
+                            )}
                             <span className="text-sm font-black tracking-widest text-white group-hover:text-indigo-400 transition-colors uppercase">
                                 {companyName}
                             </span>
                         </Link>
 
                         {/* Desktop Navigation */}
-                        <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-slate-400">
-                            <Link href="/" className="text-white hover:text-indigo-400 transition-colors">
+                        <nav className="hidden md:flex items-center gap-8">
+                            <Link href="/" className={HEADER_NAV_LINK}>
                                 Beranda
                             </Link>
-                            <a href="#fitur" className="hover:text-indigo-400 transition-colors">
+                            <a href="#fitur" className={HEADER_NAV_LINK}>
                                 Layanan Kami
                             </a>
-                            <a href="#pesan" className="hover:text-indigo-400 transition-colors font-bold text-indigo-400 border-b-2 border-indigo-500/20 pb-0.5">
+                            <a href="#pesan" className={HEADER_NAV_LINK}>
                                 Pesan Layanan
                             </a>
-                            <a href="#kontak" className="hover:text-indigo-400 transition-colors">
+                            <a href="#kontak" className={HEADER_NAV_LINK}>
                                 Hubungi Kami
                             </a>
                         </nav>
@@ -159,6 +168,9 @@ export default function Welcome({
 
                         {/* Mobile Menu Button */}
                         <button
+                            type="button"
+                            aria-expanded={mobileMenuOpen}
+                            aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
                             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                             className="md:hidden p-2 rounded-lg border border-slate-800 bg-slate-900/60 text-slate-300 hover:text-white transition-colors"
                         >
@@ -166,35 +178,40 @@ export default function Welcome({
                         </button>
                     </div>
 
-                    {/* Mobile Navigation Drawer */}
-                    {mobileMenuOpen && (
-                        <div className="md:hidden absolute top-16 left-0 w-full border-b border-slate-900 bg-slate-950/95 backdrop-blur-lg animate-in fade-in slide-in-from-top-4 duration-200">
-                            <nav className="flex flex-col p-5 gap-4 text-sm font-semibold text-slate-300">
+                    <div
+                        aria-hidden={!mobileMenuOpen}
+                        className={`md:hidden absolute top-full left-0 w-full overflow-hidden border-slate-900 bg-slate-950/95 backdrop-blur-lg transition-[max-height,opacity,transform,border-color] duration-300 ease-in-out ${
+                            mobileMenuOpen
+                                ? 'max-h-[28rem] opacity-100 translate-y-0 border-b pointer-events-auto'
+                                : 'max-h-0 opacity-0 -translate-y-1 border-b-0 pointer-events-none'
+                        }`}
+                    >
+                        <nav className="flex flex-col p-5 gap-4">
                                 <Link
                                     href="/"
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className="pb-2 border-b border-slate-900 text-white"
+                                    className={HEADER_MOBILE_NAV_LINK}
                                 >
                                     Beranda
                                 </Link>
                                 <a
                                     href="#fitur"
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className="pb-2 border-b border-slate-900"
+                                    className={HEADER_MOBILE_NAV_LINK}
                                 >
                                     Layanan Kami
                                 </a>
                                 <a
                                     href="#pesan"
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className="pb-2 border-b border-slate-900 text-indigo-400"
+                                    className={HEADER_MOBILE_NAV_LINK}
                                 >
                                     Pesan Layanan
                                 </a>
                                 <a
                                     href="#kontak"
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className="pb-2 border-b border-slate-900"
+                                    className={HEADER_MOBILE_NAV_LINK}
                                 >
                                     Hubungi Kami
                                 </a>
@@ -207,8 +224,7 @@ export default function Welcome({
                                     Portal Pelanggan
                                 </Link>
                             </nav>
-                        </div>
-                    )}
+                    </div>
                 </header>
 
                 {/* CELESTIAL HERO SECTION */}
