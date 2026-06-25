@@ -33,12 +33,12 @@ function isManualPaidInvoice(inv) {
     return inv.payments.some((payment) => payment.gateway_name === 'manual');
 }
 
-function isMidtransSandboxPaidInvoice(inv) {
+function isGatewayPaidInvoice(inv) {
     if (inv.status !== 'paid' || !Array.isArray(inv.payments)) {
         return false;
     }
 
-    return inv.payments.some((payment) => payment.gateway_name === 'midtrans');
+    return inv.payments.some((payment) => payment.gateway_name && payment.gateway_name !== 'manual');
 }
 
 function invoiceStatusMeta(status) {
@@ -290,9 +290,9 @@ function InvoicesPageContent({
         });
     };
 
-    const handleVoidPayment = (invoiceId, invoiceNumber, isGatewayDemo = false) => {
-        const gatewayNote = isGatewayDemo
-            ? '\n\nIni pembayaran Midtrans sandbox (demo VPS). Status di aplikasi saja yang dibatalkan — tidak memanggil refund Midtrans.'
+    const handleVoidPayment = (invoiceId, invoiceNumber, isGatewaySandbox = false) => {
+        const gatewayNote = isGatewaySandbox
+            ? '\n\nIni pembayaran gateway mode sandbox. Status di aplikasi saja yang dibatalkan — tidak memanggil refund ke provider.'
             : '';
 
         if (!confirm(`Batalkan pembayaran untuk invoice ${invoiceNumber}?${gatewayNote}\n\nStatus akan kembali "Belum Bayar". Jika sudah lewat jatuh tempo pada pelanggan PPPoE biasa, pelanggan dapat di-isolir kembali.`)) return;
@@ -310,9 +310,13 @@ function InvoicesPageContent({
         });
     };
 
-    const handleDeleteInvoice = (invoiceId, invoiceNumber, status) => {
+    const handleDeleteInvoice = (invoiceId, invoiceNumber, status, isPaidCleanup = false) => {
+        const paidCleanupNote = isPaidCleanup
+            ? '\n\nPembayaran pada invoice ini akan dibatalkan otomatis sebelum dihapus (hanya untuk manual atau gateway sandbox).'
+            : '';
+
         if (!confirm(
-            `Hapus invoice ${invoiceNumber}?\n\n` +
+            `Hapus invoice ${invoiceNumber}?${paidCleanupNote}\n\n` +
             `Status: ${status}\n` +
             'Tindakan ini permanen dan tidak dapat dibatalkan.'
         )) return;
@@ -322,7 +326,7 @@ function InvoicesPageContent({
         });
     };
 
-    const canDeleteInvoice = (inv) => inv.status !== 'paid';
+    const canDeleteInvoice = (inv) => inv.can_delete_invoice === true;
 
     const canSendInvoiceWhatsApp = (inv) => inv.status === 'unpaid' || inv.status === 'paid';
 
@@ -967,10 +971,10 @@ function InvoicesPageContent({
                                                     onClick={() => handleVoidPayment(
                                                         inv.id,
                                                         inv.invoice_number,
-                                                        isMidtransSandboxPaidInvoice(inv) && !isManualPaidInvoice(inv),
+                                                        isGatewayPaidInvoice(inv) && !isManualPaidInvoice(inv),
                                                     )}
-                                                    title={isMidtransSandboxPaidInvoice(inv) && !isManualPaidInvoice(inv)
-                                                        ? 'Batalkan Pembayaran Midtrans Sandbox'
+                                                    title={isGatewayPaidInvoice(inv) && !isManualPaidInvoice(inv)
+                                                        ? 'Batalkan Pembayaran Gateway Sandbox'
                                                         : 'Batalkan Pembayaran'}
                                                     className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
                                                 >
@@ -982,8 +986,15 @@ function InvoicesPageContent({
                                             {canDeleteInvoice(inv) && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleDeleteInvoice(inv.id, inv.invoice_number, inv.status === 'canceled' && inv.is_deferred_by_pending ? 'Ditunda' : invoiceStatusMeta(inv.status).label)}
-                                                    title="Hapus"
+                                                    onClick={() => handleDeleteInvoice(
+                                                        inv.id,
+                                                        inv.invoice_number,
+                                                        inv.status === 'canceled' && inv.is_deferred_by_pending
+                                                            ? 'Ditunda'
+                                                            : invoiceStatusMeta(inv.status).label,
+                                                        inv.status === 'paid',
+                                                    )}
+                                                    title={inv.status === 'paid' ? 'Batalkan & Hapus Invoice' : 'Hapus'}
                                                     className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
                                                 >
                                                     <Trash2 className="w-4 h-4" />

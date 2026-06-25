@@ -531,6 +531,8 @@ class BillingService
                 $data['can_void_payment'] = self::canVoidPaidInvoice($invoice);
             }
 
+            $data['can_delete_invoice'] = self::canDeleteInvoice($invoice);
+
             if ($invoice->status === 'canceled' && $invoice->customer_id) {
                 $deferrals = $pendingDeferralsByCustomer->get($invoice->customer_id, collect());
                 $pendingDeferral = $deferrals->first(
@@ -1144,43 +1146,72 @@ class BillingService
             return false;
         }
 
-        $invoice->loadMissing(['payments', 'customer']);
+        $invoice->loadMissing('payments');
 
-        if ($invoice->payments()->where('gateway_name', 'manual')->exists()) {
-            return true;
+        if ($invoice->payments->isEmpty()) {
+            return false;
         }
 
-        return self::canVoidGatewayDemoPayment($invoice);
+        foreach ($invoice->payments as $payment) {
+            $gateway = strtolower((string) $payment->gateway_name);
+
+            if ($gateway === 'manual') {
+                continue;
+            }
+
+            if (! self::isGatewayInSandboxMode($gateway)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public static function isGatewayInSandboxMode(string $gateway): bool
+    {
+        return match (strtolower(trim($gateway))) {
+            'manual' => true,
+            'midtrans' => SettingService::get('payment.midtrans.mode', 'sandbox') === 'sandbox',
+            'tripay' => SettingService::get('payment.tripay.mode', 'sandbox') === 'sandbox',
+            'duitku' => SettingService::get('payment.duitku.mode', 'sandbox') === 'sandbox',
+            default => false,
+        };
     }
 
     /**
-     * Midtrans sandbox payments for VPS demo invoices can be voided locally (no refund API).
+     * @deprecated Use canVoidPaidInvoice()
      */
     public static function canVoidGatewayDemoPayment(Invoice $invoice): bool
     {
-        if (SettingService::get('payment.active_gateway', 'tripay') !== 'midtrans') {
-            return false;
+        $invoice->loadMissing('payments');
+
+        return $invoice->payments->contains(
+            fn (Payment $payment) => strtolower((string) $payment->gateway_name) !== 'manual'
+        ) && self::canVoidPaidInvoice($invoice);
+    }
+
+    /**
+     * Whether admin can permanently delete an invoice from the log.
+     */
+    public static function canDeleteInvoice(Invoice $invoice): bool
+    {
+        if (in_array($invoice->status, ['unpaid', 'canceled', 'expired'], true)) {
+            return true;
         }
 
-        if (SettingService::get('payment.midtrans.mode', 'sandbox') !== 'sandbox') {
-            return false;
-        }
-
-        $invoice->loadMissing(['payments', 'customer']);
-
-        if (! $invoice->payments()->where('gateway_name', 'midtrans')->exists()) {
+        if ($invoice->status !== 'paid') {
             return false;
         }
 
         if (VpsCatalogService::isVpsInvoice($invoice)) {
-            return true;
+            return false;
         }
 
-        return VpsCatalogService::isShowcaseCustomer($invoice->customer);
+        return self::canVoidPaidInvoice($invoice);
     }
 
     /**
-     * Reverse a paid invoice to unpaid (manual cash or Midtrans sandbox VPS demo).
+     * Reverse a paid invoice to unpaid (manual admin or gateway sandbox cleanup).
      *
      * @throws Exception When invoice is not eligible for reversal.
      */
@@ -1192,16 +1223,16 @@ class BillingService
 
         $invoice->load(['customer.package', 'customer.router', 'payments']);
 
-        $isManual = $invoice->payments()->where('gateway_name', 'manual')->exists();
-        $isGatewayDemo = self::canVoidGatewayDemoPayment($invoice);
-
-        if (! $isManual && ! $isGatewayDemo) {
+        if (! self::canVoidPaidInvoice($invoice)) {
             throw new Exception(
-                'Hanya pembayaran manual admin atau pembayaran Midtrans sandbox pada invoice VPS demo yang dapat dibatalkan dari sistem.'
+                'Hanya pembayaran manual admin atau pembayaran gateway mode sandbox (Midtrans, Tripay, Duitku) yang dapat dibatalkan dari sistem.'
             );
         }
 
-        if ($isManual && $invoice->payments()->where('gateway_name', '!=', 'manual')->exists()) {
+        $hasManual = $invoice->payments()->where('gateway_name', 'manual')->exists();
+        $hasGateway = $invoice->payments()->where('gateway_name', '!=', 'manual')->exists();
+
+        if ($hasManual && $hasGateway) {
             throw new Exception('Invoice ini memiliki campuran pembayaran manual dan gateway. Hubungi developer.');
         }
 
@@ -1245,7 +1276,7 @@ class BillingService
 
             DB::commit();
 
-            $kind = $isGatewayDemo ? 'gateway demo' : 'manual';
+            $kind = $hasGateway ? 'gateway sandbox' : 'manual';
             Log::info("Paid invoice reversed ({$kind}) for invoice {$invoice->invoice_number}");
 
             return true;
@@ -1701,14 +1732,27 @@ class BillingService
     }
 
     /**
-     * Permanently delete an invoice (unpaid/canceled/expired only).
+     * Permanently delete an invoice (unpaid/canceled/expired, or paid non-VPS that can be voided).
      */
     public static function deleteInvoice(Invoice $invoice): void
     {
+        $invoice->loadMissing(['payments', 'customer']);
+
         if ($invoice->status === 'paid') {
-            throw new \RuntimeException(
-                'Invoice lunas tidak dapat dihapus. Batalkan pembayaran manual terlebih dahulu jika perlu.'
-            );
+            if (VpsCatalogService::isVpsInvoice($invoice)) {
+                throw new \RuntimeException(
+                    'Invoice VPS lunas tidak dapat dihapus langsung. Batalkan pembayaran terlebih dahulu, lalu hapus.'
+                );
+            }
+
+            if (! self::canVoidPaidInvoice($invoice)) {
+                throw new \RuntimeException(
+                    'Invoice lunas tidak dapat dihapus. Batalkan pembayaran terlebih dahulu jika memungkinkan.'
+                );
+            }
+
+            self::reversePaidInvoice($invoice);
+            $invoice->refresh();
         }
 
         DB::transaction(function () use ($invoice): void {

@@ -90,13 +90,39 @@ class BillingReversePaymentTest extends TestCase
         $this->assertSame(0, Payment::where('invoice_id', $invoice->id)->count());
     }
 
-    public function test_cannot_reverse_gateway_payment(): void
+    public function test_cannot_reverse_gateway_payment_in_production_mode(): void
     {
         $invoice = $this->makePaidManualInvoice();
         Payment::where('invoice_id', $invoice->id)->update(['gateway_name' => 'tripay']);
 
+        Setting::updateOrCreate(['key' => 'payment.tripay.mode'], [
+            'group' => 'payment',
+            'value' => 'production',
+            'is_encrypted' => false,
+        ]);
+
         $this->expectException(\Exception::class);
         BillingService::reversePaidInvoice($invoice->fresh(['payments', 'customer']));
+    }
+
+    public function test_can_reverse_tripay_sandbox_invoice(): void
+    {
+        Setting::updateOrCreate(['key' => 'payment.tripay.mode'], [
+            'group' => 'payment',
+            'value' => 'sandbox',
+            'is_encrypted' => false,
+        ]);
+
+        $invoice = $this->makePaidManualInvoice();
+        Payment::where('invoice_id', $invoice->id)->update([
+            'gateway_name' => 'tripay',
+            'reference_number' => 'TRIPAY-SANDBOX',
+        ]);
+
+        $this->assertTrue(BillingService::reversePaidInvoice($invoice->fresh(['payments', 'customer'])));
+
+        $invoice->refresh();
+        $this->assertSame('unpaid', $invoice->status);
     }
 
     public function test_can_reverse_midtrans_sandbox_vps_invoice(): void
