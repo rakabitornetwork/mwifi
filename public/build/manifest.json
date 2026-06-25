@@ -382,7 +382,7 @@
     ]
   },
   "resources/js/Pages/Admin/Invoices/Index.jsx": {
-    "file": "assets/Index-B380mllN.js",
+    "file": "assets/Index-iWI_h7Zl.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Invoices/Index.jsx",
     "isDynamicEntry": true,
@@ -548,7 +548,7 @@
     ]
   },
   "resources/js/Pages/Customer/Dashboard.jsx": {
-    "file": "assets/Dashboard-DIYJ7ht4.js",
+    "file": "assets/Dashboard-KUsr5W6n.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Customer/Dashboard.jsx",
     "isDynamicEntry": true,
@@ -621,7 +621,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-Wdj2lssn.js",
+    "file": "assets/app-CvZbcVKL.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
