@@ -6,6 +6,7 @@ import {
     Crown,
     ExternalLink,
     Globe,
+    Layers,
     Link2,
     Mail,
     Plus,
