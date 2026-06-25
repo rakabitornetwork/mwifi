@@ -93,8 +93,6 @@ class PublicOrderTest extends TestCase
 
     public function test_order_fails_when_validation_fails(): void
     {
-        $this->withoutExceptionHandling();
-
         $response = $this->postJson('/layanan/pesan', [
             'name' => '',
             'email' => 'invalid-email',

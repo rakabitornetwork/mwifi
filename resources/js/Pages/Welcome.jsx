@@ -79,7 +79,12 @@ export default function Welcome({
                 setSuccess('Pesanan berhasil dibuat. Mengalihkan ke halaman pembayaran...');
                 window.location.href = result.payment_url;
             } else {
-                setError(result.message || 'Gagal membuat pesanan. Silakan coba lagi.');
+                if (result.errors) {
+                    const errorMsg = Object.values(result.errors).flat().join(' | ');
+                    setError(errorMsg || result.message || 'Gagal membuat pesanan.');
+                } else {
+                    setError(result.message || 'Gagal membuat pesanan. Silakan coba lagi.');
+                }
             }
         } catch (err) {
             setError('Terjadi kesalahan jaringan atau sistem. Periksa koneksi Anda.');
