@@ -14,13 +14,21 @@ class CustomerOtpAuthController extends Controller
     public function create(Request $request)
     {
         if ($request->user()?->customer) {
-            return redirect('/customer/dashboard');
+            $redirect = $this->sanitizeRedirect($request->query('redirect'));
+
+            return redirect($redirect ?: '/customer/dashboard');
+        }
+
+        $redirect = $this->sanitizeRedirect($request->query('redirect'));
+        if ($redirect) {
+            $request->session()->put('portal_intended_url', $redirect);
         }
 
         return Inertia::render('Customer/Login', [
             'phone' => $request->session()->get('portal_otp_phone', ''),
             'otp_sent' => (bool) $request->session()->get('portal_otp_sent', false),
             'masked_phone' => $request->session()->get('portal_otp_masked_phone'),
+            'redirect_after_login' => $redirect,
         ]);
     }
 
@@ -71,9 +79,10 @@ class CustomerOtpAuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
+        $intended = $this->sanitizeRedirect($request->session()->pull('portal_intended_url'));
         $request->session()->forget(['portal_otp_phone', 'portal_otp_sent', 'portal_otp_masked_phone']);
 
-        return redirect()->intended('/customer/dashboard');
+        return redirect($intended ?: '/customer/dashboard');
     }
 
     public function resetOtp(Request $request)
@@ -81,5 +90,18 @@ class CustomerOtpAuthController extends Controller
         $request->session()->forget(['portal_otp_phone', 'portal_otp_sent', 'portal_otp_masked_phone']);
 
         return redirect()->route('portal.login');
+    }
+
+    protected function sanitizeRedirect(?string $url): ?string
+    {
+        if ($url === null || $url === '') {
+            return null;
+        }
+
+        if (! str_starts_with($url, '/') || str_starts_with($url, '//')) {
+            return null;
+        }
+
+        return $url;
     }
 }

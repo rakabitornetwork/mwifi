@@ -10,6 +10,14 @@ Route::get('/', function () {
     return Inertia::render('Welcome');
 });
 
+Route::get('layanan/vps', [\App\Http\Controllers\VpsCatalogController::class, 'index'])
+    ->name('vps.catalog');
+
+Route::middleware(['auth', 'customer'])->group(function () {
+    Route::post('customer/vps/order', [\App\Http\Controllers\VpsCatalogController::class, 'order'])
+        ->name('vps.order');
+});
+
 Route::get('favicon.ico', function () {
     $path = \App\Services\BrandingService::resolveAssetPath('favicon')
         ?: \App\Services\BrandingService::resolveAssetPath('logo');
@@ -81,6 +89,7 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::get('invoices', [AdminPageController::class, 'invoices']);
     Route::get('hotspot', [AdminPageController::class, 'hotspot']);
     Route::get('settings', [AdminPageController::class, 'settings']);
+    Route::get('layanan-vps', [AdminPageController::class, 'layananVps']);
     Route::get('messaging', [AdminPageController::class, 'messaging']);
     Route::get('database', [AdminPageController::class, 'database']);
     Route::get('update', [AdminPageController::class, 'update']);
@@ -140,6 +149,7 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::post('admin/billing/defer/cancel', [\App\Http\Controllers\Admin\AdminActionController::class, 'cancelBillingDeferral']);
     Route::get('admin/invoices/{invoice}/print', [\App\Http\Controllers\Admin\AdminActionController::class, 'printInvoice']);
     Route::post('admin/settings/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveSettings']);
+    Route::post('admin/vps/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveVpsSettings']);
     Route::post('admin/messaging/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveMessagingSettings']);
     Route::post('admin/messaging/template-preview', [\App\Http\Controllers\Admin\AdminActionController::class, 'previewMessagingTemplate']);
     Route::post('admin/settings/whatsapp-test', [\App\Http\Controllers\Admin\AdminActionController::class, 'testWhatsAppGateway']);

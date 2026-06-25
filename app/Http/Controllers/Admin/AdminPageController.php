@@ -26,6 +26,7 @@ use App\Services\MessageTemplateService;
 use App\Services\StaffAdvanceReportService;
 use App\Services\StaffRouterScope;
 use App\Services\SettingService;
+use App\Services\VpsCatalogService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -386,6 +387,22 @@ class AdminPageController extends Controller
             'settings' => Setting::all(),
             'routers' => Router::all(),
             'paymentCallbackUrl' => rtrim((string) config('app.url'), '/') . '/api/payment/callback',
+        ]);
+    }
+
+    public function layananVps(): Response
+    {
+        return Inertia::render('Admin/VpsService/Index', [
+            'config' => [
+                'enabled' => VpsCatalogService::isEnabled(),
+                'page_title' => VpsCatalogService::pageTitle(),
+                'page_description' => VpsCatalogService::pageDescription(),
+                'whitelist_usernames' => implode("\n", VpsCatalogService::whitelistUsernames()),
+                'whitelist_phones' => implode("\n", VpsCatalogService::whitelistPhones()),
+                'plans' => VpsCatalogService::plans(),
+            ],
+            'catalogUrl' => url('/layanan/vps'),
+            'defaultPlans' => VpsCatalogService::defaultPlans(),
         ]);
     }
 

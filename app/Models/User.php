@@ -59,7 +59,7 @@ class User extends Authenticatable
         self::ROLE_SUPER_ADMIN => ['*'],
         self::ROLE_ADMIN => [
             'dashboard', 'routers', 'network-map', 'packages', 'customers', 'hotspot',
-            'invoices', 'finance', 'hutang-piutang', 'inventory', 'messaging', 'settings', 'profile',
+            'invoices', 'finance', 'hutang-piutang', 'inventory', 'messaging', 'settings', 'layanan-vps', 'profile',
         ],
         self::ROLE_TECHNICIAN => [
             'dashboard', 'network-map', 'customers', 'invoices', 'profile',

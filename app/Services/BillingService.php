@@ -1102,12 +1102,14 @@ class BillingService
             ]);
 
             $customer = $invoice->customer;
-            if ($customer && !self::customerHasPastDueUnpaidInvoices($customer, $invoice->id)) {
+            $isVpsOrder = \App\Services\VpsCatalogService::isVpsInvoice($invoice);
+
+            if ($customer && ! $isVpsOrder && !self::customerHasPastDueUnpaidInvoices($customer, $invoice->id)) {
                 self::reactivateCustomerOnRouter($customer);
             }
 
             try {
-                $message = self::buildPaidInvoiceWhatsAppMessage($invoice, includeReactivationNote: true);
+                $message = self::buildPaidInvoiceWhatsAppMessage($invoice, includeReactivationNote: ! $isVpsOrder);
                 if ($message && class_exists(\App\Services\WhatsAppService::class)) {
                     \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
                 }

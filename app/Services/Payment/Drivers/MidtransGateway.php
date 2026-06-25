@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Services\Payment\PaymentGatewayInterface;
 use App\Services\Payment\PaymentHttp;
 use App\Services\SettingService;
+use App\Services\VpsCatalogService;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
@@ -41,6 +42,14 @@ class MidtransGateway implements PaymentGatewayInterface
         $customer = $invoice->customer;
         $orderId = $this->buildOrderId($invoice);
         $amount = (int) $invoice->total_amount;
+        $isVpsOrder = VpsCatalogService::isVpsInvoice($invoice);
+        $vpsPlan = $isVpsOrder ? VpsCatalogService::planFromInvoice($invoice) : null;
+        $itemName = $isVpsOrder
+            ? VpsCatalogService::itemLabelForInvoice($invoice)
+            : ($customer->package->name ?? 'Internet Service');
+        $itemId = $isVpsOrder
+            ? 'VPS-' . ($vpsPlan['id'] ?? 'custom')
+            : 'PKG-' . ($customer->package_id ?? '0');
 
         $payload = [
             'transaction_details' => [
@@ -54,8 +63,8 @@ class MidtransGateway implements PaymentGatewayInterface
             ],
             'item_details' => [
                 [
-                    'id'       => 'PKG-' . ($customer->package_id ?? '0'),
-                    'name'     => $customer->package->name ?? 'Internet Service',
+                    'id'       => $itemId,
+                    'name'     => $itemName,
                     'price'    => $amount,
                     'quantity' => 1,
                 ]

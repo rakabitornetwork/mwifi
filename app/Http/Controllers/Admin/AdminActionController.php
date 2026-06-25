@@ -18,6 +18,7 @@ use App\Services\InventoryService;
 use App\Services\MessageTemplateService;
 use App\Services\SettingService;
 use App\Services\StaffAdvanceNotificationService;
+use App\Services\VpsCatalogService;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -1638,6 +1639,71 @@ class AdminActionController extends Controller
         }
 
         return redirect()->back()->with('success', $message);
+    }
+
+    /**
+     * Save VPS showcase / Midtrans demo service settings.
+     */
+    public function saveVpsSettings(Request $request)
+    {
+        $request->validate([
+            'vps.enabled' => 'nullable|in:0,1',
+            'vps.page_title' => 'nullable|string|max:150',
+            'vps.page_description' => 'nullable|string|max:1000',
+            'vps.whitelist_usernames' => 'nullable|string|max:2000',
+            'vps.whitelist_phones' => 'nullable|string|max:2000',
+            'vps.plans' => 'nullable|array|max:12',
+            'vps.plans.*.id' => 'nullable|string|max:64',
+            'vps.plans.*.name' => 'required_with:vps.plans|string|max:100',
+            'vps.plans.*.cpu' => 'nullable|string|max:50',
+            'vps.plans.*.ram' => 'nullable|string|max:50',
+            'vps.plans.*.storage' => 'nullable|string|max:80',
+            'vps.plans.*.bandwidth' => 'nullable|string|max:80',
+            'vps.plans.*.price' => 'required_with:vps.plans|integer|min:1000|max:100000000',
+            'vps.plans.*.description' => 'nullable|string|max:500',
+            'vps.plans.*.featured' => 'nullable|boolean',
+        ]);
+
+        $enabled = in_array($request->input('vps.enabled'), ['1', 1, true], true);
+        SettingService::set('vps.enabled', $enabled ? '1' : '0', 'vps', false);
+        SettingService::set('vps.page_title', (string) $request->input('vps.page_title', ''), 'vps', false);
+        SettingService::set('vps.page_description', (string) $request->input('vps.page_description', ''), 'vps', false);
+        SettingService::set('vps.whitelist_usernames', (string) $request->input('vps.whitelist_usernames', ''), 'vps', false);
+        SettingService::set('vps.whitelist_phones', (string) $request->input('vps.whitelist_phones', ''), 'vps', false);
+
+        $plans = collect($request->input('vps.plans', []))
+            ->map(function (array $plan) {
+                $name = trim((string) ($plan['name'] ?? ''));
+                $id = trim((string) ($plan['id'] ?? ''));
+                if ($id === '' && $name !== '') {
+                    $id = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $name) ?? 'plan');
+                    $id = trim($id, '-');
+                }
+
+                return [
+                    'id' => $id,
+                    'name' => $name,
+                    'cpu' => trim((string) ($plan['cpu'] ?? '')),
+                    'ram' => trim((string) ($plan['ram'] ?? '')),
+                    'storage' => trim((string) ($plan['storage'] ?? '')),
+                    'bandwidth' => trim((string) ($plan['bandwidth'] ?? '')),
+                    'price' => (int) ($plan['price'] ?? 0),
+                    'description' => trim((string) ($plan['description'] ?? '')),
+                    'featured' => (bool) ($plan['featured'] ?? false),
+                ];
+            })
+            ->filter(fn (array $plan) => $plan['id'] !== '' && $plan['name'] !== '' && $plan['price'] > 0)
+            ->values()
+            ->all();
+
+        SettingService::set(
+            'vps.plans',
+            json_encode($plans !== [] ? $plans : VpsCatalogService::defaultPlans(), JSON_UNESCAPED_UNICODE),
+            'vps',
+            false
+        );
+
+        return redirect()->back()->with('success', 'Pengaturan layanan VPS berhasil disimpan.');
     }
 
     /**

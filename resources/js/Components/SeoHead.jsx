@@ -3,11 +3,11 @@ import { Head } from '@inertiajs/react';
 /**
  * Renders page title, favicon, and SEO / Open Graph meta tags from shared branding.
  */
-export default function SeoHead({ title, branding = {} }) {
+export default function SeoHead({ title, branding = {}, description: descriptionOverride }) {
     const seo = branding.seo || {};
     const siteName = seo.title || branding.app_name || 'mWiFi';
     const pageTitle = title || siteName;
-    const description = seo.description || branding.company_tagline || '';
+    const description = descriptionOverride || seo.description || branding.company_tagline || '';
     const keywords = seo.keywords || '';
     const robots = seo.robots || 'index,follow';
     const ogTitle = title ? `${title} — ${siteName}` : siteName;

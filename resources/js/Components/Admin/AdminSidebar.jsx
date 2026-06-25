@@ -11,6 +11,7 @@ import {
     Map,
     MessageSquare,
     Radio,
+    Server,
     ShieldCheck,
     Settings,
     Users,
@@ -38,6 +39,7 @@ export const adminNavItems = [
     // Administrasi sistem
     { tab: 'users', icon: ShieldCheck, label: 'Manajemen User' },
     { tab: 'messaging', icon: MessageSquare, label: 'WhatsApp & Telegram' },
+    { tab: 'layanan-vps', icon: Server, label: 'Layanan VPS' },
     { tab: 'settings', icon: Settings, label: 'Pengaturan' },
     { tab: 'database', icon: Database, label: 'Database' },
     { tab: 'update', icon: GitBranch, label: 'Update' },
