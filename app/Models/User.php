@@ -207,6 +207,13 @@ class User extends Authenticatable
         return self::ROLES[$this->role]['description'] ?? '';
     }
 
+    /** @var list<string> */
+    public const ALL_ADMIN_TABS = [
+        'dashboard', 'routers', 'network-map', 'packages', 'customers', 'hotspot',
+        'invoices', 'finance', 'hutang-piutang', 'inventory', 'messaging', 'settings', 'layanan-vps',
+        'database', 'update', 'users', 'profile',
+    ];
+
     /**
      * @return list<string>
      */
@@ -216,11 +223,7 @@ class User extends Authenticatable
         $permissions = self::TAB_PERMISSIONS[$role] ?? [];
 
         if (in_array('*', $permissions, true)) {
-            return [
-                'dashboard', 'routers', 'network-map', 'packages', 'customers', 'hotspot',
-                'invoices', 'finance', 'hutang-piutang', 'inventory', 'messaging', 'settings', 'database', 'update',
-                'users', 'profile',
-            ];
+            return self::ALL_ADMIN_TABS;
         }
 
         return array_values(array_unique([...$permissions, 'profile']));
