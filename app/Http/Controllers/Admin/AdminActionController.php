@@ -1166,7 +1166,7 @@ class AdminActionController extends Controller
         $invoice = Invoice::with(['payments', 'customer'])->findOrFail($request->input('invoice_id'));
 
         try {
-            BillingService::reverseManualPayment($invoice);
+            BillingService::reversePaidInvoice($invoice);
 
             return redirect()->back()->with('success', "Pembayaran invoice {$invoice->invoice_number} berhasil dibatalkan. Status kembali menjadi belum bayar.");
         } catch (\Exception $e) {

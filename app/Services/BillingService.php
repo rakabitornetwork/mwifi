@@ -528,6 +528,7 @@ class BillingService
             $data = $invoice->toArray();
             if ($invoice->status === 'paid') {
                 $data['next_billing'] = self::resolveNextBillingPreview($invoice);
+                $data['can_void_payment'] = self::canVoidPaidInvoice($invoice);
             }
 
             if ($invoice->status === 'canceled' && $invoice->customer_id) {
@@ -1135,11 +1136,55 @@ class BillingService
     }
 
     /**
-     * Reverse an admin manual payment (undo accidental Bayar Manual).
+     * Whether admin can void a paid invoice back to unpaid.
+     */
+    public static function canVoidPaidInvoice(Invoice $invoice): bool
+    {
+        if ($invoice->status !== 'paid') {
+            return false;
+        }
+
+        $invoice->loadMissing(['payments', 'customer']);
+
+        if ($invoice->payments()->where('gateway_name', 'manual')->exists()) {
+            return true;
+        }
+
+        return self::canVoidGatewayDemoPayment($invoice);
+    }
+
+    /**
+     * Midtrans sandbox payments for VPS demo invoices can be voided locally (no refund API).
+     */
+    public static function canVoidGatewayDemoPayment(Invoice $invoice): bool
+    {
+        if (SettingService::get('payment.active_gateway', 'tripay') !== 'midtrans') {
+            return false;
+        }
+
+        if (SettingService::get('payment.midtrans.mode', 'sandbox') !== 'sandbox') {
+            return false;
+        }
+
+        $invoice->loadMissing(['payments', 'customer']);
+
+        if (! $invoice->payments()->where('gateway_name', 'midtrans')->exists()) {
+            return false;
+        }
+
+        if (VpsCatalogService::isVpsInvoice($invoice)) {
+            return true;
+        }
+
+        return VpsCatalogService::isShowcaseCustomer($invoice->customer);
+    }
+
+    /**
+     * Reverse a paid invoice to unpaid (manual cash or Midtrans sandbox VPS demo).
      *
      * @throws Exception When invoice is not eligible for reversal.
      */
-    public static function reverseManualPayment(Invoice $invoice): bool
+    public static function reversePaidInvoice(Invoice $invoice): bool
     {
         if ($invoice->status !== 'paid') {
             throw new Exception('Invoice belum lunas, tidak ada pembayaran yang perlu dibatalkan.');
@@ -1147,8 +1192,17 @@ class BillingService
 
         $invoice->load(['customer.package', 'customer.router', 'payments']);
 
-        if (!$invoice->payments()->where('gateway_name', 'manual')->exists()) {
-            throw new Exception('Hanya pembayaran manual admin yang dapat dibatalkan. Pembayaran gateway harus direfund melalui provider.');
+        $isManual = $invoice->payments()->where('gateway_name', 'manual')->exists();
+        $isGatewayDemo = self::canVoidGatewayDemoPayment($invoice);
+
+        if (! $isManual && ! $isGatewayDemo) {
+            throw new Exception(
+                'Hanya pembayaran manual admin atau pembayaran Midtrans sandbox pada invoice VPS demo yang dapat dibatalkan dari sistem.'
+            );
+        }
+
+        if ($isManual && $invoice->payments()->where('gateway_name', '!=', 'manual')->exists()) {
+            throw new Exception('Invoice ini memiliki campuran pembayaran manual dan gateway. Hubungi developer.');
         }
 
         DB::beginTransaction();
@@ -1160,10 +1214,13 @@ class BillingService
             ]);
 
             $customer = $invoice->customer;
+            $isVpsOrder = VpsCatalogService::isVpsInvoice($invoice)
+                || VpsCatalogService::isShowcaseCustomer($customer);
             $dueDate = $invoice->due_date ? Carbon::parse($invoice->due_date)->startOfDay() : null;
 
             if (
-                $customer
+                ! $isVpsOrder
+                && $customer
                 && self::isCustomerEligibleForAutoIsolation($customer)
                 && $dueDate
                 && $dueDate->lt(Carbon::today())
@@ -1187,13 +1244,25 @@ class BillingService
             }
 
             DB::commit();
-            Log::info("Manual payment reversed for invoice {$invoice->invoice_number}");
+
+            $kind = $isGatewayDemo ? 'gateway demo' : 'manual';
+            Log::info("Paid invoice reversed ({$kind}) for invoice {$invoice->invoice_number}");
 
             return true;
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
         }
+    }
+
+    /**
+     * Reverse an admin manual payment (undo accidental Bayar Manual).
+     *
+     * @throws Exception When invoice is not eligible for reversal.
+     */
+    public static function reverseManualPayment(Invoice $invoice): bool
+    {
+        return self::reversePaidInvoice($invoice);
     }
 
     /**

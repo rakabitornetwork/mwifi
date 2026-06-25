@@ -33,6 +33,14 @@ function isManualPaidInvoice(inv) {
     return inv.payments.some((payment) => payment.gateway_name === 'manual');
 }
 
+function isMidtransSandboxPaidInvoice(inv) {
+    if (inv.status !== 'paid' || !Array.isArray(inv.payments)) {
+        return false;
+    }
+
+    return inv.payments.some((payment) => payment.gateway_name === 'midtrans');
+}
+
 function invoiceStatusMeta(status) {
     switch (status) {
         case 'paid':
@@ -282,8 +290,12 @@ function InvoicesPageContent({
         });
     };
 
-    const handleVoidPayment = (invoiceId, invoiceNumber) => {
-        if (!confirm(`Batalkan pembayaran manual untuk invoice ${invoiceNumber}?\n\nStatus akan kembali \"Belum Bayar\". Jika sudah lewat jatuh tempo, pelanggan dapat di-isolir kembali.`)) return;
+    const handleVoidPayment = (invoiceId, invoiceNumber, isGatewayDemo = false) => {
+        const gatewayNote = isGatewayDemo
+            ? '\n\nIni pembayaran Midtrans sandbox (demo VPS). Status di aplikasi saja yang dibatalkan — tidak memanggil refund Midtrans.'
+            : '';
+
+        if (!confirm(`Batalkan pembayaran untuk invoice ${invoiceNumber}?${gatewayNote}\n\nStatus akan kembali "Belum Bayar". Jika sudah lewat jatuh tempo pada pelanggan PPPoE biasa, pelanggan dapat di-isolir kembali.`)) return;
 
         router.post('/admin/invoices/void-payment', { invoice_id: invoiceId }, {
             preserveScroll: true,
@@ -949,11 +961,17 @@ function InvoicesPageContent({
                                                 >
                                                     <RotateCcw className="w-4 h-4" />
                                                 </button>
-                                            ) : isManualPaidInvoice(inv) ? (
+                                            ) : inv.can_void_payment ? (
                                                 <button
                                                     type="button"
-                                                    onClick={() => handleVoidPayment(inv.id, inv.invoice_number)}
-                                                    title="Batalkan Pembayaran"
+                                                    onClick={() => handleVoidPayment(
+                                                        inv.id,
+                                                        inv.invoice_number,
+                                                        isMidtransSandboxPaidInvoice(inv) && !isManualPaidInvoice(inv),
+                                                    )}
+                                                    title={isMidtransSandboxPaidInvoice(inv) && !isManualPaidInvoice(inv)
+                                                        ? 'Batalkan Pembayaran Midtrans Sandbox'
+                                                        : 'Batalkan Pembayaran'}
                                                     className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
                                                 >
                                                     <Undo2 className="w-4 h-4" />

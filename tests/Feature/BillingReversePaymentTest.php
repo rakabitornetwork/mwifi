@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Package;
 use App\Models\Payment;
 use App\Models\Router;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\BillingService;
 use Carbon\Carbon;
@@ -95,7 +96,118 @@ class BillingReversePaymentTest extends TestCase
         Payment::where('invoice_id', $invoice->id)->update(['gateway_name' => 'tripay']);
 
         $this->expectException(\Exception::class);
-        BillingService::reverseManualPayment($invoice->fresh(['payments', 'customer']));
+        BillingService::reversePaidInvoice($invoice->fresh(['payments', 'customer']));
+    }
+
+    public function test_can_reverse_midtrans_sandbox_vps_invoice(): void
+    {
+        Setting::updateOrCreate(['key' => 'payment.active_gateway'], [
+            'group' => 'payment',
+            'value' => 'midtrans',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'payment.midtrans.mode'], [
+            'group' => 'payment',
+            'value' => 'sandbox',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'vps.enabled'], [
+            'group' => 'vps',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'vps.whitelist_usernames'], [
+            'group' => 'vps',
+            'value' => 'demo-vps',
+            'is_encrypted' => false,
+        ]);
+
+        $invoice = $this->makePaidManualInvoice();
+        $invoice->customer->update(['username' => 'demo-vps']);
+        $invoice->update([
+            'invoice_number' => 'VPS-BUSINESS-0001-AB12',
+            'billing_period' => 'vps:business',
+        ]);
+        Payment::where('invoice_id', $invoice->id)->update([
+            'gateway_name' => 'midtrans',
+            'reference_number' => 'SNAP-TOKEN-TEST',
+            'payment_method' => 'QRIS',
+        ]);
+
+        $this->assertTrue(BillingService::canVoidPaidInvoice($invoice->fresh(['payments', 'customer'])));
+        $this->assertTrue(BillingService::reversePaidInvoice($invoice->fresh(['payments', 'customer'])));
+
+        $invoice->refresh();
+        $this->assertSame('unpaid', $invoice->status);
+        $this->assertNull($invoice->paid_at);
+        $this->assertSame(0, Payment::where('invoice_id', $invoice->id)->count());
+    }
+
+    public function test_cannot_reverse_midtrans_production_vps_invoice(): void
+    {
+        Setting::updateOrCreate(['key' => 'payment.active_gateway'], [
+            'group' => 'payment',
+            'value' => 'midtrans',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'payment.midtrans.mode'], [
+            'group' => 'payment',
+            'value' => 'production',
+            'is_encrypted' => false,
+        ]);
+
+        $invoice = $this->makePaidManualInvoice();
+        Payment::where('invoice_id', $invoice->id)->update(['gateway_name' => 'midtrans']);
+        $invoice->update([
+            'invoice_number' => 'VPS-BUSINESS-0001-AB12',
+            'billing_period' => 'vps:business',
+        ]);
+
+        $this->assertFalse(BillingService::canVoidPaidInvoice($invoice->fresh(['payments', 'customer'])));
+
+        $this->expectException(\Exception::class);
+        BillingService::reversePaidInvoice($invoice->fresh(['payments', 'customer']));
+    }
+
+    public function test_admin_can_void_midtrans_sandbox_vps_via_http(): void
+    {
+        Setting::updateOrCreate(['key' => 'payment.active_gateway'], [
+            'group' => 'payment',
+            'value' => 'midtrans',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'payment.midtrans.mode'], [
+            'group' => 'payment',
+            'value' => 'sandbox',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'vps.enabled'], [
+            'group' => 'vps',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'vps.whitelist_usernames'], [
+            'group' => 'vps',
+            'value' => 'demo-vps',
+            'is_encrypted' => false,
+        ]);
+
+        $admin = User::factory()->create();
+        $invoice = $this->makePaidManualInvoice();
+        $invoice->customer->update(['username' => 'demo-vps']);
+        $invoice->update([
+            'invoice_number' => 'VPS-BUSINESS-0001-AB12',
+            'billing_period' => 'vps:business',
+        ]);
+        Payment::where('invoice_id', $invoice->id)->update(['gateway_name' => 'midtrans']);
+
+        $response = $this->actingAs($admin)->post('/admin/invoices/void-payment', [
+            'invoice_id' => $invoice->id,
+        ]);
+
+        $response->assertRedirect();
+        $invoice->refresh();
+        $this->assertSame('unpaid', $invoice->status);
     }
 
     public function test_admin_can_void_manual_payment_via_http(): void
