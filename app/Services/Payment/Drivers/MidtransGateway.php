@@ -39,7 +39,7 @@ class MidtransGateway implements PaymentGatewayInterface
         }
 
         $customer = $invoice->customer;
-        $orderId = $invoice->invoice_number;
+        $orderId = $this->buildOrderId($invoice);
         $amount = (int) $invoice->total_amount;
 
         $payload = [
@@ -156,13 +156,44 @@ class MidtransGateway implements PaymentGatewayInterface
         }
 
         return [
-            'invoice_number' => $payload['order_id'] ?? '',
+            'invoice_number' => self::resolveInvoiceNumber((string) ($payload['order_id'] ?? '')),
             'reference'      => $payload['transaction_id'] ?? '',
             'status'         => $status,
             'amount_paid'    => (float) ($payload['gross_amount'] ?? 0),
             'fee'            => 0.0, // Midtrans handles merchant fee inside their dashboard invoice
             'payment_method' => $payload['payment_type'] ?? 'unknown',
         ];
+    }
+
+    /**
+     * Build a unique Midtrans order_id per payment attempt.
+     * Midtrans rejects duplicate order_id for the same merchant.
+     */
+    protected function buildOrderId(Invoice $invoice): string
+    {
+        $suffix = dechex(time() % 0xFFFFFFF);
+        $base = $invoice->invoice_number;
+        $orderId = $base . '~' . $suffix;
+
+        if (strlen($orderId) > 50) {
+            $maxBaseLength = 50 - strlen('~' . $suffix);
+            $base = substr($base, 0, max(1, $maxBaseLength));
+            $orderId = $base . '~' . $suffix;
+        }
+
+        return $orderId;
+    }
+
+    /**
+     * Map Midtrans order_id back to the mWiFi invoice_number.
+     */
+    public static function resolveInvoiceNumber(string $orderId): string
+    {
+        if (str_contains($orderId, '~')) {
+            return explode('~', $orderId, 2)[0];
+        }
+
+        return $orderId;
     }
 
     /**

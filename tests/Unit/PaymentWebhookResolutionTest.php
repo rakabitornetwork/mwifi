@@ -31,7 +31,7 @@ class PaymentWebhookResolutionTest extends TestCase
         config(['services.midtrans.server_key' => $serverKey]);
 
         $payload = [
-            'order_id' => 'INV-TEST-001',
+            'order_id' => 'INV-TEST-001~abc123',
             'status_code' => '200',
             'gross_amount' => '150000.00',
         ];
@@ -43,5 +43,17 @@ class PaymentWebhookResolutionTest extends TestCase
         $gateway = new MidtransGateway();
 
         $this->assertTrue($gateway->verifyWebhook([], $payload));
+    }
+
+    public function test_resolves_invoice_number_from_midtrans_order_id_suffix(): void
+    {
+        $this->assertSame(
+            'INV-202606-0974-5FDF',
+            MidtransGateway::resolveInvoiceNumber('INV-202606-0974-5FDF~1a2b3c4')
+        );
+        $this->assertSame(
+            'INV-202606-0974-5FDF',
+            MidtransGateway::resolveInvoiceNumber('INV-202606-0974-5FDF')
+        );
     }
 }
