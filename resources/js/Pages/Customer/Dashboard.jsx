@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useScheduledTheme } from '../../hooks/useScheduledTheme';
 import { router, usePage } from '@inertiajs/react';
 import PullToRefresh from '../../Components/PullToRefresh';
@@ -6,6 +6,7 @@ import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
 import { formatRupiah } from '../../utils/formatRupiah';
+import { getTimeOfDayGreeting } from '../../utils/timeOfDayGreeting';
 import { 
     LogOut, 
     Sun, 
@@ -32,6 +33,16 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
         activeGateway === 'midtrans' ? 'all' : 'qris'
     );
     const [isPaying, setIsPaying] = useState(null); // stores invoice ID currently processing
+    const [timeGreeting, setTimeGreeting] = useState(() => getTimeOfDayGreeting());
+
+    useEffect(() => {
+        const syncGreeting = () => setTimeGreeting(getTimeOfDayGreeting());
+        syncGreeting();
+
+        const intervalId = setInterval(syncGreeting, 60_000);
+
+        return () => clearInterval(intervalId);
+    }, []);
 
     const handleLogout = () => {
         router.post('/logout');
@@ -163,7 +174,7 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                     {/* Welcome Banner */}
                     <div className="mb-6 p-5 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="space-y-1">
-                            <h1 className={`text-lg sm:text-xl font-bold ${themeTextTitle}`}>Selamat Datang, {customer.name}!</h1>
+                            <h1 className={`text-lg sm:text-xl font-bold ${themeTextTitle}`}>{timeGreeting}, {customer.name}!</h1>
                             <p className={`text-xs ${themeTextSub}`}>Kelola layanan internet Anda secara mandiri di satu dasbor terpadu.</p>
                         </div>
                         <div className="flex items-center space-x-2">
