@@ -7,6 +7,7 @@ use App\Services\BillingService;
 use App\Services\Payment\PaymentGatewayInterface;
 use App\Services\Payment\PaymentHttp;
 use App\Services\SettingService;
+use App\Services\VpsCatalogService;
 use Illuminate\Support\Facades\Log;
 use Exception;
 
@@ -75,10 +76,12 @@ class DuitkuGateway implements PaymentGatewayInterface
             'countryCode' => 'ID',
         ];
 
+        $itemMeta = VpsCatalogService::paymentItemMetaForInvoice($invoice);
+
         $payload = [
             'paymentAmount' => $paymentAmount,
             'merchantOrderId' => $merchantOrderId,
-            'productDetails' => 'Tagihan internet ' . $invoice->invoice_number,
+            'productDetails' => $itemMeta['product_details'],
             'additionalParam' => '',
             'merchantUserInfo' => '',
             'paymentMethod' => '',
@@ -87,7 +90,7 @@ class DuitkuGateway implements PaymentGatewayInterface
             'phoneNumber' => $phoneNumber,
             'itemDetails' => [
                 [
-                    'name' => $customer->package->name ?? 'Layanan Internet',
+                    'name' => $itemMeta['name'],
                     'price' => $paymentAmount,
                     'quantity' => 1,
                 ],
@@ -165,11 +168,13 @@ class DuitkuGateway implements PaymentGatewayInterface
 
         $appUrl = rtrim((string) config('app.url'), '/');
 
+        $itemMeta = VpsCatalogService::paymentItemMetaForInvoice($invoice);
+
         $payload = [
             'merchantCode' => $this->merchantCode,
             'paymentAmount' => $paymentAmount,
             'merchantOrderId' => $merchantOrderId,
-            'productDetails' => 'Tagihan internet ' . $invoice->invoice_number,
+            'productDetails' => $itemMeta['product_details'],
             'email' => $customer->paymentGatewayEmail(),
             'phoneNumber' => $customer->phone_number ?? '',
             'customerVaName' => $customer->name,
@@ -180,7 +185,7 @@ class DuitkuGateway implements PaymentGatewayInterface
             'expiryPeriod' => 1440,
             'itemDetails' => [
                 [
-                    'name' => $customer->package->name ?? 'Layanan Internet',
+                    'name' => $itemMeta['name'],
                     'price' => $paymentAmount,
                     'quantity' => 1,
                 ],

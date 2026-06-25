@@ -498,6 +498,41 @@ class VpsCatalogService
         return 'Sewa VPS Cloud (Bulanan)';
     }
 
+    /**
+     * Label item transaksi untuk payment gateway (Duitku, Midtrans, Tripay).
+     *
+     * @return array{name: string, id: string, product_details: string}
+     */
+    public static function paymentItemMetaForInvoice(Invoice $invoice): array
+    {
+        $customer = $invoice->customer;
+        $isVpsOrder = self::isVpsInvoice($invoice) || self::isShowcaseCustomer($customer);
+
+        if (! $isVpsOrder) {
+            $packageName = $customer?->package?->name ?? 'Layanan Internet';
+
+            return [
+                'name' => $packageName,
+                'id' => 'PKG-' . ($customer->package_id ?? '0'),
+                'product_details' => 'Tagihan internet ' . $invoice->invoice_number,
+            ];
+        }
+
+        $vpsPlan = self::isVpsInvoice($invoice)
+            ? self::planFromInvoice($invoice)
+            : self::resolveDisplayPlanForCustomer($customer);
+
+        $itemName = self::isVpsInvoice($invoice)
+            ? self::itemLabelForInvoice($invoice)
+            : 'Sewa VPS — ' . ($vpsPlan['name'] ?? 'Cloud') . ' (Bulanan)';
+
+        return [
+            'name' => $itemName,
+            'id' => 'VPS-' . ($vpsPlan['id'] ?? 'custom'),
+            'product_details' => $itemName,
+        ];
+    }
+
     public static function createOrderInvoice(Customer $customer, string $planId): Invoice
     {
         $plan = self::findPlan($planId);

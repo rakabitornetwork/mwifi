@@ -543,7 +543,7 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                         <AdminPageCard
                             icon={Layers}
                             title="Paket VPS"
-                            description="Spesifikasi dan harga yang dikirim ke Midtrans sebagai item_details transaksi."
+                            description="Spesifikasi dan harga yang dikirim ke payment gateway sebagai item transaksi (Midtrans/Duitku)."
                             accent="violet"
                             themeCard={themeCard}
                             isDarkMode={isDarkMode}

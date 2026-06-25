@@ -42,19 +42,7 @@ class MidtransGateway implements PaymentGatewayInterface
         $customer = $invoice->customer;
         $orderId = $this->buildOrderId($invoice);
         $amount = (int) $invoice->total_amount;
-        $isVpsOrder = VpsCatalogService::isVpsInvoice($invoice)
-            || VpsCatalogService::isShowcaseCustomer($customer);
-        $vpsPlan = VpsCatalogService::isVpsInvoice($invoice)
-            ? VpsCatalogService::planFromInvoice($invoice)
-            : VpsCatalogService::resolveDisplayPlanForCustomer($customer);
-        $itemName = $isVpsOrder
-            ? (VpsCatalogService::isVpsInvoice($invoice)
-                ? VpsCatalogService::itemLabelForInvoice($invoice)
-                : 'Sewa VPS — ' . ($vpsPlan['name'] ?? 'Cloud') . ' (Bulanan)')
-            : ($customer->package->name ?? 'Internet Service');
-        $itemId = $isVpsOrder
-            ? 'VPS-' . ($vpsPlan['id'] ?? 'custom')
-            : 'PKG-' . ($customer->package_id ?? '0');
+        $itemMeta = VpsCatalogService::paymentItemMetaForInvoice($invoice);
 
         $payload = [
             'transaction_details' => [
@@ -68,8 +56,8 @@ class MidtransGateway implements PaymentGatewayInterface
             ],
             'item_details' => [
                 [
-                    'id'       => $itemId,
-                    'name'     => $itemName,
+                    'id'       => $itemMeta['id'],
+                    'name'     => $itemMeta['name'],
                     'price'    => $amount,
                     'quantity' => 1,
                 ]

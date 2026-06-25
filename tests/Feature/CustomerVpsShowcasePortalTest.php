@@ -185,6 +185,29 @@ class CustomerVpsShowcasePortalTest extends TestCase
         $this->assertTrue(VpsCatalogService::usernameMatchesWhitelist('midtrans@demo', ['midtrans@demo']));
     }
 
+    public function test_duitku_item_meta_uses_vps_plan_not_pppoe_package(): void
+    {
+        $this->seedVpsShowcaseSettings();
+        $customer = $this->makeCustomer();
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'VPS-BUSINESS-0001-AB12',
+            'billing_period' => 'vps:business',
+            'amount' => 150000,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => now()->addDays(3),
+            'status' => 'unpaid',
+        ]);
+
+        $meta = VpsCatalogService::paymentItemMetaForInvoice($invoice->load('customer.package'));
+
+        $this->assertSame('Sewa VPS — VPS Business (Bulanan)', $meta['name']);
+        $this->assertSame('VPS-business', $meta['id']);
+        $this->assertStringNotContainsString('Paket 50 Mbps', $meta['name']);
+    }
+
     public function test_showcase_customer_sees_vps_and_unpaid_legacy_invoices(): void
     {
         $this->seedVpsShowcaseSettings();
