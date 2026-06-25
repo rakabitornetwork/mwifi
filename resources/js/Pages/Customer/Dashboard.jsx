@@ -278,7 +278,7 @@ export default function CustomerDashboard({
                                     <div className="space-y-3 text-xs">
                                         <div>
                                             <p className={themeTextDesc}>Username Layanan</p>
-                                            <p className={`font-mono font-bold ${themeTextTitle}`}>@{customer.username}</p>
+                                            <p className={`font-mono font-bold ${themeTextTitle}`}>{customer.username}</p>
                                         </div>
                                         <div>
                                             <p className={themeTextDesc}>Nomor Telepon</p>
