@@ -154,4 +154,16 @@ class PaymentWebhookResolutionTest extends TestCase
         $this->assertSame('paid', $data['status']);
         $this->assertSame('ShopeePay QRIS', $data['payment_method']);
     }
+
+    public function test_duitku_payment_code_mapping_uses_pop_for_all(): void
+    {
+        $gateway = new DuitkuGateway();
+        $method = new \ReflectionMethod(DuitkuGateway::class, 'resolveDuitkuPaymentCode');
+        $method->setAccessible(true);
+
+        $this->assertNull($method->invoke($gateway, 'all'));
+        $this->assertNull($method->invoke($gateway, ''));
+        $this->assertSame('BC', $method->invoke($gateway, 'bcamaca'));
+        $this->assertSame('SQ', $method->invoke($gateway, 'qris'));
+    }
 }
