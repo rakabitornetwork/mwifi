@@ -18,7 +18,6 @@ import {
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import PublicSupportContact from '../../Components/PublicSupportContact';
-import PublicTermsPreview from '../../Components/PublicTermsPreview';
 import { formatRupiah } from '../../utils/formatRupiah';
 
 const INCLUDED_FEATURES = [
@@ -70,8 +69,6 @@ export default function VpsCatalog({
     isLoggedIn = false,
     customerName = null,
     activeGateway = 'midtrans',
-    termsSections = [],
-    termsDocument = null,
     legalLinks = [],
 }) {
     const { branding = {} } = usePage().props;
@@ -412,13 +409,8 @@ export default function VpsCatalog({
 
                     <section id="kontak" className="border-t border-white/[0.06] bg-white/[0.02]">
                         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
-                            <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-start">
+                            <div className="max-w-xl">
                                 <PublicSupportContact branding={branding} variant="vps" />
-                                <PublicTermsPreview
-                                    termsDocument={termsDocument}
-                                    termsSections={termsSections}
-                                    variant="vps"
-                                />
                             </div>
                         </div>
                     </section>

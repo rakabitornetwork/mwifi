@@ -56,19 +56,18 @@
       "_vendor-core-GzNnTIzR.js"
     ]
   },
-  "_PolicySection-Cj5u_m1u.js": {
-    "file": "assets/PolicySection-Cj5u_m1u.js",
+  "_PolicySection-roubAoMJ.js": {
+    "file": "assets/PolicySection-roubAoMJ.js",
     "name": "PolicySection",
     "imports": [
       "_vendor-core-GzNnTIzR.js"
     ]
   },
-  "_PublicTermsPreview-1EyKFInR.js": {
-    "file": "assets/PublicTermsPreview-1EyKFInR.js",
-    "name": "PublicTermsPreview",
+  "_PublicSupportContact-BdKxLxda.js": {
+    "file": "assets/PublicSupportContact-BdKxLxda.js",
+    "name": "PublicSupportContact",
     "imports": [
-      "_vendor-core-GzNnTIzR.js",
-      "_PolicySection-Cj5u_m1u.js"
+      "_vendor-core-GzNnTIzR.js"
     ]
   },
   "_PullToRefresh-B1S74XCD.js": {
@@ -567,18 +566,19 @@
     ]
   },
   "resources/js/Pages/Public/PolicyPage.jsx": {
-    "file": "assets/PolicyPage-SMrIoiNR.js",
+    "file": "assets/PolicyPage-CWTs2SfI.js",
     "name": "PolicyPage",
     "src": "resources/js/Pages/Public/PolicyPage.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-core-GzNnTIzR.js",
       "_AppFooter-Du8z34Ue.js",
-      "_PolicySection-Cj5u_m1u.js"
+      "_PolicySection-roubAoMJ.js",
+      "_PublicSupportContact-BdKxLxda.js"
     ]
   },
   "resources/js/Pages/Public/VpsCatalog.jsx": {
-    "file": "assets/VpsCatalog-Ch_A_OcP.js",
+    "file": "assets/VpsCatalog-tyakX0gl.js",
     "name": "VpsCatalog",
     "src": "resources/js/Pages/Public/VpsCatalog.jsx",
     "isDynamicEntry": true,
@@ -587,13 +587,12 @@
       "_vendor-BXfUUSDP.js",
       "_vendor-core-GzNnTIzR.js",
       "_AppFooter-Du8z34Ue.js",
-      "_PolicySection-Cj5u_m1u.js",
-      "_PublicTermsPreview-1EyKFInR.js",
+      "_PublicSupportContact-BdKxLxda.js",
       "_formatRupiah-BPNt29Go.js"
     ]
   },
   "resources/js/Pages/Welcome.jsx": {
-    "file": "assets/Welcome-CGxmAGWd.js",
+    "file": "assets/Welcome-D1hW_a4Z.js",
     "name": "Welcome",
     "src": "resources/js/Pages/Welcome.jsx",
     "isDynamicEntry": true,
@@ -603,12 +602,12 @@
       "_vendor-core-GzNnTIzR.js",
       "_AppFooter-Du8z34Ue.js",
       "_PullToRefresh-B1S74XCD.js",
-      "_PolicySection-Cj5u_m1u.js",
-      "_PublicTermsPreview-1EyKFInR.js"
+      "_PolicySection-roubAoMJ.js",
+      "_PublicSupportContact-BdKxLxda.js"
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-DU8HnEvc.js",
+    "file": "assets/app-GdQ1PHsD.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
