@@ -30,7 +30,7 @@ class BillingCustomerInvoiceTest extends TestCase
         ]);
     }
 
-    private function makeCustomer(int $billingDate = 25): Customer
+    private function makeCustomer(int $billingDate = 25, string $serviceStartDate = '2026-01-01'): Customer
     {
         $user = User::factory()->create();
         $router = Router::create([
@@ -62,7 +62,7 @@ class BillingCustomerInvoiceTest extends TestCase
             'address' => 'Alamat test',
             'status' => 'active',
             'billing_date' => $billingDate,
-            'service_start_date' => '2026-01-01',
+            'service_start_date' => $serviceStartDate,
         ]);
     }
 
@@ -138,7 +138,7 @@ class BillingCustomerInvoiceTest extends TestCase
     {
         Carbon::setTestNow(Carbon::parse('2026-06-20'));
 
-        $customer = $this->makeCustomer(5);
+        $customer = $this->makeCustomer(5, '2026-06-01');
 
         $created = BillingService::generateInvoiceForCustomer($customer, null, 0);
 
@@ -151,7 +151,7 @@ class BillingCustomerInvoiceTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-06-20'));
 
         $admin = User::factory()->create();
-        $customer = $this->makeCustomer(5);
+        $customer = $this->makeCustomer(5, '2026-06-01');
 
         $response = $this->actingAs($admin)
             ->post('/admin/invoices/generate-customer', [
@@ -169,7 +169,7 @@ class BillingCustomerInvoiceTest extends TestCase
     {
         Carbon::setTestNow(Carbon::parse('2026-06-20'));
 
-        $customer = $this->makeCustomer(5);
+        $customer = $this->makeCustomer(5, '2026-06-01');
 
         $created = BillingService::generateInvoiceForCustomer($customer, null, 3);
 
@@ -193,7 +193,7 @@ class BillingCustomerInvoiceTest extends TestCase
         Carbon::setTestNow(Carbon::parse('2026-06-20'));
 
         $admin = User::factory()->create();
-        $customer = $this->makeCustomer(5);
+        $customer = $this->makeCustomer(5, '2026-06-01');
 
         $response = $this->actingAs($admin)
             ->post('/admin/invoices/generate-customer', [
@@ -211,7 +211,7 @@ class BillingCustomerInvoiceTest extends TestCase
     {
         Carbon::setTestNow(Carbon::parse('2026-06-20'));
 
-        $customer = $this->makeCustomer(11);
+        $customer = $this->makeCustomer(11, '2026-06-01');
         $customer->update(['status' => 'isolated']);
 
         BillingService::generateInvoiceForCustomer($customer, null, 7);

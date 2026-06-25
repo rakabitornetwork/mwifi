@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\Invoice;
 use App\Models\Package;
 use App\Models\Router;
 use App\Models\Setting;
@@ -161,11 +162,47 @@ class BillingProrataTest extends TestCase
 
         $this->assertNotNull($preview);
         $this->assertSame('2026-07', $preview['period']);
-        $this->assertSame('20-07-2026', $preview['due_date']);
+        $this->assertSame('20 Juli 2026', $preview['due_date']);
         $this->assertTrue($preview['is_prorated']);
         $this->assertSame(28, $preview['days_billed']);
         $this->assertStringContainsString('Juli 2026', $preview['period_label']);
-        $this->assertStringContainsString('23 Juni 2026 s/d 20-07-2026', $preview['billing_info']);
+        $this->assertStringContainsString('23 Juni 2026 s/d 20 Juli 2026', $preview['billing_info']);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_registration_preview_for_mid_month_start_with_billing_on_first(): void
+    {
+        Carbon::setTestNow(Carbon::createFromFormat('Y-m-d', '2026-06-25'));
+
+        $customer = $this->makeCustomer('2026-06-25', 1);
+        $preview = BillingService::previewRegistrationBilling($customer, 110000);
+
+        $this->assertNotNull($preview);
+        $this->assertSame('2026-07', $preview['period']);
+        $this->assertSame('01 Juli 2026', $preview['due_date']);
+        $this->assertTrue($preview['is_prorated']);
+        $this->assertSame(7, $preview['days_billed']);
+        $this->assertSame('Rp 25.667', $preview['estimated_subtotal']);
+        $this->assertStringContainsString('25 Juni 2026 s/d 01 Juli 2026', $preview['billing_info']);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_manual_first_invoice_matches_registration_preview(): void
+    {
+        Carbon::setTestNow(Carbon::createFromFormat('Y-m-d', '2026-06-25'));
+
+        $customer = $this->makeCustomer('2026-06-25', 1);
+        $package = $customer->package;
+        $package->update(['price' => 110000]);
+
+        $created = BillingService::generateInvoiceForCustomer($customer->fresh(), null, 0);
+
+        $this->assertSame('2026-07', $created['billing_period']);
+        $this->assertSame('2026-07-01', $created['due_date']);
+        $this->assertSame(7, Invoice::first()->days_billed);
+        $this->assertSame(25666.67, (float) Invoice::first()->amount);
 
         Carbon::setTestNow();
     }

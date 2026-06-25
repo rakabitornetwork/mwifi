@@ -114,6 +114,22 @@ class BillingService
     }
 
     /**
+     * Resolve billing period and due date for a customer's first invoice (matches registration preview).
+     *
+     * @return array{period: string, due_date: Carbon}
+     */
+    public static function resolveFirstInvoiceTarget(Customer $customer): array
+    {
+        $serviceStart = self::resolveServiceStartDate($customer);
+        $dueDate = self::resolveNextDueDateFrom($customer, $serviceStart);
+
+        return [
+            'period' => $dueDate->format('Y-m'),
+            'due_date' => $dueDate,
+        ];
+    }
+
+    /**
      * Determine if an invoice should be generated today for a customer.
      *
      * @return array{period: string, due_date: Carbon}|null
@@ -805,6 +821,10 @@ class BillingService
             if ($schedule !== null) {
                 $period = $schedule['period'];
                 $dueDate = $schedule['due_date'];
+            } elseif (!Invoice::where('customer_id', $customer->id)->exists()) {
+                $firstTarget = self::resolveFirstInvoiceTarget($customer);
+                $period = $firstTarget['period'];
+                $dueDate = $firstTarget['due_date'];
             } else {
                 $period = Carbon::now()->format('Y-m');
             }
@@ -2037,8 +2057,9 @@ class BillingService
         }
 
         $serviceStart = self::resolveServiceStartDate($customer);
-        $dueDate = self::resolveNextDueDateFrom($customer, $serviceStart);
-        $period = $dueDate->format('Y-m');
+        $firstTarget = self::resolveFirstInvoiceTarget($customer);
+        $dueDate = $firstTarget['due_date'];
+        $period = $firstTarget['period'];
 
         $billing = self::calculateInvoiceAmount($customer, $period, $monthlyPrice);
         if ($billing === null) {
@@ -2052,7 +2073,7 @@ class BillingService
             ->locale('id')
             ->translatedFormat('F Y');
         $prorataFromLabel = $serviceStart->locale('id')->translatedFormat('d F Y');
-        $dueDateLabel = $dueDate->format('d-m-Y');
+        $dueDateLabel = $dueDate->locale('id')->translatedFormat('d F Y');
 
         $prorataLine = self::buildProrataLine($billing['is_prorated'], (int) $billing['days_billed']);
         $billingInfo = self::buildRegistrationBillingInfoBlock(
