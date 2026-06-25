@@ -63,7 +63,7 @@ class PublicOrderTest extends TestCase
             'name' => 'John Doe',
             'email' => 'john@example.com',
             'phone' => '081234567890',
-            'service_type' => 'pembuatan_aplikasi',
+            'service_type' => 'starter',
             'payment_method' => 'all',
         ]);
 
@@ -79,14 +79,14 @@ class PublicOrderTest extends TestCase
 
         // Assert package was created
         $this->assertDatabaseHas('packages', [
-            'name' => 'Jasa Pembuatan Aplikasi',
-            'price' => 5000000.00,
+            'name' => 'VPS Starter',
+            'price' => 99000.00,
         ]);
 
         // Assert invoice was created
         $this->assertDatabaseHas('invoices', [
-            'billing_period' => 'service:pembuatan_aplikasi',
-            'amount' => 5000000.00,
+            'billing_period' => 'service:starter',
+            'amount' => 99000.00,
             'status' => 'unpaid',
         ]);
     }

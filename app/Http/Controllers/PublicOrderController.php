@@ -19,11 +19,13 @@ class PublicOrderController extends Controller
 {
     public function store(Request $request)
     {
+        $planIds = collect(\App\Services\VpsCatalogService::plans())->pluck('id')->implode(',');
+
         $request->validate([
             'name' => 'required|string|max:150',
             'phone' => 'required|string|max:20',
             'email' => 'required|email|max:150',
-            'service_type' => 'required|in:pembuatan_aplikasi,setting_wifi,sewa_vps,it_support',
+            'service_type' => 'required|in:' . $planIds,
             'payment_method' => 'nullable|string',
         ]);
 
@@ -33,31 +35,19 @@ class PublicOrderController extends Controller
         $serviceType = $request->input('service_type');
         $paymentMethod = $request->input('payment_method', 'all');
 
-        // Map service type to package details
-        $serviceMap = [
-            'pembuatan_aplikasi' => [
-                'name' => 'Jasa Pembuatan Aplikasi',
-                'price' => 5000000.00,
-                'description' => 'Layanan Pembuatan Aplikasi & Website Kustom',
-            ],
-            'setting_wifi' => [
-                'name' => 'Setting & Maintenance WiFi',
-                'price' => 1500000.00,
-                'description' => 'Konfigurasi Jaringan, MikroTik, Hotspot & Bandwidth',
-            ],
-            'sewa_vps' => [
-                'name' => 'Sewa VPS Premium',
-                'price' => 250000.00,
-                'description' => 'Sewa Virtual Private Server (SSD NVMe Cloud)',
-            ],
-            'it_support' => [
-                'name' => 'Jasa IT Support Umum',
-                'price' => 500000.00,
-                'description' => 'Layanan Konsultasi IT, Server, CCTV & Support Teknis',
-            ],
-        ];
+        $plan = \App\Services\VpsCatalogService::findPlan($serviceType);
+        if (!$plan) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Layanan tidak valid atau tidak ditemukan.',
+            ], 422);
+        }
 
-        $serviceDetails = $serviceMap[$serviceType];
+        $serviceDetails = [
+            'name' => $plan['name'],
+            'price' => (float) $plan['price'],
+            'description' => $plan['description'] ?: $plan['name'],
+        ];
 
         try {
             // Find or create Package for the service

@@ -40,6 +40,7 @@ export default function Welcome({
     termsSections = [],
     legalLinks = [],
     vpsCatalogUrl = null,
+    vpsPlans = [],
 }) {
     const { branding = {} } = usePage().props;
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -49,7 +50,7 @@ export default function Welcome({
         name: '',
         email: '',
         phone: '',
-        service_type: 'pembuatan_aplikasi',
+        service_type: vpsPlans[0]?.id || '',
         payment_method: 'all',
     });
     const [loading, setLoading] = useState(false);
@@ -581,10 +582,11 @@ export default function Welcome({
                                                     onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
                                                     className="p-3 text-xs sm:text-sm border border-slate-800 rounded-xl bg-slate-950/60 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
                                                 >
-                                                    <option value="pembuatan_aplikasi">Jasa Pembuatan Aplikasi — Rp 5.000.000</option>
-                                                    <option value="setting_wifi">Setting & Maintenance WiFi — Rp 1.500.000</option>
-                                                    <option value="sewa_vps">Sewa VPS Premium — Rp 250.000</option>
-                                                    <option value="it_support">Jasa IT Support Umum — Rp 500.000</option>
+                                                    {vpsPlans.map((plan) => (
+                                                        <option key={plan.id} value={plan.id}>
+                                                            {plan.name} — Rp {new Intl.NumberFormat('id-ID').format(plan.price)}
+                                                        </option>
+                                                    ))}
                                                 </select>
                                             </div>
 
