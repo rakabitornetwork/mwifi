@@ -80,9 +80,19 @@ class CustomerOtpAuthController extends Controller
         $request->session()->regenerate();
 
         $intended = $this->sanitizeRedirect($request->session()->pull('portal_intended_url'));
+        if ($intended !== null && $this->isVpsCatalogRedirect($intended)) {
+            $request->session()->put('customer_portal_vps_showcase', true);
+        }
         $request->session()->forget(['portal_otp_phone', 'portal_otp_sent', 'portal_otp_masked_phone']);
 
         return redirect($intended ?: '/customer/dashboard');
+    }
+
+    protected function isVpsCatalogRedirect(string $url): bool
+    {
+        $path = strtok($url, '?') ?: $url;
+
+        return $path === '/layanan/vps' || str_starts_with($path, '/layanan/vps/');
     }
 
     public function resetOtp(Request $request)

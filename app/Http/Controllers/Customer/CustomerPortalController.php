@@ -19,17 +19,18 @@ class CustomerPortalController extends Controller
     /**
      * Display the customer dashboard.
      */
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
-        $customer = $user->customer()->with(['package', 'router'])->firstOrFail();
+        $customer = $user->customer()->with(['package', 'router', 'user'])->firstOrFail();
 
         // Get all invoices, sorted by latest
         $invoices = Invoice::where('customer_id', $customer->id)
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $isShowcase = VpsCatalogService::isShowcaseCustomer($customer);
+        $vpsLoginIntent = (bool) $request->session()->get('customer_portal_vps_showcase', false);
+        $isShowcase = VpsCatalogService::shouldUseShowcasePortal($customer, $vpsLoginIntent);
 
         if ($isShowcase) {
             $vpsInvoices = $invoices->filter(fn (Invoice $invoice) => VpsCatalogService::isVpsInvoice($invoice));

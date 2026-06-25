@@ -22,6 +22,10 @@ class VpsCatalogController extends Controller
         $user = $request->user();
         $customer = $user?->customer;
 
+        if ($customer && VpsCatalogService::isShowcaseCustomer($customer)) {
+            $request->session()->put('customer_portal_vps_showcase', true);
+        }
+
         return Inertia::render('Public/VpsCatalog', [
             'pageTitle' => VpsCatalogService::pageTitle(),
             'pageDescription' => VpsCatalogService::pageDescription(),

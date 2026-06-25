@@ -147,15 +147,33 @@ class VpsCatalogService
 
     public static function customerCanOrder(?Customer $customer): bool
     {
-        if (! $customer) {
+        if (! $customer || ! self::isEnabled()) {
             return false;
         }
 
-        return self::isShowcaseCustomer($customer);
+        $usernames = self::whitelistUsernames();
+        $phones = self::whitelistPhones();
+
+        if ($usernames === [] && $phones === []) {
+            return false;
+        }
+
+        $usernameMatch = $usernames === []
+            || self::usernameMatchesWhitelist((string) $customer->username, $usernames);
+
+        $phoneMatch = $phones === []
+            || self::phoneMatchesWhitelist(self::resolveCustomerPhone($customer), $phones);
+
+        if ($usernames !== [] && $phones !== []) {
+            return $usernameMatch && $phoneMatch;
+        }
+
+        return $usernameMatch && $phoneMatch;
     }
 
     /**
      * Pelanggan fiktif VPS (whitelist) — tampilan portal memakai persona cloud, bukan PPPoE.
+     * Cukup cocok username ATAU nomor WhatsApp pada whitelist (lebih longgar dari aturan checkout).
      */
     public static function isShowcaseCustomer(?Customer $customer): bool
     {
@@ -170,17 +188,67 @@ class VpsCatalogService
             return false;
         }
 
-        $usernameMatch = $usernames === []
-            || in_array(strtolower(trim((string) $customer->username)), array_map('strtolower', $usernames), true);
+        $usernameMatch = $usernames !== []
+            && self::usernameMatchesWhitelist((string) $customer->username, $usernames);
 
-        $phoneMatch = $phones === []
-            || self::phoneMatchesWhitelist((string) $customer->phone_number, $phones);
-
-        if ($usernames !== [] && $phones !== []) {
-            return $usernameMatch && $phoneMatch;
-        }
+        $phoneMatch = $phones !== []
+            && self::phoneMatchesWhitelist(self::resolveCustomerPhone($customer), $phones);
 
         return $usernameMatch || $phoneMatch;
+    }
+
+    public static function shouldUseShowcasePortal(?Customer $customer, bool $vpsLoginIntent = false): bool
+    {
+        if ($vpsLoginIntent && self::isEnabled()) {
+            return true;
+        }
+
+        return self::isShowcaseCustomer($customer);
+    }
+
+    public static function resolveCustomerPhone(Customer $customer): string
+    {
+        $phone = trim((string) $customer->phone_number);
+
+        if ($phone !== '') {
+            return $phone;
+        }
+
+        return trim((string) ($customer->user?->phone_number ?? ''));
+    }
+
+    /**
+     * @param  list<string>  $whitelist
+     */
+    public static function usernameMatchesWhitelist(string $username, array $whitelist): bool
+    {
+        $username = strtolower(trim($username));
+
+        if ($username === '') {
+            return false;
+        }
+
+        foreach ($whitelist as $entry) {
+            $entry = strtolower(trim($entry));
+
+            if ($entry === '') {
+                continue;
+            }
+
+            if ($username === $entry) {
+                return true;
+            }
+
+            if (str_starts_with($username, $entry . '@')) {
+                return true;
+            }
+
+            if (str_starts_with($entry, $username . '@')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

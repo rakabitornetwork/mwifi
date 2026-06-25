@@ -8,6 +8,7 @@ use App\Models\Package;
 use App\Models\Router;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\VpsCatalogService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -101,6 +102,29 @@ class CustomerVpsShowcasePortalTest extends TestCase
                 ->has('vpsPlan.cpu')
                 ->has('invoices', 0)
             );
+    }
+
+    public function test_showcase_with_phone_only_whitelist_match(): void
+    {
+        $this->seedVpsShowcaseSettings();
+        Setting::updateOrCreate(['key' => 'vps.whitelist_usernames'], [
+            'group' => 'vps',
+            'value' => 'wrong-username',
+            'is_encrypted' => false,
+        ]);
+
+        $customer = $this->makeCustomer();
+        $customer->update(['username' => 'midtrans@demo']);
+
+        $this->actingAs($customer->user)
+            ->get('/customer/dashboard')
+            ->assertInertia(fn ($page) => $page->where('portalView', 'vps'));
+    }
+
+    public function test_username_prefix_matches_midtrans_demo(): void
+    {
+        $this->assertTrue(VpsCatalogService::usernameMatchesWhitelist('midtrans@demo', ['midtrans']));
+        $this->assertTrue(VpsCatalogService::usernameMatchesWhitelist('midtrans@demo', ['midtrans@demo']));
     }
 
     public function test_showcase_customer_sees_only_vps_invoices(): void

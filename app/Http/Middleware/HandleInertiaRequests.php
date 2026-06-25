@@ -52,7 +52,10 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user ? [
                     'id' => $user->id,
                     'name' => $user->name,
-                    'email' => $customer && VpsCatalogService::isShowcaseCustomer($customer)
+                    'email' => $customer && VpsCatalogService::shouldUseShowcasePortal(
+                        $customer,
+                        (bool) $request->session()->get('customer_portal_vps_showcase', false)
+                    )
                         ? null
                         : $user->email,
                     'profile_title' => $user->profile_title ?: ($customer ? 'Pelanggan' : $user->roleLabel()),
@@ -71,7 +74,10 @@ class HandleInertiaRequests extends Middleware
                     'is_router_scoped' => $customer ? false : $routerScope->isScoped(),
                     'updated_at' => $user->updated_at?->timestamp,
                     'customer' => $customer ? (
-                        VpsCatalogService::isShowcaseCustomer($customer) ? [
+                        VpsCatalogService::shouldUseShowcasePortal(
+                            $customer,
+                            (bool) $request->session()->get('customer_portal_vps_showcase', false)
+                        ) ? [
                             'id' => $customer->id,
                             'status' => VpsCatalogService::mapVpsServerStatus((string) $customer->status),
                             'portal_view' => 'vps',

@@ -357,7 +357,9 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                                     </p>
                                     <p className="mt-2 opacity-80 text-amber-600 dark:text-amber-400 font-semibold">
                                         Penting: whitelist VPS tidak membuat akun otomatis. Pelanggan harus sudah terdaftar
-                                        di Manajemen PPPoE (dengan username & WhatsApp yang sama) agar OTP portal bisa dikirim.
+                                        di Manajemen PPPoE. Untuk username seperti <code className="font-mono">midtrans@demo</code>,
+                                        cukup isi whitelist dengan <code className="font-mono">midtrans</code> atau nama lengkap.
+                                        Tampilan portal VPS aktif jika username <strong>atau</strong> nomor WhatsApp cocok.
                                     </p>
                                 </div>
                             </div>
