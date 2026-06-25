@@ -561,12 +561,15 @@
     vertical-align: top;
     width: 100%;
     min-width: 0;
+    max-width: 0;
+    padding: 0;
 }
 
 .admin-table-scroll td.admin-table-detail-cell .customer-detail-panel {
     width: 100%;
     min-width: 0;
     max-width: 100%;
+    box-sizing: border-box;
 }
 
 .customer-detail-panel {

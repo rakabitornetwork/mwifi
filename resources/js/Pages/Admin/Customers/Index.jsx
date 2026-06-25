@@ -781,14 +781,16 @@ function CustomersPageContent({
                                         </td>
                                     </tr>
                                     {expandedCustomerId === cust.id && (
-                                        <tr>
-                                            <td colSpan={customerTableColSpan} className="p-0">
-                                                <CustomerDetailPanel
-                                                    customer={cust}
-                                                    theme={theme}
-                                                    onEdit={openCustomerModal}
-                                                    canWrite={canWrite}
-                                                />
+                                        <tr className="admin-table-detail-row">
+                                            <td colSpan={customerTableColSpan} className="admin-table-detail-cell p-0">
+                                                <div className="w-full min-w-0 max-w-full overflow-hidden">
+                                                    <CustomerDetailPanel
+                                                        customer={cust}
+                                                        theme={theme}
+                                                        onEdit={openCustomerModal}
+                                                        canWrite={canWrite}
+                                                    />
+                                                </div>
                                             </td>
                                         </tr>
                                     )}

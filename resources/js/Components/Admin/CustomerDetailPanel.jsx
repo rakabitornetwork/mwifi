@@ -186,7 +186,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                 )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 min-w-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 min-w-0 w-full">
                 <div className={`rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
                     <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Identitas & Kontak</p>
                     <DetailItem label="Nama Lengkap" value={customer.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
@@ -376,7 +376,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                     <p className="text-[10px] text-amber-500">{quotaError}</p>
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 min-w-0">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 min-w-0 w-full">
                     <QuotaCard
                         label="Total Quota Terpakai"
                         usedBytes={totalBytes}
