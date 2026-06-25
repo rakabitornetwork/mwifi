@@ -26,6 +26,7 @@ import {
     Phone,
     MapPin,
     Mail,
+    Terminal,
 } from 'lucide-react';
 
 export default function CustomerDashboard({
@@ -40,7 +41,6 @@ export default function CustomerDashboard({
     const isMidtransGateway = activeGateway === 'midtrans';
     const { branding = {} } = usePage().props;
     const { isDarkMode, isAutoTheme, toggleTheme } = useScheduledTheme('mwifi.customer.theme');
-    const [isOrderingVps, setIsOrderingVps] = useState(false);
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
         activeGateway === 'midtrans' || activeGateway === 'duitku' ? 'all' : 'qris'
     );
@@ -64,37 +64,6 @@ export default function CustomerDashboard({
     // Calculate dates/amounts
     const unpaidInvoices = invoices.filter(inv => inv.status === 'unpaid');
     const paidInvoices = invoices.filter(inv => inv.status === 'paid');
-
-    const handleCreateVpsOrder = async () => {
-        const planId = vpsPlan?.id || 'starter';
-        setIsOrderingVps(true);
-        try {
-            const response = await fetch('/customer/vps/order', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-                },
-                body: JSON.stringify({
-                    plan_id: planId,
-                    payment_method: activeGateway === 'midtrans' || activeGateway === 'duitku' ? 'all' : selectedPaymentMethod,
-                }),
-            });
-
-            const result = await response.json();
-
-            if (result.success && result.payment_url) {
-                window.location.href = result.payment_url;
-            } else {
-                alert(result.message || 'Gagal memproses pembayaran. Hubungi Admin.');
-            }
-        } catch (err) {
-            console.error(err);
-            alert('Terjadi kesalahan koneksi sistem pembayaran.');
-        } finally {
-            setIsOrderingVps(false);
-        }
-    };
 
     const handlePay = async (invoiceId) => {
         setIsPaying(invoiceId);
@@ -411,19 +380,29 @@ export default function CustomerDashboard({
                                         </p>
                                         <p className={`text-[10px] max-w-sm mx-auto ${themeTextDesc}`}>
                                             {isVpsPortal
-                                                ? 'Untuk mencoba pembayaran, buat pesanan paket VPS baru lalu checkout via payment gateway.'
+                                                ? 'Tidak ada tagihan VPS yang perlu dibayar saat ini.'
                                                 : 'Terima kasih telah membayar tagihan internet tepat waktu.'}
                                         </p>
                                         {isVpsPortal && (
-                                            <button
-                                                type="button"
-                                                onClick={handleCreateVpsOrder}
-                                                disabled={isOrderingVps}
-                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold transition-colors"
-                                            >
-                                                {isOrderingVps ? 'Memproses...' : 'Pesan Paket VPS & Bayar'}
-                                                {!isOrderingVps && <ArrowRight className="w-3.5 h-3.5" />}
-                                            </button>
+                                            <div className="space-y-2 pt-1">
+                                                <button
+                                                    type="button"
+                                                    disabled
+                                                    aria-disabled="true"
+                                                    title="Hanya tersedia untuk pelanggan VPS aktif"
+                                                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-bold cursor-not-allowed opacity-60 ${
+                                                        isDarkMode
+                                                            ? 'bg-zinc-900/60 border-zinc-700/80 text-zinc-500'
+                                                            : 'bg-zinc-100 border-zinc-200 text-zinc-400'
+                                                    }`}
+                                                >
+                                                    <Terminal className="w-3.5 h-3.5" />
+                                                    Terminal Console
+                                                </button>
+                                                <p className={`text-[10px] max-w-xs mx-auto leading-relaxed ${isDarkMode ? 'text-violet-400/80' : 'text-violet-600/80'}`}>
+                                                    Terminal Console hanya aktif untuk pelanggan VPS nyata dengan layanan berjalan.
+                                                </p>
+                                            </div>
                                         )}
                                     </div>
                                 ) : (
