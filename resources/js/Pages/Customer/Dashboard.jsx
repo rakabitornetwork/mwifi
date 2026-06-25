@@ -263,8 +263,8 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                                 ) : (
                                     <div className="space-y-4">
                                         {unpaidInvoices.map((inv) => (
-                                            <div key={inv.id} className={`p-4 border rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 ${themeInnerWidget}`}>
-                                                <div className="space-y-1">
+                                            <div key={inv.id} className={`p-4 border rounded-2xl flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-5 ${themeInnerWidget}`}>
+                                                <div className="space-y-1 min-w-0 flex-1">
                                                     <div className="flex items-center space-x-2">
                                                         <span className={`font-mono text-xs font-black ${themeTextTitle}`}>{inv.invoice_number}</span>
                                                         <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20">Belum Bayar</span>
@@ -279,11 +279,9 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                                                     </div>
                                                 </div>
 
-                                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:self-center">
-                                                    
-                                                    {/* Payment method: Tripay dropdown, Midtrans → full Snap page after Bayar */}
+                                                <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 lg:gap-4 lg:shrink-0">
                                                     {activeGateway === 'tripay' ? (
-                                                        <div className="flex flex-col gap-1">
+                                                        <div className="flex flex-col gap-1 sm:w-44 lg:w-48">
                                                             <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Metode Bayar</label>
                                                             <select
                                                                 value={selectedPaymentMethod}
@@ -296,28 +294,29 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                                                             </select>
                                                         </div>
                                                     ) : (
-                                                        <div className="flex flex-col gap-0.5 max-w-[11rem]">
+                                                        <div className={`flex flex-col gap-1 rounded-xl border px-3 py-2.5 sm:w-52 lg:w-56 ${isDarkMode ? 'border-zinc-800/80 bg-zinc-950/30' : 'border-zinc-200/80 bg-white/70'}`}>
                                                             <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Pembayaran Online</span>
-                                                            <span className={`text-[10px] leading-snug ${themeTextSub}`}>
+                                                            <span className={`text-[10px] leading-relaxed ${themeTextSub}`}>
                                                                 Klik Bayar untuk membuka halaman Midtrans (GoPay, QRIS, VA, Alfamart, dll.)
                                                             </span>
                                                         </div>
                                                     )}
 
-                                                    {/* Total and Checkout */}
-                                                    <div className="flex flex-col text-right justify-center pr-2">
-                                                        <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold leading-none">Total Tagihan</span>
-                                                        <span className={`text-sm font-extrabold ${themeTextTitle}`}>{formatRupiah(inv.total_amount)}</span>
-                                                    </div>
+                                                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 lg:min-w-[11rem]">
+                                                        <div className="flex flex-col text-left sm:text-right">
+                                                            <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold leading-none">Total Tagihan</span>
+                                                            <span className={`text-sm font-extrabold ${themeTextTitle}`}>{formatRupiah(inv.total_amount)}</span>
+                                                        </div>
 
-                                                    <button
-                                                        onClick={() => handlePay(inv.id)}
-                                                        disabled={isPaying !== null}
-                                                        className={`px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl text-xs font-bold shadow-lg hover:shadow-emerald-500/10 cursor-pointer flex items-center justify-center space-x-1.5 transition-all duration-150 ${isPaying ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.01]'}`}
-                                                    >
-                                                        <span>{isPaying === inv.id ? 'Memproses...' : 'Bayar'}</span>
-                                                        <ArrowRight className="w-3.5 h-3.5" />
-                                                    </button>
+                                                        <button
+                                                            onClick={() => handlePay(inv.id)}
+                                                            disabled={isPaying !== null}
+                                                            className={`shrink-0 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl text-xs font-bold shadow-lg hover:shadow-emerald-500/10 cursor-pointer flex items-center justify-center space-x-1.5 transition-all duration-150 ${isPaying ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.01]'}`}
+                                                        >
+                                                            <span>{isPaying === inv.id ? 'Memproses...' : 'Bayar'}</span>
+                                                            <ArrowRight className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
