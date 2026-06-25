@@ -17,18 +17,20 @@ class MessagingTemplateTest extends TestCase
         $rendered = MessageTemplateService::render('whatsapp.template.invoice_unpaid', [
             'customer_name' => 'Budi',
             'brand_name' => 'TeslaTech',
-            'period' => '2026-06',
+            'period' => 'Juli 2026',
             'invoice_number' => 'INV-TEST',
             'service_type' => 'PPPOE',
             'username' => 'budi001',
             'subtotal' => 'Rp 150.000',
             'prorata_line' => '',
             'total' => 'Rp 150.000',
-            'due_date' => '20-06-2026',
+            'due_date' => '01 Juli 2026',
         ]);
 
         $this->assertStringContainsString('Budi', $rendered);
         $this->assertStringContainsString('INV-TEST', $rendered);
+        $this->assertStringContainsString('Juli 2026', $rendered);
+        $this->assertStringContainsString('01 Juli 2026', $rendered);
     }
 
     public function test_admin_can_open_messaging_page(): void

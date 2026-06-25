@@ -206,4 +206,36 @@ class BillingProrataTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    public function test_whatsapp_invoice_date_labels_use_indonesian_format(): void
+    {
+        $this->assertSame('Juli 2026', BillingService::formatWhatsAppBillingPeriod('2026-07'));
+        $this->assertSame('April 2026 + Mei 2026', BillingService::formatWhatsAppBillingPeriod('2026-04 + 2026-05'));
+        $this->assertSame('01 Juli 2026', BillingService::formatWhatsAppDueDate('2026-07-01'));
+    }
+
+    public function test_unpaid_invoice_whatsapp_message_uses_indonesian_period_and_due_date(): void
+    {
+        $customer = $this->makeCustomer('2026-06-25', 1);
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202607-0977-D99A',
+            'billing_period' => '2026-07',
+            'amount' => 28000,
+            'days_billed' => 7,
+            'is_prorated' => true,
+            'tax' => 0,
+            'total_amount' => 28000,
+            'due_date' => '2026-07-01',
+            'status' => 'unpaid',
+        ]);
+
+        $message = BillingService::buildUnpaidInvoiceWhatsAppMessage($invoice);
+
+        $this->assertNotNull($message);
+        $this->assertStringContainsString('periode *Juli 2026*', $message);
+        $this->assertStringContainsString('*01 Juli 2026*', $message);
+        $this->assertStringNotContainsString('2026-07', $message);
+        $this->assertStringNotContainsString('01-07-2026', $message);
+    }
 }

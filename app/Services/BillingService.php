@@ -343,18 +343,17 @@ class BillingService
             ]);
 
             try {
-                $dueDateFormatted = $dueDate->format('d-m-Y');
                 $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_new', [
                     'customer_name' => $customer->name,
                     'brand_name' => BrandingService::companyName(),
-                    'period' => $period,
+                    'period' => self::formatWhatsAppBillingPeriod($period),
                     'invoice_number' => $invNumber,
                     'service_type' => strtoupper($customer->service_type),
                     'username' => $customer->username,
                     'subtotal' => self::formatWhatsAppMoney($amount),
                     'prorata_line' => self::buildProrataLine($billing['is_prorated'], (int) $billing['days_billed']),
                     'total' => self::formatWhatsAppMoney($total),
-                    'due_date' => $dueDateFormatted,
+                    'due_date' => self::formatWhatsAppDueDate($dueDate),
                 ]);
 
                 if (class_exists(\App\Services\WhatsAppService::class)) {
@@ -957,7 +956,7 @@ class BillingService
                         'username' => $customer->username,
                         'invoice_number' => $invoice->invoice_number,
                         'total' => self::formatWhatsAppMoney((float) $invoice->total_amount),
-                        'due_date' => $invoice->due_date->format('d-m-Y'),
+                        'due_date' => self::formatWhatsAppDueDate($invoice->due_date),
                     ]);
                     if (class_exists(\App\Services\WhatsAppService::class)) {
                         $waNotified = \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
@@ -1824,17 +1823,15 @@ class BillingService
             $total = (float) $invoice->total_amount;
 
             try {
-                $periodLabel = implode(' + ', $periods);
-                $dueDateFormatted = $dueDate->format('d-m-Y');
                 $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_accumulated_new', [
                     'customer_name' => $customer->name,
                     'brand_name' => BrandingService::companyName(),
-                    'period_label' => $periodLabel,
+                    'period_label' => self::formatWhatsAppBillingPeriod(implode(' + ', $periods)),
                     'invoice_number' => $invNumber,
                     'username' => $customer->username,
                     'subtotal' => self::formatWhatsAppMoney($amount),
                     'total' => self::formatWhatsAppMoney($total),
-                    'due_date' => $dueDateFormatted,
+                    'due_date' => self::formatWhatsAppDueDate($dueDate),
                 ]);
 
                 if (class_exists(\App\Services\WhatsAppService::class)) {
@@ -1952,8 +1949,8 @@ class BillingService
         if ($invoice->is_accumulated) {
             $periods = $invoice->accumulated_periods;
             $periodLabel = is_array($periods) && $periods !== []
-                ? implode(' + ', $periods)
-                : ($invoice->billing_period ?? '-');
+                ? self::formatWhatsAppBillingPeriod(implode(' + ', $periods))
+                : self::formatWhatsAppBillingPeriod($invoice->billing_period);
 
             return MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_accumulated', [
                 'customer_name' => $customer->name,
@@ -1964,21 +1961,21 @@ class BillingService
                 'username' => $customer->username,
                 'subtotal' => self::formatWhatsAppMoney((float) $invoice->amount),
                 'total' => self::formatWhatsAppMoney((float) $invoice->total_amount),
-                'due_date' => $invoice->due_date?->format('d-m-Y') ?? '-',
+                'due_date' => self::formatWhatsAppDueDate($invoice->due_date),
             ]);
         }
 
         return MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_unpaid', [
             'customer_name' => $customer->name,
             'brand_name' => BrandingService::companyName(),
-            'period' => $invoice->billing_period ?? '-',
+            'period' => self::formatWhatsAppBillingPeriod($invoice->billing_period),
             'invoice_number' => $invoice->invoice_number,
             'service_type' => strtoupper($customer->service_type),
             'username' => $customer->username,
             'subtotal' => self::formatWhatsAppMoney((float) $invoice->amount),
             'prorata_line' => self::buildProrataLine((bool) $invoice->is_prorated, (int) $invoice->days_billed),
             'total' => self::formatWhatsAppMoney((float) $invoice->total_amount),
-            'due_date' => $invoice->due_date?->format('d-m-Y') ?? '-',
+            'due_date' => self::formatWhatsAppDueDate($invoice->due_date),
         ]);
     }
 
@@ -2005,7 +2002,7 @@ class BillingService
             'invoice_number' => $invoice->invoice_number,
             'customer_name' => $customer->name,
             'username' => $customer->username,
-            'period' => $invoice->billing_period ?? '-',
+            'period' => self::formatWhatsAppBillingPeriod($invoice->billing_period),
             'payment_method' => $method,
             'amount_paid' => self::formatWhatsAppMoney($amountPaid),
             'paid_at' => $paidAt,
@@ -2018,6 +2015,44 @@ class BillingService
     public static function formatWhatsAppMoney(float $amount): string
     {
         return 'Rp ' . number_format($amount, 0, ',', '.');
+    }
+
+    public static function formatWhatsAppBillingPeriod(?string $period): string
+    {
+        if ($period === null || $period === '' || $period === '-') {
+            return '-';
+        }
+
+        if (str_contains($period, '+')) {
+            $parts = preg_split('/\s*\+\s*/', $period) ?: [];
+            $formatted = array_map(
+                fn (string $part) => self::formatWhatsAppBillingPeriod(trim($part)),
+                array_filter($parts, fn (string $part) => trim($part) !== '')
+            );
+
+            return implode(' + ', $formatted);
+        }
+
+        if (!preg_match('/^\d{4}-\d{2}$/', $period)) {
+            return $period;
+        }
+
+        return Carbon::createFromFormat('Y-m', $period)
+            ->locale('id')
+            ->translatedFormat('F Y');
+    }
+
+    public static function formatWhatsAppDueDate(mixed $date): string
+    {
+        if ($date === null || $date === '' || $date === '-') {
+            return '-';
+        }
+
+        $parsed = $date instanceof Carbon
+            ? $date->copy()
+            : Carbon::parse($date);
+
+        return $parsed->locale('id')->translatedFormat('d F Y');
     }
 
     public static function buildProrataLine(bool $isProrated, int $daysBilled): string
@@ -2073,7 +2108,7 @@ class BillingService
             ->locale('id')
             ->translatedFormat('F Y');
         $prorataFromLabel = $serviceStart->locale('id')->translatedFormat('d F Y');
-        $dueDateLabel = $dueDate->locale('id')->translatedFormat('d F Y');
+        $dueDateLabel = self::formatWhatsAppDueDate($dueDate);
 
         $prorataLine = self::buildProrataLine($billing['is_prorated'], (int) $billing['days_billed']);
         $billingInfo = self::buildRegistrationBillingInfoBlock(
