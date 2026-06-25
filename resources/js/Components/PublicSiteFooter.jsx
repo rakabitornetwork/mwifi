@@ -34,7 +34,7 @@ export default function PublicSiteFooter({
 }) {
     const companyName = branding.company_name || branding.display_name || 'Teslatech';
     const brandLabel = companyName.toUpperCase();
-    const tagline = branding.company_tagline || DEFAULT_TAGLINE;
+    const tagline = branding.seo?.description || DEFAULT_TAGLINE;
     const email = branding.company_email || '';
     const phone = branding.company_phone || '';
     const policies = legalLinks || branding.legal_links || [];
