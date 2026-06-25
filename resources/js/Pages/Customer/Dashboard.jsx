@@ -28,7 +28,9 @@ import {
 export default function CustomerDashboard({ auth, customer, invoices = [], activeGateway }) {
     const { branding = {} } = usePage().props;
     const { isDarkMode, isAutoTheme, toggleTheme } = useScheduledTheme('mwifi.customer.theme');
-    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('qris');
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
+        activeGateway === 'midtrans' ? 'all' : 'qris'
+    );
     const [isPaying, setIsPaying] = useState(null); // stores invoice ID currently processing
 
     const handleLogout = () => {
@@ -48,7 +50,9 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
                 },
-                body: JSON.stringify({ payment_method: selectedPaymentMethod })
+                body: JSON.stringify({
+                    payment_method: activeGateway === 'midtrans' ? 'all' : selectedPaymentMethod,
+                })
             });
 
             const result = await response.json();
@@ -92,18 +96,7 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
         { id: 'mandiriva', label: 'Virtual Account Mandiri' },
         { id: 'briva', label: 'Virtual Account BRI' },
         { id: 'alfamart', label: 'Alfamart' }
-    ] : [
-        { id: 'all', label: 'Semua Metode (Midtrans Snap)' },
-        { id: 'gopay', label: 'GoPay' },
-        { id: 'qris', label: 'QRIS' },
-        { id: 'ovo', label: 'OVO' },
-        { id: 'shopeepay', label: 'ShopeePay' },
-        { id: 'bca_va', label: 'Virtual Account BCA' },
-        { id: 'bri_va', label: 'Virtual Account BRI' },
-        { id: 'bni_va', label: 'Virtual Account BNI' },
-        { id: 'permata_va', label: 'Virtual Account Permata' },
-        { id: 'alfamart', label: 'Alfamart' },
-    ];
+    ] : [];
 
     const formatDate = (dateStr) => {
         if (!dateStr) return '-';
@@ -288,19 +281,28 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
 
                                                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 md:self-center">
                                                     
-                                                    {/* Payment Method Selector */}
-                                                    <div className="flex flex-col gap-1">
-                                                        <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Metode Bayar</label>
-                                                        <select 
-                                                            value={selectedPaymentMethod}
-                                                            onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                                                            className={`text-xs p-1.5 rounded-lg border font-semibold ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'}`}
-                                                        >
-                                                            {paymentMethods.map((pm) => (
-                                                                <option key={pm.id} value={pm.id}>{pm.label}</option>
-                                                            ))}
-                                                        </select>
-                                                    </div>
+                                                    {/* Payment method: Tripay dropdown, Midtrans → full Snap page after Bayar */}
+                                                    {activeGateway === 'tripay' ? (
+                                                        <div className="flex flex-col gap-1">
+                                                            <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Metode Bayar</label>
+                                                            <select
+                                                                value={selectedPaymentMethod}
+                                                                onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                                                                className={`text-xs p-1.5 rounded-lg border font-semibold ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'}`}
+                                                            >
+                                                                {paymentMethods.map((pm) => (
+                                                                    <option key={pm.id} value={pm.id}>{pm.label}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col gap-0.5 max-w-[11rem]">
+                                                            <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Pembayaran Online</span>
+                                                            <span className={`text-[10px] leading-snug ${themeTextSub}`}>
+                                                                Klik Bayar untuk membuka halaman Midtrans (GoPay, QRIS, VA, Alfamart, dll.)
+                                                            </span>
+                                                        </div>
+                                                    )}
 
                                                     {/* Total and Checkout */}
                                                     <div className="flex flex-col text-right justify-center pr-2">
