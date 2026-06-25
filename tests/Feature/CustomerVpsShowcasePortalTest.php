@@ -9,6 +9,7 @@ use App\Models\Router;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\VpsCatalogService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -130,6 +131,25 @@ class CustomerVpsShowcasePortalTest extends TestCase
                 ->has('invoices', 1)
                 ->where('invoices.0.invoice_number', $invoice->invoice_number)
             );
+    }
+
+    public function test_vps_manual_invoice_uses_customer_billing_date_not_three_day_default(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-25'));
+
+        $this->seedVpsShowcaseSettings();
+        $customer = $this->makeCustomer();
+        $customer->update([
+            'billing_date' => 1,
+            'service_start_date' => '2026-06-25',
+        ]);
+
+        $created = VpsCatalogService::generateManualInvoiceForCustomer($customer->fresh(), 0);
+
+        $this->assertSame('2026-07-01', $created['due_date']);
+
+        $invoice = Invoice::where('customer_id', $customer->id)->first();
+        $this->assertSame('2026-07-01', $invoice->due_date->format('Y-m-d'));
     }
 
     public function test_showcase_with_phone_only_whitelist_match(): void

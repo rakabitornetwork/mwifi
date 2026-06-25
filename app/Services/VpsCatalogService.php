@@ -402,9 +402,7 @@ class VpsCatalogService
             throw new \InvalidArgumentException('Belum ada paket VPS yang dikonfigurasi di menu Layanan VPS.');
         }
 
-        $dueDate = $dueExtensionDays > 0
-            ? Carbon::now()->addDays($dueExtensionDays)->startOfDay()
-            : Carbon::today()->addDays(3);
+        $dueDate = self::resolveManualInvoiceDueDate($customer, $dueExtensionDays);
 
         $invoice = self::createPlanInvoice($customer, $plan, $dueDate);
 
@@ -502,7 +500,22 @@ class VpsCatalogService
             throw new \InvalidArgumentException('Paket VPS tidak ditemukan.');
         }
 
-        return self::createPlanInvoice($customer, $plan, Carbon::today()->addDays(3));
+        $dueDate = self::isShowcaseCustomer($customer)
+            ? self::resolveManualInvoiceDueDate($customer, 0)
+            : Carbon::today()->addDays(3);
+
+        return self::createPlanInvoice($customer, $plan, $dueDate);
+    }
+
+    protected static function resolveManualInvoiceDueDate(Customer $customer, int $dueExtensionDays): Carbon
+    {
+        $dueDate = BillingService::resolveNextDueDateFrom($customer, Carbon::today());
+
+        if (($dueDate->isPast() || $dueDate->isToday()) && $dueExtensionDays > 0) {
+            return Carbon::now()->addDays($dueExtensionDays)->startOfDay();
+        }
+
+        return $dueDate;
     }
 
     /**
