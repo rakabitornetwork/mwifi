@@ -51,7 +51,6 @@ export default function Welcome({
         email: '',
         phone: '',
         service_type: vpsPlans[0]?.id || '',
-        payment_method: 'all',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -72,7 +71,7 @@ export default function Welcome({
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': csrfToken,
                 },
-                body: JSON.stringify(formData),
+                body: JSON.stringify({ ...formData, payment_method: 'all' }),
             });
             
             const result = await response.json();
@@ -573,38 +572,19 @@ export default function Welcome({
                                             />
                                         </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {/* Select Service Type */}
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Pilih Layanan</label>
-                                                <select
-                                                    value={formData.service_type}
-                                                    onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
-                                                    className="p-3 text-xs sm:text-sm border border-slate-800 rounded-xl bg-slate-950/60 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
-                                                >
-                                                    {vpsPlans.map((plan) => (
-                                                        <option key={plan.id} value={plan.id}>
-                                                            {plan.name} — Rp {new Intl.NumberFormat('id-ID').format(plan.price)}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-
-                                            {/* Select Payment Method */}
-                                            <div className="flex flex-col gap-1.5">
-                                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Pilih Pembayaran</label>
-                                                <select
-                                                    value={formData.payment_method}
-                                                    onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-                                                    className="p-3 text-xs sm:text-sm border border-slate-800 rounded-xl bg-slate-950/60 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
-                                                >
-                                                    <option value="all">Semua Metode Pembayaran (Otomatis)</option>
-                                                    <option value="qris">QRIS / E-Wallet</option>
-                                                    <option value="bcava">Transfer Bank / Virtual Account BCA</option>
-                                                    <option value="mandiriva">Transfer Bank / Virtual Account Mandiri</option>
-                                                    <option value="briva">Transfer Bank / Virtual Account BRI</option>
-                                                </select>
-                                            </div>
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Pilih Layanan</label>
+                                            <select
+                                                value={formData.service_type}
+                                                onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
+                                                className="p-3 text-xs sm:text-sm border border-slate-800 rounded-xl bg-slate-950/60 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                            >
+                                                {vpsPlans.map((plan) => (
+                                                    <option key={plan.id} value={plan.id}>
+                                                        {plan.name} — Rp {new Intl.NumberFormat('id-ID').format(plan.price)}
+                                                    </option>
+                                                ))}
+                                            </select>
                                         </div>
 
                                         {/* Submit Button */}
@@ -752,6 +732,8 @@ export default function Welcome({
                     legalLinks={legalLinks}
                     vpsCatalogUrl={vpsCatalogUrl || '/layanan/vps'}
                     isDark={true}
+                    showContactLine={false}
+                    centerCopyright={true}
                 />
             </PullToRefresh>
         </>

@@ -29,6 +29,8 @@ export default function PublicSiteFooter({
     legalLinks = null,
     vpsCatalogUrl = '/layanan/vps',
     isDark = false,
+    showContactLine = true,
+    centerCopyright = false,
 }) {
     const companyName = branding.company_name || branding.display_name || 'Teslatech';
     const brandLabel = companyName.toUpperCase();
@@ -97,9 +99,11 @@ export default function PublicSiteFooter({
                     </div>
                 </div>
 
-                <div className={`mt-10 pt-5 border-t flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs sm:text-sm ${isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-500'}`}>
+                <div className={`mt-10 pt-5 border-t text-xs sm:text-sm ${
+                    isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-500'
+                } ${centerCopyright ? 'text-center' : 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'}`}>
                     <span>{copyright}</span>
-                    {contactLine && <span>{contactLine}</span>}
+                    {showContactLine && contactLine && !centerCopyright && <span>{contactLine}</span>}
                 </div>
             </div>
         </footer>
