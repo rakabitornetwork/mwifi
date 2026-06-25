@@ -11,13 +11,21 @@ use App\Services\VpsCatalogService;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
+        'termsDocument' => LegalService::termsDocument(),
         'termsSections' => LegalService::termsSections(),
+        'legalLinks' => LegalService::legalLinks(),
         'vpsCatalogUrl' => VpsCatalogService::isEnabled() ? url('/layanan/vps') : null,
     ]);
 });
 
 Route::get('syarat-ketentuan', [PublicLegalController::class, 'terms'])
     ->name('legal.terms');
+
+Route::get('kebijakan-privasi', [PublicLegalController::class, 'privacy'])
+    ->name('legal.privacy');
+
+Route::get('kebijakan-pengembalian', [PublicLegalController::class, 'refund'])
+    ->name('legal.refund');
 
 Route::get('layanan/vps', [\App\Http\Controllers\VpsCatalogController::class, 'index'])
     ->name('vps.catalog');

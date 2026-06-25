@@ -11,7 +11,7 @@ class PublicLegalPagesTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_terms_page_renders_default_sections(): void
+    public function test_terms_page_renders_teslatech_style_sections(): void
     {
         Setting::updateOrCreate(['key' => 'system.company_name'], [
             'group' => 'system',
@@ -22,9 +22,31 @@ class PublicLegalPagesTest extends TestCase
         $this->get('/syarat-ketentuan')
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('Public/TermsOfService')
-                ->has('termsSections', 7)
-                ->where('termsSections.0.title', '1. Ketentuan Umum')
+                ->component('Public/PolicyPage')
+                ->where('policy.page_title', 'Syarat & Ketentuan')
+                ->where('policy.last_updated', '25 Juni 2026')
+                ->has('policy.sections', 10)
+                ->where('policy.sections.0.title', '1. Ruang Lingkup Layanan')
+                ->has('legalLinks', 3)
+            );
+    }
+
+    public function test_privacy_and_refund_pages_are_available(): void
+    {
+        $this->get('/kebijakan-privasi')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Public/PolicyPage')
+                ->where('policy.page_title', 'Kebijakan Privasi')
+                ->has('policy.sections', 10)
+            );
+
+        $this->get('/kebijakan-pengembalian')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Public/PolicyPage')
+                ->where('policy.page_title', 'Kebijakan Pengembalian Dana')
+                ->has('policy.sections', 9)
             );
     }
 
@@ -32,17 +54,17 @@ class PublicLegalPagesTest extends TestCase
     {
         Setting::updateOrCreate(['key' => 'system.company_email'], [
             'group' => 'system',
-            'value' => 'support@teslatech.my.id',
+            'value' => 'info@teslatech.my.id',
             'is_encrypted' => false,
         ]);
         Setting::updateOrCreate(['key' => 'system.company_phone'], [
             'group' => 'system',
-            'value' => '6281234567890',
+            'value' => '087778888820',
             'is_encrypted' => false,
         ]);
         Setting::updateOrCreate(['key' => 'system.company_address'], [
             'group' => 'system',
-            'value' => 'Malang, Jawa Timur',
+            'value' => 'Jl. Kopral Yahya Blok Anjun',
             'is_encrypted' => false,
         ]);
 
@@ -50,7 +72,9 @@ class PublicLegalPagesTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Welcome')
-                ->has('termsSections', 7)
+                ->has('termsSections', 3)
+                ->has('termsDocument.sections', 10)
+                ->has('legalLinks', 3)
             );
     }
 
@@ -62,10 +86,22 @@ class PublicLegalPagesTest extends TestCase
             'is_encrypted' => false,
         ]);
 
-        $sections = LegalService::termsSections();
+        $document = LegalService::termsDocument();
 
-        $this->assertCount(1, $sections);
-        $this->assertSame('Kebijakan Khusus', $sections[0]['title']);
-        $this->assertSame('Isi kebijakan khusus.', $sections[0]['body']);
+        $this->assertCount(1, $document['sections']);
+        $this->assertSame('Kebijakan Khusus', $document['sections'][0]['title']);
+    }
+
+    public function test_contact_items_use_branding_settings(): void
+    {
+        Setting::updateOrCreate(['key' => 'system.company_email'], [
+            'group' => 'system',
+            'value' => 'info@teslatech.my.id',
+            'is_encrypted' => false,
+        ]);
+
+        $items = LegalService::contactItems();
+
+        $this->assertSame('info@teslatech.my.id', $items[0]['value']);
     }
 }

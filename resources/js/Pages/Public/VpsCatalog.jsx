@@ -71,7 +71,9 @@ export default function VpsCatalog({
     customerName = null,
     activeGateway = 'midtrans',
     termsSections = [],
+    termsDocument = null,
     termsUrl = '/syarat-ketentuan',
+    legalLinks = [],
 }) {
     const { branding = {} } = usePage().props;
     const [orderingPlan, setOrderingPlan] = useState(null);
@@ -414,8 +416,10 @@ export default function VpsCatalog({
                             <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-start">
                                 <PublicSupportContact branding={branding} variant="vps" />
                                 <PublicTermsPreview
+                                    termsDocument={termsDocument}
                                     termsSections={termsSections}
                                     termsUrl={termsUrl}
+                                    legalLinks={legalLinks}
                                     variant="vps"
                                 />
                             </div>
@@ -425,7 +429,7 @@ export default function VpsCatalog({
 
                 <AppFooter
                     branding={branding}
-                    termsUrl={termsUrl}
+                    legalLinks={legalLinks}
                     className="py-5 px-6 border-t border-white/[0.06] text-center bg-[#070b14]"
                     textClassName="text-xs text-slate-600 leading-relaxed"
                 />

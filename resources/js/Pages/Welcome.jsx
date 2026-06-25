@@ -8,7 +8,12 @@ import BrandingTagline from '../Components/BrandingTagline';
 import PublicSupportContact from '../Components/PublicSupportContact';
 import PublicTermsPreview from '../Components/PublicTermsPreview';
 
-export default function Welcome({ termsSections = [], vpsCatalogUrl = null }) {
+export default function Welcome({
+    termsDocument = null,
+    termsSections = [],
+    legalLinks = [],
+    vpsCatalogUrl = null,
+}) {
     const { branding = {} } = usePage().props;
     const termsUrl = branding.terms_url || '/syarat-ketentuan';
 
@@ -58,17 +63,19 @@ export default function Welcome({ termsSections = [], vpsCatalogUrl = null }) {
                         <PublicSupportContact branding={branding} variant="light" />
 
                         <PublicTermsPreview
+                            termsDocument={termsDocument}
                             termsSections={termsSections}
                             termsUrl={termsUrl}
+                            legalLinks={legalLinks}
                             variant="light"
                         />
                     </div>
                 </div>
                 <AppFooter
                     branding={branding}
+                    legalLinks={legalLinks}
                     className="py-4 px-6 border-t border-slate-800 text-center space-y-2"
                     textClassName="text-xs sm:text-sm text-slate-500 leading-relaxed"
-                    termsUrl={termsUrl}
                 />
             </PullToRefresh>
         </>

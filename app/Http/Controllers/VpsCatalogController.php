@@ -43,7 +43,9 @@ class VpsCatalogController extends Controller
             'activeGateway' => SettingService::get('payment.active_gateway', 'tripay'),
             'catalogUrl' => url('/layanan/vps'),
             'termsSections' => \App\Services\LegalService::termsSections(),
+            'termsDocument' => \App\Services\LegalService::termsDocument(),
             'termsUrl' => \App\Services\LegalService::termsUrl(),
+            'legalLinks' => \App\Services\LegalService::legalLinks(),
         ]);
     }
 

@@ -25,6 +25,7 @@ class BrandingService
             'display_name' => $companyName ?: $appName,
             'footer_copyright' => self::renderCopyright(),
             'terms_url' => LegalService::termsUrl(),
+            'legal_links' => LegalService::legalLinks(),
             'seo' => [
                 'title' => $seoTitle ?: $appName,
                 'description' => self::seoDescription(),
