@@ -41,26 +41,30 @@ function MessagingPageContent({
         const form = e.target;
         const formData = new FormData(form);
 
-        const whatsappEnabledCheckbox = form.querySelector('input[name="whatsapp_enabled_ui"]');
-        formData.set('whatsapp[enabled]', whatsappEnabledCheckbox?.checked ? '1' : '0');
+        // Gateway fields only exist while the gateway tab is mounted; avoid overwriting
+        // saved gateway settings with defaults when saving from the templates tab.
+        if (messagingSubTab === 'gateway') {
+            const whatsappEnabledCheckbox = form.querySelector('input[name="whatsapp_enabled_ui"]');
+            formData.set('whatsapp[enabled]', whatsappEnabledCheckbox?.checked ? '1' : '0');
 
-        const whatsappBulkDelayCheckbox = form.querySelector('input[name="whatsapp_bulk_delay_enabled_ui"]');
-        formData.set('whatsapp[bulk_delay_enabled]', whatsappBulkDelayCheckbox?.checked ? '1' : '0');
+            const whatsappBulkDelayCheckbox = form.querySelector('input[name="whatsapp_bulk_delay_enabled_ui"]');
+            formData.set('whatsapp[bulk_delay_enabled]', whatsappBulkDelayCheckbox?.checked ? '1' : '0');
 
-        const bulkBatchSizeInput = form.querySelector('input[name="whatsapp_bulk_batch_size_ui"]');
-        const bulkWindowMinutesInput = form.querySelector('input[name="whatsapp_bulk_window_minutes_ui"]');
-        const minutesToStoredSeconds = (minutes, { minSeconds = 6, maxSeconds = 7200 } = {}) => {
-            const parsed = parseFloat(minutes);
-            const seconds = Math.round((Number.isFinite(parsed) ? parsed : 0) * 60);
+            const bulkBatchSizeInput = form.querySelector('input[name="whatsapp_bulk_batch_size_ui"]');
+            const bulkWindowMinutesInput = form.querySelector('input[name="whatsapp_bulk_window_minutes_ui"]');
+            const minutesToStoredSeconds = (minutes, { minSeconds = 6, maxSeconds = 7200 } = {}) => {
+                const parsed = parseFloat(minutes);
+                const seconds = Math.round((Number.isFinite(parsed) ? parsed : 0) * 60);
 
-            return String(Math.min(maxSeconds, Math.max(minSeconds, seconds)));
-        };
+                return String(Math.min(maxSeconds, Math.max(minSeconds, seconds)));
+            };
 
-        formData.set(
-            'whatsapp[bulk_batch_size]',
-            String(Math.min(100, Math.max(1, parseInt(bulkBatchSizeInput?.value, 10) || 5)))
-        );
-        formData.set('whatsapp[bulk_window_seconds]', minutesToStoredSeconds(bulkWindowMinutesInput?.value, { minSeconds: 6 }));
+            formData.set(
+                'whatsapp[bulk_batch_size]',
+                String(Math.min(100, Math.max(1, parseInt(bulkBatchSizeInput?.value, 10) || 5)))
+            );
+            formData.set('whatsapp[bulk_window_seconds]', minutesToStoredSeconds(bulkWindowMinutesInput?.value, { minSeconds: 6 }));
+        }
 
         router.post('/admin/messaging/save', formData, {
             forceFormData: true,
