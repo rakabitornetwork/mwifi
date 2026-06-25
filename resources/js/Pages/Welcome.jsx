@@ -54,18 +54,26 @@ function formatWhatsappHref(phone) {
 
 const LANDING_HEADER_OFFSET = 64;
 
+function getScrollBehavior() {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+}
+
+function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: getScrollBehavior() });
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+
 function scrollToSection(sectionId) {
     const el = document.getElementById(sectionId);
     if (!el) {
         return;
     }
 
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const top = el.getBoundingClientRect().top + window.scrollY - LANDING_HEADER_OFFSET;
 
     window.scrollTo({
         top: Math.max(0, top),
-        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        behavior: getScrollBehavior(),
     });
 
     window.history.replaceState(null, '', `#${sectionId}`);
@@ -137,6 +145,17 @@ export default function Welcome({
         e.preventDefault();
         setMobileMenuOpen(false);
         scrollToSection(sectionId);
+    };
+
+    const handleBerandaNav = (e) => {
+        const onLanding = window.location.pathname === '/' || window.location.pathname === '';
+        if (!onLanding) {
+            return;
+        }
+
+        e.preventDefault();
+        setMobileMenuOpen(false);
+        scrollToTop();
     };
 
     // Form states for service booking
@@ -212,7 +231,7 @@ export default function Welcome({
                 <header className={t.header}>
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
                         {/* Logo & Brand */}
-                        <Link href="/" className="flex items-center gap-3 group">
+                        <Link href="/" onClick={handleBerandaNav} className="flex items-center gap-3 group">
                             {branding.logo_url ? (
                                 <img
                                     src={branding.logo_url}
@@ -231,9 +250,9 @@ export default function Welcome({
 
                         {/* Desktop Navigation */}
                         <nav className="hidden md:flex items-center gap-8">
-                            <Link href="/" className={t.navLink}>
+                            <a href="/" onClick={handleBerandaNav} className={t.navLink}>
                                 Beranda
-                            </Link>
+                            </a>
                             <a href="#fitur" onClick={(e) => handleSectionNav(e, 'fitur')} className={t.navLink}>
                                 Layanan Kami
                             </a>
@@ -284,13 +303,13 @@ export default function Welcome({
                         }`}
                     >
                         <nav className="flex flex-col p-5 gap-4">
-                                <Link
+                                <a
                                     href="/"
-                                    onClick={() => setMobileMenuOpen(false)}
+                                    onClick={handleBerandaNav}
                                     className={t.mobileNavLink}
                                 >
                                     Beranda
-                                </Link>
+                                </a>
                                 <a
                                     href="#fitur"
                                     onClick={(e) => handleSectionNav(e, 'fitur')}
