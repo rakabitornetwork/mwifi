@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import {
     ChevronRight,
@@ -20,11 +20,15 @@ import {
     Code,
     Headphones,
     Clock,
+    Sun,
+    Moon,
 } from 'lucide-react';
 import PullToRefresh from '../Components/PullToRefresh';
 import SeoHead from '../Components/SeoHead';
 import PublicSiteFooter from '../Components/PublicSiteFooter';
 import BrandingTagline from '../Components/BrandingTagline';
+import { useScheduledTheme } from '../hooks/useScheduledTheme';
+import { getLandingTheme } from '../utils/landingTheme';
 
 const STARS = [
     { top: '8%', left: '12%', size: 'w-1 h-1', anim: 'star-twinkle-slow' },
@@ -36,11 +40,6 @@ const STARS = [
     { top: '70%', left: '80%', size: 'w-1 h-1', anim: 'star-twinkle-slow' },
     { top: '82%', left: '25%', size: 'w-1.5 h-1.5', anim: 'star-twinkle-medium' },
 ];
-
-const HEADER_NAV_LINK =
-    'text-sm font-semibold text-slate-400 hover:text-indigo-400 transition-colors';
-const HEADER_MOBILE_NAV_LINK =
-    'pb-2 border-b border-slate-900 text-sm font-semibold text-slate-400 hover:text-indigo-400 transition-colors';
 
 function formatWhatsappHref(phone) {
     if (!phone) {
@@ -62,8 +61,9 @@ function ContactChannelCard({
     accentClass,
     iconWrapClass,
     className = '',
+    theme,
 }) {
-    const wrapperClass = `group relative flex flex-col justify-between rounded-2xl border border-slate-800/80 bg-slate-900/30 backdrop-blur-sm p-5 sm:p-6 overflow-hidden transition-all duration-300 hover:border-slate-700/90 hover:bg-slate-900/55 hover:shadow-lg hover:shadow-indigo-950/20 ${href ? 'cursor-pointer' : ''} ${className}`;
+    const wrapperClass = `${theme.contactCard} ${href ? 'cursor-pointer' : ''} ${className}`;
 
     const content = (
         <>
@@ -73,12 +73,12 @@ function ContactChannelCard({
                     <Icon className={`w-5 h-5 ${accentClass}`} />
                 </div>
                 <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">{label}</p>
-                    <p className="text-sm sm:text-base font-semibold text-white mt-1.5 break-words leading-snug">{value}</p>
+                    <p className={theme.contactLabel}>{label}</p>
+                    <p className={theme.contactValue}>{value}</p>
                 </div>
             </div>
             {actionLabel && href && (
-                <div className="relative pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                <div className={theme.contactDivider}>
                     <span className={`text-xs font-bold ${accentClass}`}>{actionLabel}</span>
                     <ArrowRight className={`w-3.5 h-3.5 shrink-0 ${accentClass} opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all`} />
                 </div>
@@ -110,6 +110,8 @@ export default function Welcome({
     vpsPlans = [],
 }) {
     const { branding = {} } = usePage().props;
+    const { isDarkMode, isAutoTheme, toggleTheme } = useScheduledTheme('mwifi.landing.theme');
+    const t = useMemo(() => getLandingTheme(isDarkMode), [isDarkMode]);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     // Form states for service booking
@@ -179,11 +181,10 @@ export default function Welcome({
             <SeoHead title="Home" branding={branding} />
             <PullToRefresh
                 useWindowScroll
-                isDarkMode={true}
-                className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans selection:bg-indigo-600/40 selection:text-indigo-200"
+                isDarkMode={isDarkMode}
+                className={t.page}
             >
-                {/* STICKY GLASSMORPHIC HEADER */}
-                <header className="sticky top-0 z-50 w-full border-b border-slate-900 bg-slate-950/80 backdrop-blur-md relative">
+                <header className={t.header}>
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
                         {/* Logo & Brand */}
                         <Link href="/" className="flex items-center gap-3 group">
@@ -198,52 +199,60 @@ export default function Welcome({
                                     <Server className="w-4 h-4" />
                                 </div>
                             )}
-                            <span className="text-sm font-black tracking-widest text-white group-hover:text-indigo-400 transition-colors uppercase">
+                            <span className={t.brand}>
                                 {companyName}
                             </span>
                         </Link>
 
                         {/* Desktop Navigation */}
                         <nav className="hidden md:flex items-center gap-8">
-                            <Link href="/" className={HEADER_NAV_LINK}>
+                            <Link href="/" className={t.navLink}>
                                 Beranda
                             </Link>
-                            <a href="#fitur" className={HEADER_NAV_LINK}>
+                            <a href="#fitur" className={t.navLink}>
                                 Layanan Kami
                             </a>
-                            <a href="#pesan" className={HEADER_NAV_LINK}>
+                            <a href="#pesan" className={t.navLink}>
                                 Pesan Layanan
                             </a>
-                            <a href="#kontak" className={HEADER_NAV_LINK}>
+                            <a href="#kontak" className={t.navLink}>
                                 Hubungi Kami
                             </a>
                         </nav>
 
-                        <div className="hidden md:flex items-center">
-                            <Link
-                                href="/portal"
-                                className="inline-flex items-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold bg-slate-900 border border-slate-800 text-slate-200 hover:bg-slate-800 hover:text-white hover:border-slate-700 transition-all shadow-sm"
+                        <div className="flex items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                onClick={toggleTheme}
+                                className={t.themeToggle}
+                                aria-label={isAutoTheme ? 'Tema otomatis. Klik untuk ganti.' : isDarkMode ? 'Aktifkan mode terang' : 'Aktifkan mode gelap'}
+                                title={isAutoTheme ? 'Otomatis (06:00–18:00 terang)' : undefined}
                             >
-                                <UserCircle className="w-4 h-4 text-indigo-400" />
-                                Portal Pelanggan
-                            </Link>
-                        </div>
+                                {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                            </button>
 
-                        {/* Mobile Menu Button */}
-                        <button
-                            type="button"
-                            aria-expanded={mobileMenuOpen}
-                            aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
-                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            className="md:hidden p-2 rounded-lg border border-slate-800 bg-slate-900/60 text-slate-300 hover:text-white transition-colors"
-                        >
-                            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-                        </button>
+                            <div className="hidden md:flex items-center">
+                                <Link href="/portal" className={t.portalBtn}>
+                                    <UserCircle className="w-4 h-4 text-indigo-400" />
+                                    Portal Pelanggan
+                                </Link>
+                            </div>
+
+                            <button
+                                type="button"
+                                aria-expanded={mobileMenuOpen}
+                                aria-label={mobileMenuOpen ? 'Tutup menu' : 'Buka menu'}
+                                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                className={t.hamburger}
+                            >
+                                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                            </button>
+                        </div>
                     </div>
 
                     <div
                         aria-hidden={!mobileMenuOpen}
-                        className={`md:hidden absolute top-full left-0 w-full overflow-hidden border-slate-900 bg-slate-950/95 backdrop-blur-lg transition-[max-height,opacity,transform,border-color] duration-300 ease-in-out ${
+                        className={`${t.mobileMenuOpen} ${
                             mobileMenuOpen
                                 ? 'max-h-96 opacity-100 translate-y-0 border-b pointer-events-auto'
                                 : 'max-h-0 opacity-0 -translate-y-1 border-b-0 pointer-events-none'
@@ -253,28 +262,28 @@ export default function Welcome({
                                 <Link
                                     href="/"
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className={HEADER_MOBILE_NAV_LINK}
+                                    className={t.mobileNavLink}
                                 >
                                     Beranda
                                 </Link>
                                 <a
                                     href="#fitur"
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className={HEADER_MOBILE_NAV_LINK}
+                                    className={t.mobileNavLink}
                                 >
                                     Layanan Kami
                                 </a>
                                 <a
                                     href="#pesan"
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className={HEADER_MOBILE_NAV_LINK}
+                                    className={t.mobileNavLink}
                                 >
                                     Pesan Layanan
                                 </a>
                                 <a
                                     href="#kontak"
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className={HEADER_MOBILE_NAV_LINK}
+                                    className={t.mobileNavLink}
                                 >
                                     Hubungi Kami
                                 </a>
@@ -297,7 +306,7 @@ export default function Welcome({
                     <div className="absolute bottom-[-10%] right-[10%] w-[350px] md:w-[600px] h-[350px] md:h-[600px] rounded-full bg-sky-500/10 blur-[80px] md:blur-[140px] pointer-events-none" />
 
                     {/* Twinkling Stars */}
-                    {STARS.map((star, idx) => (
+                    {isDarkMode && STARS.map((star, idx) => (
                         <div
                             key={idx}
                             className={`absolute ${star.size} bg-white rounded-full ${star.anim} opacity-60 pointer-events-none`}
@@ -306,26 +315,30 @@ export default function Welcome({
                     ))}
 
                     {/* Shooting Meteors */}
-                    <div className="absolute top-10 right-1/4 w-40 h-px bg-gradient-to-l from-indigo-500 to-transparent rotate-[-40deg] meteor-1 opacity-40 pointer-events-none" />
-                    <div className="absolute top-32 right-10 w-60 h-px bg-gradient-to-l from-purple-500 to-transparent rotate-[-40deg] meteor-2 opacity-30 pointer-events-none" />
-                    <div className="absolute top-60 right-1/3 w-44 h-px bg-gradient-to-l from-sky-400 to-transparent rotate-[-40deg] meteor-3 opacity-40 pointer-events-none" />
+                    {isDarkMode && (
+                        <>
+                            <div className="absolute top-10 right-1/4 w-40 h-px bg-gradient-to-l from-indigo-500 to-transparent rotate-[-40deg] meteor-1 opacity-40 pointer-events-none" />
+                            <div className="absolute top-32 right-10 w-60 h-px bg-gradient-to-l from-purple-500 to-transparent rotate-[-40deg] meteor-2 opacity-30 pointer-events-none" />
+                            <div className="absolute top-60 right-1/3 w-44 h-px bg-gradient-to-l from-sky-400 to-transparent rotate-[-40deg] meteor-3 opacity-40 pointer-events-none" />
+                        </>
+                    )}
 
                     <div className="max-w-6xl w-full mx-auto px-4 sm:px-6 relative z-10">
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
                             {/* Left Column: Hero Text */}
                             <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-400 text-xs font-bold uppercase tracking-wider">
+                                <div className={t.heroBadge}>
                                     <Shield className="w-3.5 h-3.5" />
                                     Premium IT & Network Solutions
                                 </div>
-                                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-white">
+                                <h1 className={t.headingXl}>
                                     Solusi IT &{' '}
                                     <span className="bg-gradient-to-r from-sky-400 via-indigo-300 to-purple-400 bg-clip-text text-transparent">
                                         Jaringan Profesional
                                     </span>{' '}
                                     Terpercaya
                                 </h1>
-                                <BrandingTagline lines={3} className="text-base sm:text-lg text-slate-400 font-medium leading-relaxed max-w-xl mx-auto lg:mx-0">
+                                <BrandingTagline lines={3} className={t.heroTagline}>
                                     {tagline}
                                 </BrandingTagline>
 
@@ -341,22 +354,22 @@ export default function Welcome({
                                 </div>
 
                                 {/* Floating Micro-stats */}
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-8 border-t border-slate-900">
+                                <div className={t.heroStatsBorder}>
                                     <div className="space-y-1">
-                                        <p className="text-xl sm:text-2xl font-black text-white">Custom</p>
-                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Desain Aplikasi</p>
+                                        <p className={t.statValue}>Custom</p>
+                                        <p className={t.statLabel}>Desain Aplikasi</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-xl sm:text-2xl font-black text-white">Optimasi</p>
-                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Jaringan WiFi</p>
+                                        <p className={t.statValue}>Optimasi</p>
+                                        <p className={t.statLabel}>Jaringan WiFi</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-xl sm:text-2xl font-black text-white">99.9%</p>
-                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">SLA Uptime VPS</p>
+                                        <p className={t.statValue}>99.9%</p>
+                                        <p className={t.statLabel}>SLA Uptime VPS</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-xl sm:text-2xl font-black text-white">Profesional</p>
-                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Layanan IT</p>
+                                        <p className={t.statValue}>Profesional</p>
+                                        <p className={t.statLabel}>Layanan IT</p>
                                     </div>
                                 </div>
                             </div>
@@ -433,20 +446,20 @@ export default function Welcome({
                 </section>
 
                 {/* PREMIUM FEATURES SECTION */}
-                <section id="fitur" className="py-20 border-t border-slate-900 bg-slate-950 relative overflow-hidden">
+                <section id="fitur" className={`py-20 ${t.section}`}>
                     <div className="absolute top-[20%] left-[-10%] w-[300px] h-[300px] rounded-full bg-indigo-500/5 blur-[100px] pointer-events-none" />
                     <div className="absolute bottom-[20%] right-[-10%] w-[300px] h-[300px] rounded-full bg-sky-500/5 blur-[100px] pointer-events-none" />
 
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
                         {/* Section Title */}
                         <div className="max-w-3xl mx-auto text-center space-y-4 mb-16">
-                            <h2 className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-400">
+                            <h2 className={t.sectionLabel}>
                                 Layanan IT Profesional
                             </h2>
-                            <p className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                            <p className={t.headingLg}>
                                 Solusi Teknologi Handal untuk Bisnis Anda
                             </p>
-                            <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-xl mx-auto">
+                            <p className={`${t.subtext} max-w-xl mx-auto`}>
                                 Kami menyediakan jasa pembuatan software, setup infrastruktur jaringan WiFi, hosting server cloud, serta layanan IT support profesional lainnya.
                             </p>
                         </div>
@@ -454,53 +467,53 @@ export default function Welcome({
                         {/* Features Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             {/* Feature 1 */}
-                            <div className="group rounded-3xl border border-slate-900 bg-slate-900/30 p-6 space-y-4 hover:border-slate-800 hover:bg-slate-900/50 hover:shadow-xl hover:shadow-indigo-950/10 transition-all duration-300">
+                            <div className={`${t.featureCard} hover:shadow-indigo-950/10`}>
                                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 group-hover:scale-110 group-hover:bg-indigo-500 group-hover:text-white transition-all duration-300">
                                     <Code className="w-6 h-6" />
                                 </div>
-                                <h3 className="text-lg font-bold text-white group-hover:text-indigo-400 transition-colors">
+                                <h3 className={`${t.featureTitle} group-hover:text-indigo-400`}>
                                     Jasa Pembuatan Aplikasi
                                 </h3>
-                                <p className="text-xs sm:text-sm leading-relaxed text-slate-400">
+                                <p className={t.featureBody}>
                                     Pembuatan website company profile, aplikasi web kustom, sistem e-commerce, dan aplikasi mobile dengan desain modern serta UI/UX premium.
                                 </p>
                             </div>
 
                             {/* Feature 2 */}
-                            <div className="group rounded-3xl border border-slate-900 bg-slate-900/30 p-6 space-y-4 hover:border-slate-800 hover:bg-slate-900/50 hover:shadow-xl hover:shadow-sky-950/10 transition-all duration-300">
+                            <div className={`${t.featureCard} hover:shadow-sky-950/10`}>
                                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20 group-hover:scale-110 group-hover:bg-sky-500 group-hover:text-white transition-all duration-300">
                                     <Wifi className="w-6 h-6" />
                                 </div>
-                                <h3 className="text-lg font-bold text-white group-hover:text-sky-400 transition-colors">
+                                <h3 className={`${t.featureTitle} group-hover:text-sky-400`}>
                                     Setting & Maintenance WiFi
                                 </h3>
-                                <p className="text-xs sm:text-sm leading-relaxed text-slate-400">
+                                <p className={t.featureBody}>
                                     Instalasi MikroTik, konfigurasi jaringan hotspot voucher, optimasi bandwidth, troubleshooting, dan pemeliharaan rutin untuk kantor, cafe, atau RT/RW Net.
                                 </p>
                             </div>
 
                             {/* Feature 3 */}
-                            <div className="group rounded-3xl border border-slate-900 bg-slate-900/30 p-6 space-y-4 hover:border-slate-800 hover:bg-slate-900/50 hover:shadow-xl hover:shadow-purple-950/10 transition-all duration-300">
+                            <div className={`${t.featureCard} hover:shadow-purple-950/10`}>
                                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20 group-hover:scale-110 group-hover:bg-purple-500 group-hover:text-white transition-all duration-300">
                                     <Server className="w-6 h-6" />
                                 </div>
-                                <h3 className="text-lg font-bold text-white group-hover:text-purple-400 transition-colors">
+                                <h3 className={`${t.featureTitle} group-hover:text-purple-400`}>
                                     Sewa VPS Premium
                                 </h3>
-                                <p className="text-xs sm:text-sm leading-relaxed text-slate-400">
+                                <p className={t.featureBody}>
                                     Penyewaan server virtual privat dengan media penyimpanan SSD NVMe berkecepatan tinggi, backup otomatis harian, dan uptime server terjamin.
                                 </p>
                             </div>
 
                             {/* Feature 4 */}
-                            <div className="group rounded-3xl border border-slate-900 bg-slate-900/30 p-6 space-y-4 hover:border-slate-800 hover:bg-slate-900/50 hover:shadow-xl hover:shadow-emerald-950/10 transition-all duration-300">
+                            <div className={`${t.featureCard} hover:shadow-emerald-950/10`}>
                                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-300">
                                     <Shield className="w-6 h-6" />
                                 </div>
-                                <h3 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">
+                                <h3 className={`${t.featureTitle} group-hover:text-emerald-400`}>
                                     Jasa IT Support Umum
                                 </h3>
-                                <p className="text-xs sm:text-sm leading-relaxed text-slate-400">
+                                <p className={t.featureBody}>
                                     Konsultasi IT, instalasi CCTV, administrasi server Linux/Windows, setup cloud backup data, dan penanganan keamanan cyber.
                                 </p>
                             </div>
@@ -509,7 +522,7 @@ export default function Welcome({
                 </section>
 
                 {/* PREMIUM ORDER SERVICE SECTION */}
-                <section id="pesan" className="py-20 border-t border-slate-900 bg-slate-950 relative overflow-hidden">
+                <section id="pesan" className={`py-20 ${t.section}`}>
                     <div className="absolute top-[-10%] right-[10%] w-[350px] h-[350px] rounded-full bg-indigo-600/5 blur-[120px] pointer-events-none" />
                     <div className="absolute bottom-[-10%] left-[10%] w-[350px] h-[350px] rounded-full bg-sky-500/5 blur-[120px] pointer-events-none" />
 
@@ -521,35 +534,35 @@ export default function Welcome({
                                     <Shield className="w-3.5 h-3.5" />
                                     Transaksi Aman & Instan
                                 </div>
-                                <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                                <h2 className={t.headingLg}>
                                     Pesan Layanan IT & WiFi Jaringan Sekarang
                                 </h2>
-                                <p className="text-slate-400 text-sm leading-relaxed">
+                                <p className={t.subtextSm}>
                                     Isi data diri Anda di formulir, pilih jenis layanan yang Anda butuhkan, dan lakukan pembayaran langsung via QRIS, Virtual Account, atau E-Wallet pilihan Anda secara otomatis.
                                 </p>
 
-                                <div className="space-y-4 pt-4 border-t border-slate-900 text-left">
+                                <div className={t.orderDivider}>
                                     <div className="flex items-start gap-3">
-                                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-400 shrink-0 mt-0.5">
+                                        <div className={t.checkIcon}>
                                             ✓
                                         </div>
-                                        <p className="text-xs sm:text-sm text-slate-350">
+                                        <p className={t.body}>
                                             <strong>Integrasi Gateway Otomatis</strong>: Pembayaran Anda langsung diproses menggunakan merchant payment gateway resmi.
                                         </p>
                                     </div>
                                     <div className="flex items-start gap-3">
-                                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-400 shrink-0 mt-0.5">
+                                        <div className={t.checkIcon}>
                                             ✓
                                         </div>
-                                        <p className="text-xs sm:text-sm text-slate-350">
+                                        <p className={t.body}>
                                             <strong>E-Invoice Resmi</strong>: Invoice tagihan dikirim secara otomatis ke email & WhatsApp Anda setelah pesanan dibuat.
                                         </p>
                                     </div>
                                     <div className="flex items-start gap-3">
-                                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-400 shrink-0 mt-0.5">
+                                        <div className={t.checkIcon}>
                                             ✓
                                         </div>
-                                        <p className="text-xs sm:text-sm text-slate-350">
+                                        <p className={t.body}>
                                             <strong>Proses Cepat & Responsif</strong>: Setelah pembayaran selesai, tim technical support kami akan segera memproses detail pesanan Anda.
                                         </p>
                                     </div>
@@ -558,7 +571,7 @@ export default function Welcome({
 
                             {/* Right Form Column */}
                             <div className="lg:col-span-7">
-                                <div className="rounded-3xl border border-slate-900 bg-slate-900/20 p-6 sm:p-8 backdrop-blur-md shadow-2xl relative">
+                                <div className={t.formCard}>
                                     <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-600/10 blur-2xl rounded-full pointer-events-none" />
 
                                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -577,50 +590,50 @@ export default function Welcome({
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             {/* Input Name */}
                                             <div className="flex flex-col gap-1.5">
-                                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Nama Lengkap</label>
+                                                <label className={t.formLabel}>Nama Lengkap</label>
                                                 <input
                                                     type="text"
                                                     required
                                                     placeholder="Nama Anda"
                                                     value={formData.name}
                                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                                    className="p-3 text-xs sm:text-sm border border-slate-800 rounded-xl bg-slate-950/60 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                                    className={t.formInput}
                                                 />
                                             </div>
 
                                             {/* Input Phone */}
                                             <div className="flex flex-col gap-1.5">
-                                                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Nomor WhatsApp</label>
+                                                <label className={t.formLabel}>Nomor WhatsApp</label>
                                                 <input
                                                     type="tel"
                                                     required
                                                     placeholder="Contoh: 081234567890"
                                                     value={formData.phone}
                                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                                    className="p-3 text-xs sm:text-sm border border-slate-800 rounded-xl bg-slate-950/60 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                                    className={t.formInput}
                                                 />
                                             </div>
                                         </div>
 
                                         {/* Input Email */}
                                         <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Alamat Email</label>
+                                            <label className={t.formLabel}>Alamat Email</label>
                                             <input
                                                 type="email"
                                                 required
                                                 placeholder="email@anda.com"
                                                 value={formData.email}
                                                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                                className="p-3 text-xs sm:text-sm border border-slate-800 rounded-xl bg-slate-950/60 text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                                className={t.formInput}
                                             />
                                         </div>
 
                                         <div className="flex flex-col gap-1.5">
-                                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Pilih Layanan</label>
+                                            <label className={t.formLabel}>Pilih Layanan</label>
                                             <select
                                                 value={formData.service_type}
                                                 onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
-                                                className="p-3 text-xs sm:text-sm border border-slate-800 rounded-xl bg-slate-950/60 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
+                                                className={t.formInput}
                                             >
                                                 {vpsPlans.map((plan) => (
                                                     <option key={plan.id} value={plan.id}>
@@ -656,28 +669,28 @@ export default function Welcome({
                 </section>
 
                 {/* PREMIUM CONTACT SECTION */}
-                <section id="kontak" className="py-24 sm:py-28 border-t border-slate-900 bg-slate-950 relative overflow-hidden">
+                <section id="kontak" className={`py-24 sm:py-28 ${t.section}`}>
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-indigo-600/[0.07] blur-[120px] rounded-full pointer-events-none" />
                     <div className="absolute bottom-0 right-0 w-[400px] h-[300px] bg-sky-500/[0.05] blur-[100px] rounded-full pointer-events-none" />
-                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#6366f108_1px,transparent_1px),linear-gradient(to_bottom,#6366f108_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_80%_60%_at_50%_50%,#000_20%,transparent_100%)] pointer-events-none" />
+                    <div className={t.contactGridBg} />
 
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
                         <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-start">
                             {/* Left: intro & trust */}
                             <div className="lg:col-span-5 space-y-7 text-center lg:text-left">
-                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-400 text-[11px] font-bold uppercase tracking-widest">
+                                <div className={`${t.heroBadge} text-[11px] tracking-widest`}>
                                     <Headphones className="w-3 h-3" />
                                     Layanan Support & Kontak
                                 </div>
 
                                 <div className="space-y-4">
-                                    <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                                    <h2 className={t.headingLg}>
                                         Tim Ahli Siap{' '}
                                         <span className="bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">
                                             Mendampingi Anda
                                         </span>
                                     </h2>
-                                    <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-md mx-auto lg:mx-0">
+                                    <p className={`${t.subtext} max-w-md mx-auto lg:mx-0`}>
                                         Konsultasi pembuatan website, instalasi jaringan, layanan cloud,
                                         dan kebutuhan IT profesional — dengan respons cepat dan komunikasi yang jelas.
                                     </p>
@@ -691,7 +704,7 @@ export default function Welcome({
                                     ].map(({ icon: Icon, text }) => (
                                         <span
                                             key={text}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-800 bg-slate-900/50 text-[11px] font-semibold text-slate-400"
+                                            className={t.trustPill}
                                         >
                                             <Icon className="w-3 h-3 text-indigo-400" />
                                             {text}
@@ -716,9 +729,9 @@ export default function Welcome({
                             {/* Right: contact channels */}
                             <div className="lg:col-span-7">
                                 {!email && !phone && !address && !website ? (
-                                    <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/20 p-10 text-center">
-                                        <Headphones className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-                                        <p className="text-sm text-slate-500">
+                                    <div className={t.contactEmpty}>
+                                        <Headphones className={`w-8 h-8 mx-auto mb-3 ${isDarkMode ? 'text-slate-600' : 'text-slate-400'}`} />
+                                        <p className={`text-sm ${isDarkMode ? 'text-slate-500' : 'text-slate-600'}`}>
                                             Informasi kontak belum dikonfigurasi di pengaturan admin.
                                         </p>
                                     </div>
@@ -734,6 +747,7 @@ export default function Welcome({
                                                 accentClass="text-emerald-400"
                                                 iconWrapClass="bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                                                 className="sm:col-span-2"
+                                                theme={t}
                                             />
                                         )}
                                         {email && (
@@ -745,6 +759,7 @@ export default function Welcome({
                                                 actionLabel="Kirim Email"
                                                 accentClass="text-indigo-400"
                                                 iconWrapClass="bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
+                                                theme={t}
                                             />
                                         )}
                                         {website && (
@@ -756,6 +771,7 @@ export default function Welcome({
                                                 actionLabel="Kunjungi Situs"
                                                 accentClass="text-sky-400"
                                                 iconWrapClass="bg-sky-500/10 border-sky-500/20 text-sky-400"
+                                                theme={t}
                                             />
                                         )}
                                         {address && (
@@ -766,12 +782,13 @@ export default function Welcome({
                                                 accentClass="text-purple-400"
                                                 iconWrapClass="bg-purple-500/10 border-purple-500/20 text-purple-400"
                                                 className={website ? 'sm:col-span-2' : ''}
+                                                theme={t}
                                             />
                                         )}
                                     </div>
                                 )}
 
-                                <p className="mt-5 text-center lg:text-left text-[11px] text-slate-600 font-medium">
+                                <p className={t.contactFootnote}>
                                     {companyName} · Dukungan teknis profesional untuk bisnis Anda
                                 </p>
                             </div>
@@ -783,7 +800,7 @@ export default function Welcome({
                 <PublicSiteFooter
                     branding={branding}
                     legalLinks={legalLinks}
-                    isDark={true}
+                    isDark={isDarkMode}
                     showContactLine={false}
                     centerCopyright={true}
                 />
