@@ -172,13 +172,6 @@ export default function VpsCatalog({
                             </div>
                         </div>
 
-                        <nav className="hidden md:flex items-center gap-6 text-xs font-semibold text-slate-500">
-                            <a href="#paket" className="hover:text-sky-700 transition-colors">Paket</a>
-                            <a href="#fitur" className="hover:text-sky-700 transition-colors">Fitur</a>
-                            <a href="#pembayaran" className="hover:text-sky-700 transition-colors">Pembayaran</a>
-                            <a href="#kontak" className="hover:text-sky-700 transition-colors">Kontak</a>
-                        </nav>
-
                         {(guestVerification || (isLoggedIn && canOrder)) ? (
                             <div className="flex items-center gap-3 shrink-0">
                                 <div className="text-right hidden sm:block">
