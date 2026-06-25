@@ -145,4 +145,18 @@ class BillingNextInvoiceTest extends TestCase
         $thermal->assertSee('Thermal 58mm');
         $thermal->assertSee('Lunas');
     }
+
+    public function test_next_billing_preview_skips_vps_invoices(): void
+    {
+        $invoice = $this->makePaidInvoice();
+        $invoice->update([
+            'invoice_number' => 'VPS-BUSINESS-0001-AB12',
+            'billing_period' => 'vps:business',
+        ]);
+
+        $this->assertNull(BillingService::resolveNextBillingPreview($invoice->fresh()));
+
+        $payload = BillingService::appendNextBillingToInvoices(collect([$invoice->fresh()]));
+        $this->assertNull($payload[0]['next_billing'] ?? null);
+    }
 }

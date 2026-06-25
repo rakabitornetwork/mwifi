@@ -456,6 +456,14 @@ class BillingService
             return null;
         }
 
+        if (VpsCatalogService::isVpsInvoice($invoice)) {
+            return null;
+        }
+
+        if (! preg_match('/^\d{4}-\d{2}$/', (string) $invoice->billing_period)) {
+            return null;
+        }
+
         $nextPeriod = Carbon::createFromFormat('Y-m', $invoice->billing_period)
             ->addMonth()
             ->format('Y-m');
