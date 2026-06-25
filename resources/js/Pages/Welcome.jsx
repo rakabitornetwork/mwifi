@@ -15,7 +15,6 @@ export default function Welcome({
     vpsCatalogUrl = null,
 }) {
     const { branding = {} } = usePage().props;
-    const termsUrl = branding.terms_url || '/syarat-ketentuan';
 
     return (
         <>
@@ -65,8 +64,6 @@ export default function Welcome({
                         <PublicTermsPreview
                             termsDocument={termsDocument}
                             termsSections={termsSections}
-                            termsUrl={termsUrl}
-                            legalLinks={legalLinks}
                             variant="light"
                         />
                     </div>

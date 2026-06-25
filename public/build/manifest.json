@@ -63,8 +63,8 @@
       "_vendor-core-GzNnTIzR.js"
     ]
   },
-  "_PublicTermsPreview-B3T59sxS.js": {
-    "file": "assets/PublicTermsPreview-B3T59sxS.js",
+  "_PublicTermsPreview-1EyKFInR.js": {
+    "file": "assets/PublicTermsPreview-1EyKFInR.js",
     "name": "PublicTermsPreview",
     "imports": [
       "_vendor-core-GzNnTIzR.js",
@@ -578,7 +578,7 @@
     ]
   },
   "resources/js/Pages/Public/VpsCatalog.jsx": {
-    "file": "assets/VpsCatalog-D7n135sA.js",
+    "file": "assets/VpsCatalog-Ch_A_OcP.js",
     "name": "VpsCatalog",
     "src": "resources/js/Pages/Public/VpsCatalog.jsx",
     "isDynamicEntry": true,
@@ -588,12 +588,12 @@
       "_vendor-core-GzNnTIzR.js",
       "_AppFooter-Du8z34Ue.js",
       "_PolicySection-Cj5u_m1u.js",
-      "_PublicTermsPreview-B3T59sxS.js",
+      "_PublicTermsPreview-1EyKFInR.js",
       "_formatRupiah-BPNt29Go.js"
     ]
   },
   "resources/js/Pages/Welcome.jsx": {
-    "file": "assets/Welcome-CLlsQxqm.js",
+    "file": "assets/Welcome-CGxmAGWd.js",
     "name": "Welcome",
     "src": "resources/js/Pages/Welcome.jsx",
     "isDynamicEntry": true,
@@ -604,11 +604,11 @@
       "_AppFooter-Du8z34Ue.js",
       "_PullToRefresh-B1S74XCD.js",
       "_PolicySection-Cj5u_m1u.js",
-      "_PublicTermsPreview-B3T59sxS.js"
+      "_PublicTermsPreview-1EyKFInR.js"
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-Cpr85thU.js",
+    "file": "assets/app-DU8HnEvc.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

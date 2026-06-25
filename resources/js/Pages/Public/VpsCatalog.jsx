@@ -72,7 +72,6 @@ export default function VpsCatalog({
     activeGateway = 'midtrans',
     termsSections = [],
     termsDocument = null,
-    termsUrl = '/syarat-ketentuan',
     legalLinks = [],
 }) {
     const { branding = {} } = usePage().props;
@@ -418,8 +417,6 @@ export default function VpsCatalog({
                                 <PublicTermsPreview
                                     termsDocument={termsDocument}
                                     termsSections={termsSections}
-                                    termsUrl={termsUrl}
-                                    legalLinks={legalLinks}
                                     variant="vps"
                                 />
                             </div>
