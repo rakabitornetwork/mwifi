@@ -265,9 +265,9 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                                         {unpaidInvoices.map((inv) => (
                                             <div key={inv.id} className={`p-4 border rounded-2xl flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-5 ${themeInnerWidget}`}>
                                                 <div className="space-y-1 min-w-0 flex-1">
-                                                    <div className="flex items-center space-x-2">
-                                                        <span className={`font-mono text-xs font-black ${themeTextTitle}`}>{inv.invoice_number}</span>
-                                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20">Belum Bayar</span>
+                                                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                                                        <span className={`font-mono text-xs font-black min-w-0 break-all ${themeTextTitle}`}>{inv.invoice_number}</span>
+                                                        <span className="shrink-0 whitespace-nowrap px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20">Belum Bayar</span>
                                                     </div>
                                                     <p className={`text-[10px] ${themeTextSub}`}>Periode Billing: {inv.billing_period}</p>
                                                     {inv.is_prorated ? (
