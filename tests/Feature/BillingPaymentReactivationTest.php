@@ -161,6 +161,75 @@ class BillingPaymentReactivationTest extends TestCase
         $this->assertTrue(BillingService::customerHasPastDueUnpaidInvoices($customer->fresh()) === false);
     }
 
+    public function test_early_payment_on_active_customer_skips_router_reactivation(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-10'));
+
+        $user = User::factory()->create();
+        $router = Router::create([
+            'name' => 'Router Active Early Pay',
+            'host' => '127.0.0.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'protocol_type' => 'legacy_socket',
+            'status' => true,
+        ]);
+        $package = Package::create([
+            'name' => 'Paket 150K',
+            'type' => 'pppoe',
+            'price' => 150000,
+            'bandwidth_limit' => '20M/20M',
+            'mikrotik_profile' => '20M',
+        ]);
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'router_id' => $router->id,
+            'package_id' => $package->id,
+            'service_type' => 'pppoe',
+            'username' => 'cust_active_' . uniqid(),
+            'password' => 'pass',
+            'name' => 'Pelanggan Aktif',
+            'phone_number' => '6281234567891',
+            'address' => 'Alamat test',
+            'status' => 'active',
+            'billing_date' => 25,
+            'service_start_date' => '2026-01-01',
+        ]);
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-EARLY-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-25',
+            'status' => 'unpaid',
+        ]);
+
+        $this->assertTrue(BillingService::reactivateCustomerOnRouter($customer));
+
+        $message = BillingService::buildPaidInvoiceWhatsAppMessage($invoice, includeReactivationNote: false);
+        $this->assertNotNull($message);
+        $this->assertStringNotContainsString('aktif kembali', strtolower($message));
+
+        $success = BillingService::processPaidInvoice(
+            $invoice,
+            'manual',
+            'ADMIN-CASH-EARLY',
+            150000,
+            0,
+            ['payment_method' => 'Cash / Tunai']
+        );
+
+        $this->assertTrue($success);
+        $this->assertSame('paid', $invoice->fresh()->status);
+        $this->assertSame('active', $customer->fresh()->status);
+    }
+
     public function test_midtrans_webhook_payload_stores_readable_payment_method(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-25'));

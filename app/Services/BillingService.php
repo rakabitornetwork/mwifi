@@ -1044,7 +1044,8 @@ class BillingService
     }
 
     /**
-     * Restore package profile on MikroTik and disconnect active PPP session.
+     * Restore package profile on MikroTik when customer was isolated.
+     * Customers already active are left unchanged so ongoing PPPoE sessions stay connected.
      */
     public static function reactivateCustomerOnRouter(Customer $customer): bool
     {
@@ -1054,9 +1055,13 @@ class BillingService
             return false;
         }
 
-        if (in_array($customer->status, ['isolated', 'inactive', 'suspended'], true)) {
-            $customer->update(['status' => 'active']);
+        $needsRouterReactivation = in_array($customer->status, ['isolated', 'inactive', 'suspended'], true);
+
+        if (!$needsRouterReactivation) {
+            return $customer->status === 'active';
         }
+
+        $customer->update(['status' => 'active']);
 
         $router = $customer->router;
         if (!$router || !$router->status) {
@@ -1114,13 +1119,20 @@ class BillingService
 
             $customer = $invoice->customer;
             $isVpsOrder = \App\Services\VpsCatalogService::isVpsInvoice($invoice);
+            $wasRestricted = $customer && in_array($customer->status, ['isolated', 'inactive', 'suspended'], true);
+            $shouldRestoreService = $customer
+                && ! $isVpsOrder
+                && ! self::customerHasPastDueUnpaidInvoices($customer, $invoice->id);
 
-            if ($customer && ! $isVpsOrder && !self::customerHasPastDueUnpaidInvoices($customer, $invoice->id)) {
+            if ($shouldRestoreService) {
                 self::reactivateCustomerOnRouter($customer);
             }
 
             try {
-                $message = self::buildPaidInvoiceWhatsAppMessage($invoice, includeReactivationNote: ! $isVpsOrder);
+                $message = self::buildPaidInvoiceWhatsAppMessage(
+                    $invoice,
+                    includeReactivationNote: $shouldRestoreService && $wasRestricted
+                );
                 if ($message && class_exists(\App\Services\WhatsAppService::class)) {
                     \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
                 }
