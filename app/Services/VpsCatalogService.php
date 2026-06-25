@@ -6,6 +6,8 @@ use App\Models\Customer;
 use App\Models\Invoice;
 use App\Support\PhoneNumber;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
 class VpsCatalogService
@@ -21,6 +23,8 @@ class VpsCatalogService
     public const SETTING_WHITELIST_PHONES = 'vps.whitelist_phones';
 
     public const SETTING_PLANS = 'vps.plans';
+
+    public const SETTING_DEMO_LINK_DAYS = 'vps.demo_link_days';
 
     /**
      * @return list<array{id: string, name: string, cpu: string, ram: string, storage: string, bandwidth: string, price: int, description: string, featured: bool}>
@@ -436,6 +440,47 @@ class VpsCatalogService
             'due_date' => Carbon::today()->addDays(3),
             'status' => 'unpaid',
         ]);
+    }
+
+    public static function demoLinkExpiryDays(): int
+    {
+        $days = (int) SettingService::get(self::SETTING_DEMO_LINK_DAYS, '30');
+
+        return max(1, min(90, $days));
+    }
+
+    /**
+     * @return Collection<int, Customer>
+     */
+    public static function showcaseCustomers(): Collection
+    {
+        if (! self::isEnabled()) {
+            return collect();
+        }
+
+        if (self::whitelistUsernames() === [] && self::whitelistPhones() === []) {
+            return collect();
+        }
+
+        return Customer::query()
+            ->with('user')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (Customer $customer) => self::isShowcaseCustomer($customer))
+            ->values();
+    }
+
+    public static function generateDemoLoginUrl(Customer $customer): ?string
+    {
+        if (! self::isShowcaseCustomer($customer)) {
+            return null;
+        }
+
+        return URL::temporarySignedRoute(
+            'portal.demo.login',
+            now()->addDays(self::demoLinkExpiryDays()),
+            ['customer' => $customer->id],
+        );
     }
 
     /**

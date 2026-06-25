@@ -6,7 +6,8 @@ import {
     Crown,
     ExternalLink,
     Globe,
-    Layers,
+    Link2,
+    Mail,
     Plus,
     RotateCcw,
     Save,
@@ -99,7 +100,7 @@ function PlanPreviewCard({ plan, isDarkMode }) {
     );
 }
 
-function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = [] }) {
+function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = [], showcaseCustomers = [] }) {
     const { showToast } = useAdminToast();
     const {
         isDarkMode,
@@ -117,6 +118,7 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
     const [pageDescription, setPageDescription] = useState(config.page_description || '');
     const [whitelistUsernames, setWhitelistUsernames] = useState(config.whitelist_usernames || '');
     const [whitelistPhones, setWhitelistPhones] = useState(config.whitelist_phones || '');
+    const [demoLinkDays, setDemoLinkDays] = useState(String(config.demo_link_days ?? 30));
     const [plans, setPlans] = useState(
         (config.plans?.length ? config.plans : defaultPlans).map((plan) => ({
             ...plan,
@@ -125,6 +127,7 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
     );
     const [isSaving, setIsSaving] = useState(false);
     const [activeSection, setActiveSection] = useState('general');
+    const [generatingLinkFor, setGeneratingLinkFor] = useState(null);
 
     const whitelistUsernameCount = useMemo(
         () => whitelistUsernames.split(/[\r\n,;]+/).map((s) => s.trim()).filter(Boolean).length,
@@ -156,6 +159,59 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
         }
     };
 
+    const copyText = async (text, successMessage) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            showToast(successMessage, 'success');
+        } catch {
+            showToast('Gagal menyalin teks.', 'error');
+        }
+    };
+
+    const generateDemoLink = async (customerId) => {
+        setGeneratingLinkFor(customerId);
+        try {
+            const response = await fetch('/admin/vps/demo-link', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({ customer_id: customerId }),
+            });
+            const data = await response.json();
+            if (!response.ok || !data.ok) {
+                showToast(data.message || 'Gagal membuat link demo.', 'error');
+                return;
+            }
+            await copyText(
+                data.url,
+                `Link demo ${data.customer_name} disalin (berlaku ${data.expires_in_days} hari).`
+            );
+        } catch {
+            showToast('Gagal membuat link demo.', 'error');
+        } finally {
+            setGeneratingLinkFor(null);
+        }
+    };
+
+    const demoEmailTemplate = useMemo(() => {
+        const catalog = catalogUrl || `${window.location.origin}/layanan/vps`;
+        return [
+            'Halo Tim Midtrans,',
+            '',
+            'Berikut akses demo untuk verifikasi transaksi layanan VPS kami:',
+            '',
+            `1. Katalog publik: ${catalog}`,
+            '2. Link login demo (klik langsung, tanpa OTP): [SALIN DARI ADMIN — tombol "Salin Link Demo"]',
+            '',
+            `Link login berlaku ${demoLinkDays} hari. Setelah masuk, pilih paket VPS lalu lanjut ke pembayaran Midtrans sandbox.`,
+            '',
+            'Terima kasih.',
+        ].join('\n');
+    }, [catalogUrl, demoLinkDays]);
+
     const handleSave = (e) => {
         e.preventDefault();
         setIsSaving(true);
@@ -167,6 +223,7 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                 page_description: pageDescription,
                 whitelist_usernames: whitelistUsernames,
                 whitelist_phones: whitelistPhones,
+                demo_link_days: parseInt(demoLinkDays, 10) || 30,
                 plans: plans.map((plan) => ({
                     ...plan,
                     price: parseInt(plan.price, 10) || 0,
@@ -390,6 +447,92 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                                         placeholder={'6281234567890\n081234567890'}
                                         className={`w-full rounded-xl px-3 py-2.5 text-sm font-mono border ${themeInput}`}
                                     />
+                                </div>
+                            </div>
+
+                            <div className={`rounded-xl border p-4 space-y-4 ${themeInnerWidget}`}>
+                                <div className="flex items-start gap-3">
+                                    <Link2 className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
+                                    <div className="min-w-0">
+                                        <p className={`font-bold text-sm ${themeTextTitle}`}>Link Login Demo untuk Tim Midtrans</p>
+                                        <p className={`mt-1 text-xs leading-relaxed ${themeTextSub}`}>
+                                            OTP WhatsApp hanya berlaku <strong>5 menit</strong> — tidak cocok jika tim Midtrans
+                                            membalas email Anda berhari-hari kemudian. Gunakan link bertanda tangan ini:
+                                            cukup diklik kapan saja dalam masa berlaku, tanpa OTP.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="grid md:grid-cols-[160px_1fr] gap-4 items-end">
+                                    <div>
+                                        <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>
+                                            Masa berlaku link
+                                        </label>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                max={90}
+                                                value={demoLinkDays}
+                                                onChange={(e) => setDemoLinkDays(e.target.value)}
+                                                className={`w-full rounded-xl px-3 py-2.5 text-sm border ${themeInput}`}
+                                            />
+                                            <span className={`text-xs font-bold shrink-0 ${themeTextSub}`}>hari</span>
+                                        </div>
+                                    </div>
+                                    <p className={`text-[11px] leading-relaxed ${themeTextDesc}`}>
+                                        Default 30 hari (cukup untuk balasan email 1–2 minggu). Simpan pengaturan setelah mengubah nilai ini.
+                                    </p>
+                                </div>
+
+                                {showcaseCustomers.length === 0 ? (
+                                    <p className={`text-xs ${themeTextDesc}`}>
+                                        Belum ada pelanggan yang cocok dengan whitelist. Pastikan akun sudah ada di Manajemen PPPoE,
+                                        lalu simpan whitelist di atas.
+                                    </p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {showcaseCustomers.map((customer) => (
+                                            <div
+                                                key={customer.id}
+                                                className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border px-3 py-3 ${themeCard}`}
+                                            >
+                                                <div className="min-w-0">
+                                                    <p className={`text-sm font-bold truncate ${themeTextTitle}`}>{customer.name}</p>
+                                                    <p className={`text-[11px] font-mono mt-0.5 ${themeTextDesc}`}>
+                                                        {customer.username}
+                                                        {customer.phone_masked ? ` · ${customer.phone_masked}` : ''}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => generateDemoLink(customer.id)}
+                                                    disabled={generatingLinkFor === customer.id}
+                                                    className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white shrink-0"
+                                                >
+                                                    <Copy className="w-3.5 h-3.5" />
+                                                    {generatingLinkFor === customer.id ? 'Membuat...' : 'Salin Link Demo'}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="pt-1 border-t border-dashed border-zinc-500/20">
+                                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                        <p className={`text-xs font-bold ${themeTextTitle}`}>Template email ke Midtrans</p>
+                                        <button
+                                            type="button"
+                                            onClick={() => copyText(demoEmailTemplate, 'Template email disalin. Tempel link demo di baris yang ditandai.')}
+                                            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ${themeInnerWidget} ${themeTextSub}`}
+                                        >
+                                            <Mail className="w-3.5 h-3.5" />
+                                            Salin template
+                                        </button>
+                                    </div>
+                                    <pre className={`text-[10px] leading-relaxed whitespace-pre-wrap font-sans rounded-xl border p-3 max-h-40 overflow-y-auto ${themeInnerWidget} ${themeTextSub}`}>
+                                        {demoEmailTemplate}
+                                    </pre>
                                 </div>
                             </div>
                         </AdminPageCard>

@@ -27,6 +27,7 @@ use App\Services\StaffAdvanceReportService;
 use App\Services\StaffRouterScope;
 use App\Services\SettingService;
 use App\Services\VpsCatalogService;
+use App\Support\PhoneNumber;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -400,9 +401,18 @@ class AdminPageController extends Controller
                 'whitelist_usernames' => implode("\n", VpsCatalogService::whitelistUsernames()),
                 'whitelist_phones' => implode("\n", VpsCatalogService::whitelistPhones()),
                 'plans' => VpsCatalogService::plans(),
+                'demo_link_days' => VpsCatalogService::demoLinkExpiryDays(),
             ],
             'catalogUrl' => url('/layanan/vps'),
             'defaultPlans' => VpsCatalogService::defaultPlans(),
+            'showcaseCustomers' => VpsCatalogService::showcaseCustomers()
+                ->map(fn (Customer $customer) => [
+                    'id' => $customer->id,
+                    'name' => $customer->name,
+                    'username' => $customer->username,
+                    'phone_masked' => PhoneNumber::mask(VpsCatalogService::resolveCustomerPhone($customer)),
+                ])
+                ->all(),
         ]);
     }
 

@@ -13,6 +13,11 @@ Route::get('/', function () {
 Route::get('layanan/vps', [\App\Http\Controllers\VpsCatalogController::class, 'index'])
     ->name('vps.catalog');
 
+Route::get('portal/demo/{customer}', [\App\Http\Controllers\Customer\CustomerOtpAuthController::class, 'demoLogin'])
+    ->middleware('signed')
+    ->whereNumber('customer')
+    ->name('portal.demo.login');
+
 Route::middleware(['auth', 'customer'])->group(function () {
     Route::post('customer/vps/order', [\App\Http\Controllers\VpsCatalogController::class, 'order'])
         ->name('vps.order');
@@ -150,6 +155,7 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::get('admin/invoices/{invoice}/print', [\App\Http\Controllers\Admin\AdminActionController::class, 'printInvoice']);
     Route::post('admin/settings/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveSettings']);
     Route::post('admin/vps/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveVpsSettings']);
+    Route::post('admin/vps/demo-link', [\App\Http\Controllers\Admin\AdminActionController::class, 'generateVpsDemoLink']);
     Route::post('admin/messaging/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveMessagingSettings']);
     Route::post('admin/messaging/template-preview', [\App\Http\Controllers\Admin\AdminActionController::class, 'previewMessagingTemplate']);
     Route::post('admin/settings/whatsapp-test', [\App\Http\Controllers\Admin\AdminActionController::class, 'testWhatsAppGateway']);

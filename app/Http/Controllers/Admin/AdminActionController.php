@@ -1656,6 +1656,7 @@ class AdminActionController extends Controller
             'vps.page_description' => 'nullable|string|max:1000',
             'vps.whitelist_usernames' => 'nullable|string|max:2000',
             'vps.whitelist_phones' => 'nullable|string|max:2000',
+            'vps.demo_link_days' => 'nullable|integer|min:1|max:90',
             'vps.plans' => 'nullable|array|max:12',
             'vps.plans.*.id' => 'nullable|string|max:64',
             'vps.plans.*.name' => 'required_with:vps.plans|string|max:100',
@@ -1674,6 +1675,12 @@ class AdminActionController extends Controller
         SettingService::set('vps.page_description', (string) $request->input('vps.page_description', ''), 'vps', false);
         SettingService::set('vps.whitelist_usernames', (string) $request->input('vps.whitelist_usernames', ''), 'vps', false);
         SettingService::set('vps.whitelist_phones', (string) $request->input('vps.whitelist_phones', ''), 'vps', false);
+        SettingService::set(
+            'vps.demo_link_days',
+            (string) max(1, min(90, (int) $request->input('vps.demo_link_days', 30))),
+            'vps',
+            false
+        );
 
         $plans = collect($request->input('vps.plans', []))
             ->map(function (array $plan) {
@@ -1708,6 +1715,40 @@ class AdminActionController extends Controller
         );
 
         return redirect()->back()->with('success', 'Pengaturan layanan VPS berhasil disimpan.');
+    }
+
+    /**
+     * Generate signed demo login URL for Midtrans reviewers (valid for multiple days).
+     */
+    public function generateVpsDemoLink(Request $request)
+    {
+        $request->validate([
+            'customer_id' => ['required', 'integer', 'exists:customers,id'],
+        ]);
+
+        if (! VpsCatalogService::isEnabled()) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Layanan VPS belum diaktifkan.',
+            ], 422);
+        }
+
+        $customer = Customer::query()->with('user')->findOrFail($request->integer('customer_id'));
+        $url = VpsCatalogService::generateDemoLoginUrl($customer);
+
+        if ($url === null) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Pelanggan tidak cocok dengan whitelist VPS. Simpan whitelist lalu coba lagi.',
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'url' => $url,
+            'expires_in_days' => VpsCatalogService::demoLinkExpiryDays(),
+            'customer_name' => $customer->name,
+        ]);
     }
 
     /**
