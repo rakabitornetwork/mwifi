@@ -315,25 +315,105 @@ class VpsCatalogService
      */
     public static function transformInvoiceForShowcase(Invoice $invoice): array
     {
-        $plan = self::planFromInvoice($invoice);
-        $periodLabel = $plan
-            ? $plan['name'] . ' · ' . now()->locale('id')->translatedFormat('M Y')
-            : 'Sewa VPS Cloud';
+        if (self::isVpsInvoice($invoice)) {
+            $plan = self::planFromInvoice($invoice);
+            $periodLabel = $plan
+                ? $plan['name'] . ' · ' . now()->locale('id')->translatedFormat('M Y')
+                : 'Sewa VPS Cloud';
+
+            return [
+                'id' => $invoice->id,
+                'invoice_number' => $invoice->invoice_number,
+                'billing_period' => $periodLabel,
+                'service_label' => self::itemLabelForInvoice($invoice),
+                'amount' => (float) $invoice->amount,
+                'tax' => (float) $invoice->tax,
+                'total_amount' => (float) $invoice->total_amount,
+                'due_date' => $invoice->due_date?->format('Y-m-d'),
+                'paid_at' => $invoice->paid_at?->toIso8601String(),
+                'status' => $invoice->status,
+                'is_prorated' => false,
+                'days_billed' => null,
+                'next_billing' => null,
+            ];
+        }
 
         return [
             'id' => $invoice->id,
             'invoice_number' => $invoice->invoice_number,
-            'billing_period' => $periodLabel,
-            'service_label' => self::itemLabelForInvoice($invoice),
+            'billing_period' => 'Sewa VPS Cloud · ' . (string) $invoice->billing_period,
+            'service_label' => 'Sewa VPS Cloud (Bulanan)',
             'amount' => (float) $invoice->amount,
             'tax' => (float) $invoice->tax,
             'total_amount' => (float) $invoice->total_amount,
             'due_date' => $invoice->due_date?->format('Y-m-d'),
             'paid_at' => $invoice->paid_at?->toIso8601String(),
             'status' => $invoice->status,
-            'is_prorated' => false,
-            'days_billed' => null,
+            'is_prorated' => (bool) $invoice->is_prorated,
+            'days_billed' => $invoice->days_billed,
             'next_billing' => null,
+        ];
+    }
+
+    public static function shouldPresentAsVpsInvoice(Invoice $invoice, ?Customer $customer = null): bool
+    {
+        if (self::isVpsInvoice($invoice)) {
+            return true;
+        }
+
+        $customer ??= $invoice->customer;
+
+        return $customer !== null
+            && self::isShowcaseCustomer($customer)
+            && $invoice->status === 'unpaid';
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, Invoice>  $invoices
+     * @return \Illuminate\Support\Collection<int, Invoice>
+     */
+    public static function invoicesForShowcasePortal(Collection $invoices, Customer $customer): Collection
+    {
+        return $invoices
+            ->filter(fn (Invoice $invoice) => self::shouldPresentAsVpsInvoice($invoice, $customer))
+            ->values();
+    }
+
+    /**
+     * @return array{invoice_number: string, customer_name: string, total_amount: float, billing_period: string, due_date: string}
+     */
+    public static function generateManualInvoiceForCustomer(Customer $customer, int $dueExtensionDays = 0): array
+    {
+        if (! self::isShowcaseCustomer($customer)) {
+            throw new \InvalidArgumentException('Pelanggan tidak terdaftar sebagai showcase VPS.');
+        }
+
+        if (! in_array($customer->status, ['active', 'isolated'], true)) {
+            throw new \InvalidArgumentException('Status pelanggan harus aktif atau isolir.');
+        }
+
+        if (! in_array($dueExtensionDays, [0, 3, 5, 7], true)) {
+            throw new \InvalidArgumentException('Perpanjangan jatuh tempo harus 0 (tanpa perpanjangan), 3, 5, atau 7 hari.');
+        }
+
+        $plan = self::resolveDisplayPlanForCustomer($customer);
+
+        if (! $plan) {
+            throw new \InvalidArgumentException('Belum ada paket VPS yang dikonfigurasi di menu Layanan VPS.');
+        }
+
+        $dueDate = $dueExtensionDays > 0
+            ? Carbon::now()->addDays($dueExtensionDays)->startOfDay()
+            : Carbon::today()->addDays(3);
+
+        $invoice = self::createPlanInvoice($customer, $plan, $dueDate);
+
+        return [
+            'invoice_number' => $invoice->invoice_number,
+            'customer_name' => $customer->name,
+            'total_amount' => (float) $invoice->total_amount,
+            'billing_period' => (string) $invoice->billing_period,
+            'due_date' => $invoice->due_date?->format('Y-m-d') ?? $dueDate->format('Y-m-d'),
         ];
     }
 
@@ -422,6 +502,14 @@ class VpsCatalogService
             throw new \InvalidArgumentException('Paket VPS tidak ditemukan.');
         }
 
+        return self::createPlanInvoice($customer, $plan, Carbon::today()->addDays(3));
+    }
+
+    /**
+     * @param  array{id: string, name: string, cpu: string, ram: string, storage: string, bandwidth: string, price: int, description: string, featured: bool}  $plan
+     */
+    protected static function createPlanInvoice(Customer $customer, array $plan, Carbon $dueDate): Invoice
+    {
         $taxRate = (float) SettingService::get('system.tax_rate', '0');
         $amount = (float) $plan['price'];
         $tax = round($amount * $taxRate, 2);
@@ -437,7 +525,7 @@ class VpsCatalogService
             'amount' => $amount,
             'tax' => $tax,
             'total_amount' => $total,
-            'due_date' => Carbon::today()->addDays(3),
+            'due_date' => $dueDate,
             'status' => 'unpaid',
         ]);
     }

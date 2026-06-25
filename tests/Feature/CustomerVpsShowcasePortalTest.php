@@ -100,7 +100,35 @@ class CustomerVpsShowcasePortalTest extends TestCase
                 ->missing('customer.address')
                 ->missing('customer.package')
                 ->has('vpsPlan.cpu')
-                ->has('invoices', 0)
+                ->has('invoices', 1)
+                ->where('invoices.0.service_label', 'Sewa VPS Cloud (Bulanan)')
+            );
+    }
+
+    public function test_showcase_customer_manual_generate_creates_vps_invoice(): void
+    {
+        $this->seedVpsShowcaseSettings();
+        $customer = $this->makeCustomer();
+        $admin = User::factory()->create();
+
+        $this->actingAs($admin)
+            ->post('/admin/invoices/generate-customer', [
+                'customer_id' => $customer->id,
+                'due_extension_days' => 0,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $invoice = Invoice::where('customer_id', $customer->id)->first();
+        $this->assertNotNull($invoice);
+        $this->assertTrue(str_starts_with($invoice->invoice_number, 'VPS-'));
+        $this->assertSame('vps:business', $invoice->billing_period);
+
+        $this->actingAs($customer->user)
+            ->get('/customer/dashboard')
+            ->assertInertia(fn ($page) => $page
+                ->has('invoices', 1)
+                ->where('invoices.0.invoice_number', $invoice->invoice_number)
             );
     }
 
@@ -127,7 +155,7 @@ class CustomerVpsShowcasePortalTest extends TestCase
         $this->assertTrue(VpsCatalogService::usernameMatchesWhitelist('midtrans@demo', ['midtrans@demo']));
     }
 
-    public function test_showcase_customer_sees_only_vps_invoices(): void
+    public function test_showcase_customer_sees_vps_and_unpaid_legacy_invoices(): void
     {
         $this->seedVpsShowcaseSettings();
         $customer = $this->makeCustomer();
@@ -156,10 +184,58 @@ class CustomerVpsShowcasePortalTest extends TestCase
 
         $this->actingAs($customer->user)
             ->get('/customer/dashboard')
+            ->assertInertia(function ($page) {
+                $page->has('invoices', 2);
+
+                $invoices = collect($page->toArray()['props']['invoices'] ?? []);
+                $numbers = $invoices->pluck('invoice_number')->all();
+
+                $this->assertContains('VPS-BUSINESS-0001-AB12', $numbers);
+                $this->assertContains('INV-ISP-001', $numbers);
+                $this->assertSame(
+                    'Sewa VPS — VPS Business (Bulanan)',
+                    $invoices->firstWhere('invoice_number', 'VPS-BUSINESS-0001-AB12')['service_label'] ?? null
+                );
+                $this->assertSame(
+                    'Sewa VPS Cloud (Bulanan)',
+                    $invoices->firstWhere('invoice_number', 'INV-ISP-001')['service_label'] ?? null
+                );
+            });
+    }
+
+    public function test_showcase_customer_hides_paid_legacy_invoices(): void
+    {
+        $this->seedVpsShowcaseSettings();
+        $customer = $this->makeCustomer();
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-ISP-PAID',
+            'billing_period' => '2026-04',
+            'amount' => 150000,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => now()->subDays(10),
+            'paid_at' => now()->subDays(8),
+            'status' => 'paid',
+        ]);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'VPS-BUSINESS-0001-AB12',
+            'billing_period' => 'vps:business',
+            'amount' => 199000,
+            'tax' => 0,
+            'total_amount' => 199000,
+            'due_date' => now()->addDays(3),
+            'status' => 'unpaid',
+        ]);
+
+        $this->actingAs($customer->user)
+            ->get('/customer/dashboard')
             ->assertInertia(fn ($page) => $page
                 ->has('invoices', 1)
                 ->where('invoices.0.invoice_number', 'VPS-BUSINESS-0001-AB12')
-                ->where('invoices.0.service_label', 'Sewa VPS — VPS Business (Bulanan)')
             );
     }
 }

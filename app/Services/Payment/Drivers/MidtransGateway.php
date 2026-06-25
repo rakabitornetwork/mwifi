@@ -42,10 +42,15 @@ class MidtransGateway implements PaymentGatewayInterface
         $customer = $invoice->customer;
         $orderId = $this->buildOrderId($invoice);
         $amount = (int) $invoice->total_amount;
-        $isVpsOrder = VpsCatalogService::isVpsInvoice($invoice);
-        $vpsPlan = $isVpsOrder ? VpsCatalogService::planFromInvoice($invoice) : null;
+        $isVpsOrder = VpsCatalogService::isVpsInvoice($invoice)
+            || VpsCatalogService::isShowcaseCustomer($customer);
+        $vpsPlan = VpsCatalogService::isVpsInvoice($invoice)
+            ? VpsCatalogService::planFromInvoice($invoice)
+            : VpsCatalogService::resolveDisplayPlanForCustomer($customer);
         $itemName = $isVpsOrder
-            ? VpsCatalogService::itemLabelForInvoice($invoice)
+            ? (VpsCatalogService::isVpsInvoice($invoice)
+                ? VpsCatalogService::itemLabelForInvoice($invoice)
+                : 'Sewa VPS — ' . ($vpsPlan['name'] ?? 'Cloud') . ' (Bulanan)')
             : ($customer->package->name ?? 'Internet Service');
         $itemId = $isVpsOrder
             ? 'VPS-' . ($vpsPlan['id'] ?? 'custom')

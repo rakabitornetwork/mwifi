@@ -1200,18 +1200,24 @@ class AdminActionController extends Controller
         $customer = Customer::with('package')->findOrFail($data['customer_id']);
 
         try {
-            $created = BillingService::generateInvoiceForCustomer(
-                $customer,
-                null,
-                (int) ($data['due_extension_days'] ?? 0)
-            );
+            $created = VpsCatalogService::isShowcaseCustomer($customer)
+                ? VpsCatalogService::generateManualInvoiceForCustomer(
+                    $customer,
+                    (int) ($data['due_extension_days'] ?? 0)
+                )
+                : BillingService::generateInvoiceForCustomer(
+                    $customer,
+                    null,
+                    (int) ($data['due_extension_days'] ?? 0)
+                );
             $amount = number_format($created['total_amount'], 0, ',', '.');
             $dueDateLabel = Carbon::parse($created['due_date'])->format('d-m-Y');
+            $invoiceKind = VpsCatalogService::isShowcaseCustomer($customer) ? 'VPS' : 'internet';
 
             return redirect()->back()->with(
                 'success',
-                "Invoice {$created['invoice_number']} periode {$created['billing_period']} berhasil dibuat (Rp {$amount}, jatuh tempo {$dueDateLabel})." .
-                (!BillingService::customerHasPastDueUnpaidInvoices($customer->fresh())
+                "Invoice {$invoiceKind} {$created['invoice_number']} periode {$created['billing_period']} berhasil dibuat (Rp {$amount}, jatuh tempo {$dueDateLabel})." .
+                (! VpsCatalogService::isShowcaseCustomer($customer) && ! BillingService::customerHasPastDueUnpaidInvoices($customer->fresh())
                     ? ' Layanan pelanggan dipulihkan ke status aktif.'
                     : '')
             );

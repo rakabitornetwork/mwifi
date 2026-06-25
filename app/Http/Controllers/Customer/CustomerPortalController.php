@@ -33,7 +33,7 @@ class CustomerPortalController extends Controller
         $isShowcase = VpsCatalogService::shouldUseShowcasePortal($customer, $vpsLoginIntent);
 
         if ($isShowcase) {
-            $vpsInvoices = $invoices->filter(fn (Invoice $invoice) => VpsCatalogService::isVpsInvoice($invoice));
+            $vpsInvoices = VpsCatalogService::invoicesForShowcasePortal($invoices, $customer);
             $showcase = VpsCatalogService::showcasePortalData($customer);
 
             return Inertia::render('Customer/Dashboard', [
