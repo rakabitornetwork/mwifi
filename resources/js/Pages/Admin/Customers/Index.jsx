@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { Fragment, useEffect, useState, useMemo } from 'react';
 import { router, usePage } from '@inertiajs/react';
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Save, Search, Trash2, Upload, Users, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
@@ -342,9 +342,7 @@ function CustomersPageContent({
         : (customerPage - 1) * pageSize + 1;
     const paginationRangeEnd = Math.min(customerPage * pageSize, sortedCustomers.length);
     const visiblePages = getVisiblePages(customerPage, totalCustomerPages);
-    const expandedCustomer = expandedCustomerId
-        ? sortedCustomers.find((cust) => cust.id === expandedCustomerId)
-        : null;
+    const customerTableColSpan = canWrite ? 11 : 10;
     const paginationNavButton = isDarkMode
         ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-400'
         : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-600';
@@ -714,8 +712,8 @@ function CustomersPageContent({
                                     </td>
                                 </tr>
                             ) : paginatedCustomers.map((cust) => (
+                                    <Fragment key={cust.id}>
                                     <tr
-                                        key={cust.id}
                                         className={`${themeTextSub} hover:bg-zinc-900/10 ${selectedCustomerIds.includes(cust.id) ? 'bg-emerald-500/5' : ''} ${expandedCustomerId === cust.id ? (isDarkMode ? 'bg-zinc-900/20' : 'bg-zinc-50') : ''}`}
                                     >
                                         {canWrite && (
@@ -782,19 +780,23 @@ function CustomersPageContent({
                                             </div>
                                         </td>
                                     </tr>
+                                    {expandedCustomerId === cust.id && (
+                                        <tr>
+                                            <td colSpan={customerTableColSpan} className="p-0">
+                                                <CustomerDetailPanel
+                                                    customer={cust}
+                                                    theme={theme}
+                                                    onEdit={openCustomerModal}
+                                                    canWrite={canWrite}
+                                                />
+                                            </td>
+                                        </tr>
+                                    )}
+                                    </Fragment>
                             ))}
                         </tbody>
                     </table>
                 </div>
-
-                {expandedCustomer && (
-                    <CustomerDetailPanel
-                        customer={expandedCustomer}
-                        theme={theme}
-                        onEdit={openCustomerModal}
-                        canWrite={canWrite}
-                    />
-                )}
 
                 {sortedCustomers.length > 0 && (
                     <div className={`flex flex-col lg:flex-row lg:items-center lg:justify-between pt-4 mt-1 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-4`}>
