@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\Invoice;
-use App\Models\Package;
 use App\Models\Router;
 use App\Models\Setting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -77,18 +76,87 @@ class PublicOrderTest extends TestCase
             'phone_number' => '6281234567890',
         ]);
 
-        // Assert package was created
-        $this->assertDatabaseHas('packages', [
-            'name' => 'VPS Starter',
-            'price' => 99000.00,
-        ]);
-
-        // Assert invoice was created
+        // Assert invoice was created as VPS order
         $this->assertDatabaseHas('invoices', [
-            'billing_period' => 'service:starter',
+            'billing_period' => 'vps:starter',
             'amount' => 99000.00,
             'status' => 'unpaid',
         ]);
+    }
+
+    public function test_landing_order_customer_sees_vps_plan_in_portal(): void
+    {
+        Http::fake([
+            'https://app.sandbox.midtrans.com/*' => Http::response([
+                'token' => 'snap-token-12345',
+                'redirect_url' => 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-12345',
+            ], 201),
+        ]);
+
+        $this->postJson('/layanan/pesan', [
+            'name' => 'John Doe',
+            'email' => 'john@example.com',
+            'phone' => '081234567890',
+            'service_type' => 'starter',
+            'payment_method' => 'all',
+        ])->assertOk();
+
+        $customer = Customer::where('phone_number', '6281234567890')->firstOrFail();
+
+        $this->actingAs($customer->user)
+            ->get('/customer/dashboard')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Customer/Dashboard')
+                ->where('portalView', 'vps')
+                ->where('vpsPlan.id', 'starter')
+                ->where('vpsPlan.cpu', '1 vCPU')
+                ->where('vpsPlan.ram', '2 GB RAM')
+                ->where('vpsPlan.bandwidth', '1 TB / bulan')
+                ->missing('customer.package')
+            );
+    }
+
+    public function test_legacy_service_invoice_still_resolves_vps_plan_in_portal(): void
+    {
+        $user = \App\Models\User::factory()->create([
+            'email' => 'legacy@example.com',
+        ]);
+        $router = Router::first();
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'router_id' => $router->id,
+            'package_id' => null,
+            'service_type' => 'pppoe',
+            'username' => 'legacy-vps',
+            'password' => 'secret',
+            'name' => 'Legacy VPS Buyer',
+            'phone_number' => '6281111222333',
+            'address' => 'Pemesanan via Landing Page',
+            'status' => 'active',
+            'billing_date' => 1,
+            'service_start_date' => now()->toDateString(),
+        ]);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'SRV-STA-123456-99',
+            'billing_period' => 'service:starter',
+            'amount' => 99000,
+            'tax' => 0,
+            'total_amount' => 99000,
+            'due_date' => now()->addDays(3),
+            'status' => 'paid',
+        ]);
+
+        $this->actingAs($user)
+            ->get('/customer/dashboard')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('portalView', 'vps')
+                ->where('vpsPlan.name', 'VPS Starter')
+                ->where('vpsPlan.storage', '40 GB SSD NVMe')
+            );
     }
 
     public function test_order_fails_when_validation_fails(): void

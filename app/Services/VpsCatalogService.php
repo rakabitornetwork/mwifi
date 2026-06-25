@@ -213,7 +213,27 @@ class VpsCatalogService
             return true;
         }
 
-        return self::isShowcaseCustomer($customer);
+        if (self::isShowcaseCustomer($customer)) {
+            return true;
+        }
+
+        return self::customerHasVpsService($customer);
+    }
+
+    public static function customerHasVpsService(?Customer $customer): bool
+    {
+        if (! $customer) {
+            return false;
+        }
+
+        return Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where(function ($query) {
+                $query->where('billing_period', 'like', 'vps:%')
+                    ->orWhere('billing_period', 'like', 'service:%')
+                    ->orWhere('invoice_number', 'like', 'VPS-%');
+            })
+            ->exists();
     }
 
     public static function resolveCustomerPhone(Customer $customer): string
@@ -297,6 +317,7 @@ class VpsCatalogService
             ->where('customer_id', $customer->id)
             ->where(function ($query) {
                 $query->where('billing_period', 'like', 'vps:%')
+                    ->orWhere('billing_period', 'like', 'service:%')
                     ->orWhere('invoice_number', 'like', 'VPS-%');
             })
             ->latest('created_at')
@@ -465,22 +486,21 @@ class VpsCatalogService
 
     public static function isVpsInvoice(Invoice $invoice): bool
     {
-        return str_starts_with((string) $invoice->billing_period, 'vps:')
+        $billingPeriod = (string) $invoice->billing_period;
+
+        return str_starts_with($billingPeriod, 'vps:')
+            || str_starts_with($billingPeriod, 'service:')
             || str_starts_with((string) $invoice->invoice_number, 'VPS-');
     }
 
     public static function planFromInvoice(Invoice $invoice): ?array
     {
-        if (! self::isVpsInvoice($invoice)) {
-            return null;
-        }
+        $billingPeriod = (string) $invoice->billing_period;
 
-        $slug = str_starts_with((string) $invoice->billing_period, 'vps:')
-            ? substr((string) $invoice->billing_period, 4)
-            : null;
-
-        if ($slug) {
-            return self::findPlan($slug);
+        foreach (['vps:', 'service:'] as $prefix) {
+            if (str_starts_with($billingPeriod, $prefix)) {
+                return self::findPlan(substr($billingPeriod, strlen($prefix)));
+            }
         }
 
         return null;
