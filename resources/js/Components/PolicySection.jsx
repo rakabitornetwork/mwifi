@@ -5,7 +5,7 @@ function formatLegalText(text) {
 
     return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
         if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={index} className="text-slate-200 font-semibold">{part.slice(2, -2)}</strong>;
+            return <strong key={index} className="text-slate-700 font-semibold">{part.slice(2, -2)}</strong>;
         }
 
         return <span key={index}>{part}</span>;
@@ -18,12 +18,12 @@ function ContactItems({ items = [] }) {
     }
 
     return (
-        <ul className="mt-3 space-y-2 text-sm text-slate-400">
+        <ul className="mt-3 space-y-2 text-sm text-slate-500">
             {items.map((item) => (
                 <li key={`${item.label}-${item.value}`}>
-                    <span className="font-semibold text-slate-300">{item.label}:</span>{' '}
+                    <span className="font-semibold text-slate-700">{item.label}:</span>{' '}
                     {item.href ? (
-                        <a href={item.href} className="text-violet-300 hover:text-violet-200 hover:underline">
+                        <a href={item.href} className="text-sky-600 hover:text-sky-700 hover:underline">
                             {item.value}
                         </a>
                     ) : (
@@ -37,7 +37,7 @@ function ContactItems({ items = [] }) {
                                 href={item.extra_href}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-violet-300 hover:text-violet-200 hover:underline"
+                                className="text-sky-600 hover:text-sky-700 hover:underline"
                             >
                                 {item.extra_label}
                             </a>
@@ -49,32 +49,25 @@ function ContactItems({ items = [] }) {
     );
 }
 
-export function PolicySection({ section, variant = 'vps' }) {
-    const textClass = variant === 'vps' ? 'text-slate-400' : 'text-slate-400';
-    const titleClass = variant === 'vps' ? 'text-white' : 'text-slate-100';
-
+export function PolicySection({ section }) {
     return (
-        <section className={`rounded-2xl border p-5 sm:p-6 ${
-            variant === 'vps'
-                ? 'border-white/[0.08] bg-white/[0.02]'
-                : 'border-slate-800 bg-slate-900/40'
-        }`}>
-            <h2 className={`text-base font-bold ${titleClass}`}>{section.title}</h2>
+        <section className="rounded-2xl border border-slate-200/90 bg-white p-5 sm:p-6 shadow-sm">
+            <h2 className="text-base font-bold text-slate-800">{section.title}</h2>
 
             {(section.paragraphs || []).map((paragraph) => (
-                <p key={paragraph} className={`text-sm mt-2 leading-relaxed ${textClass}`}>
+                <p key={paragraph} className="text-sm mt-2 leading-relaxed text-slate-500">
                     {formatLegalText(paragraph)}
                 </p>
             ))}
 
             {section.body && (
-                <p className={`text-sm mt-2 leading-relaxed whitespace-pre-line ${textClass}`}>
+                <p className="text-sm mt-2 leading-relaxed whitespace-pre-line text-slate-500">
                     {section.body}
                 </p>
             )}
 
             {section.list && section.list.length > 0 && (
-                <ul className={`mt-3 space-y-2 text-sm list-disc pl-5 ${textClass}`}>
+                <ul className="mt-3 space-y-2 text-sm list-disc pl-5 text-slate-500">
                     {section.list.map((item) => (
                         <li key={item} className="leading-relaxed">{item}</li>
                     ))}
@@ -82,7 +75,7 @@ export function PolicySection({ section, variant = 'vps' }) {
             )}
 
             {section.ordered_list && section.ordered_list.length > 0 && (
-                <ol className={`mt-3 space-y-2 text-sm list-decimal pl-5 ${textClass}`}>
+                <ol className="mt-3 space-y-2 text-sm list-decimal pl-5 text-slate-500">
                     {section.ordered_list.map((item) => (
                         <li key={item} className="leading-relaxed">{item}</li>
                     ))}
