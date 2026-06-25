@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import {
     ArrowRight,
     Check,
@@ -9,7 +9,6 @@ import {
     HardDrive,
     Headphones,
     Lock,
-    LogIn,
     Network,
     Server,
     Shield,
@@ -65,10 +64,10 @@ export default function VpsCatalog({
     pageDescription,
     plans = [],
     canOrder = false,
+    guestVerification = false,
     isLoggedIn = false,
     customerName = null,
     activeGateway = 'midtrans',
-    catalogUrl = '/layanan/vps',
 }) {
     const { branding = {} } = usePage().props;
     const [orderingPlan, setOrderingPlan] = useState(null);
@@ -84,20 +83,19 @@ export default function VpsCatalog({
     };
 
     const handleOrder = async (planId) => {
-        if (!isLoggedIn) {
-            window.location.href = `/portal?redirect=${encodeURIComponent(catalogUrl)}`;
-            return;
-        }
-
         if (!canOrder) {
-            showToast('Akun Anda belum diizinkan memesan layanan VPS ini. Hubungi administrator.');
+            showToast(
+                guestVerification
+                    ? 'Verifikasi pembayaran belum tersedia. Hubungi administrator.'
+                    : 'Halaman verifikasi gateway belum dikonfigurasi. Hubungi administrator.',
+            );
             return;
         }
 
         setOrderingPlan(planId);
 
         try {
-            const response = await fetch('/customer/vps/order', {
+            const response = await fetch('/layanan/vps/order', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -112,7 +110,7 @@ export default function VpsCatalog({
             const result = await response.json();
 
             if (response.status === 401 && result.login_url) {
-                window.location.href = result.login_url;
+                showToast('Sesi verifikasi tidak valid. Muat ulang halaman atau gunakan link demo dari admin.');
                 return;
             }
 
@@ -131,9 +129,10 @@ export default function VpsCatalog({
 
     const getCtaLabel = (planId) => {
         if (orderingPlan === planId) return 'Memproses...';
-        if (!isLoggedIn) return 'Login untuk Pesan';
-        if (canOrder) return 'Pesan Sekarang';
-        return 'Akses Terbatas';
+        if (!canOrder) return 'Verifikasi Belum Siap';
+        if (guestVerification) return 'Coba Pembayaran';
+        if (isLoggedIn) return 'Pesan Sekarang';
+        return 'Coba Pembayaran';
     };
 
     return (
@@ -177,20 +176,14 @@ export default function VpsCatalog({
                             <a href="#pembayaran" className="hover:text-white transition-colors">Pembayaran</a>
                         </nav>
 
-                        {!isLoggedIn ? (
-                            <Link
-                                href={`/portal?redirect=${encodeURIComponent(catalogUrl)}`}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-950 text-xs font-bold hover:bg-slate-100 transition-colors shrink-0"
-                            >
-                                <LogIn className="w-3.5 h-3.5" />
-                                Masuk
-                            </Link>
-                        ) : (
+                        {(guestVerification || (isLoggedIn && canOrder)) ? (
                             <div className="flex items-center gap-3 shrink-0">
                                 <div className="text-right hidden sm:block">
                                     <p className="text-xs font-semibold text-white">{customerName}</p>
                                     <p className={`text-[10px] font-bold uppercase tracking-wide ${canOrder ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                        {canOrder ? `${gatewayLabel} · siap memesan` : `${gatewayLabel} · akses terbatas`}
+                                        {canOrder
+                                            ? `${gatewayLabel} · ${guestVerification ? 'uji coba tanpa login' : 'siap memesan'}`
+                                            : `${gatewayLabel} · akses terbatas`}
                                     </p>
                                 </div>
                                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${
@@ -199,6 +192,24 @@ export default function VpsCatalog({
                                         : 'bg-amber-500/10 border-amber-500/25 text-amber-400'
                                 }`}>
                                     {canOrder ? <Check className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                                </div>
+                            </div>
+                        ) : !isLoggedIn ? (
+                            <div className="hidden sm:block text-right shrink-0">
+                                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-400">
+                                    Verifikasi belum dikonfigurasi
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3 shrink-0">
+                                <div className="text-right hidden sm:block">
+                                    <p className="text-xs font-semibold text-white">{customerName}</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-amber-400">
+                                        {gatewayLabel} · akses terbatas
+                                    </p>
+                                </div>
+                                <div className="w-9 h-9 rounded-xl flex items-center justify-center border bg-amber-500/10 border-amber-500/25 text-amber-400">
+                                    <Lock className="w-4 h-4" />
                                 </div>
                             </div>
                         )}
@@ -221,6 +232,12 @@ export default function VpsCatalog({
                                 <p className="mt-5 text-base sm:text-lg text-slate-400 leading-relaxed max-w-2xl">
                                     {pageDescription}
                                 </p>
+                                {guestVerification && (
+                                    <div className="mt-6 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100 max-w-2xl">
+                                        Halaman uji coba payment gateway. Pilih paket di bawah untuk langsung menuju halaman
+                                        pembayaran {gatewayLabel} — <strong>tanpa login WhatsApp</strong> atau pendaftaran akun.
+                                    </div>
+                                )}
                                 <div className="flex flex-wrap gap-3 mt-8">
                                     <a
                                         href="#paket"
@@ -229,14 +246,6 @@ export default function VpsCatalog({
                                         Lihat Paket
                                         <ChevronRight className="w-4 h-4" />
                                     </a>
-                                    {!isLoggedIn && (
-                                        <Link
-                                            href={`/portal?redirect=${encodeURIComponent(catalogUrl)}`}
-                                            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-colors"
-                                        >
-                                            Login Pelanggan
-                                        </Link>
-                                    )}
                                 </div>
                             </div>
 
@@ -272,7 +281,7 @@ export default function VpsCatalog({
                                 {plans.map((plan) => {
                                     const featured = !!plan.featured;
                                     const isOrdering = orderingPlan === plan.id;
-                                    const ctaDisabled = isOrdering || (isLoggedIn && !canOrder);
+                                    const ctaDisabled = isOrdering || !canOrder;
 
                                     return (
                                         <article

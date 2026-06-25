@@ -174,6 +174,7 @@ class CustomerVpsShowcasePortalTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('Public/VpsCatalog')
                 ->where('canOrder', true)
+                ->where('guestVerification', false)
                 ->where('isLoggedIn', true)
             );
     }

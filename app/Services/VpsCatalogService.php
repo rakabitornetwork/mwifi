@@ -158,6 +158,30 @@ class VpsCatalogService
     }
 
     /**
+     * Halaman /layanan/vps dapat diuji tanpa login WhatsApp jika ada pelanggan showcase.
+     */
+    public static function allowsGuestVerificationCheckout(): bool
+    {
+        return self::isEnabled() && self::showcaseCustomers()->isNotEmpty();
+    }
+
+    /**
+     * Pelanggan yang dipakai untuk checkout verifikasi gateway (login opsional).
+     */
+    public static function resolveVerificationCustomer(?Customer $authenticated = null): ?Customer
+    {
+        if (! self::isEnabled()) {
+            return null;
+        }
+
+        if ($authenticated && self::customerCanOrder($authenticated)) {
+            return $authenticated;
+        }
+
+        return self::showcaseCustomers()->first();
+    }
+
+    /**
      * Pelanggan fiktif VPS (whitelist) — tampilan portal memakai persona cloud, bukan PPPoE.
      * Cukup cocok username ATAU nomor WhatsApp pada whitelist.
      */
@@ -560,7 +584,7 @@ class VpsCatalogService
         }
 
         return URL::temporarySignedRoute(
-            'portal.demo.login',
+            'vps.catalog.access',
             now()->addDays(self::demoLinkExpiryDays()),
             ['customer' => $customer->id],
         );

@@ -20,19 +20,26 @@ class VpsCatalogController extends Controller
         }
 
         $user = $request->user();
-        $customer = $user?->customer;
+        $authenticatedCustomer = $user?->customer;
 
-        if ($customer && VpsCatalogService::isShowcaseCustomer($customer)) {
+        if ($authenticatedCustomer && VpsCatalogService::isShowcaseCustomer($authenticatedCustomer)) {
             $request->session()->put('customer_portal_vps_showcase', true);
         }
+
+        $verificationCustomer = VpsCatalogService::resolveVerificationCustomer($authenticatedCustomer);
+        $canOrder = $verificationCustomer !== null
+            && VpsCatalogService::customerCanOrder($verificationCustomer);
+        $guestVerification = $canOrder && ! $authenticatedCustomer;
 
         return Inertia::render('Public/VpsCatalog', [
             'pageTitle' => VpsCatalogService::pageTitle(),
             'pageDescription' => VpsCatalogService::pageDescription(),
             'plans' => VpsCatalogService::plans(),
-            'canOrder' => VpsCatalogService::customerCanOrder($customer),
-            'isLoggedIn' => (bool) $customer,
-            'customerName' => $customer?->name,
+            'canOrder' => $canOrder,
+            'guestVerification' => $guestVerification,
+            'isLoggedIn' => (bool) $authenticatedCustomer,
+            'customerName' => $authenticatedCustomer?->name
+                ?? ($guestVerification ? 'Mode Verifikasi Gateway' : null),
             'activeGateway' => SettingService::get('payment.active_gateway', 'tripay'),
             'catalogUrl' => url('/layanan/vps'),
         ]);
@@ -49,21 +56,12 @@ class VpsCatalogController extends Controller
             'payment_method' => 'nullable|string',
         ]);
 
-        $user = Auth::user();
-        $customer = $user?->customer;
+        $customer = VpsCatalogService::resolveVerificationCustomer(Auth::user()?->customer);
 
-        if (! $customer) {
+        if (! $customer || ! VpsCatalogService::customerCanOrder($customer)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Silakan login portal pelanggan terlebih dahulu.',
-                'login_url' => route('portal.login', ['redirect' => '/layanan/vps']),
-            ], 401);
-        }
-
-        if (! VpsCatalogService::customerCanOrder($customer)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Akun Anda belum diizinkan memesan layanan VPS ini.',
+                'message' => 'Verifikasi pembayaran belum tersedia. Pastikan layanan VPS aktif dan whitelist pelanggan demo sudah dikonfigurasi.',
             ], 403);
         }
 

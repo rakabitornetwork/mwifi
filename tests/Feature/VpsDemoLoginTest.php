@@ -74,6 +74,7 @@ class VpsDemoLoginTest extends TestCase
         $url = VpsCatalogService::generateDemoLoginUrl($customer);
 
         $this->assertNotNull($url);
+        $this->assertStringContainsString('/layanan/vps/akses/', $url);
 
         $this->get($url)
             ->assertRedirect('/layanan/vps');

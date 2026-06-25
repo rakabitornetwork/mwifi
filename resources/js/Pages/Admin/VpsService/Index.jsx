@@ -200,18 +200,19 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
     const demoEmailTemplate = useMemo(() => {
         const catalog = catalogUrl || `${window.location.origin}/layanan/vps`;
         return [
-            'Halo Tim Midtrans,',
+            'Halo Tim Reviewer,',
             '',
             'Berikut akses demo untuk verifikasi transaksi layanan VPS kami:',
             '',
-            `1. Katalog publik: ${catalog}`,
-            '2. Link login demo (klik langsung, tanpa OTP): [SALIN DARI ADMIN — tombol "Salin Link Demo"]',
+            `Katalog verifikasi pembayaran: ${catalog}`,
             '',
-            `Link login berlaku ${demoLinkDays} hari. Setelah masuk, pilih paket VPS lalu lanjut ke pembayaran Midtrans sandbox.`,
+            'Buka link di atas, pilih paket VPS, lalu lanjut ke halaman pembayaran gateway — tanpa login WhatsApp atau pendaftaran akun.',
             '',
-            'Terima kasih.',
+            'Opsional — link akses portal demo (jika ingin melihat dashboard pelanggan): [SALIN DARI ADMIN — tombol "Salin Link Demo"]',
+            '',
+            `Terima kasih.`,
         ].join('\n');
-    }, [catalogUrl, demoLinkDays]);
+    }, [catalogUrl]);
 
     const handleSave = (e) => {
         e.preventDefault();
@@ -454,11 +455,11 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                                 <div className="flex items-start gap-3">
                                     <Link2 className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
                                     <div className="min-w-0">
-                                        <p className={`font-bold text-sm ${themeTextTitle}`}>Link Login Demo untuk Tim Midtrans</p>
+                                        <p className={`font-bold text-sm ${themeTextTitle}`}>Link Akses Opsional (Tim Reviewer)</p>
                                         <p className={`mt-1 text-xs leading-relaxed ${themeTextSub}`}>
-                                            OTP WhatsApp hanya berlaku <strong>5 menit</strong> — tidak cocok jika tim Midtrans
-                                            membalas email Anda berhari-hari kemudian. Gunakan link bertanda tangan ini:
-                                            cukup diklik kapan saja dalam masa berlaku, tanpa OTP.
+                                            URL <code className="font-mono">/layanan/vps</code> sudah bisa dipakai langsung untuk uji
+                                            coba pembayaran tanpa login WhatsApp. Link bertanda tangan di bawah opsional — berguna
+                                            jika reviewer juga ingin melihat portal pelanggan demo tanpa OTP.
                                         </p>
                                     </div>
                                 </div>

@@ -13,14 +13,21 @@ Route::get('/', function () {
 Route::get('layanan/vps', [\App\Http\Controllers\VpsCatalogController::class, 'index'])
     ->name('vps.catalog');
 
+Route::get('layanan/vps/akses/{customer}', [\App\Http\Controllers\Customer\CustomerOtpAuthController::class, 'demoLogin'])
+    ->middleware('signed')
+    ->whereNumber('customer')
+    ->name('vps.catalog.access');
+
+Route::post('layanan/vps/order', [\App\Http\Controllers\VpsCatalogController::class, 'order'])
+    ->name('vps.order');
+
 Route::get('portal/demo/{customer}', [\App\Http\Controllers\Customer\CustomerOtpAuthController::class, 'demoLogin'])
     ->middleware('signed')
     ->whereNumber('customer')
     ->name('portal.demo.login');
 
 Route::middleware(['auth', 'customer'])->group(function () {
-    Route::post('customer/vps/order', [\App\Http\Controllers\VpsCatalogController::class, 'order'])
-        ->name('vps.order');
+    Route::post('customer/vps/order', [\App\Http\Controllers\VpsCatalogController::class, 'order']);
 });
 
 Route::get('favicon.ico', function () {
