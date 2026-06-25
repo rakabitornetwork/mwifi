@@ -149,35 +149,17 @@ class VpsCatalogService
         return self::parseList((string) SettingService::get(self::SETTING_WHITELIST_PHONES, ''));
     }
 
+    /**
+     * Checkout katalog VPS — aturan whitelist sama dengan portal showcase (username ATAU WhatsApp).
+     */
     public static function customerCanOrder(?Customer $customer): bool
     {
-        if (! $customer || ! self::isEnabled()) {
-            return false;
-        }
-
-        $usernames = self::whitelistUsernames();
-        $phones = self::whitelistPhones();
-
-        if ($usernames === [] && $phones === []) {
-            return false;
-        }
-
-        $usernameMatch = $usernames === []
-            || self::usernameMatchesWhitelist((string) $customer->username, $usernames);
-
-        $phoneMatch = $phones === []
-            || self::phoneMatchesWhitelist(self::resolveCustomerPhone($customer), $phones);
-
-        if ($usernames !== [] && $phones !== []) {
-            return $usernameMatch && $phoneMatch;
-        }
-
-        return $usernameMatch && $phoneMatch;
+        return self::isShowcaseCustomer($customer);
     }
 
     /**
      * Pelanggan fiktif VPS (whitelist) — tampilan portal memakai persona cloud, bukan PPPoE.
-     * Cukup cocok username ATAU nomor WhatsApp pada whitelist (lebih longgar dari aturan checkout).
+     * Cukup cocok username ATAU nomor WhatsApp pada whitelist.
      */
     public static function isShowcaseCustomer(?Customer $customer): bool
     {

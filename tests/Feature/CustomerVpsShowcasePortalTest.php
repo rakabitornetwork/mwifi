@@ -167,6 +167,15 @@ class CustomerVpsShowcasePortalTest extends TestCase
         $this->actingAs($customer->user)
             ->get('/customer/dashboard')
             ->assertInertia(fn ($page) => $page->where('portalView', 'vps'));
+
+        $this->actingAs($customer->user)
+            ->get('/layanan/vps')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Public/VpsCatalog')
+                ->where('canOrder', true)
+                ->where('isLoggedIn', true)
+            );
     }
 
     public function test_username_prefix_matches_midtrans_demo(): void

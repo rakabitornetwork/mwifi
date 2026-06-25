@@ -74,6 +74,10 @@ export default function VpsCatalog({
     const [orderingPlan, setOrderingPlan] = useState(null);
     const [toast, setToast] = useState(null);
 
+    const gatewayLabel = activeGateway
+        ? activeGateway.charAt(0).toUpperCase() + activeGateway.slice(1)
+        : 'Gateway';
+
     const showToast = (message, type = 'error') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 4500);
@@ -186,7 +190,7 @@ export default function VpsCatalog({
                                 <div className="text-right hidden sm:block">
                                     <p className="text-xs font-semibold text-white">{customerName}</p>
                                     <p className={`text-[10px] font-bold uppercase tracking-wide ${canOrder ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                        {canOrder ? 'Siap memesan' : 'View only'}
+                                        {canOrder ? `${gatewayLabel} · siap memesan` : `${gatewayLabel} · akses terbatas`}
                                     </p>
                                 </div>
                                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center border ${

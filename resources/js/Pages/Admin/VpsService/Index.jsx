@@ -410,14 +410,13 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                                 <div>
                                     <p className={`font-bold ${themeTextTitle}`}>Aturan pencocokan</p>
                                     <p className="mt-1 opacity-80">
-                                        Jika <strong>username</strong> dan <strong>WhatsApp</strong> keduanya diisi,
-                                        pelanggan harus cocok pada keduanya. Jika hanya salah satu diisi, cukup cocok salah satu.
+                                        Pelanggan dapat mengakses portal VPS dan checkout katalog jika <strong>username</strong>{' '}
+                                        <strong>atau</strong> nomor <strong>WhatsApp</strong> cocok dengan whitelist.
                                     </p>
                                     <p className="mt-2 opacity-80 text-amber-600 dark:text-amber-400 font-semibold">
                                         Penting: whitelist VPS tidak membuat akun otomatis. Pelanggan harus sudah terdaftar
                                         di Manajemen PPPoE. Untuk username seperti <code className="font-mono">midtrans@demo</code>,
                                         cukup isi whitelist dengan <code className="font-mono">midtrans</code> atau nama lengkap.
-                                        Tampilan portal VPS aktif jika username <strong>atau</strong> nomor WhatsApp cocok.
                                     </p>
                                 </div>
                             </div>
