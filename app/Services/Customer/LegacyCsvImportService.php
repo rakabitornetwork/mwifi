@@ -39,7 +39,7 @@ class LegacyCsvImportService
      *     errors: list<string>
      * }
      */
-    public function validateFormat(string $filePath): void
+    public function validateFormat(string $filePath, bool $emailOnly = false): void
     {
         $handle = fopen($filePath, 'r');
         if ($handle === false) {
@@ -54,6 +54,25 @@ class LegacyCsvImportService
         }
 
         $header = array_map('trim', $header);
+        if ($emailOnly) {
+            foreach (['Login', 'Email'] as $requiredColumn) {
+                $found = false;
+                foreach ($header as $column) {
+                    if (strcasecmp((string) $column, $requiredColumn) === 0) {
+                        $found = true;
+                        break;
+                    }
+                }
+                if (! $found) {
+                    throw new \InvalidArgumentException(
+                        'Format CSV tidak dikenali. Kolom wajib untuk impor email: Login, Email'
+                    );
+                }
+            }
+
+            return;
+        }
+
         $missing = array_diff(self::REQUIRED_HEADERS, $header);
         if ($missing !== []) {
             throw new \InvalidArgumentException(
@@ -62,9 +81,14 @@ class LegacyCsvImportService
         }
     }
 
-    public function import(string $filePath, int $routerId, bool $dryRun = false, bool $skipExisting = false): array
-    {
-        $this->validateFormat($filePath);
+    public function import(
+        string $filePath,
+        int $routerId,
+        bool $dryRun = false,
+        bool $skipExisting = false,
+        bool $emailOnly = false,
+    ): array {
+        $this->validateFormat($filePath, $emailOnly);
         $this->bootLookupCaches();
 
         $handle = fopen($filePath, 'r');
@@ -85,51 +109,17 @@ class LegacyCsvImportService
             'updated' => 0,
             'skipped' => 0,
             'packages_created' => 0,
+            'email_only' => $emailOnly,
             'errors' => [],
         ];
 
-        $import = function () use ($handle, $header, $routerId, $skipExisting, &$result) {
-            while (($row = fgetcsv($handle)) !== false) {
-                if (count(array_filter($row, fn ($v) => trim((string) $v) !== '')) === 0) {
-                    continue;
-                }
-
-                $result['total']++;
-                $data = $this->rowToAssoc($header, $row);
-
-                try {
-                    $username = trim((string) ($data['Login'] ?? ''));
-                    if ($username === '') {
-                        throw new \RuntimeException('Baris tanpa username (Login).');
-                    }
-
-                    $existing = $this->existingCustomersByUsername[$username] ?? null;
-                    if ($existing && $skipExisting) {
-                        $result['skipped']++;
-                        continue;
-                    }
-
-                    $package = $this->resolvePackage($data, $result);
-                    $customerData = $this->mapCustomerData($data, $routerId, $package->id);
-
-                    $user = $this->resolveUser($data, $customerData, $existing);
-                    $customerData['user_id'] = $user->id;
-
-                    if ($existing) {
-                        $existing->update($customerData);
-                        $this->existingCustomersByUsername[$username] = $existing->fresh(['user']);
-                        $result['updated']++;
-                    } else {
-                        $customer = Customer::create($customerData);
-                        $this->existingCustomersByUsername[$username] = $customer;
-                        $result['created']++;
-                    }
-                } catch (\Throwable $e) {
-                    $line = $result['total'] + 1;
-                    $result['errors'][] = "Baris {$line} ({$data['Login']}): {$e->getMessage()}";
-                }
+        $import = $emailOnly
+            ? function () use ($handle, $header, &$result) {
+                $this->importEmailRows($handle, $header, $result);
             }
-        };
+            : function () use ($handle, $header, $routerId, $skipExisting, &$result) {
+                $this->importFullRows($handle, $header, $routerId, $skipExisting, $result);
+            };
 
         if ($dryRun) {
             DB::beginTransaction();
@@ -145,6 +135,106 @@ class LegacyCsvImportService
         fclose($handle);
 
         return $result;
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function importEmailRows($handle, array $header, array &$result): void
+    {
+        while (($row = fgetcsv($handle)) !== false) {
+            if (count(array_filter($row, fn ($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $result['total']++;
+            $data = $this->rowToAssoc($header, $row);
+
+            try {
+                $username = $this->columnValue($data, 'Login');
+                if ($username === '') {
+                    throw new \RuntimeException('Baris tanpa username (Login).');
+                }
+
+                $existing = $this->existingCustomersByUsername[$username] ?? null;
+                if (! $existing) {
+                    $result['skipped']++;
+                    continue;
+                }
+
+                $email = strtolower($this->columnValue($data, 'Email'));
+                if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    $result['skipped']++;
+                    continue;
+                }
+
+                $user = $existing->user;
+                if (! $user) {
+                    throw new \RuntimeException('Pelanggan tidak memiliki akun user terkait.');
+                }
+
+                $resolvedEmail = $this->uniqueEmail($email, $user->id);
+                if (strtolower((string) $user->email) === $resolvedEmail) {
+                    $result['skipped']++;
+                    continue;
+                }
+
+                $user->update(['email' => $resolvedEmail]);
+                $this->existingUsersByEmail[strtolower($resolvedEmail)] = $user->fresh();
+                $result['updated']++;
+            } catch (\Throwable $e) {
+                $line = $result['total'] + 1;
+                $login = $this->columnValue($data, 'Login') ?: '?';
+                $result['errors'][] = "Baris {$line} ({$login}): {$e->getMessage()}";
+            }
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     */
+    private function importFullRows($handle, array $header, int $routerId, bool $skipExisting, array &$result): void
+    {
+        while (($row = fgetcsv($handle)) !== false) {
+            if (count(array_filter($row, fn ($v) => trim((string) $v) !== '')) === 0) {
+                continue;
+            }
+
+            $result['total']++;
+            $data = $this->rowToAssoc($header, $row);
+
+            try {
+                $username = trim((string) ($data['Login'] ?? ''));
+                if ($username === '') {
+                    throw new \RuntimeException('Baris tanpa username (Login).');
+                }
+
+                $existing = $this->existingCustomersByUsername[$username] ?? null;
+                if ($existing && $skipExisting) {
+                    $result['skipped']++;
+                    continue;
+                }
+
+                $package = $this->resolvePackage($data, $result);
+                $customerData = $this->mapCustomerData($data, $routerId, $package->id);
+
+                $user = $this->resolveUser($data, $customerData, $existing);
+                $customerData['user_id'] = $user->id;
+
+                if ($existing) {
+                    $existing->update($customerData);
+                    $this->existingCustomersByUsername[$username] = $existing->fresh(['user']);
+                    $result['updated']++;
+                } else {
+                    $customer = Customer::create($customerData);
+                    $this->existingCustomersByUsername[$username] = $customer;
+                    $result['created']++;
+                }
+            } catch (\Throwable $e) {
+                $line = $result['total'] + 1;
+                $result['errors'][] = "Baris {$line} ({$data['Login']}): {$e->getMessage()}";
+            }
+        }
     }
 
     /**

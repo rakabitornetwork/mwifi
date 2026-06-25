@@ -552,6 +552,7 @@ class AdminActionController extends Controller
 
         $dryRun = $request->boolean('dry_run');
         $skipExisting = $request->boolean('skip_existing');
+        $emailOnly = $request->boolean('email_only');
 
         try {
             $result = $importService->import(
@@ -559,6 +560,7 @@ class AdminActionController extends Controller
                 (int) $data['router_id'],
                 $dryRun,
                 $skipExisting,
+                $emailOnly,
             );
         } catch (\InvalidArgumentException $e) {
             return response()->json([
@@ -573,15 +575,23 @@ class AdminActionController extends Controller
         }
 
         $prefix = $dryRun ? 'Simulasi impor' : 'Impor selesai';
-        $message = sprintf(
-            '%s: %d baris, %d baru, %d diperbarui, %d dilewati, %d paket baru.',
-            $prefix,
-            $result['total'],
-            $result['created'],
-            $result['updated'],
-            $result['skipped'],
-            $result['packages_created'],
-        );
+        $message = $emailOnly
+            ? sprintf(
+                '%s (email saja): %d baris, %d email diperbarui, %d dilewati.',
+                $prefix,
+                $result['total'],
+                $result['updated'],
+                $result['skipped'],
+            )
+            : sprintf(
+                '%s: %d baris, %d baru, %d diperbarui, %d dilewati, %d paket baru.',
+                $prefix,
+                $result['total'],
+                $result['created'],
+                $result['updated'],
+                $result['skipped'],
+                $result['packages_created'],
+            );
 
         if ($result['errors'] !== []) {
             return response()->json([

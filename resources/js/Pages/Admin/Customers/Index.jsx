@@ -21,6 +21,14 @@ function getCustomerEmail(customer) {
     return customer?.portal_email || customer?.user?.email || '';
 }
 
+function getModalEmailValue(customer) {
+    if (!customer) {
+        return '';
+    }
+
+    return customer.portal_email || '';
+}
+
 function CustomersPageContent({
     customers = [],
     routers = [],
@@ -68,6 +76,7 @@ function CustomersPageContent({
     const [importCsvFile, setImportCsvFile] = useState(null);
     const [importRouterId, setImportRouterId] = useState(() => String(routers[0]?.id ?? ''));
     const [importSkipExisting, setImportSkipExisting] = useState(false);
+    const [importEmailOnly, setImportEmailOnly] = useState(false);
     const [importDryRun, setImportDryRun] = useState(true);
     const [isImporting, setIsImporting] = useState(false);
     const [importResult, setImportResult] = useState(null);
@@ -487,6 +496,9 @@ function CustomersPageContent({
         formData.append('router_id', importRouterId);
         if (importSkipExisting) {
             formData.append('skip_existing', '1');
+        }
+        if (importEmailOnly) {
+            formData.append('email_only', '1');
         }
         if (importDryRun) {
             formData.append('dry_run', '1');
@@ -921,12 +933,12 @@ function CustomersPageContent({
                         <input
                             name="email"
                             type="email"
-                            placeholder="contoh@gmail.com (opsional)"
-                            defaultValue={editingCustomer ? getCustomerEmail(editingCustomer) : ''}
+                            placeholder={editingCustomer?.username ? `${editingCustomer.username}@mwifi.test` : 'username@mwifi.test'}
+                            defaultValue={getModalEmailValue(editingCustomer)}
                             className={`p-2 border rounded-lg font-mono ${themeInput}`}
                         />
                         <span className={`text-[10px] ${themeTextDesc}`}>
-                            Kosongkan untuk memakai {editingCustomer ? 'email yang sudah tersimpan' : 'username@mwifi.test'}.
+                            Opsional. Kosongkan untuk memakai email otomatis <span className="font-mono">{editingCustomer?.username ? `${editingCustomer.username}@mwifi.test` : 'username@mwifi.test'}</span>.
                         </span>
                     </div>
 
@@ -1267,7 +1279,25 @@ function CustomersPageContent({
                         <label className="flex items-start gap-2 cursor-pointer">
                             <input
                                 type="checkbox"
+                                checked={importEmailOnly}
+                                onChange={(e) => {
+                                    setImportEmailOnly(e.target.checked);
+                                    if (e.target.checked) {
+                                        setImportSkipExisting(false);
+                                    }
+                                }}
+                                className={`mt-0.5 rounded text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}
+                            />
+                            <span className={themeTextSub}>
+                                <span className={`font-semibold ${themeTextTitle}`}>Hanya perbarui email</span>
+                                <span className={`block ${themeTextDesc} text-[10px] mt-0.5`}>Cocokkan username (Login) lalu ubah email saja. Data pelanggan lain tidak disentuh. Username tidak ditemukan dilewati.</span>
+                            </span>
+                        </label>
+                        <label className={`flex items-start gap-2 ${importEmailOnly ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                            <input
+                                type="checkbox"
                                 checked={importSkipExisting}
+                                disabled={importEmailOnly}
                                 onChange={(e) => setImportSkipExisting(e.target.checked)}
                                 className={`mt-0.5 rounded text-emerald-500 focus:ring-emerald-500 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}
                             />
@@ -1282,8 +1312,17 @@ function CustomersPageContent({
                         <div className={`p-3 rounded-xl border text-[11px] space-y-1 ${isDarkMode ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-emerald-200 bg-emerald-50'}`}>
                             <p className={`font-bold ${themeTextTitle}`}>Ringkasan</p>
                             <p className={themeTextSub}>Total baris: {importResult.total}</p>
-                            <p className={themeTextSub}>Baru: {importResult.created} · Diperbarui: {importResult.updated} · Dilewati: {importResult.skipped}</p>
-                            <p className={themeTextSub}>Paket baru: {importResult.packages_created} · Error: {importResult.errors?.length ?? 0}</p>
+                            {importResult.email_only ? (
+                                <p className={themeTextSub}>Email diperbarui: {importResult.updated} · Dilewati: {importResult.skipped}</p>
+                            ) : (
+                                <p className={themeTextSub}>Baru: {importResult.created} · Diperbarui: {importResult.updated} · Dilewati: {importResult.skipped}</p>
+                            )}
+                            {!importResult.email_only && (
+                                <p className={themeTextSub}>Paket baru: {importResult.packages_created} · Error: {importResult.errors?.length ?? 0}</p>
+                            )}
+                            {importResult.email_only && (
+                                <p className={themeTextSub}>Error: {importResult.errors?.length ?? 0}</p>
+                            )}
                             {importResult.errors?.length > 0 && (
                                 <ul className={`mt-2 space-y-0.5 max-h-24 overflow-y-auto ${themeTextDesc}`}>
                                     {importResult.errors.slice(0, 5).map((err) => (

@@ -117,6 +117,60 @@ class CustomerEmailTest extends TestCase
         $this->assertSame('demo@mwifi.test', $user->fresh()->email);
     }
 
+    public function test_csv_email_only_import_updates_existing_customer_email_without_touching_customer_data(): void
+    {
+        [$router, $package] = $this->makeRouterAndPackage();
+
+        $user = User::factory()->create(['email' => 'demo@mwifi.test']);
+        Customer::create([
+            'user_id' => $user->id,
+            'router_id' => $router->id,
+            'package_id' => $package->id,
+            'service_type' => 'pppoe',
+            'username' => 'demo',
+            'password' => 'pass123',
+            'name' => 'Nama Asli Di Database',
+            'phone_number' => '6281234567890',
+            'address' => 'Alamat asli',
+            'status' => 'active',
+            'billing_date' => 20,
+        ]);
+
+        $path = tempnam(sys_get_temp_dir(), 'customer-import-');
+        file_put_contents($path, implode("\n", [
+            'Login,Password,FullName,Plan,Email',
+            'demo,pass999,Nama Dari CSV,10M,demo@gmail.com',
+        ]));
+
+        $result = (new LegacyCsvImportService())->import($path, $router->id, false, false, true);
+
+        $this->assertTrue($result['email_only']);
+        $this->assertSame(1, $result['updated']);
+        $this->assertSame(0, $result['created']);
+
+        $customer = Customer::where('username', 'demo')->firstOrFail();
+        $this->assertSame('Nama Asli Di Database', $customer->name);
+        $this->assertSame('pass123', $customer->password);
+        $this->assertSame('Alamat asli', $customer->address);
+        $this->assertSame('demo@gmail.com', $user->fresh()->email);
+    }
+
+    public function test_csv_email_only_import_skips_unknown_username(): void
+    {
+        [$router] = $this->makeRouterAndPackage();
+
+        $path = tempnam(sys_get_temp_dir(), 'customer-import-');
+        file_put_contents($path, implode("\n", [
+            'Login,Email',
+            'tidak_ada,demo@gmail.com',
+        ]));
+
+        $result = (new LegacyCsvImportService())->import($path, $router->id, false, false, true);
+
+        $this->assertSame(1, $result['skipped']);
+        $this->assertSame(0, $result['updated']);
+    }
+
     public function test_save_customer_preserves_custom_email_on_update(): void
     {
         $admin = User::factory()->create();
