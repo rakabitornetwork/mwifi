@@ -67,7 +67,7 @@ class PublicOrderController extends Controller
                     'phone_number' => $phone,
                     'address' => 'Pemesanan via Landing Page',
                     'status' => 'active',
-                    'billing_date' => (int) now()->day,
+                    'billing_date' => now()->toDateString(),
                     'service_start_date' => now()->toDateString(),
                 ]);
             }

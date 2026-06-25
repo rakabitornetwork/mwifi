@@ -12,7 +12,7 @@ import { useAssignedRouter } from '../../../hooks/useAssignedRouter';
 import AssignedRouterFilter from '../../../Components/Admin/AssignedRouterFilter';
 import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import getVisiblePages from '../../../utils/getVisiblePages';
-import { formatDateInputValue, todayDateInputValue } from '../../../utils/formatDateInputValue';
+import { formatDateInputValue, formatDisplayDate, todayDateInputValue } from '../../../utils/formatDateInputValue';
 import { fetchRouterPackageProfiles } from '../../../utils/fetchRouterPackageProfiles';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 500, 1000];
@@ -249,7 +249,7 @@ function CustomersPageContent({
             case 'odp':
                 return cust.odp?.name || '';
             case 'billing_date':
-                return Number(cust.billing_date) || 0;
+                return formatDateInputValue(cust.billing_date) || '';
             case 'status':
                 return cust.status || '';
             default:
@@ -263,8 +263,10 @@ function CustomersPageContent({
 
         let comparison = 0;
 
-        if (sortColumn === 'package' || sortColumn === 'billing_date') {
+        if (sortColumn === 'package') {
             comparison = Number(valueA) - Number(valueB);
+        } else if (sortColumn === 'billing_date') {
+            comparison = String(valueA).localeCompare(String(valueB));
         } else {
             comparison = String(valueA).localeCompare(String(valueB), 'id', { sensitivity: 'base' });
         }
@@ -737,7 +739,7 @@ function CustomersPageContent({
                                         <td className="py-3 px-2">{cust.router ? cust.router.name : '—'}</td>
                                         <td className="py-3 px-2">{cust.package ? cust.package.name : '—'}</td>
                                         <td className="py-3 px-2 font-mono text-[10px]">{cust.odp ? cust.odp.name : '—'}</td>
-                                        <td className="py-3 px-2">Tgl {cust.billing_date}</td>
+                                        <td className="py-3 px-2">{formatDisplayDate(cust.billing_date)}</td>
                                         <td className="py-3 px-2">
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                                 cust.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
@@ -1018,7 +1020,17 @@ function CustomersPageContent({
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Tgl Jatuh Tempo</label>
-                            <input required name="billing_date" type="number" min={1} max={31} defaultValue={editingCustomer ? editingCustomer.billing_date : 1} className={`p-2 border rounded-lg ${themeInput}`} />
+                            <input
+                                required
+                                name="billing_date"
+                                type="date"
+                                defaultValue={
+                                    editingCustomer?.billing_date
+                                        ? formatDateInputValue(editingCustomer.billing_date)
+                                        : todayDateInputValue()
+                                }
+                                className={`p-2 border rounded-lg ${themeInput}`}
+                            />
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Tgl Mulai Layanan</label>
@@ -1032,7 +1044,7 @@ function CustomersPageContent({
                                 }
                                 className={`p-2 border rounded-lg ${themeInput}`}
                             />
-                            <span className={`text-[10px] ${themeTextDesc}`}>Dasar prorata bulan pertama: tgl mulai layanan s/d tgl jatuh tempo (billing date), dibagi 30 hari.</span>
+                            <span className={`text-[10px] ${themeTextDesc}`}>Dasar prorata bulan pertama: tgl mulai layanan s/d tgl jatuh tempo, dibagi 30 hari.</span>
                         </div>
                     </div>
                     </div>

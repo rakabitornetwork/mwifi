@@ -941,7 +941,7 @@ function HotspotPageContent({
                 <form onSubmit={handleSaveMember} className="space-y-3 text-xs">
                     <input type="hidden" name="id" value={editingMember ? editingMember.id : ''} />
                     <input type="hidden" name="service_type" value="hotspot" />
-                    <input type="hidden" name="billing_date" value={editingMember?.billing_date || 1} />
+                    <input type="hidden" name="billing_date" value={editingMember?.billing_date ? String(editingMember.billing_date).slice(0, 10) : new Date().toISOString().slice(0, 10)} />
                     <input type="hidden" name="odp_id" value="" />
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

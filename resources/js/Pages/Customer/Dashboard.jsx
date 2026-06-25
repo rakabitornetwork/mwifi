@@ -6,7 +6,7 @@ import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
 import { formatRupiah } from '../../utils/formatRupiah';
-import { getTimeOfDayGreeting } from '../../utils/timeOfDayGreeting';
+import { formatDisplayDate } from '../../utils/formatDateInputValue';
 import {
     LogOut,
     Sun,
@@ -286,8 +286,8 @@ export default function CustomerDashboard({
                                             </div>
                                         </div>
                                         <div>
-                                            <p className={themeTextDesc}>Tanggal Cetak Tagihan</p>
-                                            <p className={`font-semibold ${themeTextTitle}`}>Setiap Tanggal {customer.billing_date} Bulannya</p>
+                                            <p className={themeTextDesc}>Tgl Jatuh Tempo</p>
+                                            <p className={`font-semibold ${themeTextTitle}`}>{formatDisplayDate(customer.billing_date)}</p>
                                         </div>
                                     </div>
                                 )}

@@ -3,7 +3,7 @@ import { router } from '@inertiajs/react';
 import { Database, Edit, FileText, RefreshCw } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatRupiah';
 import { formatBytes, quotaUsagePercent } from '../../utils/formatBytes';
-import { formatDateInputValue } from '../../utils/formatDateInputValue';
+import { formatDateInputValue, formatDisplayDate } from '../../utils/formatDateInputValue';
 
 function formatDate(value) {
     const formatted = formatDateInputValue(value);
@@ -236,7 +236,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                             {status.label}
                         </span>
                     </div>
-                    <DetailItem label="Tgl Jatuh Tempo" value={customer.billing_date ? `Tgl ${customer.billing_date}` : null} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                    <DetailItem label="Tgl Jatuh Tempo" value={customer.billing_date ? formatDisplayDate(customer.billing_date) : null} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                     <DetailItem label="Tgl Mulai Layanan" value={formatDate(customer.service_start_date)} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
 
                     {customer.latest_unpaid_invoice ? (

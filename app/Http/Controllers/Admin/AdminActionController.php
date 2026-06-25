@@ -344,7 +344,7 @@ class AdminActionController extends Controller
             'latitude' => 'nullable|numeric',
             'longitude' => 'nullable|numeric',
             'status' => 'required|in:active,isolated,inactive,suspended',
-            'billing_date' => 'required|integer|min:1|max:31',
+            'billing_date' => 'required|date',
             'service_start_date' => 'nullable|date',
         ]);
 
@@ -1526,7 +1526,7 @@ class AdminActionController extends Controller
                         'phone_number' => '081234567890', // Default placeholder
                         'address' => 'Imported from Mikrotik', // Default placeholder
                         'status' => $status,
-                        'billing_date' => 20,
+                        'billing_date' => now()->addMonth()->startOfMonth()->toDateString(),
                         'service_start_date' => now()->toDateString(),
                     ]);
                     $importedCustomersCount++;

@@ -199,7 +199,7 @@ Pendaftaran layanan internet Anda telah kami terima. Berikut data lengkap Anda:
 *Status & Billing*
 • Layanan      : {service_type}
 • Status       : {status_label}
-• Tgl Tagihan  : Setiap tanggal *{billing_date}*
+• Tgl Tagihan  : *{billing_date}*
 
 {billing_info}
 

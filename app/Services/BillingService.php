@@ -87,12 +87,46 @@ class BillingService
     }
 
     /**
+     * Anchor date for recurring billing (includes day, month, and year).
+     */
+    public static function resolveBillingAnchorDate(Customer $customer): Carbon
+    {
+        $raw = $customer->billing_date;
+
+        if ($raw instanceof Carbon) {
+            return $raw->copy()->startOfDay();
+        }
+
+        if ($raw) {
+            return Carbon::parse($raw)->startOfDay();
+        }
+
+        return Carbon::today()->startOfDay();
+    }
+
+    /**
+     * Human-readable billing due date label (e.g. "1 Juli 2026").
+     */
+    public static function formatBillingDateLabel(mixed $billingDate): string
+    {
+        if ($billingDate === null || $billingDate === '') {
+            return '-';
+        }
+
+        return Carbon::parse($billingDate)
+            ->locale('id')
+            ->translatedFormat('d F Y');
+    }
+
+    /**
      * Due date for a customer in a billing period (YYYY-MM).
      */
     public static function resolveDueDateForPeriod(Customer $customer, string $period): Carbon
     {
+        $anchor = self::resolveBillingAnchorDate($customer);
+
         return Carbon::createFromFormat('Y-m', $period)
-            ->setUnitNoOverflow('day', $customer->billing_date, 'month')
+            ->setUnitNoOverflow('day', $anchor->day, 'month')
             ->startOfDay();
     }
 
@@ -102,6 +136,12 @@ class BillingService
     public static function resolveNextDueDateFrom(Customer $customer, Carbon $fromDate): Carbon
     {
         $fromDate = $fromDate->copy()->startOfDay();
+        $anchor = self::resolveBillingAnchorDate($customer);
+
+        if ($anchor->gte($fromDate)) {
+            return $anchor->copy();
+        }
+
         $candidate = self::resolveDueDateForPeriod($customer, $fromDate->format('Y-m'));
 
         if ($candidate->lt($fromDate)) {

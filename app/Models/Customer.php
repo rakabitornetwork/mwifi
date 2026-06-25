@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,9 +13,28 @@ class Customer extends Model
     protected $guarded = [];
 
     protected $casts = [
-        'billing_date' => 'integer',
+        'billing_date' => 'date',
         'service_start_date' => 'date',
     ];
+
+    protected function billingDate(): Attribute
+    {
+        return Attribute::make(
+            set: function ($value) {
+                if ($value === null || $value === '') {
+                    return null;
+                }
+
+                if (is_numeric($value) && (int) $value >= 1 && (int) $value <= 31 && ! str_contains((string) $value, '-')) {
+                    return Carbon::today()
+                        ->setUnitNoOverflow('day', (int) $value, 'month')
+                        ->format('Y-m-d');
+                }
+
+                return Carbon::parse($value)->format('Y-m-d');
+            }
+        );
+    }
 
     public function user(): BelongsTo
     {

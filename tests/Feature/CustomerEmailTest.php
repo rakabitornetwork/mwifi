@@ -71,7 +71,7 @@ class CustomerEmailTest extends TestCase
             'phone_number' => '6281234567890',
             'address' => 'Alamat test',
             'status' => 'active',
-            'billing_date' => 20,
+            'billing_date' => '2026-06-20',
         ]);
 
         $path = tempnam(sys_get_temp_dir(), 'customer-import-');
@@ -102,7 +102,7 @@ class CustomerEmailTest extends TestCase
             'phone_number' => '6281234567890',
             'address' => 'Alamat test',
             'status' => 'active',
-            'billing_date' => 20,
+            'billing_date' => '2026-06-20',
         ]);
 
         $path = tempnam(sys_get_temp_dir(), 'customer-import-');
@@ -133,7 +133,7 @@ class CustomerEmailTest extends TestCase
             'phone_number' => '6281234567890',
             'address' => 'Alamat asli',
             'status' => 'active',
-            'billing_date' => 20,
+            'billing_date' => '2026-06-20',
         ]);
 
         $path = tempnam(sys_get_temp_dir(), 'customer-import-');
@@ -188,7 +188,7 @@ class CustomerEmailTest extends TestCase
             'phone_number' => '6281234567890',
             'address' => 'Alamat test',
             'status' => 'active',
-            'billing_date' => 20,
+            'billing_date' => '2026-06-20',
         ]);
 
         $response = $this->actingAs($admin)->post('/admin/customers/save', [
@@ -202,7 +202,7 @@ class CustomerEmailTest extends TestCase
             'phone_number' => '6281234567890',
             'address' => 'Alamat test',
             'status' => 'active',
-            'billing_date' => 20,
+            'billing_date' => '2026-06-20',
         ]);
 
         $response->assertRedirect();
@@ -226,7 +226,7 @@ class CustomerEmailTest extends TestCase
             'phone_number' => '6281234567890',
             'address' => 'Alamat test',
             'status' => 'active',
-            'billing_date' => 20,
+            'billing_date' => '2026-06-20',
         ]);
 
         $response = $this->actingAs($admin)->post('/admin/customers/save', [
@@ -240,7 +240,7 @@ class CustomerEmailTest extends TestCase
             'phone_number' => '6281234567890',
             'address' => 'Alamat test',
             'status' => 'active',
-            'billing_date' => 20,
+            'billing_date' => '2026-06-20',
             'email' => 'demo@gmail.com',
         ]);
 

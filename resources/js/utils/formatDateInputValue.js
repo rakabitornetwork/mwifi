@@ -27,3 +27,22 @@ export function formatDateInputValue(value) {
 export function todayDateInputValue() {
     return formatDateInputValue(new Date());
 }
+
+export function formatDisplayDate(value, locale = 'id-ID') {
+    const dateValue = formatDateInputValue(value);
+    if (!dateValue) {
+        return '-';
+    }
+
+    const [year, month, day] = dateValue.split('-').map(Number);
+    const parsed = new Date(year, month - 1, day);
+    if (Number.isNaN(parsed.getTime())) {
+        return dateValue;
+    }
+
+    return parsed.toLocaleDateString(locale, {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+    });
+}

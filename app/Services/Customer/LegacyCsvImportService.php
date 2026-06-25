@@ -470,19 +470,19 @@ class LegacyCsvImportService
     /**
      * @param  array<string, string>  $data
      */
-    private function resolveBillingDate(array $data): int
+    private function resolveBillingDate(array $data): string
     {
         $invoiceDate = $this->parseDateTime($data['InvoiceDate'] ?? '');
         if ($invoiceDate) {
-            return max(1, min(31, (int) $invoiceDate->format('j')));
+            return $invoiceDate->toDateString();
         }
 
         $created = $this->parseDateTime($data['Created'] ?? '');
         if ($created) {
-            return max(1, min(31, (int) $created->format('j')));
+            return $created->toDateString();
         }
 
-        return 1;
+        return now()->startOfMonth()->toDateString();
     }
 
     /**

@@ -74,7 +74,7 @@ class CustomerRegistrationWhatsAppTest extends TestCase
             'phone_number' => '6281234567890',
             'address' => 'Jl. Test No. 1',
             'status' => 'active',
-            'billing_date' => 20,
+            'billing_date' => now()->setDay(20)->format('Y-m-d'),
             'service_start_date' => now()->format('Y-m-d'),
         ]);
 
@@ -128,7 +128,7 @@ class CustomerRegistrationWhatsAppTest extends TestCase
             'phone_number' => '6281234567890',
             'address' => 'Jl. Test No. 1',
             'status' => 'active',
-            'billing_date' => 20,
+            'billing_date' => now()->setDay(20)->format('Y-m-d'),
             'service_start_date' => '2026-01-01',
         ]);
 
@@ -143,7 +143,7 @@ class CustomerRegistrationWhatsAppTest extends TestCase
             'phone_number' => '6281234567890',
             'address' => 'Jl. Test No. 1',
             'status' => 'active',
-            'billing_date' => 20,
+            'billing_date' => now()->setDay(20)->format('Y-m-d'),
         ]);
 
         $response->assertRedirect();
