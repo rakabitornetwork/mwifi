@@ -133,7 +133,7 @@ class TripayGateway implements PaymentGatewayInterface
             'status'         => strtolower($payload['status'] ?? ''), // e.g. "paid", "expired", "failed"
             'amount_paid'    => (float) ($payload['total_amount'] ?? 0),
             'fee'            => (float) ($payload['fee_amount'] ?? 0),
-            'payment_method' => $payload['payment_method'] ?? 'unknown',
+            'payment_method' => \App\Services\BillingService::resolvePaymentMethodFromPayload('tripay', $payload),
         ];
     }
 }

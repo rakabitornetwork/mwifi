@@ -1090,7 +1090,7 @@ class BillingService
                 'invoice_id' => $invoice->id,
                 'gateway_name' => $gateway,
                 'reference_number' => $reference,
-                'payment_method' => $payload['payment_method'] ?? 'unknown',
+                'payment_method' => self::resolvePaymentMethodFromPayload($gateway, $payload),
                 'amount_paid' => $amountPaid,
                 'fee_charged' => $fee,
                 'payload_response' => $payload,
@@ -1991,7 +1991,10 @@ class BillingService
         $payment = $invoice->payments->sortByDesc('created_at')->first();
         $amountPaid = $payment ? (float) $payment->amount_paid : (float) $invoice->total_amount;
         $gateway = $payment?->gateway_name ?? 'manual';
-        $method = $payment?->payment_method ?? ($gateway === 'manual' ? 'Cash / Tunai' : ucfirst($gateway));
+        $method = self::formatPaymentMethodLabel(
+            $payment?->payment_method,
+            $payment?->gateway_name ?? $gateway
+        );
         $paidAt = self::formatDisplayDateTime($invoice->paid_at ?? $payment?->created_at);
         $templateKey = $includeReactivationNote
             ? 'whatsapp.template.payment_reactivated'
@@ -2015,6 +2018,88 @@ class BillingService
     public static function formatWhatsAppMoney(float $amount): string
     {
         return 'Rp ' . number_format($amount, 0, ',', '.');
+    }
+
+    /**
+     * Human-readable payment method label for reports, receipts, and WhatsApp.
+     */
+    public static function formatPaymentMethodLabel(?string $method, ?string $gateway = null): string
+    {
+        $raw = trim((string) ($method ?? ''));
+        $normalized = strtolower(str_replace([' ', '-'], '_', $raw));
+
+        if ($raw === '' || $normalized === 'unknown') {
+            return match (strtolower((string) ($gateway ?? ''))) {
+                'manual' => 'Cash / Tunai',
+                'midtrans' => 'Midtrans',
+                'tripay' => 'Tripay',
+                default => $gateway ? ucfirst($gateway) : '—',
+            };
+        }
+
+        $labels = [
+            'gopay' => 'GoPay',
+            'qris' => 'QRIS',
+            'other_qris' => 'QRIS',
+            'shopeepay' => 'ShopeePay',
+            'ovo' => 'OVO',
+            'dana' => 'DANA',
+            'linkaja' => 'LinkAja',
+            'bank_transfer' => 'Transfer Bank',
+            'bca_va' => 'VA BCA',
+            'bni_va' => 'VA BNI',
+            'bri_va' => 'VA BRI',
+            'permata_va' => 'VA Permata',
+            'mandiri_va' => 'VA Mandiri',
+            'cimb_va' => 'VA CIMB',
+            'echannel' => 'Mandiri Bill',
+            'other_va' => 'Virtual Account',
+            'alfamart' => 'Alfamart',
+            'indomaret' => 'Indomaret',
+            'cstore' => 'Gerai Retail',
+            'credit_card' => 'Kartu Kredit',
+            'cash' => 'Cash / Tunai',
+            'cash_/_tunai' => 'Cash / Tunai',
+            'cash_/_tunai_(massal)' => 'Cash / Tunai (Massal)',
+        ];
+
+        if (isset($labels[$normalized])) {
+            return $labels[$normalized];
+        }
+
+        if (preg_match('/[\/\s]/', $raw)) {
+            return $raw;
+        }
+
+        return ucwords(str_replace('_', ' ', $normalized));
+    }
+
+    /**
+     * Resolve payment method from gateway webhook or manual payment payload.
+     */
+    public static function resolvePaymentMethodFromPayload(string $gateway, ?array $payload = null): string
+    {
+        if ($payload === null) {
+            return self::formatPaymentMethodLabel(null, $gateway);
+        }
+
+        if (!empty($payload['payment_method'])) {
+            return self::formatPaymentMethodLabel((string) $payload['payment_method'], $gateway);
+        }
+
+        if (!empty($payload['payment_type'])) {
+            $type = (string) $payload['payment_type'];
+
+            if ($type === 'bank_transfer' && !empty($payload['va_numbers'][0]['bank'])) {
+                $type = strtolower((string) $payload['va_numbers'][0]['bank']) . '_va';
+            } elseif ($type === 'cstore' && !empty($payload['store'])) {
+                $type = (string) $payload['store'];
+            }
+
+            return self::formatPaymentMethodLabel($type, $gateway);
+        }
+
+        return self::formatPaymentMethodLabel(null, $gateway);
     }
 
     public static function formatWhatsAppBillingPeriod(?string $period): string

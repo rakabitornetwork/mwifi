@@ -160,4 +160,47 @@ class BillingPaymentReactivationTest extends TestCase
         $this->assertSame('active', $customer->fresh()->status);
         $this->assertTrue(BillingService::customerHasPastDueUnpaidInvoices($customer->fresh()) === false);
     }
+
+    public function test_midtrans_webhook_payload_stores_readable_payment_method(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-25'));
+
+        ['customer' => $customer] = $this->makeIsolatedCustomer();
+        $customer->update(['status' => 'active']);
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202607-MIDTRANS',
+            'billing_period' => '2026-07',
+            'amount' => 28000,
+            'days_billed' => 7,
+            'is_prorated' => true,
+            'tax' => 0,
+            'total_amount' => 28000,
+            'due_date' => '2026-07-01',
+            'status' => 'unpaid',
+        ]);
+
+        $success = BillingService::processPaidInvoice(
+            $invoice,
+            'midtrans',
+            'trx-midtrans-001',
+            28000,
+            0,
+            [
+                'transaction_status' => 'settlement',
+                'payment_type' => 'qris',
+                'gross_amount' => '28000.00',
+            ]
+        );
+
+        $this->assertTrue($success);
+        $payment = $invoice->fresh()->payments()->first();
+        $this->assertNotNull($payment);
+        $this->assertSame('QRIS', $payment->payment_method);
+        $this->assertSame(
+            'QRIS',
+            BillingService::formatPaymentMethodLabel($payment->payment_method, $payment->gateway_name)
+        );
+    }
 }

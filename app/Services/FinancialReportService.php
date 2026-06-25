@@ -236,7 +236,10 @@ class FinancialReportService
                 'reference' => $invoice->invoice_number,
                 'description' => trim(($invoice->customer?->name ?? 'Pelanggan') . ($invoice->customer?->package?->name ? ' · ' . $invoice->customer->package->name : '')),
                 'router_name' => $invoice->customer?->router?->name,
-                'payment_method' => $latestPayment?->payment_method ?? $latestPayment?->gateway_name ?? '—',
+                'payment_method' => \App\Services\BillingService::formatPaymentMethodLabel(
+                    $latestPayment?->payment_method,
+                    $latestPayment?->gateway_name
+                ),
             ];
         }
 

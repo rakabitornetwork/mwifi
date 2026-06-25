@@ -56,4 +56,36 @@ class PaymentWebhookResolutionTest extends TestCase
             MidtransGateway::resolveInvoiceNumber('INV-202606-0974-5FDF')
         );
     }
+
+    public function test_midtrans_webhook_extracts_readable_payment_method(): void
+    {
+        $gateway = new MidtransGateway();
+
+        $data = $gateway->extractWebhookData([
+            'order_id' => 'INV-TEST-001',
+            'transaction_status' => 'settlement',
+            'gross_amount' => '28000.00',
+            'payment_type' => 'qris',
+            'transaction_id' => 'trx-123',
+        ]);
+
+        $this->assertSame('paid', $data['status']);
+        $this->assertSame('QRIS', $data['payment_method']);
+    }
+
+    public function test_midtrans_bank_transfer_uses_va_bank_label(): void
+    {
+        $gateway = new MidtransGateway();
+
+        $data = $gateway->extractWebhookData([
+            'order_id' => 'INV-TEST-002',
+            'transaction_status' => 'settlement',
+            'gross_amount' => '150000.00',
+            'payment_type' => 'bank_transfer',
+            'va_numbers' => [['bank' => 'bca', 'va_number' => '1234567890']],
+            'transaction_id' => 'trx-456',
+        ]);
+
+        $this->assertSame('VA BCA', $data['payment_method']);
+    }
 }

@@ -9,7 +9,10 @@
         ? \Carbon\Carbon::parse($value)->timezone(config('app.timezone', 'Asia/Jakarta'))->format('d/m/Y')
         : '-';
     $paymentMethod = ($latestPayment ?? null)
-        ? ($latestPayment->payment_method ?? ($latestPayment->gateway_name === 'manual' ? 'Cash / Tunai' : ucfirst((string) $latestPayment->gateway_name)))
+        ? \App\Services\BillingService::formatPaymentMethodLabel(
+            $latestPayment->payment_method,
+            $latestPayment->gateway_name
+        )
         : '';
 @endphp
 

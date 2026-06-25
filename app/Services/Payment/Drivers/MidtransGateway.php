@@ -161,7 +161,7 @@ class MidtransGateway implements PaymentGatewayInterface
             'status'         => $status,
             'amount_paid'    => (float) ($payload['gross_amount'] ?? 0),
             'fee'            => 0.0, // Midtrans handles merchant fee inside their dashboard invoice
-            'payment_method' => $payload['payment_type'] ?? 'unknown',
+            'payment_method' => \App\Services\BillingService::resolvePaymentMethodFromPayload('midtrans', $payload),
         ];
     }
 
