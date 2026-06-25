@@ -8,45 +8,9 @@ use App\Services\VpsCatalogService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class VpsCatalogController extends Controller
 {
-    public function index(Request $request): Response
-    {
-        if (! VpsCatalogService::isEnabled()) {
-            abort(404);
-        }
-
-        $user = $request->user();
-        $authenticatedCustomer = $user?->customer;
-
-        if ($authenticatedCustomer && VpsCatalogService::isShowcaseCustomer($authenticatedCustomer)) {
-            $request->session()->put('customer_portal_vps_showcase', true);
-        }
-
-        $verificationCustomer = VpsCatalogService::resolveVerificationCustomer($authenticatedCustomer);
-        $canOrder = $verificationCustomer !== null
-            && VpsCatalogService::customerCanOrder($verificationCustomer);
-        $guestVerification = $canOrder && ! $authenticatedCustomer;
-
-        return Inertia::render('Public/VpsCatalog', [
-            'pageTitle' => VpsCatalogService::pageTitle(),
-            'pageDescription' => VpsCatalogService::pageDescription(),
-            'plans' => VpsCatalogService::plans(),
-            'canOrder' => $canOrder,
-            'guestVerification' => $guestVerification,
-            'isLoggedIn' => (bool) $authenticatedCustomer,
-            'customerName' => $authenticatedCustomer?->name
-                ?? ($guestVerification ? 'Mode Verifikasi Gateway' : null),
-            'activeGateway' => SettingService::get('payment.active_gateway', 'tripay'),
-            'catalogUrl' => url('/layanan/vps'),
-            'termsUrl' => \App\Services\LegalService::termsUrl(),
-            'legalLinks' => \App\Services\LegalService::legalLinks(),
-        ]);
-    }
-
     public function order(Request $request)
     {
         if (! VpsCatalogService::isEnabled()) {

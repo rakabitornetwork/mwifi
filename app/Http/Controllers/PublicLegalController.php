@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Services\LegalService;
-use App\Services\VpsCatalogService;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -49,7 +48,6 @@ class PublicLegalController extends Controller
         return Inertia::render('Public/PolicyPage', [
             'policy' => $policy,
             'legalLinks' => $legalLinks,
-            'vpsCatalogUrl' => VpsCatalogService::isEnabled() ? url('/layanan/vps') : null,
         ]);
     }
 }

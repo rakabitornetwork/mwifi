@@ -101,7 +101,7 @@ function PlanPreviewCard({ plan, isDarkMode }) {
     );
 }
 
-function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = [], showcaseCustomers = [] }) {
+function VpsServicePageContent({ config = {}, landingOrderUrl = '', defaultPlans = [], showcaseCustomers = [] }) {
     const { showToast } = useAdminToast();
     const {
         isDarkMode,
@@ -151,10 +151,10 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
         setPlans(defaultPlans.map((plan) => ({ ...plan, price: String(plan.price ?? '') })));
     };
 
-    const copyCatalogUrl = async () => {
+    const copyLandingOrderUrl = async () => {
         try {
-            await navigator.clipboard.writeText(catalogUrl);
-            showToast('URL katalog disalin ke clipboard.', 'success');
+            await navigator.clipboard.writeText(landingOrderUrl);
+            showToast('URL formulir pesanan disalin ke clipboard.', 'success');
         } catch {
             showToast('Gagal menyalin URL.', 'error');
         }
@@ -198,21 +198,21 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
     };
 
     const demoEmailTemplate = useMemo(() => {
-        const catalog = catalogUrl || `${window.location.origin}/layanan/vps`;
+        const orderUrl = landingOrderUrl || `${window.location.origin}/#pesan`;
         return [
             'Halo Tim Reviewer,',
             '',
             'Berikut akses demo untuk verifikasi transaksi layanan VPS kami:',
             '',
-            `Katalog verifikasi pembayaran: ${catalog}`,
+            `Formulir pesanan di beranda: ${orderUrl}`,
             '',
-            'Buka link di atas, pilih paket VPS, lalu lanjut ke halaman pembayaran gateway — tanpa login WhatsApp atau pendaftaran akun.',
+            'Buka link di atas, isi data, pilih paket layanan, lalu lanjut ke halaman pembayaran gateway.',
             '',
             'Opsional — link akses portal demo (jika ingin melihat dashboard pelanggan): [SALIN DARI ADMIN — tombol "Salin Link Demo"]',
             '',
             `Terima kasih.`,
         ].join('\n');
-    }, [catalogUrl]);
+    }, [landingOrderUrl]);
 
     const handleSave = (e) => {
         e.preventDefault();
@@ -287,19 +287,19 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                         <div className="flex flex-wrap items-center gap-2 shrink-0">
                             <button
                                 type="button"
-                                onClick={copyCatalogUrl}
+                                onClick={copyLandingOrderUrl}
                                 className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border ${themeInnerWidget} ${themeTextSub} hover:opacity-90 transition-opacity`}
                             >
                                 <Copy className="w-3.5 h-3.5" />
                                 Salin URL
                             </button>
                             <a
-                                href={catalogUrl}
+                                href={landingOrderUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/20 transition-colors"
                             >
-                                Lihat Katalog
+                                Lihat Formulir
                                 <ExternalLink className="w-3.5 h-3.5" />
                             </a>
                         </div>
@@ -345,8 +345,8 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                     {activeSection === 'general' && (
                         <AdminPageCard
                             icon={Globe}
-                            title="Pengaturan Katalog Publik"
-                            description="Judul, deskripsi, dan status halaman yang ditampilkan ke reviewer Midtrans."
+                            title="Pengaturan Verifikasi VPS"
+                            description="Paket layanan, whitelist pelanggan demo, dan status fitur verifikasi gateway."
                             accent="violet"
                             themeCard={themeCard}
                             isDarkMode={isDarkMode}
@@ -357,8 +357,8 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                                 <ToggleSwitch
                                     checked={enabled}
                                     onChange={setEnabled}
-                                    label="Aktifkan halaman katalog VPS"
-                                    description="Jika nonaktif, URL /layanan/vps mengembalikan halaman 404."
+                                    label="Aktifkan fitur verifikasi VPS"
+                                    description="Jika nonaktif, checkout VPS dari portal demo dan formulir beranda tidak tersedia."
                                 />
                             </div>
 
@@ -374,9 +374,9 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                                     />
                                 </div>
                                 <div>
-                                    <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>URL Katalog</label>
+                                    <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>URL Formulir Pesanan</label>
                                     <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-mono ${themeInnerWidget} ${themeTextSub}`}>
-                                        <span className="truncate flex-1">{catalogUrl}</span>
+                                        <span className="truncate flex-1">{landingOrderUrl}</span>
                                         <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-50" />
                                     </div>
                                 </div>
@@ -457,9 +457,9 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                                     <div className="min-w-0">
                                         <p className={`font-bold text-sm ${themeTextTitle}`}>Link Akses Opsional (Tim Reviewer)</p>
                                         <p className={`mt-1 text-xs leading-relaxed ${themeTextSub}`}>
-                                            URL <code className="font-mono">/layanan/vps</code> sudah bisa dipakai langsung untuk uji
-                                            coba pembayaran tanpa login WhatsApp. Link bertanda tangan di bawah opsional — berguna
-                                            jika reviewer juga ingin melihat portal pelanggan demo tanpa OTP.
+                                            Verifikasi pembayaran dapat dilakukan lewat formulir pesanan di beranda atau portal
+                                            pelanggan demo. Link bertanda tangan di bawah opsional — berguna jika reviewer ingin
+                                            melihat dashboard pelanggan demo tanpa OTP.
                                         </p>
                                     </div>
                                 </div>

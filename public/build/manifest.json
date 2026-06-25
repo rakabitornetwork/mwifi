@@ -244,7 +244,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-B8_7ZEZV.css",
+    "file": "assets/app-D7aJAGbD.css",
     "name": "app",
     "names": [
       "app.css"
@@ -518,7 +518,7 @@
     ]
   },
   "resources/js/Pages/Admin/VpsService/Index.jsx": {
-    "file": "assets/Index-D8ev_wpl.js",
+    "file": "assets/Index-BTtOjkJu.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/VpsService/Index.jsx",
     "isDynamicEntry": true,
@@ -547,7 +547,7 @@
     ]
   },
   "resources/js/Pages/Customer/Dashboard.jsx": {
-    "file": "assets/Dashboard--yn1JbCf.js",
+    "file": "assets/Dashboard-CJn1cdx2.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Customer/Dashboard.jsx",
     "isDynamicEntry": true,
@@ -577,7 +577,7 @@
     ]
   },
   "resources/js/Pages/Public/PolicyPage.jsx": {
-    "file": "assets/PolicyPage-DiUGkFy8.js",
+    "file": "assets/PolicyPage-Dw6Y_p15.js",
     "name": "PolicyPage",
     "src": "resources/js/Pages/Public/PolicyPage.jsx",
     "isDynamicEntry": true,
@@ -618,7 +618,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-yggLoeDn.js",
+    "file": "assets/app-GhVfaBM6.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

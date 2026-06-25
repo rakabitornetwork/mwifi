@@ -41,7 +41,6 @@ class CustomerPortalController extends Controller
                 'showcase' => $showcase,
                 'customer' => $showcase['customer'],
                 'vpsPlan' => $showcase['vps_plan'],
-                'catalogUrl' => $showcase['catalog_url'],
                 'invoices' => $vpsInvoices
                     ->map(fn (Invoice $invoice) => VpsCatalogService::transformInvoiceForShowcase($invoice))
                     ->values(),

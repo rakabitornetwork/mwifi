@@ -30,17 +30,6 @@ Route::get('kebijakan-privasi', [PublicLegalController::class, 'privacy'])
 Route::get('kebijakan-pengembalian', [PublicLegalController::class, 'refund'])
     ->name('legal.refund');
 
-Route::get('layanan/vps', [\App\Http\Controllers\VpsCatalogController::class, 'index'])
-    ->name('vps.catalog');
-
-Route::get('layanan/vps/akses/{customer}', [\App\Http\Controllers\Customer\CustomerOtpAuthController::class, 'demoLogin'])
-    ->middleware('signed')
-    ->whereNumber('customer')
-    ->name('vps.catalog.access');
-
-Route::post('layanan/vps/order', [\App\Http\Controllers\VpsCatalogController::class, 'order'])
-    ->name('vps.order');
-
 Route::get('portal/demo/{customer}', [\App\Http\Controllers\Customer\CustomerOtpAuthController::class, 'demoLogin'])
     ->middleware('signed')
     ->whereNumber('customer')

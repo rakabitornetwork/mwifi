@@ -26,7 +26,6 @@ import {
     Phone,
     MapPin,
     Mail,
-    ExternalLink,
 } from 'lucide-react';
 
 export default function CustomerDashboard({
@@ -36,12 +35,12 @@ export default function CustomerDashboard({
     activeGateway,
     portalView = 'default',
     vpsPlan = null,
-    catalogUrl = '/layanan/vps',
 }) {
     const isVpsPortal = portalView === 'vps';
     const isMidtransGateway = activeGateway === 'midtrans';
     const { branding = {} } = usePage().props;
     const { isDarkMode, isAutoTheme, toggleTheme } = useScheduledTheme('mwifi.customer.theme');
+    const [isOrderingVps, setIsOrderingVps] = useState(false);
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
         activeGateway === 'midtrans' || activeGateway === 'duitku' ? 'all' : 'qris'
     );
@@ -62,8 +61,40 @@ export default function CustomerDashboard({
     };
 
     // Calculate dates/amounts
+    // Calculate dates/amounts
     const unpaidInvoices = invoices.filter(inv => inv.status === 'unpaid');
     const paidInvoices = invoices.filter(inv => inv.status === 'paid');
+
+    const handleCreateVpsOrder = async () => {
+        const planId = vpsPlan?.id || 'starter';
+        setIsOrderingVps(true);
+        try {
+            const response = await fetch('/customer/vps/order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    plan_id: planId,
+                    payment_method: activeGateway === 'midtrans' || activeGateway === 'duitku' ? 'all' : selectedPaymentMethod,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.payment_url) {
+                window.location.href = result.payment_url;
+            } else {
+                alert(result.message || 'Gagal memproses pembayaran. Hubungi Admin.');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Terjadi kesalahan koneksi sistem pembayaran.');
+        } finally {
+            setIsOrderingVps(false);
+        }
+    };
 
     const handlePay = async (invoiceId) => {
         setIsPaying(invoiceId);
@@ -218,15 +249,6 @@ export default function CustomerDashboard({
                             </p>
                         </div>
                         <div className="flex items-center gap-3">
-                            {isVpsPortal && (
-                                <Link
-                                    href={catalogUrl}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border border-violet-500/25 text-violet-400 hover:bg-violet-500/10 transition-colors"
-                                >
-                                    Katalog VPS
-                                    <ExternalLink className="w-3 h-3" />
-                                </Link>
-                            )}
                             <div className="flex items-center space-x-2">
                                 <Activity className={`w-4 h-4 animate-pulse ${accentIconClass}`} />
                                 <span className={`text-xs font-bold ${accentIconClass}`}>
@@ -389,17 +411,19 @@ export default function CustomerDashboard({
                                         </p>
                                         <p className={`text-[10px] max-w-sm mx-auto ${themeTextDesc}`}>
                                             {isVpsPortal
-                                                ? 'Untuk mencoba pembayaran, pilih paket VPS di katalog lalu checkout via Midtrans Snap.'
+                                                ? 'Untuk mencoba pembayaran, buat pesanan paket VPS baru lalu checkout via payment gateway.'
                                                 : 'Terima kasih telah membayar tagihan internet tepat waktu.'}
                                         </p>
                                         {isVpsPortal && (
-                                            <Link
-                                                href={catalogUrl}
-                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition-colors"
+                                            <button
+                                                type="button"
+                                                onClick={handleCreateVpsOrder}
+                                                disabled={isOrderingVps}
+                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs font-bold transition-colors"
                                             >
-                                                Pesan Paket VPS & Bayar
-                                                <ArrowRight className="w-3.5 h-3.5" />
-                                            </Link>
+                                                {isOrderingVps ? 'Memproses...' : 'Pesan Paket VPS & Bayar'}
+                                                {!isOrderingVps && <ArrowRight className="w-3.5 h-3.5" />}
+                                            </button>
                                         )}
                                     </div>
                                 ) : (

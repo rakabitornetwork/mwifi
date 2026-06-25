@@ -85,6 +85,7 @@ class CustomerOtpAuthController extends Controller
         $intended = $this->sanitizeRedirect($request->session()->pull('portal_intended_url'));
         if ($intended !== null && $this->isVpsCatalogRedirect($intended)) {
             $request->session()->put('customer_portal_vps_showcase', true);
+            $intended = '/customer/dashboard';
         }
         $request->session()->forget(['portal_otp_phone', 'portal_otp_sent', 'portal_otp_masked_phone']);
 
@@ -127,7 +128,7 @@ class CustomerOtpAuthController extends Controller
             'ip' => $request->ip(),
         ]);
 
-        return redirect('/layanan/vps');
+        return redirect('/customer/dashboard');
     }
 
     protected function sanitizeRedirect(?string $url): ?string

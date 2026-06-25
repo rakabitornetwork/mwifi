@@ -285,7 +285,6 @@ class VpsCatalogService
                 'region' => 'IDC Jakarta',
             ],
             'vps_plan' => $plan,
-            'catalog_url' => url('/layanan/vps'),
         ];
     }
 
@@ -619,7 +618,7 @@ class VpsCatalogService
         }
 
         return URL::temporarySignedRoute(
-            'vps.catalog.access',
+            'portal.demo.login',
             now()->addDays(self::demoLinkExpiryDays()),
             ['customer' => $customer->id],
         );

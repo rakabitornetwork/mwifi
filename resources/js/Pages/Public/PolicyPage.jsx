@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, FileText, Server } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 import SeoHead from '../../Components/SeoHead';
 import PublicSiteFooter from '../../Components/PublicSiteFooter';
 import PublicSupportContact from '../../Components/PublicSupportContact';
@@ -8,7 +8,6 @@ import { PolicySection, formatLegalText } from '../../Components/PolicySection';
 export default function PolicyPage({
     policy = {},
     legalLinks = [],
-    vpsCatalogUrl = null,
 }) {
     const { branding = {} } = usePage().props;
     const {
@@ -29,15 +28,6 @@ export default function PolicyPage({
                             <ArrowLeft className="w-4 h-4" />
                             Beranda
                         </Link>
-                        {vpsCatalogUrl && (
-                            <Link
-                                href={vpsCatalogUrl}
-                                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-800 bg-slate-900 text-xs font-bold text-slate-200 hover:bg-slate-800 hover:text-white transition-colors"
-                            >
-                                <Server className="w-3.5 h-3.5 text-indigo-400" />
-                                Layanan VPS
-                            </Link>
-                        )}
                     </div>
                 </header>
 
@@ -94,7 +84,6 @@ export default function PolicyPage({
                 <PublicSiteFooter
                     branding={branding}
                     legalLinks={legalLinks}
-                    vpsCatalogUrl={vpsCatalogUrl || '/layanan/vps'}
                     isDark={true}
                 />
             </div>

@@ -74,10 +74,10 @@ class VpsDemoLoginTest extends TestCase
         $url = VpsCatalogService::generateDemoLoginUrl($customer);
 
         $this->assertNotNull($url);
-        $this->assertStringContainsString('/layanan/vps/akses/', $url);
+        $this->assertStringContainsString('/portal/demo/', $url);
 
         $this->get($url)
-            ->assertRedirect('/layanan/vps');
+            ->assertRedirect('/customer/dashboard');
 
         $this->assertAuthenticatedAs($customer->user);
         $this->assertTrue(session('customer_portal_vps_showcase'));

@@ -403,8 +403,8 @@ class AdminPageController extends Controller
                 'plans' => VpsCatalogService::plans(),
                 'demo_link_days' => VpsCatalogService::demoLinkExpiryDays(),
             ],
-            'catalogUrl' => url('/layanan/vps'),
             'defaultPlans' => VpsCatalogService::defaultPlans(),
+            'landingOrderUrl' => url('/#pesan'),
             'showcaseCustomers' => VpsCatalogService::showcaseCustomers()
                 ->map(fn (Customer $customer) => [
                     'id' => $customer->id,
