@@ -1,16 +1,25 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { router } from '@inertiajs/react';
 import {
+    ArrowUpRight,
+    Copy,
+    Crown,
     ExternalLink,
+    Globe,
+    Layers,
     Plus,
+    RotateCcw,
     Save,
     Server,
     ShieldCheck,
+    Sparkles,
     Trash2,
+    UserCheck,
 } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
-import AdminPageCard from '../../../Components/Admin/AdminPageCard';
+import AdminPageCard, { PremiumPanel, PremiumPanelHeader } from '../../../Components/Admin/AdminPageCard';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
+import { formatRupiah } from '../../../utils/formatRupiah';
 
 function emptyPlan() {
     return {
@@ -26,15 +35,81 @@ function emptyPlan() {
     };
 }
 
+function ToggleSwitch({ checked, onChange, label, description }) {
+    return (
+        <label className="flex items-center justify-between gap-4 cursor-pointer group">
+            <span className="min-w-0">
+                <span className="block text-sm font-bold text-inherit">{label}</span>
+                {description ? (
+                    <span className="block text-[11px] opacity-70 mt-0.5 leading-relaxed">{description}</span>
+                ) : null}
+            </span>
+            <span className="relative inline-flex h-7 w-12 shrink-0 items-center">
+                <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={checked}
+                    onChange={(e) => onChange(e.target.checked)}
+                />
+                <span className="absolute inset-0 rounded-full bg-zinc-300 dark:bg-zinc-700 transition-colors peer-checked:bg-violet-500" />
+                <span className="absolute left-0.5 h-6 w-6 rounded-full bg-white shadow-md transition-transform peer-checked:translate-x-5" />
+            </span>
+        </label>
+    );
+}
+
+function PlanPreviewCard({ plan, isDarkMode }) {
+    const featured = !!plan.featured;
+    const price = parseInt(plan.price, 10) || 0;
+
+    return (
+        <div
+            className={`relative rounded-2xl border p-4 transition-all ${
+                featured
+                    ? 'border-violet-500/40 bg-gradient-to-br from-violet-500/10 via-transparent to-indigo-500/5 shadow-lg shadow-violet-500/10'
+                    : isDarkMode
+                        ? 'border-zinc-800 bg-zinc-950/50'
+                        : 'border-zinc-200 bg-white'
+            }`}
+        >
+            {featured && (
+                <span className="absolute -top-2.5 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-500 text-[9px] font-bold uppercase tracking-wider text-white">
+                    <Crown className="w-3 h-3" />
+                    Unggulan
+                </span>
+            )}
+            <p className="text-[10px] font-bold uppercase tracking-widest text-violet-500 mb-1">
+                {plan.id || 'slug-paket'}
+            </p>
+            <h4 className="text-sm font-bold truncate">{plan.name || 'Nama Paket'}</h4>
+            <p className="text-[10px] opacity-60 mt-1 line-clamp-2 min-h-[2rem]">
+                {plan.description || 'Deskripsi singkat paket VPS.'}
+            </p>
+            <p className="mt-3 text-lg font-extrabold tracking-tight">
+                {price > 0 ? formatRupiah(price) : 'Rp —'}
+                <span className="text-[10px] font-medium opacity-50">/bln</span>
+            </p>
+            <ul className="mt-3 space-y-1 text-[10px] opacity-80">
+                {plan.cpu && <li>• {plan.cpu}</li>}
+                {plan.ram && <li>• {plan.ram}</li>}
+                {plan.storage && <li>• {plan.storage}</li>}
+                {plan.bandwidth && <li>• {plan.bandwidth}</li>}
+            </ul>
+        </div>
+    );
+}
+
 function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = [] }) {
     const { showToast } = useAdminToast();
     const {
+        isDarkMode,
         themeCard,
         themeTextTitle,
         themeTextSub,
         themeTextDesc,
         themeInput,
         themeLabel,
+        themeInnerWidget,
     } = useAdminFormTheme();
 
     const [enabled, setEnabled] = useState(config.enabled ?? false);
@@ -49,6 +124,16 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
         }))
     );
     const [isSaving, setIsSaving] = useState(false);
+    const [activeSection, setActiveSection] = useState('general');
+
+    const whitelistUsernameCount = useMemo(
+        () => whitelistUsernames.split(/[\r\n,;]+/).map((s) => s.trim()).filter(Boolean).length,
+        [whitelistUsernames]
+    );
+    const whitelistPhoneCount = useMemo(
+        () => whitelistPhones.split(/[\r\n,;]+/).map((s) => s.trim()).filter(Boolean).length,
+        [whitelistPhones]
+    );
 
     const updatePlan = (index, field, value) => {
         setPlans((current) => current.map((plan, i) => (
@@ -56,16 +141,19 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
         )));
     };
 
-    const addPlan = () => {
-        setPlans((current) => [...current, emptyPlan()]);
-    };
-
-    const removePlan = (index) => {
-        setPlans((current) => current.filter((_, i) => i !== index));
-    };
-
+    const addPlan = () => setPlans((current) => [...current, emptyPlan()]);
+    const removePlan = (index) => setPlans((current) => current.filter((_, i) => i !== index));
     const resetDefaultPlans = () => {
         setPlans(defaultPlans.map((plan) => ({ ...plan, price: String(plan.price ?? '') })));
+    };
+
+    const copyCatalogUrl = async () => {
+        try {
+            await navigator.clipboard.writeText(catalogUrl);
+            showToast('URL katalog disalin ke clipboard.', 'success');
+        } catch {
+            showToast('Gagal menyalin URL.', 'error');
+        }
     };
 
     const handleSave = (e) => {
@@ -96,183 +184,373 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
         });
     };
 
+    const sections = [
+        { id: 'general', label: 'Katalog & Status', icon: Globe },
+        { id: 'access', label: 'Whitelist Akses', icon: ShieldCheck },
+        { id: 'plans', label: 'Paket VPS', icon: Layers },
+    ];
+
     return (
-        <form onSubmit={handleSave} className="space-y-6">
-            <AdminPageCard
-                title="Layanan Sewa VPS (Showcase)"
-                subtitle="Halaman katalog publik untuk verifikasi Midtrans. Hanya pelanggan pada whitelist yang dapat checkout."
-                icon={Server}
-            >
-                <div className="space-y-5">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                        <input
-                            type="checkbox"
-                            checked={enabled}
-                            onChange={(e) => setEnabled(e.target.checked)}
-                            className="mt-1 rounded border-zinc-600 text-emerald-600 focus:ring-emerald-500"
-                        />
-                        <span>
-                            <span className={`block font-bold text-sm ${themeTextTitle}`}>Aktifkan halaman katalog VPS</span>
-                            <span className={`block text-xs mt-0.5 ${themeTextDesc}`}>
-                                URL publik:{' '}
-                                <a href={catalogUrl} target="_blank" rel="noreferrer" className="text-emerald-500 hover:underline inline-flex items-center gap-1">
-                                    {catalogUrl}
-                                    <ExternalLink className="w-3 h-3" />
-                                </a>
-                            </span>
-                        </span>
-                    </label>
+        <form onSubmit={handleSave} className="space-y-6 pb-24">
+            {/* Premium hero strip */}
+            <div className={`relative overflow-hidden rounded-2xl border ${themeCard}`}>
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-600/15 via-indigo-500/5 to-transparent pointer-events-none" />
+                <div className="absolute -top-24 -right-24 w-64 h-64 rounded-full bg-violet-500/10 blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
 
-                    <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                            <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>Judul Halaman</label>
-                            <input
-                                type="text"
-                                value={pageTitle}
-                                onChange={(e) => setPageTitle(e.target.value)}
-                                className={`w-full rounded-xl px-3 py-2 text-sm ${themeInput}`}
-                            />
-                        </div>
-                        <div>
-                            <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>Deskripsi Singkat</label>
-                            <input
-                                type="text"
-                                value={pageDescription}
-                                onChange={(e) => setPageDescription(e.target.value)}
-                                className={`w-full rounded-xl px-3 py-2 text-sm ${themeInput}`}
-                            />
-                        </div>
-                    </div>
-                </div>
-            </AdminPageCard>
-
-            <AdminPageCard
-                title="Whitelist Pelanggan"
-                subtitle="Hanya username dan nomor WhatsApp ini yang dapat memesan dari halaman VPS."
-                icon={ShieldCheck}
-            >
-                <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                        <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>Username Layanan (satu per baris)</label>
-                        <textarea
-                            rows={5}
-                            value={whitelistUsernames}
-                            onChange={(e) => setWhitelistUsernames(e.target.value)}
-                            placeholder={'contoh:\ndemo-vps\ntestuser01'}
-                            className={`w-full rounded-xl px-3 py-2 text-sm font-mono ${themeInput}`}
-                        />
-                        <p className={`text-[10px] mt-1 ${themeTextDesc}`}>Kosongkan jika hanya ingin filter berdasarkan nomor WhatsApp.</p>
-                    </div>
-                    <div>
-                        <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>Nomor WhatsApp (satu per baris)</label>
-                        <textarea
-                            rows={5}
-                            value={whitelistPhones}
-                            onChange={(e) => setWhitelistPhones(e.target.value)}
-                            placeholder={'contoh:\n6281234567890\n081234567890'}
-                            className={`w-full rounded-xl px-3 py-2 text-sm font-mono ${themeInput}`}
-                        />
-                        <p className={`text-[10px] mt-1 ${themeTextDesc}`}>
-                            Jika username dan nomor keduanya diisi, pelanggan harus cocok keduanya.
-                        </p>
-                    </div>
-                </div>
-            </AdminPageCard>
-
-            <AdminPageCard
-                title="Paket VPS"
-                subtitle="Daftar paket fiktif yang ditampilkan di halaman publik dan dikirim ke Midtrans sebagai item_details."
-                icon={Server}
-            >
-                <div className="space-y-4">
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                            type="button"
-                            onClick={addPlan}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white"
-                        >
-                            <Plus className="w-3.5 h-3.5" />
-                            Tambah Paket
-                        </button>
-                        <button
-                            type="button"
-                            onClick={resetDefaultPlans}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border ${themeCard}`}
-                        >
-                            Reset Default
-                        </button>
-                    </div>
-
-                    {plans.map((plan, index) => (
-                        <div key={`plan-${index}`} className={`rounded-xl border p-4 space-y-3 ${themeCard}`}>
-                            <div className="flex items-center justify-between gap-2">
-                                <h3 className={`text-sm font-bold ${themeTextTitle}`}>Paket #{index + 1}</h3>
-                                <button
-                                    type="button"
-                                    onClick={() => removePlan(index)}
-                                    className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10"
-                                    title="Hapus paket"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
+                <div className="relative p-5 sm:p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+                        <div className="flex items-start gap-4 min-w-0">
+                            <div className="p-3 rounded-2xl bg-violet-500/15 border border-violet-500/25 text-violet-500 shrink-0">
+                                <Server className="w-6 h-6" />
                             </div>
-                            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                    <h1 className={`text-lg sm:text-xl font-extrabold tracking-tight ${themeTextTitle}`}>
+                                        Layanan Sewa VPS
+                                    </h1>
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                                        enabled
+                                            ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/25'
+                                            : 'bg-zinc-500/15 text-zinc-500 border border-zinc-500/25'
+                                    }`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${enabled ? 'bg-emerald-400' : 'bg-zinc-400'}`} />
+                                        {enabled ? 'Publik Aktif' : 'Nonaktif'}
+                                    </span>
+                                </div>
+                                <p className={`text-xs sm:text-sm leading-relaxed max-w-2xl ${themeTextDesc}`}>
+                                    Kelola showcase layanan cloud untuk verifikasi Midtrans. Katalog dapat dilihat publik;
+                                    checkout dibatasi ke pelanggan terpilih.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            <button
+                                type="button"
+                                onClick={copyCatalogUrl}
+                                className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold border ${themeInnerWidget} ${themeTextSub} hover:opacity-90 transition-opacity`}
+                            >
+                                <Copy className="w-3.5 h-3.5" />
+                                Salin URL
+                            </button>
+                            <a
+                                href={catalogUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-500/20 transition-colors"
+                            >
+                                Lihat Katalog
+                                <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+                        {[
+                            { label: 'Status', value: enabled ? 'Online' : 'Offline', accent: enabled ? 'text-emerald-500' : themeTextSub },
+                            { label: 'Paket Aktif', value: String(plans.length), accent: 'text-violet-500' },
+                            { label: 'Whitelist User', value: String(whitelistUsernameCount), accent: 'text-sky-500' },
+                            { label: 'Whitelist WA', value: String(whitelistPhoneCount), accent: 'text-indigo-500' },
+                        ].map((stat) => (
+                            <div key={stat.label} className={`rounded-xl border px-3 py-2.5 ${themeInnerWidget}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextDesc}`}>{stat.label}</p>
+                                <p className={`text-lg font-extrabold mt-0.5 ${stat.accent}`}>{stat.value}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Section nav */}
+            <div className={`flex flex-wrap gap-2 p-1.5 rounded-2xl border ${themeCard}`}>
+                {sections.map(({ id, label, icon: Icon }) => (
+                    <button
+                        key={id}
+                        type="button"
+                        onClick={() => setActiveSection(id)}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                            activeSection === id
+                                ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20'
+                                : `${themeTextSub} hover:bg-zinc-500/10`
+                        }`}
+                    >
+                        <Icon className="w-3.5 h-3.5" />
+                        {label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="grid xl:grid-cols-[1fr_320px] gap-6 items-start">
+                <div className="space-y-6 min-w-0">
+                    {activeSection === 'general' && (
+                        <AdminPageCard
+                            icon={Globe}
+                            title="Pengaturan Katalog Publik"
+                            description="Judul, deskripsi, dan status halaman yang ditampilkan ke reviewer Midtrans."
+                            accent="violet"
+                            themeCard={themeCard}
+                            isDarkMode={isDarkMode}
+                            themeTextTitle={themeTextTitle}
+                            themeTextDesc={themeTextDesc}
+                        >
+                            <div className={`rounded-xl border p-4 ${themeInnerWidget}`}>
+                                <ToggleSwitch
+                                    checked={enabled}
+                                    onChange={setEnabled}
+                                    label="Aktifkan halaman katalog VPS"
+                                    description="Jika nonaktif, URL /layanan/vps mengembalikan halaman 404."
+                                />
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-4">
                                 <div>
-                                    <label className={`block text-[10px] font-bold mb-1 ${themeLabel}`}>Nama Paket</label>
-                                    <input type="text" value={plan.name} onChange={(e) => updatePlan(index, 'name', e.target.value)} className={`w-full rounded-lg px-2.5 py-1.5 text-sm ${themeInput}`} />
-                                </div>
-                                <div>
-                                    <label className={`block text-[10px] font-bold mb-1 ${themeLabel}`}>Slug ID</label>
-                                    <input type="text" value={plan.id} onChange={(e) => updatePlan(index, 'id', e.target.value)} placeholder="auto dari nama" className={`w-full rounded-lg px-2.5 py-1.5 text-sm font-mono ${themeInput}`} />
-                                </div>
-                                <div>
-                                    <label className={`block text-[10px] font-bold mb-1 ${themeLabel}`}>Harga / bulan (Rp)</label>
-                                    <input type="number" min="1000" value={plan.price} onChange={(e) => updatePlan(index, 'price', e.target.value)} className={`w-full rounded-lg px-2.5 py-1.5 text-sm ${themeInput}`} />
-                                </div>
-                                <div>
-                                    <label className={`block text-[10px] font-bold mb-1 ${themeLabel}`}>CPU</label>
-                                    <input type="text" value={plan.cpu} onChange={(e) => updatePlan(index, 'cpu', e.target.value)} className={`w-full rounded-lg px-2.5 py-1.5 text-sm ${themeInput}`} />
-                                </div>
-                                <div>
-                                    <label className={`block text-[10px] font-bold mb-1 ${themeLabel}`}>RAM</label>
-                                    <input type="text" value={plan.ram} onChange={(e) => updatePlan(index, 'ram', e.target.value)} className={`w-full rounded-lg px-2.5 py-1.5 text-sm ${themeInput}`} />
-                                </div>
-                                <div>
-                                    <label className={`block text-[10px] font-bold mb-1 ${themeLabel}`}>Storage</label>
-                                    <input type="text" value={plan.storage} onChange={(e) => updatePlan(index, 'storage', e.target.value)} className={`w-full rounded-lg px-2.5 py-1.5 text-sm ${themeInput}`} />
-                                </div>
-                                <div>
-                                    <label className={`block text-[10px] font-bold mb-1 ${themeLabel}`}>Bandwidth</label>
-                                    <input type="text" value={plan.bandwidth} onChange={(e) => updatePlan(index, 'bandwidth', e.target.value)} className={`w-full rounded-lg px-2.5 py-1.5 text-sm ${themeInput}`} />
-                                </div>
-                                <div className="sm:col-span-2">
-                                    <label className={`block text-[10px] font-bold mb-1 ${themeLabel}`}>Deskripsi</label>
-                                    <input type="text" value={plan.description} onChange={(e) => updatePlan(index, 'description', e.target.value)} className={`w-full rounded-lg px-2.5 py-1.5 text-sm ${themeInput}`} />
-                                </div>
-                                <label className="flex items-center gap-2 self-end pb-1 cursor-pointer">
+                                    <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>Judul Halaman</label>
                                     <input
-                                        type="checkbox"
-                                        checked={!!plan.featured}
-                                        onChange={(e) => updatePlan(index, 'featured', e.target.checked)}
-                                        className="rounded border-zinc-600 text-emerald-600"
+                                        type="text"
+                                        value={pageTitle}
+                                        onChange={(e) => setPageTitle(e.target.value)}
+                                        className={`w-full rounded-xl px-3 py-2.5 text-sm border ${themeInput}`}
+                                        placeholder="Sewa VPS Cloud Indonesia"
                                     />
-                                    <span className={`text-xs font-medium ${themeTextSub}`}>Paket unggulan</span>
-                                </label>
+                                </div>
+                                <div>
+                                    <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>URL Katalog</label>
+                                    <div className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-xs font-mono ${themeInnerWidget} ${themeTextSub}`}>
+                                        <span className="truncate flex-1">{catalogUrl}</span>
+                                        <ArrowUpRight className="w-3.5 h-3.5 shrink-0 opacity-50" />
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    ))}
-                </div>
-            </AdminPageCard>
 
-            <div className="flex justify-end">
-                <button
-                    type="submit"
-                    disabled={isSaving}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold text-sm shadow-sm"
-                >
-                    <Save className="w-4 h-4" />
-                    {isSaving ? 'Menyimpan...' : 'Simpan Pengaturan'}
-                </button>
+                            <div>
+                                <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>Deskripsi Hero</label>
+                                <textarea
+                                    rows={3}
+                                    value={pageDescription}
+                                    onChange={(e) => setPageDescription(e.target.value)}
+                                    className={`w-full rounded-xl px-3 py-2.5 text-sm border resize-y ${themeInput}`}
+                                    placeholder="Deskripsi singkat layanan VPS untuk bagian atas halaman publik."
+                                />
+                            </div>
+                        </AdminPageCard>
+                    )}
+
+                    {activeSection === 'access' && (
+                        <AdminPageCard
+                            icon={ShieldCheck}
+                            title="Whitelist Pelanggan"
+                            description="Hanya identitas berikut yang dapat melakukan checkout dari halaman VPS."
+                            accent="indigo"
+                            themeCard={themeCard}
+                            isDarkMode={isDarkMode}
+                            themeTextTitle={themeTextTitle}
+                            themeTextDesc={themeTextDesc}
+                        >
+                            <div className={`flex items-start gap-3 rounded-xl border p-4 text-xs leading-relaxed ${themeInnerWidget} ${themeTextSub}`}>
+                                <UserCheck className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className={`font-bold ${themeTextTitle}`}>Aturan pencocokan</p>
+                                    <p className="mt-1 opacity-80">
+                                        Jika <strong>username</strong> dan <strong>WhatsApp</strong> keduanya diisi,
+                                        pelanggan harus cocok pada keduanya. Jika hanya salah satu diisi, cukup cocok salah satu.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>
+                                        Username Layanan
+                                        <span className={`ml-1 font-normal ${themeTextDesc}`}>(satu per baris)</span>
+                                    </label>
+                                    <textarea
+                                        rows={7}
+                                        value={whitelistUsernames}
+                                        onChange={(e) => setWhitelistUsernames(e.target.value)}
+                                        placeholder={'demo-vps\ntestuser01'}
+                                        className={`w-full rounded-xl px-3 py-2.5 text-sm font-mono border ${themeInput}`}
+                                    />
+                                </div>
+                                <div>
+                                    <label className={`block text-xs font-bold mb-1.5 ${themeLabel}`}>
+                                        Nomor WhatsApp
+                                        <span className={`ml-1 font-normal ${themeTextDesc}`}>(satu per baris)</span>
+                                    </label>
+                                    <textarea
+                                        rows={7}
+                                        value={whitelistPhones}
+                                        onChange={(e) => setWhitelistPhones(e.target.value)}
+                                        placeholder={'6281234567890\n081234567890'}
+                                        className={`w-full rounded-xl px-3 py-2.5 text-sm font-mono border ${themeInput}`}
+                                    />
+                                </div>
+                            </div>
+                        </AdminPageCard>
+                    )}
+
+                    {activeSection === 'plans' && (
+                        <AdminPageCard
+                            icon={Layers}
+                            title="Paket VPS"
+                            description="Spesifikasi dan harga yang dikirim ke Midtrans sebagai item_details transaksi."
+                            accent="violet"
+                            themeCard={themeCard}
+                            isDarkMode={isDarkMode}
+                            themeTextTitle={themeTextTitle}
+                            themeTextDesc={themeTextDesc}
+                            actions={(
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={resetDefaultPlans}
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border ${themeInnerWidget} ${themeTextSub}`}
+                                    >
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                        Reset
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={addPlan}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white"
+                                    >
+                                        <Plus className="w-3.5 h-3.5" />
+                                        Tambah
+                                    </button>
+                                </>
+                            )}
+                        >
+                            <div className="space-y-4">
+                                {plans.map((plan, index) => (
+                                    <PremiumPanel
+                                        key={`plan-${index}`}
+                                        accent={plan.featured ? 'violet' : 'indigo'}
+                                        themeCard={themeCard}
+                                        isDarkMode={isDarkMode}
+                                        bodyClassName="p-4 space-y-4"
+                                    >
+                                        <PremiumPanelHeader
+                                            icon={plan.featured ? Crown : Server}
+                                            accent={plan.featured ? 'violet' : 'indigo'}
+                                            isDarkMode={isDarkMode}
+                                            themeTextTitle={themeTextTitle}
+                                            themeTextDesc={themeTextDesc}
+                                            title={plan.name || `Paket #${index + 1}`}
+                                            subtitle={plan.id ? `ID: ${plan.id}` : 'Slug akan dibuat otomatis dari nama'}
+                                            trailing={(
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removePlan(index)}
+                                                    className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-colors"
+                                                    title="Hapus paket"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        />
+
+                                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                            {[
+                                                ['name', 'Nama Paket', 'text', 'VPS Business'],
+                                                ['id', 'Slug ID', 'text', 'business'],
+                                                ['price', 'Harga / bulan (Rp)', 'number', '199000'],
+                                                ['cpu', 'CPU', 'text', '2 vCPU'],
+                                                ['ram', 'RAM', 'text', '4 GB RAM'],
+                                                ['storage', 'Storage', 'text', '80 GB SSD NVMe'],
+                                                ['bandwidth', 'Bandwidth', 'text', '2 TB / bulan'],
+                                            ].map(([field, label, type, placeholder]) => (
+                                                <div key={field} className={field === 'bandwidth' ? 'sm:col-span-2 lg:col-span-1' : ''}>
+                                                    <label className={`block text-[10px] font-bold mb-1 ${themeLabel}`}>{label}</label>
+                                                    <input
+                                                        type={type}
+                                                        min={type === 'number' ? '1000' : undefined}
+                                                        value={plan[field]}
+                                                        onChange={(e) => updatePlan(index, field, e.target.value)}
+                                                        placeholder={placeholder}
+                                                        className={`w-full rounded-lg px-2.5 py-2 text-sm border ${field === 'id' ? 'font-mono' : ''} ${themeInput}`}
+                                                    />
+                                                </div>
+                                            ))}
+                                            <div className="sm:col-span-2 lg:col-span-3">
+                                                <label className={`block text-[10px] font-bold mb-1 ${themeLabel}`}>Deskripsi</label>
+                                                <input
+                                                    type="text"
+                                                    value={plan.description}
+                                                    onChange={(e) => updatePlan(index, 'description', e.target.value)}
+                                                    className={`w-full rounded-lg px-2.5 py-2 text-sm border ${themeInput}`}
+                                                />
+                                            </div>
+                                            <label className={`flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 ${themeInnerWidget}`}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!plan.featured}
+                                                    onChange={(e) => updatePlan(index, 'featured', e.target.checked)}
+                                                    className="rounded border-zinc-500 text-violet-600 focus:ring-violet-500"
+                                                />
+                                                <Sparkles className="w-3.5 h-3.5 text-violet-500" />
+                                                <span className={`text-xs font-semibold ${themeTextSub}`}>Tandai sebagai paket unggulan</span>
+                                            </label>
+                                        </div>
+                                    </PremiumPanel>
+                                ))}
+                            </div>
+                        </AdminPageCard>
+                    )}
+                </div>
+
+                {/* Live preview sidebar */}
+                <aside className="xl:sticky xl:top-4 space-y-4">
+                    <PremiumPanel accent="violet" themeCard={themeCard} isDarkMode={isDarkMode} bodyClassName="p-4 space-y-4">
+                        <PremiumPanelHeader
+                            icon={Sparkles}
+                            accent="violet"
+                            isDarkMode={isDarkMode}
+                            themeTextTitle={themeTextTitle}
+                            themeTextDesc={themeTextDesc}
+                            title="Pratinjau Katalog"
+                            subtitle="Perubahan tampil setelah disimpan & halaman di-refresh"
+                        />
+
+                        <div className={`rounded-xl border p-3 space-y-2 ${themeInnerWidget}`}>
+                            <p className={`text-[10px] font-bold uppercase tracking-widest text-violet-500`}>Hero</p>
+                            <p className={`text-sm font-bold leading-snug ${themeTextTitle}`}>{pageTitle || 'Judul halaman'}</p>
+                            <p className={`text-[11px] leading-relaxed line-clamp-3 ${themeTextDesc}`}>
+                                {pageDescription || 'Deskripsi halaman akan tampil di sini.'}
+                            </p>
+                        </div>
+
+                        <div className="space-y-3">
+                            <p className={`text-[10px] font-bold uppercase tracking-widest ${themeTextDesc}`}>
+                                Kartu Paket ({plans.length})
+                            </p>
+                            {plans.slice(0, 3).map((plan, index) => (
+                                <PlanPreviewCard key={`preview-${index}`} plan={plan} isDarkMode={isDarkMode} />
+                            ))}
+                            {plans.length > 3 && (
+                                <p className={`text-[10px] text-center ${themeTextDesc}`}>+{plans.length - 3} paket lainnya</p>
+                            )}
+                        </div>
+                    </PremiumPanel>
+                </aside>
+            </div>
+
+            {/* Sticky save bar */}
+            <div className={`fixed bottom-0 left-0 right-0 z-30 border-t backdrop-blur-md ${
+                isDarkMode ? 'bg-zinc-950/85 border-zinc-800' : 'bg-white/90 border-zinc-200'
+            }`}>
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+                    <p className={`text-xs hidden sm:block ${themeTextDesc}`}>
+                        Perubahan disimpan ke database dan langsung memengaruhi halaman publik.
+                    </p>
+                    <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="ml-auto inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white font-bold text-sm shadow-lg shadow-violet-500/25 transition-all"
+                    >
+                        <Save className="w-4 h-4" />
+                        {isSaving ? 'Menyimpan...' : 'Simpan Pengaturan'}
+                    </button>
+                </div>
             </div>
         </form>
     );
