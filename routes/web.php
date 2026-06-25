@@ -18,6 +18,9 @@ Route::get('/', function () {
     ]);
 });
 
+Route::post('layanan/pesan', [\App\Http\Controllers\PublicOrderController::class, 'store'])
+    ->name('public.order.store');
+
 Route::get('syarat-ketentuan', [PublicLegalController::class, 'terms'])
     ->name('legal.terms');
 
