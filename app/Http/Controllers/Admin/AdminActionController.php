@@ -393,6 +393,10 @@ class AdminActionController extends Controller
 
         $data['user_id'] = $user->id;
 
+        if (! empty($data['phone_number'])) {
+            $data['phone_number'] = \App\Support\PhoneNumber::normalize((string) $data['phone_number']);
+        }
+
         if (!$id && empty($data['service_start_date'])) {
             $data['service_start_date'] = now()->toDateString();
         } elseif (!empty($data['service_start_date'])) {

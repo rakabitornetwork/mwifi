@@ -355,6 +355,10 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                                         Jika <strong>username</strong> dan <strong>WhatsApp</strong> keduanya diisi,
                                         pelanggan harus cocok pada keduanya. Jika hanya salah satu diisi, cukup cocok salah satu.
                                     </p>
+                                    <p className="mt-2 opacity-80 text-amber-600 dark:text-amber-400 font-semibold">
+                                        Penting: whitelist VPS tidak membuat akun otomatis. Pelanggan harus sudah terdaftar
+                                        di Manajemen PPPoE (dengan username & WhatsApp yang sama) agar OTP portal bisa dikirim.
+                                    </p>
                                 </div>
                             </div>
 

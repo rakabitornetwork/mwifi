@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Services\BrandingService;
 use App\Services\StaffRouterScope;
+use App\Services\VpsCatalogService;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -51,7 +52,9 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user ? [
                     'id' => $user->id,
                     'name' => $user->name,
-                    'email' => $user->email,
+                    'email' => $customer && VpsCatalogService::isShowcaseCustomer($customer)
+                        ? null
+                        : $user->email,
                     'profile_title' => $user->profile_title ?: ($customer ? 'Pelanggan' : $user->roleLabel()),
                     'avatar_url' => $user->avatarUrl(),
                     'initials' => $user->initials(),
@@ -67,11 +70,17 @@ class HandleInertiaRequests extends Middleware
                     'assigned_router_name' => $customer ? null : ($user->assignedRouter?->name),
                     'is_router_scoped' => $customer ? false : $routerScope->isScoped(),
                     'updated_at' => $user->updated_at?->timestamp,
-                    'customer' => $customer ? [
-                        'id' => $customer->id,
-                        'username' => $customer->username,
-                        'status' => $customer->status,
-                    ] : null,
+                    'customer' => $customer ? (
+                        VpsCatalogService::isShowcaseCustomer($customer) ? [
+                            'id' => $customer->id,
+                            'status' => VpsCatalogService::mapVpsServerStatus((string) $customer->status),
+                            'portal_view' => 'vps',
+                        ] : [
+                            'id' => $customer->id,
+                            'username' => $customer->username,
+                            'status' => $customer->status,
+                        ]
+                    ) : null,
                 ] : null,
             ],
             'flash' => [

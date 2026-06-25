@@ -138,6 +138,87 @@ class CustomerOtpLoginTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_customer_found_with_normalized_phone_mismatch_in_database(): void
+    {
+        $this->seedWhatsAppSettings();
+        Http::fake([
+            'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
+        ]);
+
+        $this->makeCustomer('+62 812-3456-7890');
+
+        $this->post('/portal/otp/request', [
+            'phone_number' => '081234567890',
+        ])->assertRedirect(route('portal.login'));
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_vps_whitelist_finds_customer_by_username_when_phone_formats_differ(): void
+    {
+        $this->seedWhatsAppSettings();
+        Setting::updateOrCreate(['key' => 'vps.enabled'], [
+            'group' => 'vps',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'vps.whitelist_usernames'], [
+            'group' => 'vps',
+            'value' => 'demo-vps',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'vps.whitelist_phones'], [
+            'group' => 'vps',
+            'value' => "6281234567890",
+            'is_encrypted' => false,
+        ]);
+
+        Http::fake([
+            'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
+        ]);
+
+        $customer = $this->makeCustomer('6289999999999');
+        $customer->update(['username' => 'demo-vps']);
+
+        $this->post('/portal/otp/request', [
+            'phone_number' => '081234567890',
+        ])->assertRedirect(route('portal.login'))
+            ->assertSessionHasNoErrors();
+
+        Http::assertSentCount(1);
+    }
+
+    public function test_vps_whitelisted_phone_without_customer_shows_actionable_error(): void
+    {
+        $this->seedWhatsAppSettings();
+        Setting::updateOrCreate(['key' => 'vps.enabled'], [
+            'group' => 'vps',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'vps.whitelist_usernames'], [
+            'group' => 'vps',
+            'value' => 'demo-vps',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'vps.whitelist_phones'], [
+            'group' => 'vps',
+            'value' => '6281234567890',
+            'is_encrypted' => false,
+        ]);
+
+        Http::fake();
+
+        $this->from('/portal')
+            ->post('/portal/otp/request', [
+                'phone_number' => '081234567890',
+            ])
+            ->assertRedirect(route('portal.login'))
+            ->assertSessionHasErrors('phone_number');
+
+        Http::assertNothingSent();
+    }
+
     public function test_customer_logout_redirects_to_portal_login(): void
     {
         $customer = $this->makeCustomer();

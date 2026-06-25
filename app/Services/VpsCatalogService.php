@@ -151,6 +151,18 @@ class VpsCatalogService
             return false;
         }
 
+        return self::isShowcaseCustomer($customer);
+    }
+
+    /**
+     * Pelanggan fiktif VPS (whitelist) — tampilan portal memakai persona cloud, bukan PPPoE.
+     */
+    public static function isShowcaseCustomer(?Customer $customer): bool
+    {
+        if (! $customer || ! self::isEnabled()) {
+            return false;
+        }
+
         $usernames = self::whitelistUsernames();
         $phones = self::whitelistPhones();
 
@@ -159,16 +171,119 @@ class VpsCatalogService
         }
 
         $usernameMatch = $usernames === []
-            || in_array(strtolower(trim($customer->username)), array_map('strtolower', $usernames), true);
+            || in_array(strtolower(trim((string) $customer->username)), array_map('strtolower', $usernames), true);
 
         $phoneMatch = $phones === []
-            || self::phoneMatchesWhitelist($customer->phone_number, $phones);
+            || self::phoneMatchesWhitelist((string) $customer->phone_number, $phones);
 
         if ($usernames !== [] && $phones !== []) {
             return $usernameMatch && $phoneMatch;
         }
 
         return $usernameMatch || $phoneMatch;
+    }
+
+    /**
+     * @return array{
+     *     portal_view: string,
+     *     customer: array{name: string, phone_number: string, server_id: string, status: string, billing_cycle: string, region: string},
+     *     vps_plan: ?array,
+     *     catalog_url: string
+     * }
+     */
+    public static function showcasePortalData(Customer $customer): array
+    {
+        $plan = self::resolveDisplayPlanForCustomer($customer);
+        $planId = $plan['id'] ?? 'cloud';
+
+        return [
+            'portal_view' => 'vps',
+            'customer' => [
+                'name' => $customer->name,
+                'phone_number' => PhoneNumber::mask((string) $customer->phone_number),
+                'server_id' => 'SRV-' . strtoupper($planId) . '-' . str_pad((string) $customer->id, 5, '0', STR_PAD_LEFT),
+                'status' => self::mapVpsServerStatus((string) $customer->status),
+                'billing_cycle' => 'Bulanan (prepaid)',
+                'region' => 'IDC Jakarta',
+            ],
+            'vps_plan' => $plan,
+            'catalog_url' => url('/layanan/vps'),
+        ];
+    }
+
+    /**
+     * @return ?array{id: string, name: string, cpu: string, ram: string, storage: string, bandwidth: string, price: int, description: string, featured: bool}
+     */
+    public static function resolveDisplayPlanForCustomer(Customer $customer): ?array
+    {
+        $latestVpsInvoice = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where(function ($query) {
+                $query->where('billing_period', 'like', 'vps:%')
+                    ->orWhere('invoice_number', 'like', 'VPS-%');
+            })
+            ->latest('created_at')
+            ->first();
+
+        if ($latestVpsInvoice) {
+            $fromInvoice = self::planFromInvoice($latestVpsInvoice);
+            if ($fromInvoice) {
+                return $fromInvoice;
+            }
+        }
+
+        $plans = self::plans();
+        $featured = collect($plans)->first(fn (array $plan) => ! empty($plan['featured']));
+
+        return $featured ?? $plans[0] ?? null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function transformInvoiceForShowcase(Invoice $invoice): array
+    {
+        $plan = self::planFromInvoice($invoice);
+        $periodLabel = $plan
+            ? $plan['name'] . ' · ' . now()->locale('id')->translatedFormat('M Y')
+            : 'Sewa VPS Cloud';
+
+        return [
+            'id' => $invoice->id,
+            'invoice_number' => $invoice->invoice_number,
+            'billing_period' => $periodLabel,
+            'service_label' => self::itemLabelForInvoice($invoice),
+            'amount' => (float) $invoice->amount,
+            'tax' => (float) $invoice->tax,
+            'total_amount' => (float) $invoice->total_amount,
+            'due_date' => $invoice->due_date?->format('Y-m-d'),
+            'paid_at' => $invoice->paid_at?->toIso8601String(),
+            'status' => $invoice->status,
+            'is_prorated' => false,
+            'days_billed' => null,
+            'next_billing' => null,
+        ];
+    }
+
+    public static function mapVpsServerStatus(string $customerStatus): string
+    {
+        return match ($customerStatus) {
+            'active' => 'running',
+            'isolated' => 'suspended',
+            'inactive' => 'stopped',
+            'suspended' => 'suspended',
+            default => 'running',
+        };
+    }
+
+    public static function vpsStatusLabel(string $vpsStatus): string
+    {
+        return match ($vpsStatus) {
+            'running' => 'SERVER AKTIF',
+            'suspended' => 'SERVER SUSPEND',
+            'stopped' => 'SERVER NONAKTIF',
+            default => 'SERVER AKTIF',
+        };
     }
 
     /**

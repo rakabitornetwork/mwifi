@@ -39,10 +39,18 @@ class CustomerOtpService
             ];
         }
 
-        $customer = self::findCustomerByPhone($normalized);
+        $customer = self::resolveCustomerForPortalLogin($phone);
 
-        if (!$customer) {
+        if (! $customer) {
             self::recordRequest($normalized);
+
+            if (self::isVpsWhitelistedPhone($normalized)) {
+                return [
+                    'ok' => false,
+                    'message' => 'Nomor ada di whitelist VPS, tetapi akun pelanggan belum ditemukan. '
+                        . 'Buat pelanggan di Manajemen PPPoE dengan username yang sama seperti di whitelist Layanan VPS.',
+                ];
+            }
 
             return [
                 'ok' => true,
@@ -51,7 +59,9 @@ class CustomerOtpService
             ];
         }
 
-        if (empty(trim((string) $customer->phone_number))) {
+        $sendTo = self::otpSendTarget($customer, $phone);
+
+        if ($sendTo === '') {
             return [
                 'ok' => false,
                 'message' => 'Nomor WhatsApp belum terdaftar untuk akun ini. Hubungi admin.',
@@ -70,12 +80,12 @@ class CustomerOtpService
         $brand = BrandingService::companyName();
         $message = "Kode OTP Portal Pelanggan {$brand}:\n\n*{$otp}*\n\nBerlaku 5 menit. Jangan bagikan kode ini kepada siapapun.";
 
-        if (!WhatsAppService::sendText($customer->phone_number, $message, skipBulkDelay: true)) {
+        if (! WhatsAppService::sendText($sendTo, $message, skipBulkDelay: true)) {
             Cache::forget($cacheKey);
 
             return [
                 'ok' => false,
-                'message' => 'Gagal mengirim OTP via WhatsApp. Pastikan gateway aktif atau hubungi admin.',
+                'message' => 'Gagal mengirim OTP via WhatsApp. Pastikan gateway aktif di menu WhatsApp & Telegram, atau hubungi admin.',
             ];
         }
 
@@ -84,6 +94,7 @@ class CustomerOtpService
         Log::info('Customer portal OTP sent.', [
             'customer_id' => $customer->id,
             'phone' => PhoneNumber::mask($normalized),
+            'send_to' => PhoneNumber::mask($sendTo),
         ]);
 
         return [
@@ -101,7 +112,7 @@ class CustomerOtpService
         $normalized = PhoneNumber::normalize($phone);
         $otp = trim($otp);
 
-        if ($normalized === '' || !preg_match('/^\d{6}$/', $otp)) {
+        if ($normalized === '' || ! preg_match('/^\d{6}$/', $otp)) {
             return [
                 'ok' => false,
                 'message' => 'Nomor atau kode OTP tidak valid.',
@@ -111,7 +122,7 @@ class CustomerOtpService
         $cacheKey = self::otpCacheKey($normalized);
         $payload = Cache::get($cacheKey);
 
-        if (!is_array($payload) || empty($payload['hash']) || empty($payload['customer_id'])) {
+        if (! is_array($payload) || empty($payload['hash']) || empty($payload['customer_id'])) {
             return [
                 'ok' => false,
                 'message' => 'Kode OTP tidak ditemukan atau sudah kedaluwarsa. Minta kode baru.',
@@ -129,7 +140,7 @@ class CustomerOtpService
             ];
         }
 
-        if (!Hash::check($otp, $payload['hash'])) {
+        if (! Hash::check($otp, $payload['hash'])) {
             $payload['attempts'] = $attempts + 1;
             Cache::put($cacheKey, $payload, self::OTP_TTL_SECONDS);
 
@@ -145,7 +156,7 @@ class CustomerOtpService
             ->with('user')
             ->find($payload['customer_id']);
 
-        if (!$customer || !$customer->user) {
+        if (! $customer || ! $customer->user) {
             return [
                 'ok' => false,
                 'message' => 'Akun pelanggan tidak ditemukan. Hubungi admin.',
@@ -169,10 +180,97 @@ class CustomerOtpService
 
         $variants = PhoneNumber::variants($normalized);
 
-        return Customer::query()
+        $customer = Customer::query()
             ->whereHas('user')
             ->whereIn('phone_number', $variants)
             ->first();
+
+        if ($customer) {
+            return $customer;
+        }
+
+        foreach (
+            Customer::query()
+                ->whereHas('user')
+                ->whereNotNull('phone_number')
+                ->where('phone_number', '!=', '')
+                ->cursor() as $candidate
+        ) {
+            if (PhoneNumber::matches($phone, (string) $candidate->phone_number)) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve portal login customer by phone, with VPS whitelist username fallback.
+     */
+    public static function resolveCustomerForPortalLogin(string $phone): ?Customer
+    {
+        $customer = self::findCustomerByPhone($phone);
+
+        if ($customer) {
+            return $customer;
+        }
+
+        if (! VpsCatalogService::isEnabled()) {
+            return null;
+        }
+
+        $normalized = PhoneNumber::normalize($phone);
+
+        if ($normalized === '' || ! self::isVpsWhitelistedPhone($normalized)) {
+            return null;
+        }
+
+        foreach (VpsCatalogService::whitelistUsernames() as $username) {
+            $username = trim($username);
+
+            if ($username === '') {
+                continue;
+            }
+
+            $candidate = Customer::query()
+                ->whereHas('user')
+                ->whereRaw('LOWER(username) = ?', [strtolower($username)])
+                ->first();
+
+            if ($candidate) {
+                return $candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static function isVpsWhitelistedPhone(string $normalizedPhone): bool
+    {
+        return VpsCatalogService::isEnabled()
+            && VpsCatalogService::phoneMatchesWhitelist($normalizedPhone, VpsCatalogService::whitelistPhones());
+    }
+
+    private static function otpSendTarget(Customer $customer, string $enteredPhone): string
+    {
+        $enteredNormalized = PhoneNumber::normalize($enteredPhone);
+
+        if ($enteredNormalized !== '' && PhoneNumber::matches($enteredPhone, (string) $customer->phone_number)) {
+            return $enteredNormalized;
+        }
+
+        if (VpsCatalogService::isEnabled()
+            && self::isVpsWhitelistedPhone($enteredNormalized)
+            && in_array(
+                strtolower(trim((string) $customer->username)),
+                array_map('strtolower', VpsCatalogService::whitelistUsernames()),
+                true
+            )
+        ) {
+            return $enteredNormalized;
+        }
+
+        return PhoneNumber::normalize((string) $customer->phone_number);
     }
 
     private static function otpCacheKey(string $normalizedPhone): string

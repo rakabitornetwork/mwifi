@@ -8,6 +8,7 @@ use App\Services\BillingService;
 use App\Services\Payment\PaymentService;
 use App\Services\BrandingService;
 use App\Services\SettingService;
+use App\Services\VpsCatalogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -28,7 +29,27 @@ class CustomerPortalController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
+        $isShowcase = VpsCatalogService::isShowcaseCustomer($customer);
+
+        if ($isShowcase) {
+            $vpsInvoices = $invoices->filter(fn (Invoice $invoice) => VpsCatalogService::isVpsInvoice($invoice));
+            $showcase = VpsCatalogService::showcasePortalData($customer);
+
+            return Inertia::render('Customer/Dashboard', [
+                'portalView' => 'vps',
+                'showcase' => $showcase,
+                'customer' => $showcase['customer'],
+                'vpsPlan' => $showcase['vps_plan'],
+                'catalogUrl' => $showcase['catalog_url'],
+                'invoices' => $vpsInvoices
+                    ->map(fn (Invoice $invoice) => VpsCatalogService::transformInvoiceForShowcase($invoice))
+                    ->values(),
+                'activeGateway' => SettingService::get('payment.active_gateway', 'tripay'),
+            ]);
+        }
+
         return Inertia::render('Customer/Dashboard', [
+            'portalView' => 'default',
             'customer' => $customer,
             'invoices' => BillingService::appendNextBillingToInvoices($invoices),
             'activeGateway' => SettingService::get('payment.active_gateway', 'tripay'),

@@ -35,6 +35,18 @@ class PhoneNumber
         return array_values(array_unique($variants));
     }
 
+    public static function matches(string $phoneA, string $phoneB): bool
+    {
+        $variantsA = self::variants($phoneA);
+        $variantsB = self::variants($phoneB);
+
+        if ($variantsA === [] || $variantsB === []) {
+            return false;
+        }
+
+        return array_intersect($variantsA, $variantsB) !== [];
+    }
+
     public static function mask(string $phone): string
     {
         $normalized = self::normalize($phone);
