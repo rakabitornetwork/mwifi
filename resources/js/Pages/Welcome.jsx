@@ -39,7 +39,6 @@ export default function Welcome({
     termsDocument = null,
     termsSections = [],
     legalLinks = [],
-    vpsCatalogUrl = null,
     vpsPlans = [],
 }) {
     const { branding = {} } = usePage().props;
@@ -136,11 +135,6 @@ export default function Welcome({
                             <Link href="/" className="text-white hover:text-indigo-400 transition-colors">
                                 Beranda
                             </Link>
-                            {vpsCatalogUrl && (
-                                <Link href={vpsCatalogUrl} className="hover:text-indigo-400 transition-colors">
-                                    Layanan VPS
-                                </Link>
-                            )}
                             <a href="#fitur" className="hover:text-indigo-400 transition-colors">
                                 Layanan Kami
                             </a>
@@ -183,15 +177,6 @@ export default function Welcome({
                                 >
                                     Beranda
                                 </Link>
-                                {vpsCatalogUrl && (
-                                    <Link
-                                        href={vpsCatalogUrl}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                        className="pb-2 border-b border-slate-900"
-                                    >
-                                        Layanan VPS
-                                    </Link>
-                                )}
                                 <a
                                     href="#fitur"
                                     onClick={() => setMobileMenuOpen(false)}
@@ -267,34 +252,20 @@ export default function Welcome({
 
                                 {/* Action Buttons */}
                                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
-                                    {vpsCatalogUrl ? (
-                                        <>
-                                            <Link
-                                                href={vpsCatalogUrl}
-                                                className="inline-flex items-center justify-center gap-2 py-3.5 px-6 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-extrabold rounded-2xl shadow-lg shadow-indigo-600/20 hover:shadow-indigo-500/30 transition-all group shrink-0"
-                                            >
-                                                <Server className="w-5 h-5" />
-                                                Layanan VPS
-                                                <ChevronRight className="w-4 h-4 opacity-80 group-hover:translate-x-0.5 transition-transform" />
-                                            </Link>
-                                            <Link
-                                                href="/portal"
-                                                className="inline-flex items-center justify-center gap-2 py-3.5 px-6 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-bold rounded-2xl transition-all"
-                                            >
-                                                <UserCircle className="w-5 h-5 text-indigo-400" />
-                                                Portal Pelanggan
-                                            </Link>
-                                        </>
-                                    ) : (
-                                        <Link
-                                            href="/portal"
-                                            className="inline-flex items-center justify-center gap-2 py-3.5 px-8 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-extrabold rounded-2xl shadow-lg shadow-indigo-600/20 transition-all group shrink-0"
-                                        >
-                                            <UserCircle className="w-5 h-5" />
-                                            Portal Pelanggan
-                                            <ChevronRight className="w-4 h-4 opacity-80 group-hover:translate-x-0.5 transition-transform" />
-                                        </Link>
-                                    )}
+                                    <a
+                                        href="#pesan"
+                                        className="inline-flex items-center justify-center gap-2 py-3.5 px-6 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-extrabold rounded-2xl shadow-lg shadow-indigo-600/20 hover:shadow-indigo-500/30 transition-all group shrink-0"
+                                    >
+                                        Pesan Layanan
+                                        <ChevronRight className="w-4 h-4 opacity-80 group-hover:translate-x-0.5 transition-transform" />
+                                    </a>
+                                    <Link
+                                        href="/portal"
+                                        className="inline-flex items-center justify-center gap-2 py-3.5 px-6 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-bold rounded-2xl transition-all"
+                                    >
+                                        <UserCircle className="w-5 h-5 text-indigo-400" />
+                                        Portal Pelanggan
+                                    </Link>
                                 </div>
 
                                 {/* Floating Micro-stats */}
@@ -730,7 +701,6 @@ export default function Welcome({
                 <PublicSiteFooter
                     branding={branding}
                     legalLinks={legalLinks}
-                    vpsCatalogUrl={vpsCatalogUrl || '/layanan/vps'}
                     isDark={true}
                     showContactLine={false}
                     centerCopyright={true}

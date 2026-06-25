@@ -27,7 +27,7 @@ function BrandMark({ branding, isDark }) {
 export default function PublicSiteFooter({
     branding = {},
     legalLinks = null,
-    vpsCatalogUrl = '/layanan/vps',
+    vpsCatalogUrl = null,
     isDark = false,
     showContactLine = true,
     centerCopyright = false,
@@ -44,7 +44,7 @@ export default function PublicSiteFooter({
     const serviceLinks = [
         { label: 'Jasa Pembuatan Aplikasi', href: '#fitur' },
         { label: 'Setting & Maintenance WiFi', href: '#fitur' },
-        { label: 'Sewa VPS Cloud Premium', href: vpsCatalogUrl || '/layanan/vps' },
+        ...(vpsCatalogUrl ? [{ label: 'Sewa VPS Cloud Premium', href: vpsCatalogUrl }] : []),
         { label: 'Layanan IT Support & Umum', href: '#fitur' },
     ];
 

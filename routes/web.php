@@ -14,7 +14,6 @@ Route::get('/', function () {
         'termsDocument' => LegalService::termsDocument(),
         'termsSections' => LegalService::termsSections(),
         'legalLinks' => LegalService::legalLinks(),
-        'vpsCatalogUrl' => VpsCatalogService::isEnabled() ? url('/layanan/vps') : null,
         'vpsPlans' => VpsCatalogService::plans(),
     ]);
 });

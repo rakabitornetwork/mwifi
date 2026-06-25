@@ -57,8 +57,8 @@
       "_vendor-core-D922lV3_.js"
     ]
   },
-  "_PublicSiteFooter-B_AqfQey.js": {
-    "file": "assets/PublicSiteFooter-B_AqfQey.js",
+  "_PublicSiteFooter-ZIDIoC1x.js": {
+    "file": "assets/PublicSiteFooter-ZIDIoC1x.js",
     "name": "PublicSiteFooter",
     "imports": [
       "_vendor-core-D922lV3_.js"
@@ -577,19 +577,19 @@
     ]
   },
   "resources/js/Pages/Public/PolicyPage.jsx": {
-    "file": "assets/PolicyPage-BMhLVFKp.js",
+    "file": "assets/PolicyPage-DiUGkFy8.js",
     "name": "PolicyPage",
     "src": "resources/js/Pages/Public/PolicyPage.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-core-D922lV3_.js",
-      "_PublicSiteFooter-B_AqfQey.js",
+      "_PublicSiteFooter-ZIDIoC1x.js",
       "_PublicSupportContact-D2zeV_ti.js",
       "_SeoHead-DUw6Twrh.js"
     ]
   },
   "resources/js/Pages/Public/VpsCatalog.jsx": {
-    "file": "assets/VpsCatalog-CLHA9H5o.js",
+    "file": "assets/VpsCatalog-DDnwBidN.js",
     "name": "VpsCatalog",
     "src": "resources/js/Pages/Public/VpsCatalog.jsx",
     "isDynamicEntry": true,
@@ -597,14 +597,14 @@
       "_rolldown-runtime-QTnfLwEv.js",
       "_vendor-BXfUUSDP.js",
       "_vendor-core-D922lV3_.js",
-      "_PublicSiteFooter-B_AqfQey.js",
+      "_PublicSiteFooter-ZIDIoC1x.js",
       "_PublicSupportContact-D2zeV_ti.js",
       "_SeoHead-DUw6Twrh.js",
       "_formatRupiah-BPNt29Go.js"
     ]
   },
   "resources/js/Pages/Welcome.jsx": {
-    "file": "assets/Welcome-YZyBB-Tj.js",
+    "file": "assets/Welcome-DW_FSlXX.js",
     "name": "Welcome",
     "src": "resources/js/Pages/Welcome.jsx",
     "isDynamicEntry": true,
@@ -613,12 +613,12 @@
       "_vendor-BXfUUSDP.js",
       "_vendor-core-D922lV3_.js",
       "_PullToRefresh-BjR0JpFi.js",
-      "_PublicSiteFooter-B_AqfQey.js",
+      "_PublicSiteFooter-ZIDIoC1x.js",
       "_SeoHead-DUw6Twrh.js"
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-lUccBPkh.js",
+    "file": "assets/app-yggLoeDn.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
