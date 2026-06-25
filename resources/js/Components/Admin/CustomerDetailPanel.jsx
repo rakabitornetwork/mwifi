@@ -193,9 +193,13 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                     <DetailItem label="Username Layanan" value={customer.username} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                     <DetailItem label="Password Portal" value={customer.password} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                     <DetailItem label="Nomor Telepon (WA)" value={customer.phone_number} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                    {customer.portal_email && (
-                        <DetailItem label="Email Portal" value={customer.portal_email} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                    )}
+                    <DetailItem
+                        label="Email Portal"
+                        value={customer.portal_email || customer.user?.email}
+                        mono
+                        themeTextTitle={themeTextTitle}
+                        themeTextSub={themeTextSub}
+                    />
                     <DetailItem label="Alamat Lengkap" value={customer.address} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                 </div>
 

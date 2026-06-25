@@ -17,6 +17,10 @@ import { fetchRouterPackageProfiles } from '../../../utils/fetchRouterPackagePro
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 500, 1000];
 
+function getCustomerEmail(customer) {
+    return customer?.portal_email || customer?.user?.email || '';
+}
+
 function CustomersPageContent({
     customers = [],
     routers = [],
@@ -213,6 +217,7 @@ function CustomersPageContent({
             cust.name.toLowerCase().includes(term) ||
             cust.username.toLowerCase().includes(term) ||
             (cust.phone_number && cust.phone_number.toLowerCase().includes(term)) ||
+            getCustomerEmail(cust).toLowerCase().includes(term) ||
             (cust.package && cust.package.name.toLowerCase().includes(term)) ||
             (cust.odp && cust.odp.name.toLowerCase().includes(term))
         );
@@ -226,6 +231,8 @@ function CustomersPageContent({
                 return cust.username || '';
             case 'phone':
                 return cust.phone_number || '';
+            case 'email':
+                return getCustomerEmail(cust);
             case 'router':
                 return cust.router?.name || '';
             case 'package':
@@ -604,7 +611,7 @@ function CustomersPageContent({
                         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
                         <input
                             type="text"
-                            placeholder="Cari nama, username, telepon, paket, ODP..."
+                            placeholder="Cari nama, username, telepon, email, paket, ODP..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
@@ -646,6 +653,12 @@ function CustomersPageContent({
                                 </th>
                                 <th className="py-3 px-2">
                                     <div className="flex items-center gap-1">
+                                        <span>Email</span>
+                                        {renderColumnSortButton('email', 'Urut berdasarkan email')}
+                                    </div>
+                                </th>
+                                <th className="py-3 px-2">
+                                    <div className="flex items-center gap-1">
                                         <span>Router</span>
                                         {renderColumnSortButton('router', 'Urut berdasarkan router')}
                                     </div>
@@ -680,7 +693,7 @@ function CustomersPageContent({
                         <tbody className="divide-y divide-zinc-800/20 text-xs">
                             {paginatedCustomers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={canWrite ? 10 : 9} className={`py-8 text-center ${themeTextDesc}`}>
+                                    <td colSpan={canWrite ? 11 : 10} className={`py-8 text-center ${themeTextDesc}`}>
                                         {!routerFilter
                                             ? 'Pilih router Mikrotik terlebih dahulu.'
                                             : searchTerm.trim()
@@ -708,6 +721,9 @@ function CustomersPageContent({
                                         </td>
                                         <td className="py-3 px-2 font-mono">{cust.username}</td>
                                         <td className="py-3 px-2 font-mono text-[10px]">{cust.phone_number || '—'}</td>
+                                        <td className={`py-3 px-2 font-mono text-[10px] max-w-[140px] truncate ${getCustomerEmail(cust) ? themeTextSub : themeTextDesc}`} title={getCustomerEmail(cust) || undefined}>
+                                            {getCustomerEmail(cust) || '—'}
+                                        </td>
                                         <td className="py-3 px-2">{cust.router ? cust.router.name : '—'}</td>
                                         <td className="py-3 px-2">{cust.package ? cust.package.name : '—'}</td>
                                         <td className="py-3 px-2 font-mono text-[10px]">{cust.odp ? cust.odp.name : '—'}</td>
