@@ -52,6 +52,25 @@ function formatWhatsappHref(phone) {
     return normalized ? `https://wa.me/${normalized}` : null;
 }
 
+const LANDING_HEADER_OFFSET = 64;
+
+function scrollToSection(sectionId) {
+    const el = document.getElementById(sectionId);
+    if (!el) {
+        return;
+    }
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const top = el.getBoundingClientRect().top + window.scrollY - LANDING_HEADER_OFFSET;
+
+    window.scrollTo({
+        top: Math.max(0, top),
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+    });
+
+    window.history.replaceState(null, '', `#${sectionId}`);
+}
+
 function ContactChannelCard({
     icon: Icon,
     label,
@@ -113,6 +132,12 @@ export default function Welcome({
     const { isDarkMode, isAutoTheme, toggleTheme } = useScheduledTheme('mwifi.landing.theme');
     const t = useMemo(() => getLandingTheme(isDarkMode), [isDarkMode]);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    const handleSectionNav = (e, sectionId) => {
+        e.preventDefault();
+        setMobileMenuOpen(false);
+        scrollToSection(sectionId);
+    };
 
     // Form states for service booking
     const [formData, setFormData] = useState({
@@ -209,13 +234,13 @@ export default function Welcome({
                             <Link href="/" className={t.navLink}>
                                 Beranda
                             </Link>
-                            <a href="#fitur" className={t.navLink}>
+                            <a href="#fitur" onClick={(e) => handleSectionNav(e, 'fitur')} className={t.navLink}>
                                 Layanan Kami
                             </a>
-                            <a href="#pesan" className={t.navLink}>
+                            <a href="#pesan" onClick={(e) => handleSectionNav(e, 'pesan')} className={t.navLink}>
                                 Pesan Layanan
                             </a>
-                            <a href="#kontak" className={t.navLink}>
+                            <a href="#kontak" onClick={(e) => handleSectionNav(e, 'kontak')} className={t.navLink}>
                                 Hubungi Kami
                             </a>
                         </nav>
@@ -268,21 +293,21 @@ export default function Welcome({
                                 </Link>
                                 <a
                                     href="#fitur"
-                                    onClick={() => setMobileMenuOpen(false)}
+                                    onClick={(e) => handleSectionNav(e, 'fitur')}
                                     className={t.mobileNavLink}
                                 >
                                     Layanan Kami
                                 </a>
                                 <a
                                     href="#pesan"
-                                    onClick={() => setMobileMenuOpen(false)}
+                                    onClick={(e) => handleSectionNav(e, 'pesan')}
                                     className={t.mobileNavLink}
                                 >
                                     Pesan Layanan
                                 </a>
                                 <a
                                     href="#kontak"
-                                    onClick={() => setMobileMenuOpen(false)}
+                                    onClick={(e) => handleSectionNav(e, 'kontak')}
                                     className={t.mobileNavLink}
                                 >
                                     Hubungi Kami
@@ -346,6 +371,7 @@ export default function Welcome({
                                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start pt-2">
                                     <a
                                         href="#pesan"
+                                        onClick={(e) => handleSectionNav(e, 'pesan')}
                                         className="inline-flex items-center justify-center gap-2 py-3.5 px-6 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-extrabold rounded-2xl shadow-lg shadow-indigo-600/20 hover:shadow-indigo-500/30 transition-all group shrink-0"
                                     >
                                         Pesan Layanan
