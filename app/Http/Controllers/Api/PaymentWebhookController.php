@@ -23,7 +23,10 @@ class PaymentWebhookController extends Controller
             ]);
         }
 
-        $payload = $request->json()->all();
+        $payload = $request->all();
+        if ($payload === []) {
+            $payload = $request->json()->all();
+        }
         $headers = $request->headers->all();
 
         Log::info('Payment webhook callback received.', [

@@ -30,7 +30,7 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
     const { branding = {} } = usePage().props;
     const { isDarkMode, isAutoTheme, toggleTheme } = useScheduledTheme('mwifi.customer.theme');
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
-        activeGateway === 'midtrans' ? 'all' : 'qris'
+        activeGateway === 'midtrans' || activeGateway === 'duitku' ? 'all' : 'qris'
     );
     const [isPaying, setIsPaying] = useState(null); // stores invoice ID currently processing
     const [timeGreeting, setTimeGreeting] = useState(() => getTimeOfDayGreeting());
@@ -62,7 +62,7 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
                 },
                 body: JSON.stringify({
-                    payment_method: activeGateway === 'midtrans' ? 'all' : selectedPaymentMethod,
+                    payment_method: activeGateway === 'midtrans' || activeGateway === 'duitku' ? 'all' : selectedPaymentMethod,
                 })
             });
 
@@ -99,6 +99,11 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
         suspended: { label: 'SUSPEN / DITANGGUHKAN', color: 'text-zinc-500 bg-zinc-500/10 border-zinc-500/20' }
     };
     const activeStatus = statusConfig[customer.status] || statusConfig.active;
+
+    const gatewayCheckoutHint = {
+        midtrans: 'Klik Bayar untuk membuka halaman Midtrans (GoPay, QRIS, VA, Alfamart, dll.)',
+        duitku: 'Klik Bayar untuk membuka halaman Duitku (GoPay, QRIS, VA, Alfamart, dll.)',
+    };
 
     // Payment Methods options based on gateway
     const paymentMethods = activeGateway === 'tripay' ? [
@@ -308,7 +313,7 @@ export default function CustomerDashboard({ auth, customer, invoices = [], activ
                                                         <div className={`flex flex-col gap-1 rounded-xl border px-3 py-2.5 sm:w-52 lg:w-56 ${isDarkMode ? 'border-zinc-800/80 bg-zinc-950/30' : 'border-zinc-200/80 bg-white/70'}`}>
                                                             <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Pembayaran Online</span>
                                                             <span className={`text-[10px] leading-relaxed ${themeTextSub}`}>
-                                                                Klik Bayar untuk membuka halaman Midtrans (GoPay, QRIS, VA, Alfamart, dll.)
+                                                                {gatewayCheckoutHint[activeGateway] || gatewayCheckoutHint.midtrans}
                                                             </span>
                                                         </div>
                                                     )}

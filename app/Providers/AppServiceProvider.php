@@ -27,6 +27,8 @@ class AppServiceProvider extends ServiceProvider
                     'services.tripay.api_key' => setting('payment.tripay.api_key'),
                     'services.tripay.merchant_code' => setting('payment.tripay.merchant_code'),
                     'services.tripay.private_key' => setting('payment.tripay.private_key'),
+                    'services.duitku.merchant_code' => setting('payment.duitku.merchant_code'),
+                    'services.duitku.api_key' => setting('payment.duitku.api_key'),
                     'services.genieacs.api_url' => setting('genieacs.api_url'),
                 ]);
             }

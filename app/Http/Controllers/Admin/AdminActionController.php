@@ -1565,9 +1565,10 @@ class AdminActionController extends Controller
             'payment.dana_number' => 'nullable|string|max:30',
             'payment.dana_account_holder' => 'nullable|string|max:150',
             'payment.manual_confirm_phone' => 'nullable|string|max:30',
-            'payment.active_gateway' => 'nullable|in:tripay,midtrans',
+            'payment.active_gateway' => 'nullable|in:tripay,midtrans,duitku',
             'payment.tripay.mode' => 'nullable|in:sandbox,production',
             'payment.midtrans.mode' => 'nullable|in:sandbox,production',
+            'payment.duitku.mode' => 'nullable|in:sandbox,production',
             'whatsapp.bulk_batch_size' => 'nullable|integer|min:1|max:100',
             'whatsapp.bulk_window_seconds' => 'nullable|integer|min:6|max:7200',
             'mikrotik.isolir_profile' => 'nullable|string|max:64',
@@ -1593,6 +1594,7 @@ class AdminActionController extends Controller
             'payment.tripay.api_key',
             'payment.tripay.private_key',
             'payment.midtrans.server_key',
+            'payment.duitku.api_key',
             'whatsapp.api_key',
         ];
 

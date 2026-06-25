@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Services\Payment\Drivers\DuitkuGateway;
 use App\Services\Payment\Drivers\MidtransGateway;
 use App\Services\Payment\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -87,5 +88,70 @@ class PaymentWebhookResolutionTest extends TestCase
         ]);
 
         $this->assertSame('VA BCA', $data['payment_method']);
+    }
+
+    public function test_detects_duitku_webhook_from_payload(): void
+    {
+        $payload = [
+            'merchantCode' => 'D12345',
+            'merchantOrderId' => 'INV-001',
+            'amount' => '10000',
+            'signature' => 'abc',
+            'resultCode' => '00',
+        ];
+
+        [$driver, $gateway] = PaymentService::resolveDriverForWebhook([], $payload);
+
+        $this->assertInstanceOf(DuitkuGateway::class, $driver);
+        $this->assertSame('duitku', $gateway);
+    }
+
+    public function test_duitku_signature_verification(): void
+    {
+        $apiKey = 'duitku-test-api-key';
+        config(['services.duitku.api_key' => $apiKey]);
+
+        $payload = [
+            'merchantCode' => 'D12345',
+            'merchantOrderId' => 'INV-TEST-001~abc123',
+            'amount' => '150000',
+        ];
+        $payload['signature'] = hash_hmac(
+            'sha256',
+            $payload['merchantCode'] . $payload['amount'] . $payload['merchantOrderId'],
+            $apiKey
+        );
+
+        $gateway = new DuitkuGateway();
+
+        $this->assertTrue($gateway->verifyWebhook([], $payload));
+    }
+
+    public function test_resolves_invoice_number_from_duitku_merchant_order_id_suffix(): void
+    {
+        $this->assertSame(
+            'INV-202606-0974-5FDF',
+            DuitkuGateway::resolveInvoiceNumber('INV-202606-0974-5FDF~1a2b3c4')
+        );
+        $this->assertSame(
+            'INV-202606-0974-5FDF',
+            DuitkuGateway::resolveInvoiceNumber('INV-202606-0974-5FDF')
+        );
+    }
+
+    public function test_duitku_webhook_extracts_readable_payment_method(): void
+    {
+        $gateway = new DuitkuGateway();
+
+        $data = $gateway->extractWebhookData([
+            'merchantOrderId' => 'INV-TEST-001',
+            'resultCode' => '00',
+            'amount' => '28000',
+            'paymentCode' => 'SQ',
+            'reference' => 'ref-123',
+        ]);
+
+        $this->assertSame('paid', $data['status']);
+        $this->assertSame('ShopeePay QRIS', $data['payment_method']);
     }
 }

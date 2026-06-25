@@ -203,4 +203,47 @@ class BillingPaymentReactivationTest extends TestCase
             BillingService::formatPaymentMethodLabel($payment->payment_method, $payment->gateway_name)
         );
     }
+
+    public function test_duitku_webhook_payload_stores_readable_payment_method(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-25'));
+
+        ['customer' => $customer] = $this->makeIsolatedCustomer();
+        $customer->update(['status' => 'active']);
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202607-DUITKU',
+            'billing_period' => '2026-07',
+            'amount' => 28000,
+            'days_billed' => 7,
+            'is_prorated' => true,
+            'tax' => 0,
+            'total_amount' => 28000,
+            'due_date' => '2026-07-01',
+            'status' => 'unpaid',
+        ]);
+
+        $success = BillingService::processPaidInvoice(
+            $invoice,
+            'duitku',
+            'ref-duitku-001',
+            28000,
+            0,
+            [
+                'resultCode' => '00',
+                'paymentCode' => 'BC',
+                'amount' => '28000',
+            ]
+        );
+
+        $this->assertTrue($success);
+        $payment = $invoice->fresh()->payments()->first();
+        $this->assertNotNull($payment);
+        $this->assertSame('VA BCA', $payment->payment_method);
+        $this->assertSame(
+            'VA BCA',
+            BillingService::formatPaymentMethodLabel($payment->payment_method, $payment->gateway_name)
+        );
+    }
 }

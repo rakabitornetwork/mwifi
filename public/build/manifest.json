@@ -445,7 +445,7 @@
     ]
   },
   "resources/js/Pages/Admin/Settings/Index.jsx": {
-    "file": "assets/Index-CeY1b4wx.js",
+    "file": "assets/Index-BnQjVqzz.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Settings/Index.jsx",
     "isDynamicEntry": true,
@@ -498,7 +498,7 @@
     ]
   },
   "resources/js/Pages/Customer/Dashboard.jsx": {
-    "file": "assets/Dashboard-CEQOtAN9.js",
+    "file": "assets/Dashboard-DdZrvwsA.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Customer/Dashboard.jsx",
     "isDynamicEntry": true,
@@ -536,7 +536,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-CFic8zZe.js",
+    "file": "assets/app--Mlihyco.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

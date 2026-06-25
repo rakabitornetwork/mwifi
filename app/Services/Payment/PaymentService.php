@@ -5,6 +5,7 @@ namespace App\Services\Payment;
 use App\Services\SettingService;
 use App\Services\Payment\Drivers\TripayGateway;
 use App\Services\Payment\Drivers\MidtransGateway;
+use App\Services\Payment\Drivers\DuitkuGateway;
 use Exception;
 
 class PaymentService
@@ -24,6 +25,8 @@ class PaymentService
                 return new TripayGateway();
             case 'midtrans':
                 return new MidtransGateway();
+            case 'duitku':
+                return new DuitkuGateway();
             default:
                 throw new Exception("Payment gateway driver [{$activeGateway}] is not supported.");
         }
@@ -38,6 +41,10 @@ class PaymentService
     {
         if (isset($payload['signature_key'], $payload['order_id'])) {
             return [new MidtransGateway(), 'midtrans'];
+        }
+
+        if (isset($payload['merchantCode'], $payload['merchantOrderId'], $payload['signature'], $payload['resultCode'])) {
+            return [new DuitkuGateway(), 'duitku'];
         }
 
         $tripaySignature = $headers['x-callback-signature'][0]

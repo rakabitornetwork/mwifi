@@ -651,6 +651,7 @@ function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl =
                         >
                             <option value="tripay">Tripay (default)</option>
                             <option value="midtrans">Midtrans Snap</option>
+                            <option value="duitku">Duitku</option>
                         </select>
                         <span className={`text-[10px] ${themeTextDesc}`}>
                             Metode bayar di portal pelanggan menyesuaikan gateway yang dipilih.
@@ -662,7 +663,7 @@ function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl =
                             {paymentCallbackUrl || '/api/payment/callback'}
                         </p>
                         <p className="mt-1.5 opacity-80">
-                            Salin URL di atas ke dashboard Midtrans (Payment notification URL) atau Tripay (Callback URL).
+                            Salin URL di atas ke dashboard Midtrans (Payment notification URL), Tripay (Callback URL), atau Duitku (Callback URL).
                             URL harus bisa dibuka dari internet dan mengembalikan respons JSON — bukan halaman 404.
                         </p>
                         <p className="mt-1 opacity-70">
@@ -672,7 +673,7 @@ function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl =
                 </div>
             </SettingsSectionCard>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <SettingsSectionCard
                     icon={Landmark}
                     accent="indigo"
@@ -739,6 +740,39 @@ function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl =
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Client Key</label>
                             <input name="payment[midtrans][client_key]" type="text" defaultValue={settingsMap['payment.midtrans.client_key'] || ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                        </div>
+                    </div>
+                </SettingsSectionCard>
+
+                <SettingsSectionCard
+                    icon={Landmark}
+                    accent="amber"
+                    title="Duitku Gateway"
+                    description="Kredensial Duitku untuk pembayaran online pelanggan (VA, QRIS, e-wallet, retail)."
+                    themeCard={themeCard}
+                    isDarkMode={isDarkMode}
+                    themeTextTitle={themeTextTitle}
+                    themeTextSub={themeTextSub}
+                >
+                    <div className="space-y-3 text-xs">
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Mode</label>
+                            <select
+                                name="payment[duitku][mode]"
+                                defaultValue={settingsMap['payment.duitku.mode'] || 'sandbox'}
+                                className={`p-2 border rounded-lg font-semibold ${themeInput}`}
+                            >
+                                <option value="sandbox">Sandbox (uji coba)</option>
+                                <option value="production">Production (live)</option>
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Merchant Code</label>
+                            <input name="payment[duitku][merchant_code]" type="text" defaultValue={settingsMap['payment.duitku.merchant_code'] || ''} className={`p-2 border rounded-lg ${themeInput}`} />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>API Key</label>
+                            <input name="payment[duitku][api_key]" type="password" placeholder="Tetap kosong jika tidak diubah" className={`p-2 border rounded-lg ${themeInput}`} />
                         </div>
                     </div>
                 </SettingsSectionCard>

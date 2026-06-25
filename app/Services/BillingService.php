@@ -2033,6 +2033,7 @@ class BillingService
                 'manual' => 'Cash / Tunai',
                 'midtrans' => 'Midtrans',
                 'tripay' => 'Tripay',
+                'duitku' => 'Duitku',
                 default => $gateway ? ucfirst($gateway) : '—',
             };
         }
@@ -2061,6 +2062,20 @@ class BillingService
             'cash' => 'Cash / Tunai',
             'cash_/_tunai' => 'Cash / Tunai',
             'cash_/_tunai_(massal)' => 'Cash / Tunai (Massal)',
+            'vc' => 'Kartu Kredit',
+            'bc' => 'VA BCA',
+            'm2' => 'VA Mandiri',
+            'br' => 'VA BRI',
+            'i1' => 'Indomaret',
+            'a1' => 'Alfamart',
+            'sq' => 'ShopeePay QRIS',
+            'sp' => 'ShopeePay',
+            'da' => 'DANA',
+            'ov' => 'OVO',
+            'la' => 'LinkAja',
+            'bt' => 'VA Permata',
+            'b1' => 'CIMB Niaga VA',
+            'va' => 'Virtual Account',
         ];
 
         if (isset($labels[$normalized])) {
@@ -2097,6 +2112,10 @@ class BillingService
             }
 
             return self::formatPaymentMethodLabel($type, $gateway);
+        }
+
+        if (!empty($payload['paymentCode'])) {
+            return self::formatPaymentMethodLabel((string) $payload['paymentCode'], $gateway);
         }
 
         return self::formatPaymentMethodLabel(null, $gateway);
