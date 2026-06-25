@@ -164,6 +164,22 @@ class LegacyCsvImportService
 
     /**
      * @param  array<string, string>  $data
+     */
+    private function columnValue(array $data, string ...$keys): string
+    {
+        foreach ($keys as $key) {
+            foreach ($data as $column => $value) {
+                if (strcasecmp((string) $column, $key) === 0) {
+                    return trim((string) $value);
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<string, string>  $data
      * @param  array<string, mixed>  $result
      */
     private function resolvePackage(array $data, array &$result): Package
@@ -244,9 +260,11 @@ class LegacyCsvImportService
      */
     private function resolveUser(array $data, array $customerData, ?Customer $existing): User
     {
-        $email = trim((string) ($data['Email'] ?? ''));
-        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $email = $this->columnValue($data, 'Email');
+        if ($email === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $email = $customerData['username'] . '@mwifi.test';
+        } else {
+            $email = strtolower($email);
         }
 
         if ($existing?->user_id) {

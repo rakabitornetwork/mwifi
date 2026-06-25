@@ -65,9 +65,38 @@ class Customer extends Model
             ->first();
     }
 
-    public function generatedPortalEmail(): string
+    public function generatedPortalEmail(?string $username = null): string
     {
-        return strtolower($this->username) . '@mwifi.test';
+        $username = $username ?? (string) $this->username;
+
+        return strtolower($username) . '@mwifi.test';
+    }
+
+    public function hasCustomPortalEmail(?string $email = null): bool
+    {
+        $email = $email ?? $this->user?->email;
+        if (! is_string($email) || trim($email) === '') {
+            return false;
+        }
+
+        return strtolower(trim($email)) !== strtolower($this->generatedPortalEmail());
+    }
+
+    public function resolveUserEmail(?string $username = null, ?string $requestedEmail = null): string
+    {
+        if (is_string($requestedEmail) && trim($requestedEmail) !== '') {
+            $normalized = strtolower(trim($requestedEmail));
+            if (filter_var($normalized, FILTER_VALIDATE_EMAIL)) {
+                return $normalized;
+            }
+        }
+
+        $currentEmail = $this->user?->email;
+        if ($currentEmail && $this->hasCustomPortalEmail($currentEmail)) {
+            return strtolower(trim($currentEmail));
+        }
+
+        return strtolower($username ?? (string) $this->username) . '@mwifi.test';
     }
 
     /**

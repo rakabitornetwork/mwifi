@@ -917,6 +917,20 @@ function CustomersPageContent({
                     </div>
 
                     <div className="flex flex-col gap-1">
+                        <label className={`font-bold ${themeLabel}`}>Email Portal</label>
+                        <input
+                            name="email"
+                            type="email"
+                            placeholder="contoh@gmail.com (opsional)"
+                            defaultValue={editingCustomer ? getCustomerEmail(editingCustomer) : ''}
+                            className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                        />
+                        <span className={`text-[10px] ${themeTextDesc}`}>
+                            Kosongkan untuk memakai {editingCustomer ? 'email yang sudah tersimpan' : 'username@mwifi.test'}.
+                        </span>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Alamat Lengkap</label>
                         <textarea required name="address" rows={2} defaultValue={editingCustomer ? editingCustomer.address : ''} className={`p-2 border rounded-lg ${themeInput}`} />
                     </div>
@@ -1259,7 +1273,7 @@ function CustomersPageContent({
                             />
                             <span className={themeTextSub}>
                                 <span className={`font-semibold ${themeTextTitle}`}>Lewati username yang sudah ada</span>
-                                <span className={`block ${themeTextDesc} text-[10px] mt-0.5`}>Pelanggan dengan username sama tidak akan diperbarui.</span>
+                                <span className={`block ${themeTextDesc} text-[10px] mt-0.5`}>Pelanggan dengan username sama tidak akan diperbarui, termasuk email dari CSV.</span>
                             </span>
                         </label>
                     </div>

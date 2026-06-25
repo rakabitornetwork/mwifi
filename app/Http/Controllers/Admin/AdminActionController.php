@@ -323,6 +323,11 @@ class AdminActionController extends Controller
      */
     public function saveCustomer(Request $request)
     {
+        $existingCustomer = $request->input('id')
+            ? Customer::find($request->input('id'))
+            : null;
+        $existingUserId = $existingCustomer?->user_id;
+
         $data = $request->validate([
             'id' => 'nullable|integer',
             'router_id' => 'required|exists:routers,id',
@@ -332,6 +337,7 @@ class AdminActionController extends Controller
             'username' => 'required|string|max:100',
             'password' => 'required|string|max:100',
             'name' => 'required|string|max:150',
+            'email' => ['nullable', 'email', 'max:150', Rule::unique('users', 'email')->ignore($existingUserId)],
             'phone_number' => 'required|string|max:20',
             'address' => 'required|string',
             'latitude' => 'nullable|numeric',
@@ -342,7 +348,8 @@ class AdminActionController extends Controller
         ]);
 
         $id = $data['id'] ?? null;
-        unset($data['id']);
+        $requestedEmail = $data['email'] ?? null;
+        unset($data['id'], $data['email']);
         $isNewCustomer = $id === null;
 
         $actor = $request->user();
@@ -354,22 +361,25 @@ class AdminActionController extends Controller
 
         StaffRouterScope::for($actor)->ensureCanAccessRouter((int) $data['router_id']);
 
-        // Create or update linked user first
-        $email = $data['username'] . '@mwifi.test';
-        
-        $customer = null;
-        $userId = null;
-        $oldUsername = null;
-        $oldServiceType = null;
-        $oldRouterId = null;
+        $customer = $existingCustomer;
+        $userId = $customer?->user_id;
+        $oldUsername = $customer?->username;
+        $oldServiceType = $customer?->service_type;
+        $oldRouterId = $customer?->router_id;
 
-        if ($id) {
+        if ($id && ! $customer) {
             $customer = Customer::findOrFail($id);
             $userId = $customer->user_id;
             $oldUsername = $customer->username;
             $oldServiceType = $customer->service_type;
             $oldRouterId = $customer->router_id;
         }
+
+        $email = $customer
+            ? $customer->resolveUserEmail($data['username'], $requestedEmail)
+            : (is_string($requestedEmail) && filter_var(trim($requestedEmail), FILTER_VALIDATE_EMAIL)
+                ? strtolower(trim($requestedEmail))
+                : strtolower($data['username']) . '@mwifi.test');
 
         $user = User::updateOrCreate(
             ['id' => $userId],
