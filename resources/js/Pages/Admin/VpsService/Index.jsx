@@ -191,7 +191,7 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
     ];
 
     return (
-        <form onSubmit={handleSave} className="space-y-6 pb-24">
+        <form onSubmit={handleSave} className="space-y-6">
             {/* Premium hero strip */}
             <div className={`relative overflow-hidden rounded-2xl border ${themeCard}`}>
                 <div className="absolute inset-0 bg-gradient-to-br from-violet-600/15 via-indigo-500/5 to-transparent pointer-events-none" />
@@ -534,23 +534,21 @@ function VpsServicePageContent({ config = {}, catalogUrl = '', defaultPlans = []
                 </aside>
             </div>
 
-            {/* Sticky save bar */}
-            <div className={`fixed bottom-0 left-0 right-0 z-30 border-t backdrop-blur-md ${
-                isDarkMode ? 'bg-zinc-950/85 border-zinc-800' : 'bg-white/90 border-zinc-200'
+            {/* Save bar — sticky dalam panel konten, tidak menutupi sidebar */}
+            <div className={`-mx-4 sm:-mx-6 sticky bottom-0 z-20 border-t backdrop-blur-md px-4 sm:px-6 py-3 flex items-center justify-between gap-4 ${
+                isDarkMode ? 'bg-zinc-950/90 border-zinc-800' : 'bg-white/95 border-zinc-200'
             }`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-                    <p className={`text-xs hidden sm:block ${themeTextDesc}`}>
-                        Perubahan disimpan ke database dan langsung memengaruhi halaman publik.
-                    </p>
-                    <button
-                        type="submit"
-                        disabled={isSaving}
-                        className="ml-auto inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white font-bold text-sm shadow-lg shadow-violet-500/25 transition-all"
-                    >
-                        <Save className="w-4 h-4" />
-                        {isSaving ? 'Menyimpan...' : 'Simpan Pengaturan'}
-                    </button>
-                </div>
+                <p className={`text-xs hidden sm:block ${themeTextDesc}`}>
+                    Perubahan disimpan ke database dan langsung memengaruhi halaman publik.
+                </p>
+                <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="ml-auto inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white font-bold text-sm shadow-lg shadow-violet-500/25 transition-all"
+                >
+                    <Save className="w-4 h-4" />
+                    {isSaving ? 'Menyimpan...' : 'Simpan Pengaturan'}
+                </button>
             </div>
         </form>
     );

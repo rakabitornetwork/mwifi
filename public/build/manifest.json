@@ -222,7 +222,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DRZCqLXq.css",
+    "file": "assets/app-BzgrfvcB.css",
     "name": "app",
     "names": [
       "app.css"
@@ -496,7 +496,7 @@
     ]
   },
   "resources/js/Pages/Admin/VpsService/Index.jsx": {
-    "file": "assets/Index-CrDvma6W.js",
+    "file": "assets/Index-IDjCyTBB.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/VpsService/Index.jsx",
     "isDynamicEntry": true,
@@ -578,7 +578,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-DdUv80sh.js",
+    "file": "assets/app-B31F14NM.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
