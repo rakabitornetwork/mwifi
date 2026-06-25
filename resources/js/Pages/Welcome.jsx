@@ -18,6 +18,8 @@ import {
     Activity,
     Cpu,
     Code,
+    Headphones,
+    Clock,
 } from 'lucide-react';
 import PullToRefresh from '../Components/PullToRefresh';
 import SeoHead from '../Components/SeoHead';
@@ -39,6 +41,67 @@ const HEADER_NAV_LINK =
     'text-sm font-semibold text-slate-400 hover:text-indigo-400 transition-colors';
 const HEADER_MOBILE_NAV_LINK =
     'pb-2 border-b border-slate-900 text-sm font-semibold text-slate-400 hover:text-indigo-400 transition-colors';
+
+function formatWhatsappHref(phone) {
+    if (!phone) {
+        return null;
+    }
+
+    const digits = phone.replace(/\D/g, '');
+    const normalized = digits.startsWith('0') ? `62${digits.slice(1)}` : digits;
+
+    return normalized ? `https://wa.me/${normalized}` : null;
+}
+
+function ContactChannelCard({
+    icon: Icon,
+    label,
+    value,
+    href = null,
+    actionLabel = null,
+    accentClass,
+    iconWrapClass,
+    className = '',
+}) {
+    const wrapperClass = `group relative flex flex-col justify-between rounded-2xl border border-slate-800/80 bg-slate-900/30 backdrop-blur-sm p-5 sm:p-6 overflow-hidden transition-all duration-300 hover:border-slate-700/90 hover:bg-slate-900/55 hover:shadow-lg hover:shadow-indigo-950/20 ${href ? 'cursor-pointer' : ''} ${className}`;
+
+    const content = (
+        <>
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] via-transparent to-sky-500/[0.05] opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+            <div className="relative space-y-4">
+                <div className={`inline-flex items-center justify-center w-11 h-11 rounded-xl border ${iconWrapClass}`}>
+                    <Icon className={`w-5 h-5 ${accentClass}`} />
+                </div>
+                <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">{label}</p>
+                    <p className="text-sm sm:text-base font-semibold text-white mt-1.5 break-words leading-snug">{value}</p>
+                </div>
+            </div>
+            {actionLabel && href && (
+                <div className="relative pt-4 mt-5 border-t border-slate-800/80 flex items-center justify-between gap-2">
+                    <span className={`text-xs font-bold ${accentClass}`}>{actionLabel}</span>
+                    <ArrowRight className={`w-3.5 h-3.5 shrink-0 ${accentClass} opacity-50 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all`} />
+                </div>
+            )}
+        </>
+    );
+
+    if (href) {
+        const external = href.startsWith('http');
+
+        return (
+            <a
+                href={href}
+                className={wrapperClass}
+                {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+            >
+                {content}
+            </a>
+        );
+    }
+
+    return <div className={wrapperClass}>{content}</div>;
+}
 
 export default function Welcome({
     termsDocument = null,
@@ -107,6 +170,7 @@ export default function Welcome({
     } = branding;
 
     const phoneHref = phone ? `tel:${phone.replace(/\s+/g, '')}` : null;
+    const whatsappHref = formatWhatsappHref(phone);
     const emailHref = email ? `mailto:${email}` : null;
     const websiteHref = website && !website.startsWith('http') ? `https://${website}` : website;
 
@@ -155,7 +219,6 @@ export default function Welcome({
                             </a>
                         </nav>
 
-                        {/* Desktop CTA */}
                         <div className="hidden md:flex items-center">
                             <Link
                                 href="/portal"
@@ -182,7 +245,7 @@ export default function Welcome({
                         aria-hidden={!mobileMenuOpen}
                         className={`md:hidden absolute top-full left-0 w-full overflow-hidden border-slate-900 bg-slate-950/95 backdrop-blur-lg transition-[max-height,opacity,transform,border-color] duration-300 ease-in-out ${
                             mobileMenuOpen
-                                ? 'max-h-[28rem] opacity-100 translate-y-0 border-b pointer-events-auto'
+                                ? 'max-h-96 opacity-100 translate-y-0 border-b pointer-events-auto'
                                 : 'max-h-0 opacity-0 -translate-y-1 border-b-0 pointer-events-none'
                         }`}
                     >
@@ -218,7 +281,7 @@ export default function Welcome({
                                 <Link
                                     href="/portal"
                                     onClick={() => setMobileMenuOpen(false)}
-                                    className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors mt-2"
+                                    className="inline-flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors mt-1"
                                 >
                                     <UserCircle className="w-4 h-4" />
                                     Portal Pelanggan
@@ -275,13 +338,6 @@ export default function Welcome({
                                         Pesan Layanan
                                         <ChevronRight className="w-4 h-4 opacity-80 group-hover:translate-x-0.5 transition-transform" />
                                     </a>
-                                    <Link
-                                        href="/portal"
-                                        className="inline-flex items-center justify-center gap-2 py-3.5 px-6 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-200 hover:text-white font-bold rounded-2xl transition-all"
-                                    >
-                                        <UserCircle className="w-5 h-5 text-indigo-400" />
-                                        Portal Pelanggan
-                                    </Link>
                                 </div>
 
                                 {/* Floating Micro-stats */}
@@ -600,115 +656,125 @@ export default function Welcome({
                 </section>
 
                 {/* PREMIUM CONTACT SECTION */}
-                <section id="kontak" className="py-20 border-t border-slate-900 bg-slate-950 relative overflow-hidden">
+                <section id="kontak" className="py-24 sm:py-28 border-t border-slate-900 bg-slate-950 relative overflow-hidden">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-indigo-600/[0.07] blur-[120px] rounded-full pointer-events-none" />
+                    <div className="absolute bottom-0 right-0 w-[400px] h-[300px] bg-sky-500/[0.05] blur-[100px] rounded-full pointer-events-none" />
+                    <div className="absolute inset-0 bg-[linear-gradient(to_right,#6366f108_1px,transparent_1px),linear-gradient(to_bottom,#6366f108_1px,transparent_1px)] bg-[size:56px_56px] [mask-image:radial-gradient(ellipse_80%_60%_at_50%_50%,#000_20%,transparent_100%)] pointer-events-none" />
+
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
-                        {/* Section Header */}
-                        <div className="max-w-3xl mx-auto text-center space-y-4 mb-14">
-                            <h2 className="text-xs font-bold uppercase tracking-[0.25em] text-indigo-400">
-                                Layanan Support & Kontak
-                            </h2>
-                            <p className="text-3xl font-extrabold tracking-tight text-white leading-tight">
-                                Ada Pertanyaan? Hubungi Tim Kami
-                            </p>
-                            <p className="text-slate-400 text-sm max-w-lg mx-auto">
-                                Kami siap melayani konsultasi pembuatan website, instalasi jaringan, sewa VPS, dan kebutuhan IT profesional lainnya.
-                            </p>
-                        </div>
+                        <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-start">
+                            {/* Left: intro & trust */}
+                            <div className="lg:col-span-5 space-y-7 text-center lg:text-left">
+                                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-indigo-400 text-[11px] font-bold uppercase tracking-widest">
+                                    <Headphones className="w-3 h-3" />
+                                    Layanan Support & Kontak
+                                </div>
 
-                        {/* Contact Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            {/* Card 1: Email */}
-                            {email && (
-                                <div className="flex flex-col justify-between p-6 rounded-3xl border border-slate-900 bg-slate-900/30 hover:border-slate-800 hover:bg-slate-900/50 transition-all duration-300">
-                                    <div className="space-y-4">
-                                        <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                                            <Mail className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Email Resmi</p>
-                                            <p className="text-sm font-semibold text-white mt-1 break-all">{email}</p>
-                                        </div>
-                                    </div>
-                                    <div className="pt-4 mt-6 border-t border-slate-950">
-                                        <a
-                                            href={emailHref}
-                                            className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+                                <div className="space-y-4">
+                                    <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                                        Tim Ahli Siap{' '}
+                                        <span className="bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent">
+                                            Mendampingi Anda
+                                        </span>
+                                    </h2>
+                                    <p className="text-slate-400 text-sm sm:text-base leading-relaxed max-w-md mx-auto lg:mx-0">
+                                        Konsultasi pembuatan website, instalasi jaringan, layanan cloud,
+                                        dan kebutuhan IT profesional — dengan respons cepat dan komunikasi yang jelas.
+                                    </p>
+                                </div>
+
+                                <div className="flex flex-wrap justify-center lg:justify-start gap-2.5">
+                                    {[
+                                        { icon: Clock, text: 'Respon < 24 jam' },
+                                        { icon: Shield, text: 'Konsultasi terarah' },
+                                        { icon: MessageSquare, text: 'Multi-channel' },
+                                    ].map(({ icon: Icon, text }) => (
+                                        <span
+                                            key={text}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-800 bg-slate-900/50 text-[11px] font-semibold text-slate-400"
                                         >
-                                            Kirim Email <ArrowRight className="w-3.5 h-3.5" />
-                                        </a>
-                                    </div>
+                                            <Icon className="w-3 h-3 text-indigo-400" />
+                                            {text}
+                                        </span>
+                                    ))}
                                 </div>
-                            )}
 
-                            {/* Card 2: Phone */}
-                            {phone && (
-                                <div className="flex flex-col justify-between p-6 rounded-3xl border border-slate-900 bg-slate-900/30 hover:border-slate-800 hover:bg-slate-900/50 transition-all duration-300">
-                                    <div className="space-y-4">
-                                        <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
-                                            <Phone className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">WhatsApp / Telp</p>
-                                            <p className="text-sm font-semibold text-white mt-1 break-all">{phone}</p>
-                                        </div>
-                                    </div>
-                                    <div className="pt-4 mt-6 border-t border-slate-950">
-                                        <a
-                                            href={phoneHref}
-                                            className="inline-flex items-center gap-1.5 text-xs font-bold text-sky-400 hover:text-sky-300 transition-colors"
-                                        >
-                                            Hubungi Sekarang <ArrowRight className="w-3.5 h-3.5" />
-                                        </a>
-                                    </div>
-                                </div>
-                            )}
+                                {whatsappHref && (
+                                    <a
+                                        href={whatsappHref}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white text-sm font-bold shadow-lg shadow-emerald-900/25 transition-all group"
+                                    >
+                                        <MessageSquare className="w-4 h-4" />
+                                        Chat via WhatsApp
+                                        <ArrowRight className="w-4 h-4 opacity-70 group-hover:translate-x-0.5 transition-transform" />
+                                    </a>
+                                )}
+                            </div>
 
-                            {/* Card 3: Address */}
-                            {address && (
-                                <div className="flex flex-col justify-between p-6 rounded-3xl border border-slate-900 bg-slate-900/30 hover:border-slate-800 hover:bg-slate-900/50 transition-all duration-300 sm:col-span-2 lg:col-span-1">
-                                    <div className="space-y-4">
-                                        <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                            <MapPin className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Alamat Kantor</p>
-                                            <p className="text-xs sm:text-sm font-semibold text-white mt-1 leading-relaxed">
-                                                {address}
-                                            </p>
-                                        </div>
+                            {/* Right: contact channels */}
+                            <div className="lg:col-span-7">
+                                {!email && !phone && !address && !website ? (
+                                    <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/20 p-10 text-center">
+                                        <Headphones className="w-8 h-8 text-slate-600 mx-auto mb-3" />
+                                        <p className="text-sm text-slate-500">
+                                            Informasi kontak belum dikonfigurasi di pengaturan admin.
+                                        </p>
                                     </div>
-                                    <div className="pt-4 mt-6 border-t border-slate-950">
-                                        <span className="text-[10px] font-bold text-slate-600 uppercase">OFFICE</span>
+                                ) : (
+                                    <div className="grid sm:grid-cols-2 gap-4">
+                                        {phone && (
+                                            <ContactChannelCard
+                                                icon={Phone}
+                                                label="WhatsApp / Telepon"
+                                                value={phone}
+                                                href={whatsappHref || phoneHref}
+                                                actionLabel="Hubungi Sekarang"
+                                                accentClass="text-emerald-400"
+                                                iconWrapClass="bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                                                className="sm:col-span-2"
+                                            />
+                                        )}
+                                        {email && (
+                                            <ContactChannelCard
+                                                icon={Mail}
+                                                label="Email Resmi"
+                                                value={email}
+                                                href={emailHref}
+                                                actionLabel="Kirim Email"
+                                                accentClass="text-indigo-400"
+                                                iconWrapClass="bg-indigo-500/10 border-indigo-500/20 text-indigo-400"
+                                            />
+                                        )}
+                                        {website && (
+                                            <ContactChannelCard
+                                                icon={Globe}
+                                                label="Website"
+                                                value={website}
+                                                href={websiteHref}
+                                                actionLabel="Kunjungi Situs"
+                                                accentClass="text-sky-400"
+                                                iconWrapClass="bg-sky-500/10 border-sky-500/20 text-sky-400"
+                                            />
+                                        )}
+                                        {address && (
+                                            <ContactChannelCard
+                                                icon={MapPin}
+                                                label="Alamat Kantor"
+                                                value={address}
+                                                accentClass="text-purple-400"
+                                                iconWrapClass="bg-purple-500/10 border-purple-500/20 text-purple-400"
+                                                className={website ? 'sm:col-span-2' : ''}
+                                            />
+                                        )}
                                     </div>
-                                </div>
-                            )}
+                                )}
 
-                            {/* Card 4: Website */}
-                            {website && (
-                                <div className="flex flex-col justify-between p-6 rounded-3xl border border-slate-900 bg-slate-900/30 hover:border-slate-800 hover:bg-slate-900/50 transition-all duration-300">
-                                    <div className="space-y-4">
-                                        <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                            <Globe className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Website</p>
-                                            <p className="text-sm font-semibold text-white mt-1 break-all">
-                                                {website}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="pt-4 mt-6 border-t border-slate-950">
-                                        <a
-                                            href={websiteHref}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
-                                        >
-                                            Kunjungi Situs <ArrowRight className="w-3.5 h-3.5" />
-                                        </a>
-                                    </div>
-                                </div>
-                            )}
+                                <p className="mt-5 text-center lg:text-left text-[11px] text-slate-600 font-medium">
+                                    {companyName} · Dukungan teknis profesional untuk bisnis Anda
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </section>
