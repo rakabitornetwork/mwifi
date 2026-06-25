@@ -39,6 +39,7 @@ export default function CustomerDashboard({
     catalogUrl = '/layanan/vps',
 }) {
     const isVpsPortal = portalView === 'vps';
+    const isMidtransGateway = activeGateway === 'midtrans';
     const { branding = {} } = usePage().props;
     const { isDarkMode, isAutoTheme, toggleTheme } = useScheduledTheme('mwifi.customer.theme');
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
@@ -381,14 +382,25 @@ export default function CustomerDashboard({
                                 </div>
 
                                 {unpaidInvoices.length === 0 ? (
-                                    <div className="py-8 text-center space-y-2">
-                                        <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
-                                        <p className={`text-xs font-bold ${themeTextTitle}`}>Tagihan Anda Lunas!</p>
-                                        <p className={`text-[10px] ${themeTextDesc}`}>
+                                    <div className="py-8 text-center space-y-3">
+                                        <CheckCircle2 className={`w-8 h-8 mx-auto ${isVpsPortal ? 'text-violet-400' : 'text-emerald-500'}`} />
+                                        <p className={`text-xs font-bold ${themeTextTitle}`}>
+                                            {isVpsPortal ? 'Tidak Ada Tagihan VPS Aktif' : 'Tagihan Anda Lunas!'}
+                                        </p>
+                                        <p className={`text-[10px] max-w-sm mx-auto ${themeTextDesc}`}>
                                             {isVpsPortal
-                                                ? 'Tidak ada tagihan sewa VPS yang menunggu pembayaran.'
+                                                ? 'Untuk mencoba pembayaran, pilih paket VPS di katalog lalu checkout via Midtrans Snap.'
                                                 : 'Terima kasih telah membayar tagihan internet tepat waktu.'}
                                         </p>
+                                        {isVpsPortal && (
+                                            <Link
+                                                href={catalogUrl}
+                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold transition-colors"
+                                            >
+                                                Pesan Paket VPS & Bayar
+                                                <ArrowRight className="w-3.5 h-3.5" />
+                                            </Link>
+                                        )}
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
@@ -431,7 +443,9 @@ export default function CustomerDashboard({
                                                         <div className={`flex flex-col gap-1 rounded-xl border px-3 py-2.5 sm:w-52 lg:w-56 ${isDarkMode ? 'border-zinc-800/80 bg-zinc-950/30' : 'border-zinc-200/80 bg-white/70'}`}>
                                                             <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Pembayaran Online</span>
                                                             <span className={`text-[10px] leading-relaxed ${themeTextSub}`}>
-                                                                {gatewayCheckoutHint[activeGateway] || gatewayCheckoutHint.midtrans}
+                                                                {isVpsPortal && isMidtransGateway
+                                                                    ? 'Klik Bayar untuk membuka halaman Midtrans Snap (QRIS, GoPay, VA, dll.).'
+                                                                    : (gatewayCheckoutHint[activeGateway] || gatewayCheckoutHint.midtrans)}
                                                             </span>
                                                         </div>
                                                     )}
