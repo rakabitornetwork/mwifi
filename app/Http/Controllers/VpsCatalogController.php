@@ -42,6 +42,8 @@ class VpsCatalogController extends Controller
                 ?? ($guestVerification ? 'Mode Verifikasi Gateway' : null),
             'activeGateway' => SettingService::get('payment.active_gateway', 'tripay'),
             'catalogUrl' => url('/layanan/vps'),
+            'termsSections' => \App\Services\LegalService::termsSections(),
+            'termsUrl' => \App\Services\LegalService::termsUrl(),
         ]);
     }
 

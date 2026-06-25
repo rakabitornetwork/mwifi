@@ -5,10 +5,19 @@ use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Admin\AdminPageController;
+use App\Http\Controllers\PublicLegalController;
+use App\Services\LegalService;
+use App\Services\VpsCatalogService;
 
 Route::get('/', function () {
-    return Inertia::render('Welcome');
+    return Inertia::render('Welcome', [
+        'termsSections' => LegalService::termsSections(),
+        'vpsCatalogUrl' => VpsCatalogService::isEnabled() ? url('/layanan/vps') : null,
+    ]);
 });
+
+Route::get('syarat-ketentuan', [PublicLegalController::class, 'terms'])
+    ->name('legal.terms');
 
 Route::get('layanan/vps', [\App\Http\Controllers\VpsCatalogController::class, 'index'])
     ->name('vps.catalog');

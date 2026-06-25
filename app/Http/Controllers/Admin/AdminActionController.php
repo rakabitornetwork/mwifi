@@ -1559,6 +1559,7 @@ class AdminActionController extends Controller
             'system.company_phone' => 'nullable|string|max:30',
             'system.company_address' => 'nullable|string|max:500',
             'system.company_website' => 'nullable|string|max:200',
+            'system.terms_of_service' => 'nullable|string|max:16000',
             'system.footer_copyright' => 'nullable|string|max:500',
             'system.seo_title' => 'nullable|string|max:150',
             'system.seo_description' => 'nullable|string|max:320',

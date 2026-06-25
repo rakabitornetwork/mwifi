@@ -24,6 +24,7 @@ class BrandingService
             'favicon_url' => self::brandingAssetUrl('favicon'),
             'display_name' => $companyName ?: $appName,
             'footer_copyright' => self::renderCopyright(),
+            'terms_url' => LegalService::termsUrl(),
             'seo' => [
                 'title' => $seoTitle ?: $appName,
                 'description' => self::seoDescription(),

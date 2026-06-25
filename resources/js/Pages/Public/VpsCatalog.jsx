@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
+import PublicSupportContact from '../../Components/PublicSupportContact';
+import PublicTermsPreview from '../../Components/PublicTermsPreview';
 import { formatRupiah } from '../../utils/formatRupiah';
 
 const INCLUDED_FEATURES = [
@@ -68,6 +70,8 @@ export default function VpsCatalog({
     isLoggedIn = false,
     customerName = null,
     activeGateway = 'midtrans',
+    termsSections = [],
+    termsUrl = '/syarat-ketentuan',
 }) {
     const { branding = {} } = usePage().props;
     const [orderingPlan, setOrderingPlan] = useState(null);
@@ -174,6 +178,7 @@ export default function VpsCatalog({
                             <a href="#paket" className="hover:text-white transition-colors">Paket</a>
                             <a href="#fitur" className="hover:text-white transition-colors">Fitur</a>
                             <a href="#pembayaran" className="hover:text-white transition-colors">Pembayaran</a>
+                            <a href="#kontak" className="hover:text-white transition-colors">Kontak</a>
                         </nav>
 
                         {(guestVerification || (isLoggedIn && canOrder)) ? (
@@ -403,10 +408,24 @@ export default function VpsCatalog({
                             </div>
                         </div>
                     </section>
+
+                    <section id="kontak" className="border-t border-white/[0.06] bg-white/[0.02]">
+                        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20">
+                            <div className="grid lg:grid-cols-2 gap-10 lg:gap-12 items-start">
+                                <PublicSupportContact branding={branding} variant="vps" />
+                                <PublicTermsPreview
+                                    termsSections={termsSections}
+                                    termsUrl={termsUrl}
+                                    variant="vps"
+                                />
+                            </div>
+                        </div>
+                    </section>
                 </main>
 
                 <AppFooter
                     branding={branding}
+                    termsUrl={termsUrl}
                     className="py-5 px-6 border-t border-white/[0.06] text-center bg-[#070b14]"
                     textClassName="text-xs text-slate-600 leading-relaxed"
                 />

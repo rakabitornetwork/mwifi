@@ -210,6 +210,19 @@ function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl =
                                 <input name="system[company_website]" type="url" defaultValue={branding.company_website || settingsMap['system.company_website'] || ''} placeholder="https://..." className={`pl-8 p-2 border rounded-lg w-full ${themeInput}`} />
                             </div>
                         </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Syarat & Ketentuan (opsional)</label>
+                            <textarea
+                                name="system[terms_of_service]"
+                                rows={8}
+                                defaultValue={settingsMap['system.terms_of_service'] || ''}
+                                placeholder={'Kosongkan untuk memakai template default.\n\n## Judul Bagian\nIsi paragraf...\n\n## Bagian Berikutnya\n...'}
+                                className={`p-2 border rounded-lg w-full font-mono text-[11px] leading-relaxed ${themeInput}`}
+                            />
+                            <span className={`text-[10px] ${themeTextDesc}`}>
+                                Ditampilkan di halaman utama, layanan VPS, dan /syarat-ketentuan. Gunakan baris <code className="font-mono">## Judul</code> untuk membuat bagian baru.
+                            </span>
+                        </div>
                     </div>
 
                     <div className="space-y-4 text-xs">
