@@ -4,6 +4,7 @@ export default function AdminNavbar({
     pageTitle,
     theme,
     isMobileMenuOpen,
+    menuButtonRef,
     onOpenMobileMenu,
 }) {
     const {
@@ -20,10 +21,12 @@ export default function AdminNavbar({
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <button
                     type="button"
+                    ref={menuButtonRef}
                     onClick={onOpenMobileMenu}
                     className={`p-1.5 rounded-lg border md:hidden cursor-pointer shrink-0 transition-colors ${themeHeaderBtn}`}
                     aria-label="Buka menu navigasi"
                     aria-expanded={isMobileMenuOpen}
+                    aria-controls="admin-mobile-nav"
                 >
                     <Menu className="w-4 h-4" />
                 </button>

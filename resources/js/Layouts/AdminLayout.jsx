@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 import SeoHead from '../Components/SeoHead';
 import AppFooter from '../Components/AppFooter';
@@ -26,12 +26,18 @@ function AdminLayoutShell({ title, children }) {
     const theme = useAdminTheme();
     const { toasts, setToasts } = useAdminToast();
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const mobileMenuRef = useRef(null);
+    const menuToggleRef = useRef(null);
 
     const activeTab = useMemo(() => resolveActiveTab(pageUrl), [pageUrl]);
 
-    const handleSidebarNavClick = () => {
+    const closeMobileMenu = useCallback(() => {
         setIsMobileMenuOpen(false);
-    };
+    }, []);
+
+    const handleSidebarNavClick = useCallback(() => {
+        closeMobileMenu();
+    }, [closeMobileMenu]);
 
     useEffect(() => {
         const previousBodyOverflow = document.body.style.overflow;
@@ -56,7 +62,7 @@ function AdminLayoutShell({ title, children }) {
 
         const handleEscape = (event) => {
             if (event.key === 'Escape') {
-                setIsMobileMenuOpen(false);
+                closeMobileMenu();
             }
         };
 
@@ -66,6 +72,18 @@ function AdminLayoutShell({ title, children }) {
             document.body.style.overflow = previousOverflow;
             window.removeEventListener('keydown', handleEscape);
         };
+    }, [isMobileMenuOpen, closeMobileMenu]);
+
+    useEffect(() => {
+        if (isMobileMenuOpen || !mobileMenuRef.current) {
+            return;
+        }
+
+        const { activeElement } = document;
+        if (activeElement instanceof HTMLElement && mobileMenuRef.current.contains(activeElement)) {
+            activeElement.blur();
+            menuToggleRef.current?.focus();
+        }
     }, [isMobileMenuOpen]);
 
     const pageTitle = title || branding.display_name || branding.app_name || 'Dashboard';
@@ -91,24 +109,26 @@ function AdminLayoutShell({ title, children }) {
                 </aside>
 
                 <div
+                    ref={mobileMenuRef}
                     className={`fixed inset-0 z-50 md:hidden transition-opacity duration-300 ease-out ${
                         isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
                     }`}
-                    aria-hidden={!isMobileMenuOpen}
+                    inert={isMobileMenuOpen ? undefined : ''}
                 >
                     <div
                         className={`absolute inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-300 ease-out ${
                             isMobileMenuOpen ? 'opacity-100' : 'opacity-0'
                         }`}
-                        onClick={() => setIsMobileMenuOpen(false)}
+                        onClick={closeMobileMenu}
                     />
                     <aside
+                        id="admin-mobile-nav"
                         className={`absolute inset-y-0 left-0 w-[min(16rem,85vw)] flex flex-col shadow-2xl transition-transform duration-300 ease-out will-change-transform ${theme.themeSidebar} ${
                             isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
                         }`}
-                        role="dialog"
-                        aria-modal="true"
-                        aria-label="Menu navigasi"
+                        role={isMobileMenuOpen ? 'dialog' : undefined}
+                        aria-modal={isMobileMenuOpen ? 'true' : undefined}
+                        aria-label={isMobileMenuOpen ? 'Menu navigasi' : undefined}
                     >
                         <AdminSidebar
                             branding={branding}
@@ -123,7 +143,7 @@ function AdminLayoutShell({ title, children }) {
                             isDarkMode={theme.isDarkMode}
                             onNavClick={handleSidebarNavClick}
                             showCloseButton
-                            onClose={() => setIsMobileMenuOpen(false)}
+                            onClose={closeMobileMenu}
                         />
                     </aside>
                 </div>
@@ -134,6 +154,7 @@ function AdminLayoutShell({ title, children }) {
                         pageTitle={pageTitle}
                         theme={theme}
                         isMobileMenuOpen={isMobileMenuOpen}
+                        menuButtonRef={menuToggleRef}
                         onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
                     />
 
