@@ -1227,6 +1227,75 @@ class AdminActionController extends Controller
     }
 
     /**
+     * Preview missed billing periods for backfill.
+     */
+    public function previewBackfillCustomerInvoices(Request $request)
+    {
+        $data = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'due_extension_days' => 'nullable|integer|in:0,3,5,7',
+        ]);
+
+        $customer = Customer::with('package')->findOrFail($data['customer_id']);
+
+        if (VpsCatalogService::isShowcaseCustomer($customer)) {
+            return response()->json(['message' => 'Backfill tagihan tidak tersedia untuk pelanggan VPS showcase.'], 422);
+        }
+
+        try {
+            return response()->json(
+                BillingService::previewBackfillInvoices(
+                    $customer,
+                    (int) ($data['due_extension_days'] ?? 0)
+                )
+            );
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * Generate invoices for all missed billing periods for one customer.
+     */
+    public function backfillCustomerInvoices(Request $request)
+    {
+        $data = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'due_extension_days' => 'nullable|integer|in:0,3,5,7',
+            'send_whatsapp' => 'nullable|boolean',
+        ]);
+
+        $customer = Customer::with('package')->findOrFail($data['customer_id']);
+
+        if (VpsCatalogService::isShowcaseCustomer($customer)) {
+            return redirect()->back()->with('error', 'Backfill tagihan tidak tersedia untuk pelanggan VPS showcase.');
+        }
+
+        try {
+            $result = BillingService::backfillInvoicesForCustomer(
+                $customer,
+                (int) ($data['due_extension_days'] ?? 0),
+                $request->boolean('send_whatsapp')
+            );
+
+            $amount = number_format($result['total_amount'], 0, ',', '.');
+            $waNote = $request->boolean('send_whatsapp')
+                ? " Notifikasi WhatsApp dikirim untuk {$result['whatsapp_sent']} invoice."
+                : '';
+
+            return redirect()->back()->with(
+                'success',
+                "{$result['count']} invoice terlewat berhasil dibuat (total Rp {$amount}).{$waNote}" .
+                (! BillingService::customerHasPastDueUnpaidInvoices($customer->fresh())
+                    ? ' Layanan pelanggan dipulihkan ke status aktif.'
+                    : '')
+            );
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    /**
      * Preview accumulated billing deferral for a customer.
      */
     public function previewBillingDeferral(Request $request)

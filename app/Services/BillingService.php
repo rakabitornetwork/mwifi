@@ -348,8 +348,12 @@ class BillingService
      *
      * @return array{invoice_number: string, customer_name: string, total_amount: float, billing_period: string, due_date: string}|null
      */
-    public static function createInvoiceForCustomer(Customer $customer, string $period, Carbon $dueDate): ?array
-    {
+    public static function createInvoiceForCustomer(
+        Customer $customer,
+        string $period,
+        Carbon $dueDate,
+        bool $sendWhatsApp = true
+    ): ?array {
         if (!$customer->package) {
             return null;
         }
@@ -361,7 +365,7 @@ class BillingService
 
         $result = null;
 
-        DB::transaction(function () use ($customer, $period, $dueDate, $billing, &$result) {
+        DB::transaction(function () use ($customer, $period, $dueDate, $billing, $sendWhatsApp, &$result) {
             $amount = $billing['amount'];
             $taxRate = (float) SettingService::get('system.tax_rate', 0);
             $tax = round($amount * $taxRate, 2);
@@ -382,25 +386,27 @@ class BillingService
                 'status' => 'unpaid',
             ]);
 
-            try {
-                $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_new', [
-                    'customer_name' => $customer->name,
-                    'brand_name' => BrandingService::companyName(),
-                    'period' => self::formatWhatsAppBillingPeriod($period),
-                    'invoice_number' => $invNumber,
-                    'service_type' => strtoupper($customer->service_type),
-                    'username' => $customer->username,
-                    'subtotal' => self::formatWhatsAppMoney($amount),
-                    'prorata_line' => self::buildProrataLine($billing['is_prorated'], (int) $billing['days_billed']),
-                    'total' => self::formatWhatsAppMoney($total),
-                    'due_date' => self::formatWhatsAppDueDate($dueDate),
-                ]);
+            if ($sendWhatsApp) {
+                try {
+                    $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_new', [
+                        'customer_name' => $customer->name,
+                        'brand_name' => BrandingService::companyName(),
+                        'period' => self::formatWhatsAppBillingPeriod($period),
+                        'invoice_number' => $invNumber,
+                        'service_type' => strtoupper($customer->service_type),
+                        'username' => $customer->username,
+                        'subtotal' => self::formatWhatsAppMoney($amount),
+                        'prorata_line' => self::buildProrataLine($billing['is_prorated'], (int) $billing['days_billed']),
+                        'total' => self::formatWhatsAppMoney($total),
+                        'due_date' => self::formatWhatsAppDueDate($dueDate),
+                    ]);
 
-                if (class_exists(\App\Services\WhatsAppService::class)) {
-                    \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
+                    if (class_exists(\App\Services\WhatsAppService::class)) {
+                        \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
+                    }
+                } catch (\Exception $waEx) {
+                    Log::error("Failed to send WhatsApp billing notification for {$customer->username}: " . $waEx->getMessage());
                 }
-            } catch (\Exception $waEx) {
-                Log::error("Failed to send WhatsApp billing notification for {$customer->username}: " . $waEx->getMessage());
             }
 
             $result = [
@@ -923,6 +929,212 @@ class BillingService
         self::reactivateCustomerIfBillingClear($customer);
 
         return $created;
+    }
+
+    /**
+     * Whether a billing period already has invoice coverage (individual or accumulated).
+     */
+    public static function customerHasInvoiceCoverageForPeriod(Customer $customer, string $period): bool
+    {
+        if (!preg_match('/^\d{4}-\d{2}$/', $period)) {
+            return false;
+        }
+
+        if (Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('billing_period', $period)
+            ->exists()) {
+            return true;
+        }
+
+        return Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('is_accumulated', true)
+            ->whereIn('status', ['unpaid', 'paid'])
+            ->get()
+            ->contains(fn (Invoice $invoice) => in_array($period, $invoice->accumulated_periods ?? [], true));
+    }
+
+    /**
+     * Billing periods from first invoice target through the current month that still need invoices.
+     *
+     * @return array<int, string>
+     */
+    public static function resolveMissingBillingPeriods(Customer $customer, ?Carbon $today = null): array
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+        $customer->loadMissing('package');
+
+        if ($customer->service_type !== 'pppoe' || !$customer->package) {
+            return [];
+        }
+
+        $firstTarget = self::resolveFirstInvoiceTarget($customer);
+        $startPeriod = $firstTarget['period'];
+        $endPeriod = $today->format('Y-m');
+        $monthlyPrice = (float) $customer->package->price;
+        $periods = [];
+
+        for ($current = $startPeriod; $current <= $endPeriod; $current = self::addMonthsToPeriod($current, 1)) {
+            if (self::customerHasInvoiceCoverageForPeriod($customer, $current)) {
+                continue;
+            }
+
+            if (self::isPeriodDeferredForCustomer($customer, $current)) {
+                continue;
+            }
+
+            if (self::calculateInvoiceAmount($customer, $current, $monthlyPrice) === null) {
+                continue;
+            }
+
+            $periods[] = $current;
+        }
+
+        return $periods;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function previewBackfillInvoices(
+        Customer $customer,
+        int $dueExtensionDays = 0,
+        ?Carbon $today = null
+    ): array {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+        $customer->loadMissing('package');
+
+        if ($customer->service_type !== 'pppoe') {
+            throw new \InvalidArgumentException('Backfill tagihan hanya untuk pelanggan PPPoE.');
+        }
+
+        if (!in_array($customer->status, ['active', 'isolated'], true)) {
+            throw new \InvalidArgumentException('Status pelanggan harus aktif atau isolir.');
+        }
+
+        if (!$customer->package) {
+            throw new \InvalidArgumentException('Pelanggan belum memiliki paket internet.');
+        }
+
+        if (self::customerHasPendingDeferral($customer)) {
+            throw new \InvalidArgumentException('Pelanggan masih memiliki tunda bayar aktif.');
+        }
+
+        if (!in_array($dueExtensionDays, [0, 3, 5, 7], true)) {
+            throw new \InvalidArgumentException('Perpanjangan jatuh tempo harus 0 (tanpa perpanjangan), 3, 5, atau 7 hari.');
+        }
+
+        $missingPeriods = self::resolveMissingBillingPeriods($customer, $today);
+        $monthlyPrice = (float) $customer->package->price;
+        $lines = [];
+        $amount = 0.0;
+
+        foreach ($missingPeriods as $period) {
+            $billing = self::calculateInvoiceAmount($customer, $period, $monthlyPrice);
+            if ($billing === null) {
+                continue;
+            }
+
+            $dueDate = self::resolveBackfillDueDate($customer, $period, $dueExtensionDays, $today);
+            $lineAmount = round((float) $billing['amount'], 2);
+            $taxRate = (float) SettingService::get('system.tax_rate', 0);
+            $tax = round($lineAmount * $taxRate, 2);
+            $total = round($lineAmount + $tax, 2);
+
+            $lines[] = [
+                'period' => $period,
+                'period_label' => self::parseBillingPeriodMonth($period)->locale('id')->translatedFormat('F Y'),
+                'amount' => $lineAmount,
+                'tax' => $tax,
+                'total_amount' => $total,
+                'days_billed' => $billing['days_billed'],
+                'is_prorated' => $billing['is_prorated'],
+                'due_date' => $dueDate->toDateString(),
+                'due_date_label' => self::formatWhatsAppDueDate($dueDate),
+            ];
+            $amount += $lineAmount;
+        }
+
+        $amount = round($amount, 2);
+        $taxRate = (float) SettingService::get('system.tax_rate', 0);
+        $tax = round($amount * $taxRate, 2);
+        $totalAmount = round($amount + $tax, 2);
+
+        return [
+            'periods' => array_column($lines, 'period'),
+            'period_labels' => array_column($lines, 'period_label'),
+            'count' => count($lines),
+            'amount' => $amount,
+            'tax' => $tax,
+            'total_amount' => $totalAmount,
+            'lines' => $lines,
+        ];
+    }
+
+    /**
+     * Generate invoices for all missed billing periods up to the current month.
+     *
+     * @return array{count: int, invoices: array<int, array<string, mixed>>, total_amount: float, whatsapp_sent: int}
+     */
+    public static function backfillInvoicesForCustomer(
+        Customer $customer,
+        int $dueExtensionDays = 0,
+        bool $sendWhatsApp = false,
+        ?Carbon $today = null
+    ): array {
+        $preview = self::previewBackfillInvoices($customer, $dueExtensionDays, $today);
+
+        if ($preview['count'] === 0) {
+            throw new \InvalidArgumentException('Tidak ada periode tagihan terlewat yang perlu digenerate.');
+        }
+
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+        $created = [];
+
+        foreach ($preview['lines'] as $line) {
+            $period = $line['period'];
+
+            if (self::customerHasInvoiceCoverageForPeriod($customer, $period)) {
+                continue;
+            }
+
+            $dueDate = Carbon::parse($line['due_date'])->startOfDay();
+            $result = self::createInvoiceForCustomer($customer, $period, $dueDate, $sendWhatsApp);
+
+            if ($result !== null) {
+                $created[] = $result;
+            }
+        }
+
+        if ($created === []) {
+            throw new \RuntimeException('Gagal membuat invoice backfill. Periksa periode yang sudah ada.');
+        }
+
+        $customer->refresh();
+        self::reactivateCustomerIfBillingClear($customer);
+
+        return [
+            'count' => count($created),
+            'invoices' => $created,
+            'total_amount' => round((float) array_sum(array_column($created, 'total_amount')), 2),
+            'whatsapp_sent' => $sendWhatsApp ? count($created) : 0,
+        ];
+    }
+
+    private static function resolveBackfillDueDate(
+        Customer $customer,
+        string $period,
+        int $dueExtensionDays,
+        Carbon $today
+    ): Carbon {
+        $dueDate = self::resolveDueDateForPeriod($customer, $period);
+
+        if (($dueDate->isPast() || $dueDate->isToday()) && $dueExtensionDays > 0) {
+            return $today->copy()->addDays($dueExtensionDays)->startOfDay();
+        }
+
+        return $dueDate->copy()->startOfDay();
     }
 
     /**

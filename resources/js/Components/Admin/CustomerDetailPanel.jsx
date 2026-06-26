@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Database, Edit, FileText, RefreshCw } from 'lucide-react';
+import { Database, Edit, FileText, History, RefreshCw } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatRupiah';
 import { formatBytes, quotaUsagePercent } from '../../utils/formatBytes';
-import { formatDateInputValue, formatDisplayDate } from '../../utils/formatDateInputValue';
+import { formatDisplayDate } from '../../utils/formatDateInputValue';
 
 function formatDate(value) {
-    const formatted = formatDateInputValue(value);
-    return formatted || '—';
+    return formatDisplayDate(value);
 }
 
 function statusMeta(status) {
@@ -66,6 +65,8 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
     const [isLoadingQuota, setIsLoadingQuota] = useState(true);
     const [quotaError, setQuotaError] = useState(null);
     const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
+    const [isBackfilling, setIsBackfilling] = useState(false);
+    const [sendBackfillWhatsApp, setSendBackfillWhatsApp] = useState(false);
     const [dueExtensionDays, setDueExtensionDays] = useState('0');
 
     const themeInput = isDarkMode
@@ -85,7 +86,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                 : null;
 
     const handleGenerateInvoice = () => {
-        if (!canGenerateManualInvoice || isGeneratingInvoice) {
+        if (!canGenerateManualInvoice || isBillingActionBusy) {
             return;
         }
 
@@ -110,6 +111,71 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
             onFinish: () => setIsGeneratingInvoice(false),
         });
     };
+
+    const handleBackfillInvoices = async () => {
+        if (!canGenerateManualInvoice || isGeneratingInvoice || isBackfilling) {
+            return;
+        }
+
+        setIsBackfilling(true);
+
+        try {
+            const response = await fetch('/admin/invoices/backfill-preview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    customer_id: customer.id,
+                    due_extension_days: Number(dueExtensionDays),
+                }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Gagal memuat preview tagihan terlewat.');
+            }
+
+            if (!data.count) {
+                alert('Tidak ada periode tagihan terlewat yang perlu digenerate untuk pelanggan ini.');
+                setIsBackfilling(false);
+                return;
+            }
+
+            const periodLines = (data.lines || [])
+                .map((line) => `• ${line.period_label}: ${formatRupiah(line.total_amount)} (jatuh tempo ${line.due_date_label})`)
+                .join('\n');
+            const waNote = sendBackfillWhatsApp
+                ? `\n\nNotifikasi WhatsApp akan dikirim untuk ${data.count} invoice (mengikuti pengaturan jeda bulk).`
+                : '\n\nNotifikasi WhatsApp tidak akan dikirim.';
+
+            if (!confirm(
+                `Generate ${data.count} tagihan terlewat untuk ${customer.name}?\n\n` +
+                `${periodLines}\n\n` +
+                `Total: ${formatRupiah(data.total_amount)}${waNote}`
+            )) {
+                setIsBackfilling(false);
+                return;
+            }
+
+            router.post('/admin/invoices/backfill-customer', {
+                customer_id: customer.id,
+                due_extension_days: Number(dueExtensionDays),
+                send_whatsapp: sendBackfillWhatsApp,
+            }, {
+                preserveScroll: true,
+                onFinish: () => setIsBackfilling(false),
+            });
+        } catch (error) {
+            alert(error?.message || 'Gagal memuat preview tagihan terlewat.');
+            setIsBackfilling(false);
+        }
+    };
+
+    const isBillingActionBusy = isGeneratingInvoice || isBackfilling;
 
     const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const status = statusMeta(customer.status);
@@ -295,7 +361,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                                     id={`due-extension-${customer.id}`}
                                     value={dueExtensionDays}
                                     onChange={(e) => setDueExtensionDays(e.target.value)}
-                                    disabled={!canGenerateManualInvoice || isGeneratingInvoice}
+                                    disabled={!canGenerateManualInvoice || isBillingActionBusy}
                                     className={`w-full px-2 py-1.5 border rounded-lg text-[10px] font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 ${themeInput}`}
                                 >
                                     <option value="0">Tanpa perpanjangan (jatuh tempo normal)</option>
@@ -307,16 +373,16 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                             <button
                                 type="button"
                                 onClick={handleGenerateInvoice}
-                                disabled={!canGenerateManualInvoice || isGeneratingInvoice}
+                                disabled={!canGenerateManualInvoice || isBillingActionBusy}
                                 title={
                                     generateInvoiceDisabledReason
                                         ? generateInvoiceDisabledReason
-                                        : isGeneratingInvoice
-                                            ? 'Membuat invoice...'
+                                        : isBillingActionBusy
+                                            ? 'Memproses tagihan...'
                                             : 'Generate tagihan manual untuk pelanggan ini'
                                 }
                                 className={`inline-flex w-full items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
-                                    canGenerateManualInvoice && !isGeneratingInvoice
+                                    canGenerateManualInvoice && !isBillingActionBusy
                                         ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 cursor-pointer'
                                         : isDarkMode
                                             ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40 cursor-not-allowed opacity-60'
@@ -330,9 +396,47 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                                 )}
                                 <span className="text-center">Generate Tagihan Manual</span>
                             </button>
+                            <label className={`flex items-start gap-2 text-[10px] leading-relaxed cursor-pointer ${themeTextDesc}`}>
+                                <input
+                                    type="checkbox"
+                                    checked={sendBackfillWhatsApp}
+                                    onChange={(e) => setSendBackfillWhatsApp(e.target.checked)}
+                                    disabled={!canGenerateManualInvoice || isBillingActionBusy}
+                                    className="mt-0.5 rounded border-zinc-400"
+                                />
+                                <span>Kirim notifikasi WhatsApp saat generate tagihan terlewat (mengikuti jeda bulk gateway)</span>
+                            </label>
+                            <button
+                                type="button"
+                                onClick={handleBackfillInvoices}
+                                disabled={!canGenerateManualInvoice || isBillingActionBusy}
+                                title={
+                                    generateInvoiceDisabledReason
+                                        ? generateInvoiceDisabledReason
+                                        : isBillingActionBusy
+                                            ? 'Memproses tagihan...'
+                                            : 'Generate semua tagihan bulan terlewat sejak mulai layanan'
+                                }
+                                className={`inline-flex w-full items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
+                                    canGenerateManualInvoice && !isBillingActionBusy
+                                        ? 'bg-indigo-500 hover:bg-indigo-600 text-white border-indigo-500 cursor-pointer'
+                                        : isDarkMode
+                                            ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40 cursor-not-allowed opacity-60'
+                                            : 'border-zinc-200 text-zinc-400 bg-zinc-100 cursor-not-allowed opacity-70'
+                                }`}
+                            >
+                                {isBackfilling ? (
+                                    <RefreshCw className="w-3.5 h-3.5 shrink-0 animate-spin" />
+                                ) : (
+                                    <History className="w-3.5 h-3.5 shrink-0" />
+                                )}
+                                <span className="text-center">Generate Tagihan Terlewat</span>
+                            </button>
                         </div>
                         <p className={`text-[10px] leading-relaxed break-words ${themeTextDesc}`}>
-                            Pilih perpanjangan hanya jika jatuh tempo periode sudah lewat dan Anda ingin memberi waktu bayar tambahan. Untuk tunda bayar lebih lama, gunakan Tunda Bayar di menu Tagihan / Billing.
+                            <span className="font-semibold">Manual</span> membuat satu invoice periode berjalan.{' '}
+                            <span className="font-semibold">Terlewat</span> mengisi semua bulan yang belum punya invoice sejak mulai layanan hingga bulan ini.
+                            Pilih perpanjangan jika jatuh tempo sudah lewat. Untuk tunda bayar lebih lama, gunakan Tunda Bayar di menu Tagihan.
                         </p>
                         {generateInvoiceDisabledReason && (
                             <p className={`text-[10px] leading-relaxed break-words ${themeTextDesc}`}>{generateInvoiceDisabledReason}</p>

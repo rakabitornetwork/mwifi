@@ -165,6 +165,8 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::post('admin/invoices/void-payment', [\App\Http\Controllers\Admin\AdminActionController::class, 'voidInvoicePayment']);
     Route::post('admin/invoices/generate', [\App\Http\Controllers\Admin\AdminActionController::class, 'generateInvoices']);
     Route::post('admin/invoices/generate-customer', [\App\Http\Controllers\Admin\AdminActionController::class, 'generateCustomerInvoice']);
+    Route::post('admin/invoices/backfill-preview', [\App\Http\Controllers\Admin\AdminActionController::class, 'previewBackfillCustomerInvoices']);
+    Route::post('admin/invoices/backfill-customer', [\App\Http\Controllers\Admin\AdminActionController::class, 'backfillCustomerInvoices']);
     Route::post('admin/billing/defer/preview', [\App\Http\Controllers\Admin\AdminActionController::class, 'previewBillingDeferral']);
     Route::post('admin/billing/defer', [\App\Http\Controllers\Admin\AdminActionController::class, 'createBillingDeferral']);
     Route::post('admin/billing/defer/cancel', [\App\Http\Controllers\Admin\AdminActionController::class, 'cancelBillingDeferral']);
