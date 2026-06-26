@@ -143,11 +143,7 @@ export default function CustomerDashboard({
         { id: 'alfamart', label: 'Alfamart' }
     ] : [];
 
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '-';
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-    };
+    const formatDate = (dateStr) => formatDisplayDate(dateStr);
 
     return (
         <>
@@ -518,7 +514,7 @@ export default function CustomerDashboard({
                                                                         <span className="font-mono font-bold">{inv.next_billing.period}</span>
                                                                         <span className="font-bold text-cyan-500">{formatRupiah(inv.next_billing.total_amount)}</span>
                                                                         <span className={`text-[10px] ${themeTextDesc}`}>
-                                                                            Jatuh tempo {inv.next_billing.due_date?.substring?.(0, 10) || '-'}
+                                                                            Jatuh tempo {formatDisplayDate(inv.next_billing.due_date)}
                                                                         </span>
                                                                     </div>
                                                                 ) : (

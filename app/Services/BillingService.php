@@ -552,6 +552,18 @@ class BillingService
     }
 
     /**
+     * Serialize a calendar date for API/frontend without UTC timezone shift.
+     */
+    public static function formatDateOnly(mixed $date): ?string
+    {
+        if ($date === null || $date === '') {
+            return null;
+        }
+
+        return Carbon::parse($date)->timezone(config('app.timezone', 'Asia/Jakarta'))->format('Y-m-d');
+    }
+
+    /**
      * @param \Illuminate\Support\Collection<int, Invoice>|\Illuminate\Database\Eloquent\Collection<int, Invoice> $invoices
      * @return array<int, array<string, mixed>>
      */
@@ -566,6 +578,8 @@ class BillingService
 
         return $invoices->map(function (Invoice $invoice) use ($pendingDeferralsByCustomer) {
             $data = $invoice->toArray();
+            $data['due_date'] = self::formatDateOnly($invoice->due_date);
+
             if ($invoice->status === 'paid') {
                 $data['next_billing'] = self::resolveNextBillingPreview($invoice);
                 $data['can_void_payment'] = self::canVoidPaidInvoice($invoice);

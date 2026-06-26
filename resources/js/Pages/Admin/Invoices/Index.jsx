@@ -11,7 +11,7 @@ import { useAssignedRouter, resolveDefaultRouterId } from '../../../hooks/useAss
 import AssignedRouterFilter from '../../../Components/Admin/AssignedRouterFilter';
 import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import { formatRupiah } from '../../../utils/formatRupiah';
-import { formatDisplayDate } from '../../../utils/formatDateInputValue';
+import { formatDateInputValue, formatDisplayDate } from '../../../utils/formatDateInputValue';
 import getVisiblePages from '../../../utils/getVisiblePages';
 
 function formatTimeAgo(isoString) {
@@ -411,7 +411,7 @@ function InvoicesPageContent({
                     .filter((inv) => inv.status === 'unpaid')
                     .sort((a, b) => String(a.due_date || '').localeCompare(String(b.due_date || '')));
                 const overdueInvoice = unpaidInvoices.find(
-                    (inv) => inv.due_date && inv.due_date.substring(0, 10) < today
+                    (inv) => inv.due_date && formatDateInputValue(inv.due_date) < today
                 );
 
                 return {
@@ -461,7 +461,7 @@ function InvoicesPageContent({
             customerName.includes(term) ||
             customerUsername.includes(term) ||
             inv.billing_period?.toLowerCase().includes(term) ||
-            inv.due_date?.substring(0, 10).includes(term) ||
+            formatDateInputValue(inv.due_date).includes(term) ||
             statusLabel.includes(term) ||
             amountText.includes(term)
         );
@@ -700,7 +700,7 @@ function InvoicesPageContent({
                                                     Tagihan tertunggak:{' '}
                                                     <span className="font-mono font-bold">{customer.unpaidInvoice.invoice_number}</span>
                                                     {' · '}{formatRupiah(customer.unpaidInvoice.total_amount || 0)}
-                                                    {' · '}jatuh tempo {customer.unpaidInvoice.due_date?.substring?.(0, 10) || '—'}
+                                                    {' · '}jatuh tempo {formatDisplayDate(customer.unpaidInvoice.due_date)}
                                                 </p>
                                             ) : (
                                                 <p className="text-[10px] text-amber-500 font-bold">
@@ -853,7 +853,7 @@ function InvoicesPageContent({
                                         </div>
                                     </td>
                                     <td className="py-3 px-2 font-bold text-emerald-500">{formatRupiah(inv.total_amount)}</td>
-                                    <td className="py-3 px-2 font-mono">{inv.due_date ? inv.due_date.substring(0, 10) : '-'}</td>
+                                    <td className="py-3 px-2 font-mono">{formatDisplayDate(inv.due_date)}</td>
                                     <td className="py-3 px-2">
                                         {(() => {
                                             const isDeferredPending = inv.status === 'canceled' && inv.is_deferred_by_pending;
@@ -892,7 +892,7 @@ function InvoicesPageContent({
                                                 <span className={`font-mono font-bold ${theme.themeTextTitle}`}>{inv.next_billing.period}</span>
                                                 <span className="font-bold text-cyan-500">{formatRupiah(inv.next_billing.total_amount)}</span>
                                                 <span className={`text-[10px] ${theme.themeTextDesc}`}>
-                                                    Jatuh tempo {inv.next_billing.due_date?.substring?.(0, 10) || '-'}
+                                                    Jatuh tempo {formatDisplayDate(inv.next_billing.due_date)}
                                                 </span>
                                                 {inv.next_billing.is_prorated && (
                                                     <span className="text-[10px] text-amber-500 font-bold">Prorata {inv.next_billing.days_billed}/30</span>
