@@ -136,11 +136,6 @@ class BillingService
     public static function resolveNextDueDateFrom(Customer $customer, Carbon $fromDate): Carbon
     {
         $fromDate = $fromDate->copy()->startOfDay();
-        $anchor = self::resolveBillingAnchorDate($customer);
-
-        if ($anchor->gte($fromDate)) {
-            return $anchor->copy();
-        }
 
         $candidate = self::resolveDueDateForPeriod($customer, $fromDate->format('Y-m'));
 

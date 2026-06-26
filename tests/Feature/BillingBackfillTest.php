@@ -249,4 +249,53 @@ class BillingBackfillTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    public function test_backfill_includes_all_periods_when_billing_date_is_future_anchor(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-26'));
+
+        $user = User::factory()->create();
+        $router = Router::create([
+            'name' => 'Router Test',
+            'host' => '127.0.0.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'protocol_type' => 'legacy_socket',
+            'status' => false,
+        ]);
+        $package = Package::create([
+            'name' => 'Paket 100K',
+            'type' => 'pppoe',
+            'price' => 100000,
+            'bandwidth_limit' => '10M/10M',
+            'mikrotik_profile' => '10M',
+        ]);
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'router_id' => $router->id,
+            'package_id' => $package->id,
+            'service_type' => 'pppoe',
+            'username' => 'cust_' . uniqid(),
+            'password' => 'pass',
+            'name' => 'Pelanggan Cimet',
+            'phone_number' => '6281234567890',
+            'address' => 'Alamat test',
+            'status' => 'active',
+            'billing_date' => '2026-06-25',
+            'service_start_date' => '2025-12-26',
+        ]);
+
+        $periods = BillingService::resolveMissingBillingPeriods($customer);
+
+        $this->assertSame(
+            ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06'],
+            $periods
+        );
+
+        $preview = BillingService::previewBackfillInvoices($customer, 0);
+        $this->assertSame(6, $preview['count']);
+
+        Carbon::setTestNow();
+    }
 }
