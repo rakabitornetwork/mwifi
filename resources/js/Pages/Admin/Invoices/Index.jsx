@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
-import { Activity, CalendarClock, CreditCard, FileText, MessageSquare, PauseCircle, Printer, RefreshCw, RotateCcw, Search, ShieldOff, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
+import { Activity, CalendarClock, CreditCard, FileText, HelpCircle, MessageSquare, PauseCircle, Printer, RefreshCw, RotateCcw, Search, ShieldOff, Trash2, Undo2, Wallet, X, XCircle } from 'lucide-react';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
@@ -137,6 +137,7 @@ function InvoicesPageContent({
     const [deferPreview, setDeferPreview] = useState(null);
     const [deferPreviewLoading, setDeferPreviewLoading] = useState(false);
     const [deferPreviewError, setDeferPreviewError] = useState('');
+    const [openDeferralDetailId, setOpenDeferralDetailId] = useState(null);
     const [isSubmittingDefer, setIsSubmittingDefer] = useState(false);
     const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
     const [isSubmittingBulkPay, setIsSubmittingBulkPay] = useState(false);
@@ -197,7 +198,19 @@ function InvoicesPageContent({
     useEffect(() => {
         setInvoicePage(1);
         setSelectedInvoiceIds([]);
+        setOpenDeferralDetailId(null);
     }, [searchTerm, statusFilter, routerFilter]);
+
+    useEffect(() => {
+        if (!openDeferralDetailId) {
+            return undefined;
+        }
+
+        const handleClick = () => setOpenDeferralDetailId(null);
+        document.addEventListener('click', handleClick);
+
+        return () => document.removeEventListener('click', handleClick);
+    }, [openDeferralDetailId]);
 
     useEffect(() => {
         if (!showDeferModal || !deferCustomerId) {
@@ -655,6 +668,90 @@ function InvoicesPageContent({
                         <option value="expired">Kedaluwarsa</option>
                     </select>
                 </div>
+
+                {visiblePendingDeferrals.length > 0 && (
+                    <div className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2 rounded-xl border text-[10px] ${theme.isDarkMode ? 'border-indigo-500/20 bg-indigo-950/20' : 'border-indigo-200 bg-indigo-50/70'}`}>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            <CalendarClock className="w-3.5 h-3.5 text-indigo-500" />
+                            <span className={`font-bold uppercase tracking-wide ${theme.themeTextTitle}`}>Penundaan Aktif</span>
+                            <span className={`font-bold px-1.5 py-0.5 rounded-full ${theme.isDarkMode ? 'bg-indigo-500/15 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>
+                                {visiblePendingDeferrals.length}
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+                            {visiblePendingDeferrals.map((deferral) => (
+                                <div
+                                    key={deferral.id}
+                                    className={`relative inline-flex items-center gap-1 px-2 py-1 rounded-lg border ${themeInnerWidget}`}
+                                >
+                                    <span className={`font-bold truncate max-w-[9rem] ${theme.themeTextTitle}`}>
+                                        {deferral.customer_name}
+                                    </span>
+                                    <span className={`${theme.themeTextDesc} hidden sm:inline`}>·</span>
+                                    <span className={`font-mono shrink-0 ${theme.themeTextSub} hidden sm:inline`}>
+                                        {formatDisplayDate(deferral.combined_due_date)}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setOpenDeferralDetailId((prev) => (
+                                                prev === deferral.id ? null : deferral.id
+                                            ));
+                                        }}
+                                        title="Detail penundaan"
+                                        className={`p-0.5 rounded-md cursor-pointer transition-colors ${openDeferralDetailId === deferral.id ? 'text-indigo-500' : theme.themeTextDesc} hover:text-indigo-500`}
+                                    >
+                                        <HelpCircle className="w-3.5 h-3.5" />
+                                    </button>
+                                    {openDeferralDetailId === deferral.id && (
+                                        <div
+                                            role="dialog"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className={`absolute left-0 top-full z-30 mt-1.5 w-[min(18rem,calc(100vw-2rem))] p-3 rounded-xl border shadow-xl text-[10px] space-y-1.5 ${theme.isDarkMode ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'}`}
+                                        >
+                                            <p className={`font-bold ${theme.themeTextTitle}`}>
+                                                {deferral.customer_name}{' '}
+                                                <span className="font-mono opacity-70">({deferral.customer_username})</span>
+                                            </p>
+                                            <p className={theme.themeTextSub}>
+                                                Akumulasi {(deferral.periods || []).join(' + ')} · {deferral.months_count} bulan
+                                            </p>
+                                            <p className={theme.themeTextDesc}>
+                                                Jatuh tempo gabungan:{' '}
+                                                <span className="font-mono font-bold">{deferral.combined_due_date}</span>
+                                                {' · '}Estimasi {formatRupiah(deferral.estimated_total_amount || 0)}
+                                            </p>
+                                            {deferral.status === 'pending' && deferral.accumulated_generate_on && (
+                                                <p className={theme.themeTextDesc}>
+                                                    Invoice akumulasi terbit otomatis pada{' '}
+                                                    <span className="font-mono font-bold">{deferral.accumulated_generate_on}</span>.
+                                                </p>
+                                            )}
+                                            {deferral.notes && (
+                                                <p className={theme.themeTextDesc}>Catatan: {deferral.notes}</p>
+                                            )}
+                                            {canWrite && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setOpenDeferralDetailId(null);
+                                                        handleCancelDeferral(deferral);
+                                                    }}
+                                                    className="mt-1 inline-flex items-center gap-1 text-rose-500 hover:text-rose-400 font-bold cursor-pointer"
+                                                >
+                                                    <XCircle className="w-3.5 h-3.5" />
+                                                    Batalkan penundaan
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {statusFilter === 'unpaid' && (
                     <p className={`text-[10px] ${theme.themeTextSub}`}>
                         Menampilkan <span className="font-bold text-rose-500">{displayInvoices.length}</span> invoice belum bayar
@@ -724,59 +821,6 @@ function InvoicesPageContent({
                     <div className={`rounded-xl border px-3 py-2.5 text-[10px] ${theme.isDarkMode ? 'border-amber-500/25 bg-amber-500/5 text-amber-200' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
                         Tidak ada pelanggan terisolir{routerFilter && selectedRouter ? ` di ${selectedRouter.name}` : ''}.
                         {routerFilter && !isRouterScoped && ' Coba pilih "Semua Router" pada filter.'}
-                    </div>
-                )}
-
-                {visiblePendingDeferrals.length > 0 && (
-                    <div className={`border rounded-xl p-4 space-y-3 ${theme.isDarkMode ? 'border-indigo-500/20 bg-indigo-950/20' : 'border-indigo-200 bg-indigo-50/70'}`}>
-                        <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center space-x-2">
-                                <CalendarClock className="w-4 h-4 text-indigo-500" />
-                                <h3 className={`text-xs font-bold uppercase tracking-wider ${theme.themeTextTitle}`}>Penundaan Tagihan Aktif</h3>
-                            </div>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${theme.isDarkMode ? 'bg-indigo-500/15 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>
-                                {visiblePendingDeferrals.length} pelanggan
-                            </span>
-                        </div>
-                        <div className="space-y-2">
-                            {visiblePendingDeferrals.map((deferral) => (
-                                <div key={deferral.id} className={`p-3 border rounded-xl text-xs ${themeInnerWidget}`}>
-                                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                                        <div className="space-y-1">
-                                            <p className={`font-bold ${theme.themeTextTitle}`}>
-                                                {deferral.customer_name} <span className="font-mono text-[10px] opacity-70">({deferral.customer_username})</span>
-                                            </p>
-                                            <p className={theme.themeTextSub}>
-                                                Akumulasi {(deferral.periods || []).join(' + ')} · {deferral.months_count} bulan
-                                            </p>
-                                            <p className={theme.themeTextDesc}>
-                                                Jatuh tempo gabungan: <span className="font-mono font-bold">{deferral.combined_due_date}</span>
-                                                {' · '}Estimasi {formatRupiah(deferral.estimated_total_amount || 0)}
-                                            </p>
-                                            {deferral.status === 'pending' && deferral.accumulated_generate_on && (
-                                                <p className={`text-[10px] ${theme.themeTextDesc}`}>
-                                                    Invoice akumulasi terbit otomatis pada{' '}
-                                                    <span className="font-mono font-bold">{deferral.accumulated_generate_on}</span>.
-                                                </p>
-                                            )}
-                                            {deferral.notes && (
-                                                <p className={`text-[10px] ${theme.themeTextDesc}`}>Catatan: {deferral.notes}</p>
-                                            )}
-                                        </div>
-                                        {canWrite && (
-                                        <button
-                                            type="button"
-                                            onClick={() => handleCancelDeferral(deferral)}
-                                            title="Batalkan Penundaan"
-                                            className="shrink-0 inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
-                                        >
-                                            <XCircle className="w-4 h-4" />
-                                        </button>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
                     </div>
                 )}
 
