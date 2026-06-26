@@ -518,6 +518,116 @@ class VpsCatalogService
     }
 
     /**
+     * Konteks tampilan cetak invoice VPS (selaras dengan portal showcase).
+     *
+     * @return ?array{
+     *     period_label: string,
+     *     package_label: string,
+     *     package_specs: ?string,
+     *     item_description: string,
+     *     item_period: string,
+     *     customer_lines: list<array{label: ?string, value: string}>,
+     *     hide_next_billing: bool
+     * }
+     */
+    public static function invoicePrintPresentation(Invoice $invoice, ?Customer $customer = null): ?array
+    {
+        if (! self::isVpsInvoice($invoice)) {
+            return null;
+        }
+
+        $customer ??= $invoice->customer;
+        $plan = self::planFromInvoice($invoice);
+        $periodAnchor = $invoice->paid_at ?? $invoice->created_at ?? now();
+        $periodAnchor = Carbon::parse($periodAnchor)->timezone(config('app.timezone', 'Asia/Jakarta'));
+
+        $periodLabel = $plan
+            ? $plan['name'] . ' · ' . $periodAnchor->locale('id')->translatedFormat('M Y')
+            : 'Sewa VPS Cloud';
+
+        $specParts = $plan
+            ? array_values(array_filter([
+                $plan['cpu'] ?? '',
+                $plan['ram'] ?? '',
+                $plan['storage'] ?? '',
+                $plan['bandwidth'] ?? '',
+            ]))
+            : [];
+
+        $customerLines = self::invoicePrintCustomerLines($invoice, $customer, $plan);
+
+        return [
+            'period_label' => $periodLabel,
+            'package_label' => $plan['name'] ?? 'VPS Cloud',
+            'package_specs' => $specParts !== [] ? implode(' · ', $specParts) : null,
+            'item_description' => self::itemLabelForInvoice($invoice),
+            'item_period' => $periodLabel,
+            'customer_lines' => $customerLines,
+            'hide_next_billing' => true,
+        ];
+    }
+
+    /**
+     * @param  ?array{id: string, name: string, cpu: string, ram: string, storage: string, bandwidth: string, price: int, description: string, featured: bool}  $plan
+     * @return list<array{label: ?string, value: string}>
+     */
+    protected static function invoicePrintCustomerLines(Invoice $invoice, ?Customer $customer, ?array $plan): array
+    {
+        if ($customer && self::isShowcaseCustomer($customer)) {
+            $showcase = self::showcasePortalData($customer);
+
+            return [
+                ['label' => null, 'value' => $showcase['customer']['name']],
+                ['label' => 'Server ID', 'value' => $showcase['customer']['server_id']],
+                ['label' => 'Kontak', 'value' => $showcase['customer']['phone_number']],
+                ['label' => 'Wilayah', 'value' => $showcase['customer']['region']],
+            ];
+        }
+
+        $lines = [
+            ['label' => null, 'value' => (string) ($customer?->name ?? '-')],
+        ];
+
+        if ($customer?->phone_number) {
+            $lines[] = ['label' => 'Telp', 'value' => (string) $customer->phone_number];
+        }
+
+        if ($plan) {
+            $lines[] = ['label' => 'Layanan', 'value' => $plan['name']];
+        } elseif ($customer?->username) {
+            $lines[] = ['label' => 'Username', 'value' => (string) $customer->username];
+        }
+
+        if ($customer?->address) {
+            $lines[] = ['label' => null, 'value' => (string) $customer->address];
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @param  array<string, mixed>  $viewData
+     * @return array<string, mixed>
+     */
+    public static function mergeInvoicePrintViewData(array $viewData): array
+    {
+        $invoice = $viewData['invoice'] ?? null;
+
+        if (! $invoice instanceof Invoice) {
+            return $viewData;
+        }
+
+        $customer = $viewData['customer'] ?? $invoice->customer;
+        $presentation = self::invoicePrintPresentation($invoice, $customer instanceof Customer ? $customer : null);
+
+        if ($presentation !== null) {
+            $viewData['invoicePresentation'] = $presentation;
+        }
+
+        return $viewData;
+    }
+
+    /**
      * Label item transaksi untuk payment gateway (Duitku, Midtrans, Tripay).
      *
      * @return array{name: string, id: string, product_details: string}

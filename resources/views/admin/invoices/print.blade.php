@@ -380,19 +380,45 @@
             <div class="info-grid">
                 <div class="info-block">
                     <h2>Tagihan Kepada</h2>
-                    <p class="strong">{{ $customer->name ?? '-' }}</p>
-                    <p>Username: {{ $customer->username ?? '-' }}</p>
-                    @if(!empty($customer->phone_number))<p>Telp: {{ $customer->phone_number }}</p>@endif
-                    @if(!empty($customer->address))<p>{{ $customer->address }}</p>@endif
+                    @if(!empty($invoicePresentation))
+                        @foreach($invoicePresentation['customer_lines'] as $line)
+                            @if($line['label'])
+                                <p>{{ $line['label'] }}: <span class="strong">{{ $line['value'] }}</span></p>
+                            @else
+                                <p class="strong">{{ $line['value'] }}</p>
+                            @endif
+                        @endforeach
+                    @else
+                        <p class="strong">{{ $customer->name ?? '-' }}</p>
+                        <p>Username: {{ $customer->username ?? '-' }}</p>
+                        @if(!empty($customer->phone_number))<p>Telp: {{ $customer->phone_number }}</p>@endif
+                        @if(!empty($customer->address))<p>{{ $customer->address }}</p>@endif
+                    @endif
                 </div>
                 <div class="info-block">
                     <h2>Detail Tagihan</h2>
-                    <p>Periode: <strong>{{ $invoice->billing_period }}</strong></p>
+                    <p>Periode: <strong>{{ $invoicePresentation['period_label'] ?? $invoice->billing_period }}</strong></p>
                     <p>Jatuh Tempo: <strong>{{ $formatDate($invoice->due_date) }}</strong></p>
                     @if($isPaid && $invoice->paid_at)
                         <p>Tgl Lunas: <strong>{{ $formatDate($invoice->paid_at) }}</strong></p>
                     @endif
-                    @if($package)
+                    @if($isPaid && !empty($latestPayment))
+                        @php
+                            $paymentMethod = \App\Services\BillingService::formatPaymentMethodLabel(
+                                $latestPayment->payment_method,
+                                $latestPayment->gateway_name
+                            );
+                        @endphp
+                        @if($paymentMethod)
+                            <p>Bayar: <strong>{{ $paymentMethod }}</strong></p>
+                        @endif
+                    @endif
+                    @if(!empty($invoicePresentation))
+                        <p>Paket: <strong>{{ $invoicePresentation['package_label'] }}</strong></p>
+                        @if(!empty($invoicePresentation['package_specs']))
+                            <p>Spesifikasi: <strong>{{ $invoicePresentation['package_specs'] }}</strong></p>
+                        @endif
+                    @elseif($package)
                         <p>Paket: <strong>{{ $package->name }}</strong></p>
                     @endif
                 </div>
@@ -409,14 +435,18 @@
                 <tbody>
                     <tr>
                         <td>
-                            Tagihan Internet
-                            @if($invoice->is_prorated)
-                                (Prorata {{ $invoice->days_billed }}/30 hari)
+                            @if(!empty($invoicePresentation))
+                                {{ $invoicePresentation['item_description'] }}
                             @else
-                                (Penuh 30 hari)
+                                Tagihan Internet
+                                @if($invoice->is_prorated)
+                                    (Prorata {{ $invoice->days_billed }}/30 hari)
+                                @else
+                                    (Penuh 30 hari)
+                                @endif
                             @endif
                         </td>
-                        <td>{{ $invoice->billing_period }}</td>
+                        <td>{{ $invoicePresentation['item_period'] ?? $invoice->billing_period }}</td>
                         <td class="num">{{ $formatMoney($invoice->amount) }}</td>
                     </tr>
                     @if((float) $invoice->tax > 0)
@@ -446,7 +476,7 @@
                 </div>
             </div>
 
-            @if($isPaid && !empty($nextBilling))
+            @if($isPaid && !empty($nextBilling) && empty($invoicePresentation['hide_next_billing'] ?? false))
                 <div class="next-box">
                     <h3>Tagihan Selanjutnya</h3>
                     <p>

@@ -2883,7 +2883,7 @@ class AdminActionController extends Controller
         $invoice->load(['customer.package', 'payments']);
         $position = $request->query('position', 'top');
 
-        return [
+        return VpsCatalogService::mergeInvoicePrintViewData([
             'invoice' => $invoice,
             'customer' => $invoice->customer,
             'package' => $invoice->customer?->package,
@@ -2893,7 +2893,7 @@ class AdminActionController extends Controller
             'latestPayment' => $invoice->payments->sortByDesc('created_at')->first(),
             'position' => $position,
             'branding' => BrandingService::get(),
-        ];
+        ]);
     }
 
     /**

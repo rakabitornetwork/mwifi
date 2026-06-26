@@ -88,6 +88,8 @@ class CustomerPortalController extends Controller
             'branding' => BrandingService::get(),
         ];
 
+        $data = VpsCatalogService::mergeInvoicePrintViewData($data);
+
         return match ($format) {
             'a4' => view('admin.invoices.print-a4', $data),
             'thermal' => view('admin.invoices.print-thermal', $data),
