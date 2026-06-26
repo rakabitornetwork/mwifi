@@ -560,42 +560,44 @@ export default function CustomerDashboard({
                 </main>
 
                 {(branding.company_name || branding.company_phone || branding.company_email || branding.company_address) && (
-                    <footer className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-4 border-t ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>
-                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 text-xs">
-                            <div className="min-w-0 flex-1">
-                                <BrandingCompanyName as="p" className={`font-bold ${themeTextTitle}`}>
-                                    {branding.company_name || branding.app_name}
-                                </BrandingCompanyName>
-                                <BrandingTagline as="p" lines={3} className={`${themeTextSub} mt-0.5`}>
-                                    {branding.company_tagline}
-                                </BrandingTagline>
+                    <footer className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+                        <div className={`border-t pt-4 ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 text-xs">
+                                <div className="min-w-0 flex-1">
+                                    <BrandingCompanyName as="p" className={`font-bold ${themeTextTitle}`}>
+                                        {branding.company_name || branding.app_name}
+                                    </BrandingCompanyName>
+                                    <BrandingTagline as="p" lines={3} className={`${themeTextSub} mt-0.5`}>
+                                        {branding.company_tagline}
+                                    </BrandingTagline>
+                                </div>
+                                <div className={`space-y-1.5 ${themeTextSub}`}>
+                                    {branding.company_phone && (
+                                        <p className="flex items-center gap-1.5">
+                                            <Phone className="w-3 h-3 shrink-0" />
+                                            {branding.company_phone}
+                                        </p>
+                                    )}
+                                    {branding.company_email && (
+                                        <p className="flex items-center gap-1.5">
+                                            <Mail className="w-3 h-3 shrink-0" />
+                                            {branding.company_email}
+                                        </p>
+                                    )}
+                                    {branding.company_address && (
+                                        <p className="flex items-start gap-1.5">
+                                            <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
+                                            {branding.company_address}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                            <div className={`space-y-1.5 ${themeTextSub}`}>
-                                {branding.company_phone && (
-                                    <p className="flex items-center gap-1.5">
-                                        <Phone className="w-3 h-3 shrink-0" />
-                                        {branding.company_phone}
-                                    </p>
-                                )}
-                                {branding.company_email && (
-                                    <p className="flex items-center gap-1.5">
-                                        <Mail className="w-3 h-3 shrink-0" />
-                                        {branding.company_email}
-                                    </p>
-                                )}
-                                {branding.company_address && (
-                                    <p className="flex items-start gap-1.5">
-                                        <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
-                                        {branding.company_address}
-                                    </p>
-                                )}
-                            </div>
+                            <AppFooter
+                                branding={branding}
+                                className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'} text-center`}
+                                textClassName={`text-xs sm:text-sm leading-relaxed ${themeTextDesc}`}
+                            />
                         </div>
-                        <AppFooter
-                            branding={branding}
-                            className={`mt-4 pt-4 border-t ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'} text-center`}
-                            textClassName={`text-xs sm:text-sm leading-relaxed ${themeTextDesc}`}
-                        />
                     </footer>
                 )}
             </PullToRefresh>
