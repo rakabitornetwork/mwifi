@@ -1,1 +1,0 @@
-function e(e){let t=Number(e);return Number.isFinite(t)?`Rp ${new Intl.NumberFormat(`id-ID`,{minimumFractionDigits:0,maximumFractionDigits:0}).format(t)}`:`Rp 0`}export{e as t};

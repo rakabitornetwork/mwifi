@@ -28,6 +28,7 @@ import {
     MapPin,
     Mail,
     Terminal,
+    Printer,
 } from 'lucide-react';
 
 export default function CustomerDashboard({
@@ -94,6 +95,14 @@ export default function CustomerDashboard({
         } finally {
             setIsPaying(null);
         }
+    };
+
+    const handlePrintReceipt = (invoiceId, format = 'half') => {
+        window.open(
+            `/customer/invoice/${invoiceId}/print?format=${format}`,
+            '_blank',
+            'noopener,noreferrer'
+        );
     };
 
     // Style Tokens
@@ -523,7 +532,18 @@ export default function CustomerDashboard({
                                                             </td>
                                                         )}
                                                         <td className="py-2.5 text-right">
-                                                            <span className="px-1.5 py-0.2 rounded text-[8px] font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Lunas</span>
+                                                            <div className="flex flex-col items-end gap-1.5">
+                                                                <span className="px-1.5 py-0.2 rounded text-[8px] font-bold uppercase bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">Lunas</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handlePrintReceipt(inv.id)}
+                                                                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${isDarkMode ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-300 text-zinc-700 hover:bg-zinc-100'}`}
+                                                                    title="Cetak bukti pembayaran"
+                                                                >
+                                                                    <Printer className="w-3 h-3" />
+                                                                    Cetak
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))}
