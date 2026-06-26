@@ -4,7 +4,9 @@ import { Activity, CalendarClock, CreditCard, FileText, HelpCircle, MessageSquar
 import AdminLayout from '../../../Layouts/AdminLayout';
 import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
+import WhatsAppNotifyCheckbox from '../../../Components/Admin/WhatsAppNotifyCheckbox';
 import MonthlyRevenuePanel from '../../../Components/Admin/MonthlyRevenuePanel';
+import { readAdminWhatsAppPreference, writeAdminWhatsAppPreference } from '../../../utils/adminWhatsAppPreference';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
 import { useAssignedRouter, resolveDefaultRouterId } from '../../../hooks/useAssignedRouter';
@@ -142,6 +144,15 @@ function InvoicesPageContent({
     const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
     const [isSubmittingBulkPay, setIsSubmittingBulkPay] = useState(false);
     const [sendingWaInvoiceId, setSendingWaInvoiceId] = useState(null);
+    const [payManualModal, setPayManualModal] = useState(null);
+    const [bulkPayModalOpen, setBulkPayModalOpen] = useState(false);
+    const [sendWhatsApp, setSendWhatsApp] = useState(() => readAdminWhatsAppPreference());
+    const [isSubmittingPayManual, setIsSubmittingPayManual] = useState(false);
+
+    const handleWhatsAppPreferenceChange = (checked) => {
+        setSendWhatsApp(checked);
+        writeAdminWhatsAppPreference(checked);
+    };
 
     const themeInnerWidget = theme.isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeInput = theme.isDarkMode
@@ -282,15 +293,41 @@ function InvoicesPageContent({
         setShowDeferModal(true);
     };
 
-    const handlePayManual = (invoiceId) => {
-        if (!confirm("Konfirmasi terima pembayaran tunai secara manual?\n\nPratinjau cetak akan dibuka di tab baru.\nJika salah klik, gunakan tombol \"Batalkan\" pada invoice lunas (khusus bayar manual).")) return;
+    const openPayManualModal = (inv) => {
+        setSendWhatsApp(readAdminWhatsAppPreference());
+        setPayManualModal({
+            id: inv.id,
+            invoiceNumber: inv.invoice_number,
+            customerName: inv.customer?.name || 'pelanggan',
+            totalAmount: inv.total_amount,
+        });
+    };
 
+    const closePayManualModal = () => {
+        if (isSubmittingPayManual) {
+            return;
+        }
+
+        setPayManualModal(null);
+    };
+
+    const confirmPayManual = () => {
+        if (!payManualModal) {
+            return;
+        }
+
+        const invoiceId = payManualModal.id;
         const printUrl = `/admin/invoices/${invoiceId}/print?position=top`;
         const printWindow = window.open('about:blank', '_blank');
 
-        router.post('/admin/invoices/pay-manual', { invoice_id: invoiceId }, {
+        setIsSubmittingPayManual(true);
+        router.post('/admin/invoices/pay-manual', {
+            invoice_id: invoiceId,
+            send_whatsapp: sendWhatsApp,
+        }, {
             preserveScroll: true,
             onSuccess: () => {
+                setPayManualModal(null);
                 if (printWindow && !printWindow.closed) {
                     printWindow.location.href = printUrl;
                     printWindow.focus();
@@ -301,6 +338,41 @@ function InvoicesPageContent({
             onError: () => {
                 printWindow?.close();
             },
+            onFinish: () => setIsSubmittingPayManual(false),
+        });
+    };
+
+    const openBulkPayModal = () => {
+        if (selectedUnpaidCount === 0) {
+            return;
+        }
+
+        setSendWhatsApp(readAdminWhatsAppPreference());
+        setBulkPayModalOpen(true);
+    };
+
+    const closeBulkPayModal = () => {
+        if (isSubmittingBulkPay) {
+            return;
+        }
+
+        setBulkPayModalOpen(false);
+    };
+
+    const confirmBulkPayManual = () => {
+        const idsToPay = selectedUnpaidInvoices.map((inv) => inv.id);
+
+        setIsSubmittingBulkPay(true);
+        router.post('/admin/invoices/pay-manual-bulk', {
+            invoice_ids: idsToPay,
+            send_whatsapp: sendWhatsApp,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setBulkPayModalOpen(false);
+                setSelectedInvoiceIds([]);
+            },
+            onFinish: () => setIsSubmittingBulkPay(false),
         });
     };
 
@@ -559,26 +631,7 @@ function InvoicesPageContent({
     };
 
     const handleBulkPayManual = () => {
-        if (selectedUnpaidCount === 0) {
-            return;
-        }
-
-        const idsToPay = selectedUnpaidInvoices.map((inv) => inv.id);
-
-        if (!confirm(
-            `Konfirmasi pembayaran manual massal untuk ${selectedUnpaidCount} invoice?\n\n` +
-            `Total: ${formatRupiah(bulkPayTotalAmount)}\n\n` +
-            'Invoice tidak akan dicetak otomatis. Gunakan tombol Bayar Manual per baris jika perlu cetak.'
-        )) {
-            return;
-        }
-
-        setIsSubmittingBulkPay(true);
-        router.post('/admin/invoices/pay-manual-bulk', { invoice_ids: idsToPay }, {
-            preserveScroll: true,
-            onSuccess: () => setSelectedInvoiceIds([]),
-            onFinish: () => setIsSubmittingBulkPay(false),
-        });
+        openBulkPayModal();
     };
 
     return (
@@ -1050,7 +1103,7 @@ function InvoicesPageContent({
                                             {canPayManual && inv.status === 'unpaid' && (
                                                 <button
                                                     type="button"
-                                                    onClick={() => handlePayManual(inv.id)}
+                                                    onClick={() => openPayManualModal(inv)}
                                                     title="Bayar Manual"
                                                     className="inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
                                                 >
@@ -1311,6 +1364,124 @@ function InvoicesPageContent({
                         </button>
                     </div>
                 </form>
+            </TransitionModal>
+
+            <TransitionModal show={!!payManualModal} onClose={closePayManualModal} themeCard={theme.themeCard} maxWidth="md">
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                    <div>
+                        <h3 className={`text-sm font-bold ${theme.themeTextTitle}`}>Bayar Manual</h3>
+                        <p className={`text-[10px] mt-0.5 ${theme.themeTextDesc}`}>
+                            Konfirmasi penerimaan pembayaran tunai. Pratinjau cetak akan dibuka di tab baru.
+                        </p>
+                    </div>
+                    <button type="button" onClick={closePayManualModal} disabled={isSubmittingPayManual} className="text-zinc-500 hover:text-white cursor-pointer disabled:opacity-50">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {payManualModal && (
+                    <div className="text-xs space-y-3 mt-3">
+                        <div className={`rounded-xl border p-3 space-y-1 ${themeInnerWidget}`}>
+                            <p className={theme.themeTextTitle}>
+                                Invoice <span className="font-mono font-bold">{payManualModal.invoiceNumber}</span>
+                            </p>
+                            <p className={theme.themeTextSub}>
+                                Pelanggan: <span className="font-semibold">{payManualModal.customerName}</span>
+                            </p>
+                            <p className={`font-bold text-emerald-500`}>
+                                Total: {formatRupiah(payManualModal.totalAmount)}
+                            </p>
+                            <p className={`text-[10px] ${theme.themeTextDesc}`}>
+                                Jika salah klik, gunakan tombol Batalkan pada invoice lunas (khusus bayar manual).
+                            </p>
+                        </div>
+
+                        <WhatsAppNotifyCheckbox
+                            checked={sendWhatsApp}
+                            onChange={handleWhatsAppPreferenceChange}
+                            disabled={isSubmittingPayManual}
+                            themeTextDesc={theme.themeTextDesc}
+                        />
+
+                        <div className="flex justify-end gap-2 pt-1">
+                            <button
+                                type="button"
+                                onClick={closePayManualModal}
+                                disabled={isSubmittingPayManual}
+                                title="Batal"
+                                className={`p-2 rounded-lg border cursor-pointer inline-flex items-center justify-center disabled:opacity-50 ${theme.isDarkMode ? 'border-zinc-700 text-zinc-300' : 'border-zinc-200 text-zinc-600'}`}
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmPayManual}
+                                disabled={isSubmittingPayManual}
+                                title={isSubmittingPayManual ? 'Memproses...' : 'Konfirmasi Bayar Manual'}
+                                className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white cursor-pointer inline-flex items-center justify-center"
+                            >
+                                <Wallet className={`w-4 h-4 ${isSubmittingPayManual ? 'animate-pulse' : ''}`} />
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </TransitionModal>
+
+            <TransitionModal show={bulkPayModalOpen} onClose={closeBulkPayModal} themeCard={theme.themeCard} maxWidth="md">
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                    <div>
+                        <h3 className={`text-sm font-bold ${theme.themeTextTitle}`}>Bayar Manual Massal</h3>
+                        <p className={`text-[10px] mt-0.5 ${theme.themeTextDesc}`}>
+                            Konfirmasi pembayaran tunai untuk invoice yang dipilih.
+                        </p>
+                    </div>
+                    <button type="button" onClick={closeBulkPayModal} disabled={isSubmittingBulkPay} className="text-zinc-500 hover:text-white cursor-pointer disabled:opacity-50">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                <div className="text-xs space-y-3 mt-3">
+                    <div className={`rounded-xl border p-3 space-y-1 ${themeInnerWidget}`}>
+                        <p className={theme.themeTextTitle}>
+                            <span className="font-bold">{selectedUnpaidCount}</span> invoice belum bayar
+                        </p>
+                        <p className={`font-bold text-emerald-500`}>
+                            Total: {formatRupiah(bulkPayTotalAmount)}
+                        </p>
+                        <p className={`text-[10px] ${theme.themeTextDesc}`}>
+                            Invoice tidak akan dicetak otomatis. Gunakan tombol Bayar Manual per baris jika perlu cetak.
+                        </p>
+                    </div>
+
+                    <WhatsAppNotifyCheckbox
+                        checked={sendWhatsApp}
+                        onChange={handleWhatsAppPreferenceChange}
+                        disabled={isSubmittingBulkPay}
+                        themeTextDesc={theme.themeTextDesc}
+                        count={selectedUnpaidCount}
+                    />
+
+                    <div className="flex justify-end gap-2 pt-1">
+                        <button
+                            type="button"
+                            onClick={closeBulkPayModal}
+                            disabled={isSubmittingBulkPay}
+                            title="Batal"
+                            className={`p-2 rounded-lg border cursor-pointer inline-flex items-center justify-center disabled:opacity-50 ${theme.isDarkMode ? 'border-zinc-700 text-zinc-300' : 'border-zinc-200 text-zinc-600'}`}
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={confirmBulkPayManual}
+                            disabled={isSubmittingBulkPay || selectedUnpaidCount === 0}
+                            title={isSubmittingBulkPay ? 'Memproses...' : 'Konfirmasi Bayar Massal'}
+                            className="p-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white cursor-pointer inline-flex items-center justify-center"
+                        >
+                            <Wallet className={`w-4 h-4 ${isSubmittingBulkPay ? 'animate-pulse' : ''}`} />
+                        </button>
+                    </div>
+                </div>
             </TransitionModal>
         </>
     );

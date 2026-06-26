@@ -6,10 +6,12 @@ use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Package;
 use App\Models\Router;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\BillingService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class BillingPaymentReactivationTest extends TestCase
@@ -314,5 +316,104 @@ class BillingPaymentReactivationTest extends TestCase
             'VA BCA',
             BillingService::formatPaymentMethodLabel($payment->payment_method, $payment->gateway_name)
         );
+    }
+
+    private function seedWhatsAppSettings(): void
+    {
+        Setting::updateOrCreate(['key' => 'whatsapp.enabled'], [
+            'group' => 'whatsapp',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.api_url'], [
+            'group' => 'whatsapp',
+            'value' => 'http://127.0.0.1:3003',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.session_id'], [
+            'group' => 'whatsapp',
+            'value' => 'mwifi_session',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.bulk_delay_enabled'], [
+            'group' => 'whatsapp',
+            'value' => '0',
+            'is_encrypted' => false,
+        ]);
+        \App\Services\WhatsAppService::resetBulkDelayState();
+    }
+
+    public function test_manual_payment_skips_whatsapp_when_disabled(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-25'));
+        $this->seedWhatsAppSettings();
+        Http::fake([
+            'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
+        ]);
+
+        ['customer' => $customer] = $this->makeIsolatedCustomer();
+        $admin = User::factory()->create();
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-NOWA-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-20',
+            'status' => 'unpaid',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->post('/admin/invoices/pay-manual', [
+                'invoice_id' => $invoice->id,
+                'send_whatsapp' => false,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        $this->assertSame('paid', $invoice->fresh()->status);
+        $this->assertSame('active', $customer->fresh()->status);
+        Http::assertNothingSent();
+    }
+
+    public function test_process_paid_invoice_skips_whatsapp_when_flag_disabled(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-25'));
+        $this->seedWhatsAppSettings();
+        Http::fake([
+            'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
+        ]);
+
+        ['customer' => $customer] = $this->makeIsolatedCustomer();
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-FLAG-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-20',
+            'status' => 'unpaid',
+        ]);
+
+        $success = BillingService::processPaidInvoice(
+            $invoice,
+            'manual',
+            'ADMIN-CASH-NOWA',
+            150000,
+            0,
+            ['payment_method' => 'Cash / Tunai'],
+            false
+        );
+
+        $this->assertTrue($success);
+        Http::assertNothingSent();
     }
 }

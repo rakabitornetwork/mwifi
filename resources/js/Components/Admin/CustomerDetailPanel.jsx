@@ -4,6 +4,8 @@ import { Database, Edit, FileText, History, RefreshCw } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatRupiah';
 import { formatBytes, quotaUsagePercent } from '../../utils/formatBytes';
 import { formatDisplayDate } from '../../utils/formatDateInputValue';
+import { readAdminWhatsAppPreference, writeAdminWhatsAppPreference } from '../../utils/adminWhatsAppPreference';
+import WhatsAppNotifyCheckbox from './WhatsAppNotifyCheckbox';
 
 function formatDate(value) {
     return formatDisplayDate(value);
@@ -66,8 +68,13 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
     const [quotaError, setQuotaError] = useState(null);
     const [isGeneratingInvoice, setIsGeneratingInvoice] = useState(false);
     const [isBackfilling, setIsBackfilling] = useState(false);
-    const [sendBackfillWhatsApp, setSendBackfillWhatsApp] = useState(false);
+    const [sendWhatsApp, setSendWhatsApp] = useState(() => readAdminWhatsAppPreference());
     const [dueExtensionDays, setDueExtensionDays] = useState('0');
+
+    const handleWhatsAppPreferenceChange = (checked) => {
+        setSendWhatsApp(checked);
+        writeAdminWhatsAppPreference(checked);
+    };
 
     const themeInput = isDarkMode
         ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
@@ -94,10 +101,15 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
             ? `Jika tanggal jatuh tempo periode sudah lewat, batas bayar diperpanjang ${dueExtensionDays} hari ke depan.`
             : 'Jatuh tempo mengikuti tanggal tagihan pelanggan (tanpa perpanjangan).';
 
+        const waNote = sendWhatsApp
+            ? '\n\nNotifikasi WhatsApp akan dikirim ke pelanggan.'
+            : '\n\nNotifikasi WhatsApp tidak akan dikirim.';
+
         if (!confirm(
             `Generate tagihan manual untuk ${customer.name}?\n\n` +
             `Invoice baru akan dibuat untuk periode tagihan sesuai jadwal pelanggan (atau bulan berjalan jika di luar jadwal otomatis).\n` +
-            extensionNote
+            extensionNote +
+            waNote
         )) {
             return;
         }
@@ -106,6 +118,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
         router.post('/admin/invoices/generate-customer', {
             customer_id: customer.id,
             due_extension_days: Number(dueExtensionDays),
+            send_whatsapp: sendWhatsApp,
         }, {
             preserveScroll: true,
             onFinish: () => setIsGeneratingInvoice(false),
@@ -148,7 +161,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
             const periodLines = (data.lines || [])
                 .map((line) => `• ${line.period_label}: ${formatRupiah(line.total_amount)} (jatuh tempo ${line.due_date_label})`)
                 .join('\n');
-            const waNote = sendBackfillWhatsApp
+            const waNote = sendWhatsApp
                 ? `\n\nNotifikasi WhatsApp akan dikirim untuk ${data.count} invoice (mengikuti pengaturan jeda bulk).`
                 : '\n\nNotifikasi WhatsApp tidak akan dikirim.';
 
@@ -164,7 +177,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
             router.post('/admin/invoices/backfill-customer', {
                 customer_id: customer.id,
                 due_extension_days: Number(dueExtensionDays),
-                send_whatsapp: sendBackfillWhatsApp,
+                send_whatsapp: sendWhatsApp,
             }, {
                 preserveScroll: true,
                 onFinish: () => setIsBackfilling(false),
@@ -396,16 +409,12 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                                 )}
                                 <span className="text-center">Generate Tagihan Manual</span>
                             </button>
-                            <label className={`flex items-start gap-2 text-[10px] leading-relaxed cursor-pointer ${themeTextDesc}`}>
-                                <input
-                                    type="checkbox"
-                                    checked={sendBackfillWhatsApp}
-                                    onChange={(e) => setSendBackfillWhatsApp(e.target.checked)}
-                                    disabled={!canGenerateManualInvoice || isBillingActionBusy}
-                                    className="mt-0.5 rounded border-zinc-400"
-                                />
-                                <span>Kirim notifikasi WhatsApp saat generate tagihan terlewat (mengikuti jeda bulk gateway)</span>
-                            </label>
+                            <WhatsAppNotifyCheckbox
+                                checked={sendWhatsApp}
+                                onChange={handleWhatsAppPreferenceChange}
+                                disabled={!canGenerateManualInvoice || isBillingActionBusy}
+                                themeTextDesc={themeTextDesc}
+                            />
                             <button
                                 type="button"
                                 onClick={handleBackfillInvoices}

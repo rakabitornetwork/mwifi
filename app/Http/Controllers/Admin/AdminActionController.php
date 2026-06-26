@@ -1041,24 +1041,31 @@ class AdminActionController extends Controller
     public function payInvoiceManual(Request $request)
     {
         $request->validate([
-            'invoice_id' => 'required|exists:invoices,id'
+            'invoice_id' => 'required|exists:invoices,id',
+            'send_whatsapp' => 'nullable|boolean',
         ]);
 
         $invoice = Invoice::with(['customer.package', 'customer.router'])->findOrFail($request->input('invoice_id'));
         $this->authorizeManualPayment($request, $invoice);
 
+        $sendWhatsApp = $request->boolean('send_whatsapp');
         $success = BillingService::processPaidInvoice(
             $invoice,
             'manual',
             'ADMIN-CASH-' . time(),
             $invoice->total_amount,
             0,
-            ['payment_method' => 'Cash / Tunai']
+            ['payment_method' => 'Cash / Tunai'],
+            $sendWhatsApp
         );
 
         if ($success) {
+            $waNote = $sendWhatsApp
+                ? ' Notifikasi WhatsApp konfirmasi pembayaran dikirim ke pelanggan.'
+                : '';
+
             return redirect()->back()->with([
-                'success' => 'Tagihan berhasil dibayar secara manual.',
+                'success' => 'Tagihan berhasil dibayar secara manual.' . $waNote,
                 'print_invoice_id' => $invoice->id,
             ]);
         }
@@ -1095,6 +1102,7 @@ class AdminActionController extends Controller
         $data = $request->validate([
             'invoice_ids' => 'required|array|min:1',
             'invoice_ids.*' => 'integer|exists:invoices,id',
+            'send_whatsapp' => 'nullable|boolean',
         ]);
 
         $invoices = Invoice::with(['customer.package', 'customer.router'])
@@ -1106,6 +1114,7 @@ class AdminActionController extends Controller
         $failedCount = 0;
         $deniedCount = 0;
         $batchRef = 'ADMIN-CASH-BULK-' . time();
+        $sendWhatsApp = $request->boolean('send_whatsapp');
 
         foreach ($invoices as $invoice) {
             if ($invoice->status !== 'unpaid') {
@@ -1124,7 +1133,8 @@ class AdminActionController extends Controller
                 $batchRef . '-' . $invoice->id,
                 (float) $invoice->total_amount,
                 0,
-                ['payment_method' => 'Cash / Tunai (Massal)']
+                ['payment_method' => 'Cash / Tunai (Massal)'],
+                $sendWhatsApp
             );
 
             if ($success) {
@@ -1139,6 +1149,9 @@ class AdminActionController extends Controller
         }
 
         $message = "{$paidCount} tagihan berhasil dibayar secara manual.";
+        if ($sendWhatsApp && $paidCount > 0) {
+            $message .= " Notifikasi WhatsApp dikirim untuk {$paidCount} invoice.";
+        }
         if ($skippedCount > 0) {
             $message .= " {$skippedCount} invoice dilewati (bukan status belum bayar).";
         }
@@ -1195,11 +1208,13 @@ class AdminActionController extends Controller
         $data = $request->validate([
             'customer_id' => 'required|exists:customers,id',
             'due_extension_days' => 'nullable|integer|in:0,3,5,7',
+            'send_whatsapp' => 'nullable|boolean',
         ]);
 
         $customer = Customer::with('package')->findOrFail($data['customer_id']);
 
         try {
+            $sendWhatsApp = $request->boolean('send_whatsapp');
             $created = VpsCatalogService::isShowcaseCustomer($customer)
                 ? VpsCatalogService::generateManualInvoiceForCustomer(
                     $customer,
@@ -1208,15 +1223,19 @@ class AdminActionController extends Controller
                 : BillingService::generateInvoiceForCustomer(
                     $customer,
                     null,
-                    (int) ($data['due_extension_days'] ?? 0)
+                    (int) ($data['due_extension_days'] ?? 0),
+                    $sendWhatsApp
                 );
             $amount = number_format($created['total_amount'], 0, ',', '.');
             $dueDateLabel = Carbon::parse($created['due_date'])->format('d-m-Y');
             $invoiceKind = VpsCatalogService::isShowcaseCustomer($customer) ? 'VPS' : 'internet';
+            $waNote = ! VpsCatalogService::isShowcaseCustomer($customer) && $sendWhatsApp
+                ? ' Notifikasi WhatsApp tagihan dikirim ke pelanggan.'
+                : '';
 
             return redirect()->back()->with(
                 'success',
-                "Invoice {$invoiceKind} {$created['invoice_number']} periode {$created['billing_period']} berhasil dibuat (Rp {$amount}, jatuh tempo {$dueDateLabel})." .
+                "Invoice {$invoiceKind} {$created['invoice_number']} periode {$created['billing_period']} berhasil dibuat (Rp {$amount}, jatuh tempo {$dueDateLabel}).{$waNote}" .
                 (! VpsCatalogService::isShowcaseCustomer($customer) && ! BillingService::customerHasPastDueUnpaidInvoices($customer->fresh())
                     ? ' Layanan pelanggan dipulihkan ke status aktif.'
                     : '')

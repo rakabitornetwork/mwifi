@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\BillingService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class BillingCustomerInvoiceTest extends TestCase
@@ -268,5 +269,74 @@ class BillingCustomerInvoiceTest extends TestCase
 
         $this->assertTrue(BillingService::reactivateCustomerIfBillingClear($customer));
         $this->assertSame('active', $customer->fresh()->status);
+    }
+
+    private function seedWhatsAppSettings(): void
+    {
+        Setting::updateOrCreate(['key' => 'whatsapp.enabled'], [
+            'group' => 'whatsapp',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.api_url'], [
+            'group' => 'whatsapp',
+            'value' => 'http://127.0.0.1:3003',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.session_id'], [
+            'group' => 'whatsapp',
+            'value' => 'mwifi_session',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.bulk_delay_enabled'], [
+            'group' => 'whatsapp',
+            'value' => '0',
+            'is_encrypted' => false,
+        ]);
+        \App\Services\WhatsAppService::resetBulkDelayState();
+    }
+
+    public function test_generate_customer_invoice_skips_whatsapp_when_disabled(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+        $this->seedWhatsAppSettings();
+        Http::fake([
+            'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
+        ]);
+
+        $admin = User::factory()->create();
+        $customer = $this->makeCustomer();
+
+        $response = $this->actingAs($admin)
+            ->post('/admin/invoices/generate-customer', [
+                'customer_id' => $customer->id,
+                'send_whatsapp' => false,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        Http::assertNothingSent();
+    }
+
+    public function test_generate_customer_invoice_sends_whatsapp_when_enabled(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+        $this->seedWhatsAppSettings();
+        Http::fake([
+            'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
+        ]);
+
+        $admin = User::factory()->create();
+        $customer = $this->makeCustomer();
+
+        $response = $this->actingAs($admin)
+            ->post('/admin/invoices/generate-customer', [
+                'customer_id' => $customer->id,
+                'send_whatsapp' => true,
+            ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+        Http::assertSent(fn ($request) => $request->url() === 'http://127.0.0.1:3003/send-message');
     }
 }

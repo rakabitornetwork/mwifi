@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\BillingService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class BillingBackfillTest extends TestCase
@@ -202,6 +203,49 @@ class BillingBackfillTest extends TestCase
         $this->expectExceptionMessage('Tidak ada periode tagihan terlewat');
 
         BillingService::backfillInvoicesForCustomer($customer, 0, false);
+
+        Carbon::setTestNow();
+    }
+
+    private function seedWhatsAppSettings(): void
+    {
+        Setting::updateOrCreate(['key' => 'whatsapp.enabled'], [
+            'group' => 'whatsapp',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.api_url'], [
+            'group' => 'whatsapp',
+            'value' => 'http://127.0.0.1:3003',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.session_id'], [
+            'group' => 'whatsapp',
+            'value' => 'mwifi_session',
+            'is_encrypted' => false,
+        ]);
+        Setting::updateOrCreate(['key' => 'whatsapp.bulk_delay_enabled'], [
+            'group' => 'whatsapp',
+            'value' => '0',
+            'is_encrypted' => false,
+        ]);
+        \App\Services\WhatsAppService::resetBulkDelayState();
+    }
+
+    public function test_backfill_sends_whatsapp_when_enabled(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-04-10'));
+        $this->seedWhatsAppSettings();
+        Http::fake([
+            'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
+        ]);
+
+        $customer = $this->makeCustomer();
+        $result = BillingService::backfillInvoicesForCustomer($customer, 0, true);
+
+        $this->assertSame(4, $result['count']);
+        $this->assertSame($result['count'], $result['whatsapp_sent']);
+        Http::assertSent(fn ($request) => $request->url() === 'http://127.0.0.1:3003/send-message');
 
         Carbon::setTestNow();
     }

@@ -864,7 +864,8 @@ class BillingService
     public static function generateInvoiceForCustomer(
         Customer $customer,
         ?string $period = null,
-        int $dueExtensionDays = 7
+        int $dueExtensionDays = 7,
+        bool $sendWhatsApp = false
     ): array {
         $customer->loadMissing('package');
 
@@ -920,7 +921,7 @@ class BillingService
             }
         }
 
-        $created = self::createInvoiceForCustomer($customer, $period, $dueDate);
+        $created = self::createInvoiceForCustomer($customer, $period, $dueDate, $sendWhatsApp);
         if ($created === null) {
             throw new \RuntimeException('Gagal membuat invoice. Periksa tanggal mulai layanan dan paket pelanggan.');
         }
@@ -1360,7 +1361,7 @@ class BillingService
     /**
      * Process invoice payment, mark it paid, and reactivate the customer if isolated.
      */
-    public static function processPaidInvoice(Invoice $invoice, string $gateway, string $reference, float $amountPaid, float $fee = 0, ?array $payload = null): bool
+    public static function processPaidInvoice(Invoice $invoice, string $gateway, string $reference, float $amountPaid, float $fee = 0, ?array $payload = null, bool $sendWhatsApp = true): bool
     {
         if ($invoice->status === 'paid') {
             return true;
@@ -1394,16 +1395,18 @@ class BillingService
                 self::reactivateCustomerOnRouter($customer);
             }
 
-            try {
-                $message = self::buildPaidInvoiceWhatsAppMessage(
-                    $invoice,
-                    includeReactivationNote: $shouldRestoreService && $wasRestricted
-                );
-                if ($message && class_exists(\App\Services\WhatsAppService::class)) {
-                    \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
+            if ($sendWhatsApp) {
+                try {
+                    $message = self::buildPaidInvoiceWhatsAppMessage(
+                        $invoice,
+                        includeReactivationNote: $shouldRestoreService && $wasRestricted
+                    );
+                    if ($message && class_exists(\App\Services\WhatsAppService::class)) {
+                        \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
+                    }
+                } catch (Exception $waEx) {
+                    Log::error("Failed to send WhatsApp payment receipt: " . $waEx->getMessage());
                 }
-            } catch (Exception $waEx) {
-                Log::error("Failed to send WhatsApp payment receipt: " . $waEx->getMessage());
             }
 
             DB::commit();
