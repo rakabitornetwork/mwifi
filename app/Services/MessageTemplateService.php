@@ -86,7 +86,7 @@ class MessageTemplateService
             ],
             'whatsapp.template.invoice_accumulated_new' => [
                 'label' => 'Tagihan akumulasi baru',
-                'description' => 'Dikirim saat invoice akumulasi baru dibuat dari penundaan tagihan.',
+                'description' => 'Dikirim saat invoice akumulasi baru dibuat dari tunda bayar.',
                 'placeholders' => [
                     'customer_name', 'brand_name', 'period_label', 'invoice_number',
                     'username', 'subtotal', 'total', 'due_date',

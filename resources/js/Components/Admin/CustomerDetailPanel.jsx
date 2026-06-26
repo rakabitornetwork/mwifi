@@ -81,7 +81,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
         : !['active', 'isolated'].includes(customer.status)
             ? 'Status pelanggan harus aktif atau isolir.'
             : customer.pending_deferral
-                ? 'Penundaan tagihan aktif — batalkan penundaan terlebih dahulu.'
+                ? 'Tunda bayar aktif — batalkan tunda bayar terlebih dahulu.'
                 : null;
 
     const handleGenerateInvoice = () => {
@@ -261,7 +261,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                             </p>
                             <p className={`text-[10px] ${themeTextDesc} break-words leading-relaxed`}>
                                 {customer.pending_deferral
-                                    ? `Penundaan aktif — invoice akumulasi terbit otomatis, jatuh tempo gabungan ${formatDate(customer.pending_deferral.combined_due_date)}.`
+                                    ? `Tunda bayar aktif — invoice akumulasi terbit otomatis, jatuh tempo gabungan ${formatDate(customer.pending_deferral.combined_due_date)}.`
                                     : 'Buka menu Tagihan dan klik Pulihkan pada baris invoice untuk Bayar Manual.'}
                             </p>
                         </div>
@@ -271,7 +271,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
 
                     {customer.pending_deferral ? (
                         <div className={`rounded-lg border p-2.5 ${isDarkMode ? 'border-indigo-500/20 bg-indigo-500/5' : 'border-indigo-200 bg-indigo-50/80'}`}>
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-500">Penundaan Tagihan Aktif</p>
+                            <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-500">Tunda Bayar</p>
                             <p className={`text-[10px] mt-1 ${themeTextSub}`}>
                                 Periode {(customer.pending_deferral.periods || []).join(' + ')}
                             </p>
@@ -332,7 +332,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                             </button>
                         </div>
                         <p className={`text-[10px] leading-relaxed break-words ${themeTextDesc}`}>
-                            Pilih perpanjangan hanya jika jatuh tempo periode sudah lewat dan Anda ingin memberi waktu bayar tambahan. Untuk penundaan lebih lama, gunakan Tunda Tagihan di menu Tagihan / Billing.
+                            Pilih perpanjangan hanya jika jatuh tempo periode sudah lewat dan Anda ingin memberi waktu bayar tambahan. Untuk tunda bayar lebih lama, gunakan Tunda Bayar di menu Tagihan / Billing.
                         </p>
                         {generateInvoiceDisabledReason && (
                             <p className={`text-[10px] leading-relaxed break-words ${themeTextDesc}`}>{generateInvoiceDisabledReason}</p>

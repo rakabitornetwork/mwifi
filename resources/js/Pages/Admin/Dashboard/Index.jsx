@@ -902,7 +902,7 @@ function DashboardContent({
                                 <p className={`text-[10px] font-bold mt-1 ${themeTextDesc}`}>Invoice terlambat</p>
                             </div>
                             <div className={`rounded-xl border p-2.5 ${themeInnerWidget}`}>
-                                <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Penundaan Aktif</p>
+                                <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Tunda Bayar</p>
                                 <p className={`text-lg font-black mt-1 leading-none ${themeTextTitle}`}>{pendingDeferrals}</p>
                                 <p className={`text-[10px] font-bold mt-1 ${themeTextDesc}`}>Menunggu generate</p>
                             </div>

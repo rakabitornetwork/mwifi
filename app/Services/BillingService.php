@@ -901,7 +901,7 @@ class BillingService
         }
 
         if (self::isPeriodDeferredForCustomer($customer, $period)) {
-            throw new \InvalidArgumentException("Periode {$period} sedang ditunda (penundaan tagihan aktif).");
+            throw new \InvalidArgumentException("Periode {$period} sedang ditunda (tunda bayar aktif).");
         }
 
         if ($dueDate === null) {
@@ -1506,7 +1506,7 @@ class BillingService
         ?string $notes = null
     ): BillingDeferral {
         if ($customer->service_type !== 'pppoe') {
-            throw new \RuntimeException('Penundaan tagihan hanya untuk pelanggan PPPoE.');
+            throw new \RuntimeException('Tunda bayar hanya untuk pelanggan PPPoE.');
         }
 
         if (!$customer->package) {
@@ -1514,7 +1514,7 @@ class BillingService
         }
 
         if (self::customerHasPendingDeferral($customer)) {
-            throw new \RuntimeException('Pelanggan masih memiliki penundaan tagihan aktif.');
+            throw new \RuntimeException('Pelanggan masih memiliki tunda bayar aktif.');
         }
 
         $monthsCount = max(1, min(2, $monthsCount));
@@ -1556,7 +1556,7 @@ class BillingService
     public static function cancelBillingDeferral(BillingDeferral $deferral): array
     {
         if ($deferral->status !== 'pending') {
-            throw new \RuntimeException('Hanya penundaan berstatus pending yang dapat dibatalkan.');
+            throw new \RuntimeException('Hanya tunda bayar berstatus pending yang dapat dibatalkan.');
         }
 
         $deferral->loadMissing(['customer.package']);
@@ -1771,7 +1771,7 @@ class BillingService
 
         if ($invoice->customer && self::isPeriodDeferredForCustomer($invoice->customer, $invoice->billing_period)) {
             throw new \RuntimeException(
-                'Invoice ini ditunda oleh penundaan tagihan aktif. Batalkan penundaan di panel atas jika ingin memulihkan tagihan periode ini.'
+                'Invoice ini ditunda oleh tunda bayar aktif. Batalkan tunda bayar di panel atas jika ingin memulihkan tagihan periode ini.'
             );
         }
 

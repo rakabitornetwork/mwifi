@@ -239,14 +239,14 @@ function InvoicesPageContent({
             .then(async (response) => {
                 const data = await response.json().catch(() => ({}));
                 if (!response.ok) {
-                    throw new Error(data.message || 'Gagal memuat preview penundaan.');
+                    throw new Error(data.message || 'Gagal memuat preview tunda bayar.');
                 }
                 setDeferPreview(data);
             })
             .catch((error) => {
                 if (error.name === 'AbortError') return;
                 setDeferPreview(null);
-                setDeferPreviewError(error.message || 'Gagal memuat preview penundaan.');
+                setDeferPreviewError(error.message || 'Gagal memuat preview tunda bayar.');
             })
             .finally(() => setDeferPreviewLoading(false));
 
@@ -373,9 +373,9 @@ function InvoicesPageContent({
 
     const handleCancelDeferral = (deferral) => {
         if (!confirm(
-            `Batalkan penundaan tagihan untuk ${deferral.customer_name}?\n\n` +
+            `Batalkan tunda bayar untuk ${deferral.customer_name}?\n\n` +
             `Periode: ${(deferral.periods || []).join(' + ')}\n\n` +
-            'Penundaan akan dihentikan tanpa membuat invoice baru.'
+            'Tunda bayar akan dihentikan tanpa membuat invoice baru.'
         )) return;
 
         router.post('/admin/billing/defer/cancel', { deferral_id: deferral.id }, {
@@ -391,9 +391,9 @@ function InvoicesPageContent({
         }
 
         if (!confirm(
-            'Aktifkan penundaan tagihan?\n\n' +
+            'Aktifkan tunda bayar?\n\n' +
             'Tagihan periode terpilih akan digabung menjadi satu invoice pada tanggal jatuh tempo yang Anda tentukan.\n' +
-            'Pelanggan tidak di-isolir selama penundaan aktif.'
+            'Pelanggan tidak di-isolir selama tunda bayar aktif.'
         )) {
             return;
         }
@@ -673,7 +673,7 @@ function InvoicesPageContent({
                     <div className={`flex flex-col sm:flex-row sm:items-center gap-2 px-3 py-2 rounded-xl border text-[10px] ${theme.isDarkMode ? 'border-indigo-500/20 bg-indigo-950/20' : 'border-indigo-200 bg-indigo-50/70'}`}>
                         <div className="flex items-center gap-1.5 shrink-0">
                             <CalendarClock className="w-3.5 h-3.5 text-indigo-500" />
-                            <span className={`font-bold uppercase tracking-wide ${theme.themeTextTitle}`}>Penundaan Aktif</span>
+                            <span className={`font-bold uppercase tracking-wide ${theme.themeTextTitle}`}>Tunda Bayar</span>
                             <span className={`font-bold px-1.5 py-0.5 rounded-full ${theme.isDarkMode ? 'bg-indigo-500/15 text-indigo-300' : 'bg-indigo-100 text-indigo-700'}`}>
                                 {visiblePendingDeferrals.length}
                             </span>
@@ -699,7 +699,7 @@ function InvoicesPageContent({
                                                 prev === deferral.id ? null : deferral.id
                                             ));
                                         }}
-                                        title="Detail penundaan"
+                                        title="Detail tunda bayar"
                                         className={`p-0.5 rounded-md cursor-pointer transition-colors ${openDeferralDetailId === deferral.id ? 'text-indigo-500' : theme.themeTextDesc} hover:text-indigo-500`}
                                     >
                                         <HelpCircle className="w-3.5 h-3.5" />
@@ -741,7 +741,7 @@ function InvoicesPageContent({
                                                     className="mt-1 inline-flex items-center gap-1 text-rose-500 hover:text-rose-400 font-bold cursor-pointer"
                                                 >
                                                     <XCircle className="w-3.5 h-3.5" />
-                                                    Batalkan penundaan
+                                                    Batalkan tunda bayar
                                                 </button>
                                             )}
                                         </div>
@@ -917,7 +917,7 @@ function InvoicesPageContent({
                                         })()}
                                         {inv.status === 'canceled' && inv.is_deferred_by_pending && (
                                             <p className={`text-[10px] mt-1 max-w-[160px] ${theme.themeTextDesc}`}>
-                                                Termasuk penundaan aktif. Invoice akumulasi terbit otomatis
+                                                Termasuk tunda bayar aktif. Invoice akumulasi terbit otomatis
                                                 {inv.deferred_accumulated_generate_on
                                                     ? ` pada ${inv.deferred_accumulated_generate_on}`
                                                     : ''}
@@ -926,7 +926,7 @@ function InvoicesPageContent({
                                         )}
                                         {inv.status === 'canceled' && !inv.is_deferred_by_pending && (
                                             <p className={`text-[10px] mt-1 max-w-[140px] ${theme.themeTextDesc}`}>
-                                                Dibatalkan saat penundaan. Klik Pulihkan di kolom Aksi.
+                                                Dibatalkan saat tunda bayar. Klik Pulihkan di kolom Aksi.
                                             </p>
                                         )}
                                     </td>
@@ -992,7 +992,7 @@ function InvoicesPageContent({
                                                         <button
                                                             type="button"
                                                             onClick={() => openDeferModalForInvoice(inv)}
-                                                            title="Tunda Tagihan"
+                                                            title="Tunda Bayar"
                                                             className="inline-block p-1 text-indigo-500 hover:text-indigo-400 cursor-pointer transition-colors"
                                                         >
                                                             <PauseCircle className="w-4 h-4" />
@@ -1205,7 +1205,7 @@ function InvoicesPageContent({
             <TransitionModal show={showDeferModal} onClose={resetDeferModal} themeCard={theme.themeCard} maxWidth="lg" className="overflow-y-auto max-h-[90vh]">
                 <div className={`flex items-start justify-between gap-3 pb-2 border-b ${theme.isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <div>
-                        <h3 className={`text-sm font-bold ${theme.themeTextTitle}`}>Tunda Tagihan Pelanggan</h3>
+                        <h3 className={`text-sm font-bold ${theme.themeTextTitle}`}>Tunda Bayar Pelanggan</h3>
                         <p className={`text-[10px] mt-0.5 ${theme.themeTextDesc}`}>
                             Gabungkan tagihan 1–2 bulan menjadi satu invoice pada tanggal yang Anda tentukan.
                         </p>
@@ -1223,7 +1223,7 @@ function InvoicesPageContent({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Durasi Penundaan</label>
+                            <label className={`font-bold ${themeLabel}`}>Durasi Tunda Bayar</label>
                             <select
                                 value={deferMonthsCount}
                                 onChange={(e) => setDeferMonthsCount(e.target.value)}
@@ -1252,7 +1252,7 @@ function InvoicesPageContent({
                             type="text"
                             value={deferNotes}
                             onChange={(e) => setDeferNotes(e.target.value)}
-                            placeholder="Alasan penundaan..."
+                            placeholder="Alasan tunda bayar..."
                             className={`p-2 border rounded-lg ${themeInput}`}
                         />
                     </div>
@@ -1283,7 +1283,7 @@ function InvoicesPageContent({
                                 </p>
                                 <p className={`text-[10px] ${theme.themeTextDesc}`}>
                                     Invoice gabungan akan otomatis terbit H-N sebelum tanggal jatuh tempo yang Anda pilih.
-                                    Selama penundaan aktif, pelanggan tidak di-isolir otomatis.
+                                    Selama tunda bayar aktif, pelanggan tidak di-isolir otomatis.
                                 </p>
                             </>
                         )}
@@ -1304,7 +1304,7 @@ function InvoicesPageContent({
                         <button
                             type="submit"
                             disabled={isSubmittingDefer || !deferCustomerId || !deferDueDate || !deferPreview || !!deferPreviewError}
-                            title={isSubmittingDefer ? 'Menyimpan...' : 'Aktifkan Penundaan'}
+                            title={isSubmittingDefer ? 'Menyimpan...' : 'Aktifkan Tunda Bayar'}
                             className="p-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white cursor-pointer inline-flex items-center justify-center"
                         >
                             <PauseCircle className={`w-4 h-4 ${isSubmittingDefer ? 'animate-pulse' : ''}`} />
