@@ -423,9 +423,15 @@ class BillingService
             if ($customer->status === 'isolated') {
                 $isolirProfile = SettingService::get('mikrotik.isolir_profile', 'ISOLIR');
 
-                return (bool) $connector->updateSecret($customer->username, [
+                $success = (bool) $connector->updateSecret($customer->username, [
                     'profile' => $isolirProfile,
                 ]);
+
+                if ($success) {
+                    $connector->kickActiveConnection($customer->username);
+                }
+
+                return $success;
             }
 
             $success = (bool) $connector->updateSecret($customer->username, [

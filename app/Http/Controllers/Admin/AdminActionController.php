@@ -465,13 +465,15 @@ class AdminActionController extends Controller
         if ($data['service_type'] === 'pppoe') {
             $router = Router::findOrFail($data['router_id']);
             $package = Package::findOrFail($data['package_id']);
+            $routerCustomer = $savedCustomer->fresh();
+            $pendingPause = BillingService::customerHasPendingServicePause($routerCustomer);
 
             if ($data['status'] === 'isolated') {
                 $profile = SettingService::get('mikrotik.isolir_profile', 'ISOLIR');
                 $disabled = 'no';
             } else {
                 $profile = $package->mikrotik_profile;
-                $disabled = ($data['status'] === 'active') ? 'no' : 'yes';
+                $disabled = ($data['status'] === 'active' && !$pendingPause) ? 'no' : 'yes';
             }
 
             $mkData = [
@@ -517,7 +519,10 @@ class AdminActionController extends Controller
                     }
                 }
 
-                if ($data['status'] === 'isolated') {
+                $shouldKick = in_array($data['status'], ['isolated', 'inactive', 'suspended'], true)
+                    || $pendingPause;
+
+                if ($shouldKick) {
                     $connector->kickActiveConnection($data['username']);
                 }
             } catch (\Exception $e) {
