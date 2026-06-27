@@ -147,7 +147,7 @@ export default function CustomerLiveTrafficPanel({
                 <p className={`text-[10px] font-bold uppercase tracking-wide mb-3 ${themeTextSub}`}>
                     Pemakaian Bulan Ini
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-3">
                     <QuotaMiniStat
                         icon={Activity}
                         label="Total"
@@ -156,22 +156,24 @@ export default function CustomerLiveTrafficPanel({
                         themeTextSub={themeTextSub}
                         themeTextDesc={themeTextDesc}
                     />
-                    <QuotaMiniStat
-                        icon={ArrowDown}
-                        label="Download"
-                        usedBytes={downloadBytes}
-                        toneClass="text-emerald-500"
-                        themeTextSub={themeTextSub}
-                        themeTextDesc={themeTextDesc}
-                    />
-                    <QuotaMiniStat
-                        icon={ArrowUp}
-                        label="Upload"
-                        usedBytes={uploadBytes}
-                        toneClass="text-violet-400"
-                        themeTextSub={themeTextSub}
-                        themeTextDesc={themeTextDesc}
-                    />
+                    <div className="grid grid-cols-2 gap-3">
+                        <QuotaMiniStat
+                            icon={ArrowDown}
+                            label="Download"
+                            usedBytes={downloadBytes}
+                            toneClass="text-emerald-500"
+                            themeTextSub={themeTextSub}
+                            themeTextDesc={themeTextDesc}
+                        />
+                        <QuotaMiniStat
+                            icon={ArrowUp}
+                            label="Upload"
+                            usedBytes={uploadBytes}
+                            toneClass="text-violet-400"
+                            themeTextSub={themeTextSub}
+                            themeTextDesc={themeTextDesc}
+                        />
+                    </div>
                 </div>
             </div>
         </div>
