@@ -405,6 +405,38 @@ class AdminActionController extends Controller
 
         $oldOdpId = $customer?->odp_id;
         $previousStatus = $customer?->status;
+        $pauseNotice = null;
+
+        if ($id && $customer && ($data['service_type'] ?? $customer->service_type) === 'pppoe') {
+            if (in_array($data['status'], ['inactive', 'suspended'], true)
+                && in_array($previousStatus, ['active', 'isolated'], true)) {
+                $pauseDate = !empty($request->input('billing_pause_date'))
+                    ? Carbon::parse($request->input('billing_pause_date'), config('app.timezone'))->startOfDay()
+                    : Carbon::today()->startOfDay();
+
+                try {
+                    $pauseResult = BillingService::initiateServicePause(
+                        $customer->fresh(),
+                        $pauseDate,
+                        $data['status']
+                    );
+
+                    if ($pauseResult['pending_payment']) {
+                        $data['status'] = $previousStatus;
+                        $pauseNotice = $pauseResult['message'];
+                        if (!empty($pauseResult['invoice_number'])) {
+                            $pauseNotice .= ' Tagihan: ' . $pauseResult['invoice_number']
+                                . ' (' . $pauseResult['days_billed'] . ' hari, '
+                                . 'Rp ' . number_format((float) ($pauseResult['total_amount'] ?? 0), 0, ',', '.') . ').';
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    return redirect()->back()
+                        ->withInput()
+                        ->withErrors(['status' => $e->getMessage()]);
+                }
+            }
+        }
 
         $savedCustomer = Customer::updateOrCreate(['id' => $id], $data);
 
@@ -529,6 +561,10 @@ class AdminActionController extends Controller
         }
 
         $warnings = array_values(array_filter([$mikrotikSyncWarning, $whatsAppWarning]));
+
+        if ($pauseNotice !== null) {
+            $warnings[] = $pauseNotice;
+        }
 
         if ($warnings !== []) {
             return redirect()->back()

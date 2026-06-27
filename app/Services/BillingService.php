@@ -103,6 +103,348 @@ class BillingService
         }
     }
 
+    public static function customerHasPendingServicePause(Customer $customer): bool
+    {
+        return in_array($customer->pending_pause_status, ['inactive', 'suspended'], true)
+            && $customer->billing_pause_date !== null;
+    }
+
+    public static function resolveBillingPauseDate(Customer $customer): ?Carbon
+    {
+        if (!$customer->billing_pause_date) {
+            return null;
+        }
+
+        $dateString = $customer->billing_pause_date instanceof Carbon
+            ? $customer->billing_pause_date->format('Y-m-d')
+            : substr((string) $customer->billing_pause_date, 0, 10);
+
+        return Carbon::createFromFormat('Y-m-d', $dateString, config('app.timezone'))->startOfDay();
+    }
+
+    /**
+     * Postpaid: tagihan prorata pemakaian dari awal siklus periode s/d tanggal pause.
+     *
+     * @return array{amount: float, days_billed: int, is_prorated: bool}|null
+     */
+    public static function calculatePausePeriodInvoiceAmount(
+        Customer $customer,
+        string $period,
+        Carbon $pauseDate,
+        float $monthlyPrice
+    ): ?array {
+        $pauseDate = $pauseDate->copy()->startOfDay();
+        $usageStart = self::resolveDueDateForPeriod($customer, $period);
+
+        if ($pauseDate->lt($usageStart)) {
+            return null;
+        }
+
+        if (!self::isProrataEnabled()) {
+            return [
+                'amount' => round($monthlyPrice, 2),
+                'days_billed' => self::PRORATA_BASE_DAYS,
+                'is_prorated' => false,
+            ];
+        }
+
+        $daysActive = $usageStart->diffInDays($pauseDate) + 1;
+        $daysActive = (int) min(max($daysActive, 1), self::PRORATA_BASE_DAYS);
+
+        return [
+            'amount' => round(($monthlyPrice / self::PRORATA_BASE_DAYS) * $daysActive, 2),
+            'days_billed' => $daysActive,
+            'is_prorated' => true,
+        ];
+    }
+
+    /**
+     * Siapkan pause layanan (postpaid): buat tagihan prorata pemakaian, nonaktif setelah lunas.
+     *
+     * @return array{
+     *     pending_payment: bool,
+     *     invoice_number?: string,
+     *     total_amount?: float,
+     *     billing_period?: string,
+     *     due_date?: string,
+     *     days_billed?: int,
+     *     message: string
+     * }
+     */
+    public static function initiateServicePause(
+        Customer $customer,
+        Carbon $pauseDate,
+        string $targetStatus
+    ): array {
+        $customer->loadMissing('package');
+
+        if ($customer->service_type !== 'pppoe') {
+            throw new \InvalidArgumentException('Pause layanan hanya untuk pelanggan PPPoE.');
+        }
+
+        if (!$customer->package) {
+            throw new \InvalidArgumentException('Pelanggan belum memiliki paket internet.');
+        }
+
+        if (!in_array($targetStatus, ['inactive', 'suspended'], true)) {
+            throw new \InvalidArgumentException('Status pause tidak valid.');
+        }
+
+        if (self::customerHasPendingServicePause($customer)) {
+            $existingInvoice = self::findPausePeriodInvoice($customer);
+
+            if ($existingInvoice && $existingInvoice->status === 'unpaid') {
+                return [
+                    'pending_payment' => true,
+                    'invoice_number' => $existingInvoice->invoice_number,
+                    'total_amount' => (float) $existingInvoice->total_amount,
+                    'billing_period' => (string) $existingInvoice->billing_period,
+                    'due_date' => $existingInvoice->due_date?->format('Y-m-d'),
+                    'days_billed' => (int) $existingInvoice->days_billed,
+                    'message' => 'Tagihan pause masih menunggu pembayaran. Layanan akan nonaktif setelah lunas.',
+                ];
+            }
+        }
+
+        $pauseDate = $pauseDate->copy()->startOfDay();
+        $period = $pauseDate->format('Y-m');
+        $monthlyPrice = (float) $customer->package->price;
+
+        $paidInvoice = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('billing_period', $period)
+            ->where('status', 'paid')
+            ->first();
+
+        if ($paidInvoice) {
+            $customer->update([
+                'billing_pause_date' => null,
+                'pending_pause_status' => null,
+            ]);
+
+            return [
+                'pending_payment' => false,
+                'message' => 'Periode ini sudah lunas. Anda dapat langsung menonaktifkan layanan.',
+            ];
+        }
+
+        $billing = self::calculatePausePeriodInvoiceAmount($customer, $period, $pauseDate, $monthlyPrice);
+        if ($billing === null) {
+            throw new \RuntimeException('Tidak dapat menghitung tagihan pemakaian untuk tanggal pause yang dipilih.');
+        }
+
+        $dueDate = $pauseDate->copy()->addDays(7)->startOfDay();
+        $invoiceResult = self::upsertPausePeriodInvoice($customer, $period, $pauseDate, $dueDate, $billing);
+
+        $customer->update([
+            'billing_pause_date' => $pauseDate->toDateString(),
+            'pending_pause_status' => $targetStatus,
+        ]);
+
+        self::clearBillingResume($customer);
+
+        return [
+            'pending_payment' => true,
+            'invoice_number' => $invoiceResult['invoice_number'],
+            'total_amount' => $invoiceResult['total_amount'],
+            'billing_period' => $invoiceResult['billing_period'],
+            'due_date' => $invoiceResult['due_date'],
+            'days_billed' => $billing['days_billed'],
+            'message' => sprintf(
+                'Tagihan prorata pemakaian %d hari dibuat. Layanan tetap aktif sampai pelanggan membayar, lalu otomatis nonaktif.',
+                $billing['days_billed']
+            ),
+        ];
+    }
+
+    /**
+     * @param array{amount: float, days_billed: int, is_prorated: bool} $billing
+     * @return array{invoice_number: string, total_amount: float, billing_period: string, due_date: string}
+     */
+    private static function upsertPausePeriodInvoice(
+        Customer $customer,
+        string $period,
+        Carbon $pauseDate,
+        Carbon $dueDate,
+        array $billing
+    ): array {
+        $amount = round((float) $billing['amount'], 2);
+        $taxRate = (float) SettingService::get('system.tax_rate', 0);
+        $tax = round($amount * $taxRate, 2);
+        $total = round($amount + $tax, 2);
+
+        $existing = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('billing_period', $period)
+            ->where('status', 'unpaid')
+            ->where('is_accumulated', false)
+            ->first();
+
+        if ($existing) {
+            $existing->update([
+                'amount' => $amount,
+                'days_billed' => $billing['days_billed'],
+                'is_prorated' => $billing['is_prorated'],
+                'tax' => $tax,
+                'total_amount' => $total,
+                'due_date' => $dueDate->toDateString(),
+            ]);
+
+            self::syncCustomerBillingDate($customer->fresh());
+
+            return [
+                'invoice_number' => $existing->invoice_number,
+                'total_amount' => $total,
+                'billing_period' => $period,
+                'due_date' => $dueDate->toDateString(),
+            ];
+        }
+
+        $invNumber = 'INV-' . str_replace('-', '', $period) . '-' . str_pad((string) $customer->id, 4, '0', STR_PAD_LEFT) . '-' . strtoupper(bin2hex(random_bytes(2)));
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => $invNumber,
+            'billing_period' => $period,
+            'amount' => $amount,
+            'days_billed' => $billing['days_billed'],
+            'is_prorated' => $billing['is_prorated'],
+            'tax' => $tax,
+            'total_amount' => $total,
+            'due_date' => $dueDate->toDateString(),
+            'status' => 'unpaid',
+        ]);
+
+        self::syncCustomerBillingDate($customer->fresh());
+
+        try {
+            $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_new', [
+                'customer_name' => $customer->name,
+                'brand_name' => BrandingService::companyName(),
+                'period' => self::formatWhatsAppBillingPeriod($period),
+                'invoice_number' => $invNumber,
+                'service_type' => strtoupper($customer->service_type),
+                'username' => $customer->username,
+                'subtotal' => self::formatWhatsAppMoney($amount),
+                'prorata_line' => self::buildProrataLine($billing['is_prorated'], (int) $billing['days_billed']),
+                'total' => self::formatWhatsAppMoney($total),
+                'due_date' => self::formatWhatsAppDueDate($dueDate),
+            ]);
+
+            if (class_exists(\App\Services\WhatsAppService::class)) {
+                \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
+            }
+        } catch (\Exception $waEx) {
+            Log::error("Failed to send WhatsApp pause billing notification for {$customer->username}: " . $waEx->getMessage());
+        }
+
+        return [
+            'invoice_number' => $invNumber,
+            'total_amount' => $total,
+            'billing_period' => $period,
+            'due_date' => $dueDate->toDateString(),
+        ];
+    }
+
+    public static function findPausePeriodInvoice(Customer $customer): ?Invoice
+    {
+        $pauseDate = self::resolveBillingPauseDate($customer);
+        if ($pauseDate === null) {
+            return null;
+        }
+
+        return Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('billing_period', $pauseDate->format('Y-m'))
+            ->whereIn('status', ['unpaid', 'paid'])
+            ->where('is_accumulated', false)
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
+     * Terapkan nonaktif setelah tagihan pemakaian (pause) lunas.
+     */
+    public static function completePendingServicePause(Customer $customer, Invoice $invoice): bool
+    {
+        if (!self::customerHasPendingServicePause($customer)) {
+            return false;
+        }
+
+        $pauseDate = self::resolveBillingPauseDate($customer);
+        if ($pauseDate === null) {
+            return false;
+        }
+
+        if ($invoice->status !== 'paid' || $invoice->billing_period !== $pauseDate->format('Y-m')) {
+            return false;
+        }
+
+        $targetStatus = $customer->pending_pause_status;
+        if (!in_array($targetStatus, ['inactive', 'suspended'], true)) {
+            return false;
+        }
+
+        $customer->update([
+            'status' => $targetStatus,
+            'billing_pause_date' => null,
+            'pending_pause_status' => null,
+        ]);
+
+        self::applyRestrictedStatusOnRouter($customer->fresh());
+
+        Log::info("Service pause completed after payment for {$customer->username}", [
+            'invoice_number' => $invoice->invoice_number,
+            'status' => $targetStatus,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Nonaktifkan secret PPPoE sesuai status restricted (inactive/suspended/isolated).
+     */
+    public static function applyRestrictedStatusOnRouter(Customer $customer): bool
+    {
+        $customer->loadMissing(['router', 'package']);
+
+        if (!in_array($customer->status, ['isolated', 'inactive', 'suspended'], true)) {
+            return false;
+        }
+
+        $router = $customer->router;
+        if (!$router || !$router->status || !$customer->package) {
+            return false;
+        }
+
+        try {
+            $connector = RouterService::getConnector($router);
+
+            if ($customer->status === 'isolated') {
+                $isolirProfile = SettingService::get('mikrotik.isolir_profile', 'ISOLIR');
+
+                return (bool) $connector->updateSecret($customer->username, [
+                    'profile' => $isolirProfile,
+                ]);
+            }
+
+            $success = (bool) $connector->updateSecret($customer->username, [
+                'profile' => $customer->package->mikrotik_profile,
+                'disabled' => 'yes',
+            ]);
+
+            if ($success) {
+                $connector->kickActiveConnection($customer->username);
+            }
+
+            return $success;
+        } catch (Exception $e) {
+            Log::error("Failed to apply restricted status for {$customer->username}: " . $e->getMessage());
+
+            return false;
+        }
+    }
+
     /**
      * Hapus billing_resume_date setelah tagihan periode aktivasi ulang lunas.
      */
@@ -407,6 +749,8 @@ class BillingService
             'billing_date' => self::formatDateOnly($customer->fresh()->billing_date),
             'upcoming_due_date' => self::formatDateOnly($upcoming),
             'billing_resume_date' => self::formatDateOnly($customer->fresh()->billing_resume_date),
+            'billing_pause_date' => self::formatDateOnly($customer->fresh()->billing_pause_date),
+            'pending_pause_status' => $customer->fresh()->pending_pause_status,
         ];
     }
 
@@ -474,6 +818,10 @@ class BillingService
 
         foreach ($customers as $customer) {
             if (!$customer->package) {
+                continue;
+            }
+
+            if (self::customerHasPendingServicePause($customer)) {
                 continue;
             }
 
@@ -1671,9 +2019,11 @@ class BillingService
             ]);
 
             $customer = $invoice->customer;
+            $pauseCompleted = false;
             if ($customer) {
                 self::syncCustomerBillingDate($customer->fresh());
                 self::clearBillingResumeIfInvoicePaid($customer->fresh(), $invoice->fresh());
+                $pauseCompleted = self::completePendingServicePause($customer->fresh(), $invoice->fresh());
                 $customer = $customer->fresh();
             }
 
@@ -1681,6 +2031,7 @@ class BillingService
             $wasRestricted = $customer && in_array($customer->status, ['isolated', 'inactive', 'suspended'], true);
             $shouldRestoreService = $customer
                 && ! $isVpsOrder
+                && ! $pauseCompleted
                 && ! self::customerHasPastDueUnpaidInvoices($customer, $invoice->id);
 
             if ($shouldRestoreService) {

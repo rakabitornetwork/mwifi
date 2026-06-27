@@ -16,6 +16,7 @@ class Customer extends Model
         'billing_date' => 'date',
         'service_start_date' => 'date',
         'billing_resume_date' => 'date',
+        'billing_pause_date' => 'date',
     ];
 
     protected function billingDate(): Attribute

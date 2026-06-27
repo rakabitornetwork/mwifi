@@ -148,9 +148,13 @@ class BillingServiceResumeTest extends TestCase
             'billing_resume_date' => '2026-08-10',
         ]);
 
-        BillingService::syncCustomerStatusBillingTransition($customer, 'active', 'inactive');
+        Carbon::setTestNow(Carbon::parse('2026-07-14'));
+
+        BillingService::initiateServicePause($customer, Carbon::parse('2026-07-14'), 'inactive');
 
         $this->assertNull($customer->fresh()->billing_resume_date);
+
+        Carbon::setTestNow();
     }
 
     public function test_generate_invoice_after_reactivation_uses_prorata(): void
