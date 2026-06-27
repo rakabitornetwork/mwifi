@@ -9,8 +9,8 @@ const QUOTA_SAMPLE_EVERY = 10;
 
 function QuotaMiniStat({ icon: Icon, label, usedBytes, toneClass, themeTextSub, themeTextDesc }) {
     return (
-        <div className="rounded-xl border border-zinc-800/30 bg-zinc-950/10 p-3 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
+        <div className="rounded-xl border border-zinc-800/30 bg-zinc-950/10 p-3 min-w-0 text-center">
+            <div className="flex items-center justify-center gap-2 mb-1.5">
                 <Icon className={`w-3.5 h-3.5 ${toneClass}`} />
                 <p className={`text-[9px] font-bold uppercase tracking-wide ${themeTextSub}`}>{label}</p>
             </div>
@@ -148,14 +148,6 @@ export default function CustomerLiveTrafficPanel({
                     Pemakaian Bulan Ini
                 </p>
                 <div className="space-y-3">
-                    <QuotaMiniStat
-                        icon={Activity}
-                        label="Total"
-                        usedBytes={totalBytes}
-                        toneClass="text-indigo-400"
-                        themeTextSub={themeTextSub}
-                        themeTextDesc={themeTextDesc}
-                    />
                     <div className="grid grid-cols-2 gap-3">
                         <QuotaMiniStat
                             icon={ArrowDown}
@@ -174,6 +166,14 @@ export default function CustomerLiveTrafficPanel({
                             themeTextDesc={themeTextDesc}
                         />
                     </div>
+                    <QuotaMiniStat
+                        icon={Activity}
+                        label="Total"
+                        usedBytes={totalBytes}
+                        toneClass="text-indigo-400"
+                        themeTextSub={themeTextSub}
+                        themeTextDesc={themeTextDesc}
+                    />
                 </div>
             </div>
         </div>
