@@ -571,6 +571,27 @@ class AdminActionController extends Controller
             $warnings[] = $pauseNotice;
         }
 
+        if ($savedCustomer->service_type === 'pppoe'
+            && in_array($savedCustomer->fresh()->status, ['inactive', 'suspended'], true)) {
+            $pauseDateForInvoice = !empty($request->input('billing_pause_date'))
+                ? Carbon::parse($request->input('billing_pause_date'), config('app.timezone'))->startOfDay()
+                : ($savedCustomer->billing_pause_date
+                    ? Carbon::parse($savedCustomer->billing_pause_date, config('app.timezone'))->startOfDay()
+                    : Carbon::today()->startOfDay());
+
+            $missingPauseInvoice = BillingService::createPauseInvoiceIfMissing(
+                $savedCustomer->fresh(),
+                $pauseDateForInvoice
+            );
+
+            if ($missingPauseInvoice !== null) {
+                $warnings[] = $missingPauseInvoice['message']
+                    . ' Tagihan: ' . $missingPauseInvoice['invoice_number']
+                    . ' (' . $missingPauseInvoice['days_billed'] . ' hari, '
+                    . 'Rp ' . number_format((float) $missingPauseInvoice['total_amount'], 0, ',', '.') . ').';
+            }
+        }
+
         if ($warnings !== []) {
             return redirect()->back()
                 ->with('success', 'Data pelanggan berhasil disimpan.')

@@ -193,6 +193,131 @@ class BillingServicePauseTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_pause_prorata_with_billing_anchor_end_of_month(): void
+    {
+        $user = User::factory()->create();
+        $router = Router::create([
+            'name' => 'Router Test',
+            'host' => '127.0.0.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'protocol_type' => 'legacy_socket',
+            'status' => false,
+        ]);
+        $package = Package::create([
+            'name' => '10 Mbps - 120K',
+            'type' => 'pppoe',
+            'price' => 120000,
+            'bandwidth_limit' => '10M/10M',
+            'mikrotik_profile' => '10M',
+        ]);
+
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'router_id' => $router->id,
+            'package_id' => $package->id,
+            'service_type' => 'pppoe',
+            'username' => 'demo_pause_' . uniqid(),
+            'password' => 'pass',
+            'name' => 'Demo Pause',
+            'phone_number' => '6281234567890',
+            'address' => 'Alamat test',
+            'status' => 'active',
+            'billing_date' => '2026-07-30',
+            'service_start_date' => '2026-05-01',
+        ]);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-PAUSE',
+            'billing_period' => '2026-06',
+            'amount' => 120000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 120000,
+            'due_date' => '2026-06-30',
+            'status' => 'paid',
+            'paid_at' => '2026-06-30 10:00:00',
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-07-14'));
+
+        $billing = BillingService::calculatePausePeriodInvoiceAmount(
+            $customer,
+            '2026-07',
+            Carbon::parse('2026-07-14'),
+            120000
+        );
+
+        $this->assertNotNull($billing);
+        $this->assertSame(14, $billing['days_billed']);
+
+        $result = BillingService::initiateServicePause($customer, Carbon::parse('2026-07-14'), 'inactive');
+
+        $this->assertTrue($result['pending_payment']);
+        $this->assertSame('2026-07', $result['billing_period']);
+
+        $invoice = Invoice::where('customer_id', $customer->id)
+            ->where('billing_period', '2026-07')
+            ->first();
+
+        $this->assertNotNull($invoice);
+        $this->assertSame('unpaid', $invoice->status);
+        $this->assertSame(14, $invoice->days_billed);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_create_pause_invoice_if_missing_for_already_inactive_customer(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-14'));
+
+        $customer = $this->makeActiveCustomer('2026-07-30');
+        $customer->update([
+            'status' => 'inactive',
+            'service_start_date' => '2026-05-01',
+        ]);
+
+        $created = BillingService::createPauseInvoiceIfMissing($customer, Carbon::parse('2026-07-14'));
+
+        $this->assertNotNull($created);
+        $this->assertSame('2026-07', $created['billing_period']);
+        $this->assertSame(14, $created['days_billed']);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_paid_invoice_covers_pause_skips_new_invoice(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-27'));
+
+        $customer = $this->makeActiveCustomer('2026-06-30');
+        $customer->update(['service_start_date' => '2026-05-01']);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-PAUSE2',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-30',
+            'status' => 'paid',
+            'paid_at' => '2026-06-27 10:00:00',
+        ]);
+
+        $result = BillingService::initiateServicePause($customer, Carbon::parse('2026-06-27'), 'inactive');
+
+        $this->assertFalse($result['pending_payment']);
+        $this->assertSame(1, Invoice::where('customer_id', $customer->id)->count());
+
+        Carbon::setTestNow();
+    }
+
     public function test_scheduled_invoice_skips_customer_with_pending_pause(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-07-27'));

@@ -123,6 +123,31 @@ class BillingService
     }
 
     /**
+     * Awal pemakaian postpaid untuk periode tagihan (pakai dulu, bayar belakangan).
+     */
+    public static function resolvePostpaidUsageStartForPeriod(Customer $customer, string $period): Carbon
+    {
+        $serviceStart = self::resolveServiceStartDate($customer);
+        $periodStart = Carbon::createFromFormat('Y-m', $period)->startOfMonth()->startOfDay();
+        $dueThisPeriod = self::resolveDueDateForPeriod($customer, $period);
+
+        if ($dueThisPeriod->format('Y-m') === $period) {
+            $usageStart = $periodStart;
+        } else {
+            $previousPeriod = Carbon::createFromFormat('Y-m', $period)->subMonth()->format('Y-m');
+            $usageStart = self::resolveDueDateForPeriod($customer, $previousPeriod)
+                ->addDay()
+                ->startOfDay();
+        }
+
+        if ($serviceStart->greaterThan($usageStart)) {
+            $usageStart = $serviceStart;
+        }
+
+        return $usageStart;
+    }
+
+    /**
      * Postpaid: tagihan prorata pemakaian dari awal siklus periode s/d tanggal pause.
      *
      * @return array{amount: float, days_billed: int, is_prorated: bool}|null
@@ -134,7 +159,7 @@ class BillingService
         float $monthlyPrice
     ): ?array {
         $pauseDate = $pauseDate->copy()->startOfDay();
-        $usageStart = self::resolveDueDateForPeriod($customer, $period);
+        $usageStart = self::resolvePostpaidUsageStartForPeriod($customer, $period);
 
         if ($pauseDate->lt($usageStart)) {
             return null;
@@ -156,6 +181,29 @@ class BillingService
             'days_billed' => $daysActive,
             'is_prorated' => true,
         ];
+    }
+
+    /**
+     * Apakah invoice lunas sudah menagih pemakaian sampai tanggal pause.
+     */
+    public static function paidInvoiceCoversPauseUsage(
+        Customer $customer,
+        Invoice $paidInvoice,
+        string $period,
+        Carbon $pauseDate
+    ): bool {
+        if ($paidInvoice->billing_period !== $period) {
+            return false;
+        }
+
+        $usageStart = self::resolvePostpaidUsageStartForPeriod($customer, $period);
+        if ($pauseDate->lt($usageStart)) {
+            return false;
+        }
+
+        $daysUsed = (int) ($usageStart->diffInDays($pauseDate) + 1);
+
+        return (int) $paidInvoice->days_billed >= $daysUsed;
     }
 
     /**
@@ -216,7 +264,7 @@ class BillingService
             ->where('status', 'paid')
             ->first();
 
-        if ($paidInvoice) {
+        if ($paidInvoice && self::paidInvoiceCoversPauseUsage($customer, $paidInvoice, $period, $pauseDate)) {
             $customer->update([
                 'billing_pause_date' => null,
                 'pending_pause_status' => null,
@@ -224,7 +272,7 @@ class BillingService
 
             return [
                 'pending_payment' => false,
-                'message' => 'Periode ini sudah lunas. Anda dapat langsung menonaktifkan layanan.',
+                'message' => 'Pemakaian periode ini sudah ditagih dan lunas. Layanan dapat langsung dinonaktifkan.',
             ];
         }
 
@@ -251,7 +299,55 @@ class BillingService
             'due_date' => $invoiceResult['due_date'],
             'days_billed' => $billing['days_billed'],
             'message' => sprintf(
-                'Tagihan prorata pemakaian %d hari dibuat. Layanan tetap aktif sampai pelanggan membayar, lalu otomatis nonaktif.',
+                'Tagihan prorata pemakaian %d hari dibuat. Layanan akan nonaktif setelah pelanggan membayar tagihan ini.',
+                $billing['days_billed']
+            ),
+        ];
+    }
+
+    /**
+     * Buat tagihan prorata pause jika belum ada (perbaikan / pelanggan sudah nonaktif).
+     *
+     * @return array{invoice_number: string, total_amount: float, billing_period: string, due_date: string, days_billed: int, message: string}|null
+     */
+    public static function createPauseInvoiceIfMissing(Customer $customer, Carbon $pauseDate): ?array
+    {
+        $customer->loadMissing('package');
+
+        if ($customer->service_type !== 'pppoe' || !$customer->package) {
+            return null;
+        }
+
+        $pauseDate = $pauseDate->copy()->startOfDay();
+        $period = $pauseDate->format('Y-m');
+        $monthlyPrice = (float) $customer->package->price;
+
+        $paidInvoice = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('billing_period', $period)
+            ->where('status', 'paid')
+            ->first();
+
+        if ($paidInvoice && self::paidInvoiceCoversPauseUsage($customer, $paidInvoice, $period, $pauseDate)) {
+            return null;
+        }
+
+        $billing = self::calculatePausePeriodInvoiceAmount($customer, $period, $pauseDate, $monthlyPrice);
+        if ($billing === null) {
+            return null;
+        }
+
+        $dueDate = $pauseDate->copy()->addDays(7)->startOfDay();
+        $invoiceResult = self::upsertPausePeriodInvoice($customer, $period, $pauseDate, $dueDate, $billing);
+
+        return [
+            'invoice_number' => $invoiceResult['invoice_number'],
+            'total_amount' => $invoiceResult['total_amount'],
+            'billing_period' => $invoiceResult['billing_period'],
+            'due_date' => $invoiceResult['due_date'],
+            'days_billed' => $billing['days_billed'],
+            'message' => sprintf(
+                'Tagihan prorata pemakaian %d hari dibuat untuk periode pause.',
                 $billing['days_billed']
             ),
         ];
