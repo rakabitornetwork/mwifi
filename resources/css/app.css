@@ -400,29 +400,65 @@
     background: #ffffff;
     border: 1px solid #eef2f7;
     border-radius: 14px;
-    padding: 11px 12px;
+    overflow: hidden;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .map-popup-card-head {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 10px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #f1f5f9;
+    padding: 8px 12px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.map-popup-card-head::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, transparent 55%);
+    pointer-events: none;
+}
+
+.map-popup-card-head--package {
+    background: linear-gradient(135deg, #047857 0%, #059669 52%, #10b981 100%);
+}
+
+.map-popup-card-head--network {
+    background: linear-gradient(135deg, #0369a1 0%, #0284c7 52%, #0ea5e9 100%);
+}
+
+.map-popup-card-head--devices {
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 52%, #8b5cf6 100%);
+}
+
+.map-popup-card-head--traffic {
+    background: linear-gradient(135deg, #c2410c 0%, #ea580c 52%, #f59e0b 100%);
+}
+
+.map-popup-card-head--wifi {
+    background: linear-gradient(135deg, #be123c 0%, #db2777 52%, #ec4899 100%);
+}
+
+.map-popup-card-content {
+    padding: 10px 12px 11px;
 }
 
 .map-popup-card-icon {
+    position: relative;
+    z-index: 1;
     width: 24px;
     height: 24px;
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #059669;
-    background: linear-gradient(145deg, #ecfdf5, #f0fdf4);
-    border: 1px solid #d1fae5;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.26);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
     flex-shrink: 0;
 }
 
@@ -432,11 +468,14 @@
 }
 
 .map-popup-card-title {
+    position: relative;
+    z-index: 1;
     font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #64748b;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
 .map-popup-stats-grid {
@@ -702,8 +741,8 @@
         padding: 10px 11px 12px;
     }
 
-    .map-popup-card {
-        padding: 9px 10px;
+    .map-popup-card-content {
+        padding: 9px 10px 10px;
     }
 
     .map-popup-stats-grid {

@@ -5,14 +5,16 @@ import { formatRupiah } from '../../utils/formatRupiah';
 import { parseBandwidthLimit, resolveOntMetrics, resolveTrafficMetrics } from '../../utils/customerMetrics';
 import { mapPopupStatusVariant, mapPopupRxClass } from '../../utils/networkMapPopup';
 
-function MapPopupSection({ title, iconSvg, children }) {
+function MapPopupSection({ title, iconSvg, accent, children }) {
     return (
         <section className="map-popup-card">
-            <div className="map-popup-card-head">
+            <div className={`map-popup-card-head map-popup-card-head--${accent}`}>
                 <span className="map-popup-card-icon" dangerouslySetInnerHTML={{ __html: iconSvg }} />
                 <span className="map-popup-card-title">{title}</span>
             </div>
-            {children}
+            <div className="map-popup-card-content">
+                {children}
+            </div>
         </section>
     );
 }
@@ -37,6 +39,7 @@ function MapConnectedDevicesSection({ ont }) {
     return (
         <MapPopupSection
             title={`Perangkat Terhubung (${count ?? list.length})`}
+            accent="devices"
             iconSvg='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>'
         >
             {list.length > 0 ? (
@@ -115,7 +118,7 @@ export default function NetworkMapCustomerPopup({
             </header>
 
             <div className="map-popup-body">
-                <MapPopupSection title="Paket & Tagihan" iconSvg={ICON_PACKAGE}>
+                <MapPopupSection title="Paket & Tagihan" accent="package" iconSvg={ICON_PACKAGE}>
                     <div className="map-popup-stats-grid">
                         <MapPopupStat label="Paket" value={displayOrDash(pkg.name)} />
                         <MapPopupStat
@@ -128,7 +131,7 @@ export default function NetworkMapCustomerPopup({
                     </div>
                 </MapPopupSection>
 
-                <MapPopupSection title="ONT & Jaringan" iconSvg={ICON_NETWORK}>
+                <MapPopupSection title="ONT & Jaringan" accent="network" iconSvg={ICON_NETWORK}>
                     <div className="map-popup-stats-grid">
                         <MapPopupStat label="Redaman" value={rxText} valueClass={mapPopupRxClass(rxStatus)} />
                         <MapPopupStat label="Suhu ONT" value={displayOrDash(ont.temperature)} />
@@ -138,7 +141,7 @@ export default function NetworkMapCustomerPopup({
 
                 <MapConnectedDevicesSection ont={ont} />
 
-                <MapPopupSection title="Traffic Langsung" iconSvg={ICON_TRAFFIC}>
+                <MapPopupSection title="Traffic Langsung" accent="traffic" iconSvg={ICON_TRAFFIC}>
                     <div className="map-speedometer-grid map-speedometer-grid--animated">
                         <CustomerTrafficSpeedometer
                             label="Download"
@@ -159,7 +162,7 @@ export default function NetworkMapCustomerPopup({
                     </div>
                 </MapPopupSection>
 
-                <MapPopupSection title="WiFi ONT" iconSvg={ICON_WIFI}>
+                <MapPopupSection title="WiFi ONT" accent="wifi" iconSvg={ICON_WIFI}>
                     <div className="map-popup-wifi-panel">
                         <OntWifiPanel
                             apiBase="/admin/gpon"
