@@ -48,6 +48,7 @@ export default function CustomerTrafficSpeedometer({
     const dash = (pct / 100) * arcLength;
     const needleAngle = 180 - (pct / 100) * 180;
     const needleLen = radius - 12;
+    const needleTip = polar(cx, cy, needleLen, needleAngle);
     const maxLabel = maxMbps > 0 ? `${maxMbps}M` : '—';
 
     const trackColor = isDarkMode ? '#27272a' : '#e4e4e7';
@@ -140,23 +141,16 @@ export default function CustomerTrafficSpeedometer({
                         className="customer-traffic-gauge-arc"
                     />
 
-                    <g
+                    <line
+                        x1={cx}
+                        y1={cy}
+                        x2={needleTip.x.toFixed(2)}
+                        y2={needleTip.y.toFixed(2)}
+                        stroke={theme.gradientStops[1]}
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
                         className="customer-traffic-gauge-needle"
-                        style={{
-                            transformOrigin: `${cx}px ${cy}px`,
-                            transform: `rotate(${needleAngle}deg)`,
-                        }}
-                    >
-                        <line
-                            x1={cx}
-                            y1={cy}
-                            x2={cx + needleLen}
-                            y2={cy}
-                            stroke={theme.gradientStops[1]}
-                            strokeWidth="2.2"
-                            strokeLinecap="round"
-                        />
-                    </g>
+                    />
                     <circle
                         cx={cx}
                         cy={cy}
