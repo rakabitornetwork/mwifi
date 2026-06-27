@@ -11,6 +11,7 @@ import {
     Save,
     Search,
     ShoppingCart,
+    TicketPlus,
     Trash2,
     Users,
     X,
@@ -476,7 +477,7 @@ function HotspotPageContent({
                                     title="Generate Voucher"
                                     className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl cursor-pointer inline-flex items-center justify-center shadow-xs"
                                 >
-                                    <Plus className="w-4 h-4" />
+                                    <TicketPlus className="w-4 h-4" />
                                 </button>
 
                                 <button
@@ -1217,7 +1218,7 @@ function HotspotPageContent({
                     <div className="flex justify-end pt-3 gap-2">
                         <button type="button" onClick={() => setShowGenerateVoucherModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
                         <button type="submit" disabled={isGeneratingVouchers} title={isGeneratingVouchers ? 'Generating...' : 'Generate'} className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50">
-                            <Plus className={`w-4 h-4 ${isGeneratingVouchers ? 'animate-pulse' : ''}`} />
+                            <TicketPlus className={`w-4 h-4 ${isGeneratingVouchers ? 'animate-pulse' : ''}`} />
                         </button>
                     </div>
                 </form>
