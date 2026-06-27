@@ -42,6 +42,106 @@ class BillingService
     }
 
     /**
+     * Tanggal layanan diaktifkan kembali setelah pause (inactive/suspended).
+     */
+    public static function resolveBillingResumeDate(Customer $customer): ?Carbon
+    {
+        if (!$customer->billing_resume_date) {
+            return null;
+        }
+
+        $dateString = $customer->billing_resume_date instanceof Carbon
+            ? $customer->billing_resume_date->format('Y-m-d')
+            : substr((string) $customer->billing_resume_date, 0, 10);
+
+        return Carbon::createFromFormat('Y-m-d', $dateString, config('app.timezone'))->startOfDay();
+    }
+
+    /**
+     * Catat tanggal aktivasi ulang untuk prorata tagihan pertama setelah pause.
+     */
+    public static function recordBillingResume(Customer $customer, ?Carbon $resumeDate = null): void
+    {
+        $resumeDate = ($resumeDate ?? Carbon::today())->copy()->startOfDay();
+
+        if ($customer->billing_resume_date) {
+            $existing = self::resolveBillingResumeDate($customer);
+            if ($existing && $existing->equalTo($resumeDate)) {
+                return;
+            }
+        }
+
+        $customer->update(['billing_resume_date' => $resumeDate->toDateString()]);
+    }
+
+    public static function clearBillingResume(Customer $customer): void
+    {
+        if ($customer->billing_resume_date === null) {
+            return;
+        }
+
+        $customer->update(['billing_resume_date' => null]);
+    }
+
+    /**
+     * Sinkronkan billing_resume_date saat status pelanggan berubah.
+     */
+    public static function syncCustomerStatusBillingTransition(
+        Customer $customer,
+        ?string $previousStatus,
+        string $newStatus,
+        ?Carbon $resumeDate = null
+    ): void {
+        if (in_array($previousStatus, ['inactive', 'suspended'], true) && $newStatus === 'active') {
+            self::recordBillingResume($customer, $resumeDate);
+
+            return;
+        }
+
+        if (in_array($newStatus, ['inactive', 'suspended'], true)) {
+            self::clearBillingResume($customer);
+        }
+    }
+
+    /**
+     * Hapus billing_resume_date setelah tagihan periode aktivasi ulang lunas.
+     */
+    public static function clearBillingResumeIfInvoicePaid(Customer $customer, Invoice $invoice): void
+    {
+        $resumeDate = self::resolveBillingResumeDate($customer);
+        if ($resumeDate === null) {
+            return;
+        }
+
+        $resumePeriod = $resumeDate->format('Y-m');
+
+        if (!empty($invoice->accumulated_periods) && is_array($invoice->accumulated_periods)) {
+            if (in_array($resumePeriod, $invoice->accumulated_periods, true)) {
+                self::clearBillingResume($customer);
+
+                return;
+            }
+        }
+
+        $billingPeriod = (string) ($invoice->billing_period ?? '');
+        if ($billingPeriod === $resumePeriod) {
+            self::clearBillingResume($customer);
+
+            return;
+        }
+
+        if (str_contains($billingPeriod, '+')) {
+            $parts = array_map('trim', explode('+', $billingPeriod));
+            $first = $parts[0] ?? '';
+            $last = $parts[array_key_last($parts)] ?? '';
+
+            if ($resumePeriod >= $first && $resumePeriod <= $last) {
+                self::clearBillingResume($customer);
+            }
+        }
+    }
+
+    /**
      * Whether prorata billing is enabled in system settings.
      */
     public static function isProrataEnabled(): bool
@@ -306,6 +406,7 @@ class BillingService
         return [
             'billing_date' => self::formatDateOnly($customer->fresh()->billing_date),
             'upcoming_due_date' => self::formatDateOnly($upcoming),
+            'billing_resume_date' => self::formatDateOnly($customer->fresh()->billing_resume_date),
         ];
     }
 
@@ -592,6 +693,7 @@ class BillingService
         $periodStart = Carbon::createFromFormat('Y-m', $period)->startOfMonth()->startOfDay();
         $periodEnd = Carbon::createFromFormat('Y-m', $period)->endOfMonth()->startOfDay();
         $serviceStart = self::resolveServiceStartDate($customer);
+        $resumeDate = self::resolveBillingResumeDate($customer);
 
         if ($serviceStart->gt($periodEnd)) {
             return null;
@@ -602,6 +704,29 @@ class BillingService
                 'amount' => round($monthlyPrice, 2),
                 'days_billed' => self::PRORATA_BASE_DAYS,
                 'is_prorated' => false,
+            ];
+        }
+
+        $resumeInPeriod = $resumeDate !== null
+            && $resumeDate->gte($periodStart)
+            && $resumeDate->lte($periodEnd)
+            && $resumeDate->gt($serviceStart);
+
+        if ($resumeInPeriod) {
+            $activeStart = $resumeDate;
+            $dueDate = self::resolveDueDateForPeriod($customer, $period);
+            if ($dueDate->lt($activeStart)) {
+                $nextPeriod = Carbon::createFromFormat('Y-m', $period)->addMonth()->format('Y-m');
+                $dueDate = self::resolveDueDateForPeriod($customer, $nextPeriod);
+            }
+
+            $daysActive = $activeStart->diffInDays($dueDate) + 1;
+            $daysActive = (int) min(max($daysActive, 1), self::PRORATA_BASE_DAYS);
+
+            return [
+                'amount' => round(($monthlyPrice / self::PRORATA_BASE_DAYS) * $daysActive, 2),
+                'days_billed' => $daysActive,
+                'is_prorated' => true,
             ];
         }
 
@@ -1548,6 +1673,7 @@ class BillingService
             $customer = $invoice->customer;
             if ($customer) {
                 self::syncCustomerBillingDate($customer->fresh());
+                self::clearBillingResumeIfInvoicePaid($customer->fresh(), $invoice->fresh());
                 $customer = $customer->fresh();
             }
 

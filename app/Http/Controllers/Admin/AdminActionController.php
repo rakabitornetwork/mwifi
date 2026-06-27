@@ -404,8 +404,22 @@ class AdminActionController extends Controller
         }
 
         $oldOdpId = $customer?->odp_id;
+        $previousStatus = $customer?->status;
 
         $savedCustomer = Customer::updateOrCreate(['id' => $id], $data);
+
+        if ($savedCustomer->service_type === 'pppoe') {
+            $resumeDate = !empty($request->input('billing_resume_date'))
+                ? Carbon::parse($request->input('billing_resume_date'), config('app.timezone'))->startOfDay()
+                : null;
+
+            BillingService::syncCustomerStatusBillingTransition(
+                $savedCustomer->fresh(),
+                $previousStatus,
+                $data['status'],
+                $resumeDate
+            );
+        }
 
         $newOdpId = $data['odp_id'] ?? null;
         if ($oldOdpId != $newOdpId) {

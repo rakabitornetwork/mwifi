@@ -15,6 +15,7 @@ class Customer extends Model
     protected $casts = [
         'billing_date' => 'date',
         'service_start_date' => 'date',
+        'billing_resume_date' => 'date',
     ];
 
     protected function billingDate(): Attribute
