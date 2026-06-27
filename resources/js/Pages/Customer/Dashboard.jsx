@@ -4,6 +4,7 @@ import { Link, router, usePage } from '@inertiajs/react';
 import PullToRefresh from '../../Components/PullToRefresh';
 import OntWifiPanel from '../../Components/OntWifiPanel';
 import CustomerLiveTrafficPanel from '../../Components/CustomerLiveTrafficPanel';
+import CustomerManualPaymentInfo from '../../Components/CustomerManualPaymentInfo';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
@@ -41,9 +42,11 @@ export default function CustomerDashboard({
     activeGateway,
     portalView = 'default',
     vpsPlan = null,
+    portalPayment = {},
 }) {
     const isVpsPortal = portalView === 'vps';
     const isMidtransGateway = activeGateway === 'midtrans';
+    const gatewayCheckoutEnabled = portalPayment?.gateway_checkout_enabled !== false;
     const { branding = {} } = usePage().props;
     const { isDarkMode, isAutoTheme, toggleTheme } = useScheduledTheme('mwifi.customer.theme');
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
@@ -71,6 +74,10 @@ export default function CustomerDashboard({
     const paidInvoices = invoices.filter(inv => inv.status === 'paid');
 
     const handlePay = async (invoiceId) => {
+        if (!gatewayCheckoutEnabled) {
+            return;
+        }
+
         setIsPaying(invoiceId);
         try {
             const response = await fetch(`/customer/invoice/${invoiceId}/pay`, {
@@ -478,28 +485,39 @@ export default function CustomerDashboard({
                                                 </div>
 
                                                 <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 lg:gap-4 lg:shrink-0">
-                                                    {activeGateway === 'tripay' ? (
-                                                        <div className="flex flex-col gap-1 sm:w-44 lg:w-48">
-                                                            <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Metode Bayar</label>
-                                                            <select
-                                                                value={selectedPaymentMethod}
-                                                                onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                                                                className={`text-xs p-1.5 rounded-lg border font-semibold ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'}`}
-                                                            >
-                                                                {paymentMethods.map((pm) => (
-                                                                    <option key={pm.id} value={pm.id}>{pm.label}</option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
+                                                    {gatewayCheckoutEnabled ? (
+                                                        activeGateway === 'tripay' ? (
+                                                            <div className="flex flex-col gap-1 sm:w-44 lg:w-48">
+                                                                <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Metode Bayar</label>
+                                                                <select
+                                                                    value={selectedPaymentMethod}
+                                                                    onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                                                                    className={`text-xs p-1.5 rounded-lg border font-semibold ${isDarkMode ? 'bg-zinc-900 border-zinc-800 text-zinc-300' : 'bg-white border-zinc-200 text-zinc-700 shadow-2xs'}`}
+                                                                >
+                                                                    {paymentMethods.map((pm) => (
+                                                                        <option key={pm.id} value={pm.id}>{pm.label}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                        ) : (
+                                                            <div className={`flex flex-col gap-1 rounded-xl border px-3 py-2.5 sm:w-52 lg:w-56 ${isDarkMode ? 'border-zinc-800/80 bg-zinc-950/30' : 'border-zinc-200/80 bg-white/70'}`}>
+                                                                <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Pembayaran Online</span>
+                                                                <span className={`text-[10px] leading-relaxed ${themeTextSub}`}>
+                                                                    {isVpsPortal && isMidtransGateway
+                                                                        ? 'Klik Bayar untuk membuka halaman Midtrans Snap (QRIS, GoPay, VA, dll.).'
+                                                                        : (gatewayCheckoutHint[activeGateway] || gatewayCheckoutHint.midtrans)}
+                                                                </span>
+                                                            </div>
+                                                        )
                                                     ) : (
-                                                        <div className={`flex flex-col gap-1 rounded-xl border px-3 py-2.5 sm:w-52 lg:w-56 ${isDarkMode ? 'border-zinc-800/80 bg-zinc-950/30' : 'border-zinc-200/80 bg-white/70'}`}>
-                                                            <span className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Pembayaran Online</span>
-                                                            <span className={`text-[10px] leading-relaxed ${themeTextSub}`}>
-                                                                {isVpsPortal && isMidtransGateway
-                                                                    ? 'Klik Bayar untuk membuka halaman Midtrans Snap (QRIS, GoPay, VA, dll.).'
-                                                                    : (gatewayCheckoutHint[activeGateway] || gatewayCheckoutHint.midtrans)}
-                                                            </span>
-                                                        </div>
+                                                        <CustomerManualPaymentInfo
+                                                            portalPayment={portalPayment}
+                                                            isDarkMode={isDarkMode}
+                                                            themeTextSub={themeTextSub}
+                                                            themeTextDesc={themeTextDesc}
+                                                            themeTextTitle={themeTextTitle}
+                                                            compact
+                                                        />
                                                     )}
 
                                                     <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 lg:min-w-[11rem]">
@@ -509,11 +527,25 @@ export default function CustomerDashboard({
                                                         </div>
 
                                                         <button
+                                                            type="button"
                                                             onClick={() => handlePay(inv.id)}
-                                                            disabled={isPaying !== null}
-                                                            className={`shrink-0 px-4 py-2 text-white rounded-xl text-xs font-bold shadow-lg cursor-pointer flex items-center justify-center space-x-1.5 transition-all duration-150 ${payButtonClass} ${isPaying ? 'opacity-50 cursor-not-allowed' : 'hover:scale-[1.01]'}`}
+                                                            disabled={!gatewayCheckoutEnabled || isPaying !== null}
+                                                            title={
+                                                                gatewayCheckoutEnabled
+                                                                    ? 'Bayar via payment gateway'
+                                                                    : 'Pembayaran online dinonaktifkan — gunakan tunai atau transfer manual'
+                                                            }
+                                                            className={`shrink-0 px-4 py-2 text-white rounded-xl text-xs font-bold shadow-lg flex items-center justify-center space-x-1.5 transition-all duration-150 ${payButtonClass} ${
+                                                                !gatewayCheckoutEnabled || isPaying
+                                                                    ? 'opacity-45 cursor-not-allowed hover:scale-100'
+                                                                    : 'cursor-pointer hover:scale-[1.01]'
+                                                            }`}
                                                         >
-                                                            <span>{isPaying === inv.id ? 'Memproses...' : 'Bayar'}</span>
+                                                            <span>
+                                                                {!gatewayCheckoutEnabled
+                                                                    ? 'Bayar Online'
+                                                                    : (isPaying === inv.id ? 'Memproses...' : 'Bayar')}
+                                                            </span>
                                                             <ArrowRight className="w-3.5 h-3.5" />
                                                         </button>
                                                     </div>

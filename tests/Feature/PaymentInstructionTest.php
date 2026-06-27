@@ -113,4 +113,65 @@ class PaymentInstructionTest extends TestCase
         $this->assertSame('+6281234567890', WhatsAppService::formatDisplayPhone('081234567890'));
         $this->assertSame('+6281234567890', WhatsAppService::formatDisplayPhone('6281234567890'));
     }
+
+    public function test_portal_gateway_checkout_disabled_when_active_gateway_is_sandbox(): void
+    {
+        Setting::create([
+            'group' => 'payment',
+            'key' => 'payment.active_gateway',
+            'value' => 'midtrans',
+            'is_encrypted' => false,
+        ]);
+        Setting::create([
+            'group' => 'payment',
+            'key' => 'payment.midtrans.mode',
+            'value' => 'sandbox',
+            'is_encrypted' => false,
+        ]);
+
+        $this->assertTrue(PaymentInstructionService::isActiveGatewaySandbox());
+        $this->assertFalse(PaymentInstructionService::isPortalGatewayCheckoutEnabled());
+    }
+
+    public function test_portal_manual_payment_info_includes_bank_and_dana(): void
+    {
+        Setting::create([
+            'group' => 'payment',
+            'key' => 'payment.active_gateway',
+            'value' => 'midtrans',
+            'is_encrypted' => false,
+        ]);
+        Setting::create([
+            'group' => 'payment',
+            'key' => 'payment.midtrans.mode',
+            'value' => 'sandbox',
+            'is_encrypted' => false,
+        ]);
+        Setting::create([
+            'group' => 'payment',
+            'key' => 'payment.bank_name',
+            'value' => 'BCA',
+            'is_encrypted' => false,
+        ]);
+        Setting::create([
+            'group' => 'payment',
+            'key' => 'payment.bank_account_number',
+            'value' => '1234567890',
+            'is_encrypted' => false,
+        ]);
+        Setting::create([
+            'group' => 'payment',
+            'key' => 'payment.dana_number',
+            'value' => '6281234567890',
+            'is_encrypted' => false,
+        ]);
+
+        $info = PaymentInstructionService::portalManualPaymentInfo();
+
+        $this->assertFalse($info['gateway_checkout_enabled']);
+        $this->assertTrue($info['gateway_sandbox']);
+        $this->assertTrue($info['cash_enabled']);
+        $this->assertSame('BCA', $info['bank']['name']);
+        $this->assertSame('081234567890', $info['dana']['number']);
+    }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
 use App\Services\BillingService;
+use App\Services\PaymentInstructionService;
 use App\Services\Payment\PaymentService;
 use App\Services\BrandingService;
 use App\Services\GenieAcsService;
@@ -48,6 +49,7 @@ class CustomerPortalController extends Controller
                     ->map(fn (Invoice $invoice) => VpsCatalogService::transformInvoiceForShowcase($invoice))
                     ->values(),
                 'activeGateway' => SettingService::get('payment.active_gateway', 'tripay'),
+                'portalPayment' => PaymentInstructionService::portalManualPaymentInfo(),
             ]);
         }
 
@@ -56,6 +58,7 @@ class CustomerPortalController extends Controller
             'customer' => array_merge($customer->toArray(), BillingService::enrichCustomerBillingFields($customer)),
             'invoices' => BillingService::appendNextBillingToInvoices($invoices),
             'activeGateway' => SettingService::get('payment.active_gateway', 'tripay'),
+            'portalPayment' => PaymentInstructionService::portalManualPaymentInfo(),
         ]);
     }
 
@@ -116,6 +119,13 @@ class CustomerPortalController extends Controller
             ->where('customer_id', $customer->id)
             ->where('status', 'unpaid')
             ->firstOrFail();
+
+        if (!PaymentInstructionService::isPortalGatewayCheckoutEnabled()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Pembayaran online gateway sementara dinonaktifkan. Silakan bayar tunai atau transfer manual ke rekening/e-wallet yang tercantum di portal.',
+            ], 422);
+        }
 
         try {
             $paymentMethod = $request->input('payment_method');

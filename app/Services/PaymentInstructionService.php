@@ -4,6 +4,75 @@ namespace App\Services;
 
 class PaymentInstructionService
 {
+    public static function activeGatewayName(): string
+    {
+        return strtolower(trim((string) SettingService::get('payment.active_gateway', 'tripay')));
+    }
+
+    public static function isActiveGatewaySandbox(): bool
+    {
+        $gateway = self::activeGatewayName();
+        $modeKey = match ($gateway) {
+            'midtrans' => 'payment.midtrans.mode',
+            'duitku' => 'payment.duitku.mode',
+            default => 'payment.tripay.mode',
+        };
+
+        return SettingService::get($modeKey, 'sandbox') !== 'production';
+    }
+
+    /**
+     * Whether customers can open checkout on the active payment gateway from the portal.
+     */
+    public static function isPortalGatewayCheckoutEnabled(): bool
+    {
+        $explicit = trim((string) SettingService::get('payment.portal_gateway_enabled', ''));
+        if ($explicit !== '') {
+            return filter_var($explicit, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        return !self::isActiveGatewaySandbox();
+    }
+
+    public static function manualConfirmPhone(): string
+    {
+        $phone = trim((string) SettingService::get('payment.manual_confirm_phone', ''));
+        if ($phone !== '') {
+            return $phone;
+        }
+
+        return WhatsAppService::getLinkedPhoneForMessages();
+    }
+
+    /**
+     * Payment guidance shown on the customer portal when gateway checkout is unavailable.
+     *
+     * @return array<string, mixed>
+     */
+    public static function portalManualPaymentInfo(): array
+    {
+        $danaNumber = self::danaNumber();
+
+        return [
+            'gateway_checkout_enabled' => self::isPortalGatewayCheckoutEnabled(),
+            'gateway_sandbox' => self::isActiveGatewaySandbox(),
+            'active_gateway' => self::activeGatewayName(),
+            'cash_enabled' => true,
+            'bank' => [
+                'name' => self::bankName(),
+                'account_number' => self::bankAccountNumber(),
+                'account_holder' => self::bankAccountHolder(),
+                'configured' => self::hasBankInfo(),
+            ],
+            'dana' => [
+                'number' => $danaNumber !== '' ? self::formatDanaDisplayNumber($danaNumber) : '',
+                'account_holder' => self::danaAccountHolder(),
+                'configured' => self::hasDanaInfo(),
+            ],
+            'whatsapp' => self::manualConfirmPhone(),
+        ];
+    }
+
     public static function bankName(): string
     {
         return trim((string) SettingService::get('payment.bank_name', ''));
