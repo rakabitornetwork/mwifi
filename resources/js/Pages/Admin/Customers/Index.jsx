@@ -14,6 +14,7 @@ import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadO
 import getVisiblePages from '../../../utils/getVisiblePages';
 import { formatDateInputValue, formatDisplayDate, resolveCustomerDueDate, todayDateInputValue } from '../../../utils/formatDateInputValue';
 import { fetchRouterPackageProfiles } from '../../../utils/fetchRouterPackageProfiles';
+import { filterPppoePackagesForRouter } from '../../../utils/packageRouterFilter';
 import {
     readAdminCustomersFilterPreference,
     writeAdminCustomersFilterPreference,
@@ -114,25 +115,25 @@ function CustomersPageContent({
     const pppoePackages = packages.filter((p) => p.type === 'pppoe');
 
     const modalPackages = useMemo(() => {
-        if (!selectedRouterId) {
-            return pppoePackages;
-        }
-
-        const allowedProfiles = routerProfilesMap[selectedRouterId];
-        if (!allowedProfiles) {
-            return pppoePackages;
-        }
-
-        const profileSet = new Set(allowedProfiles.map((p) => String(p).toLowerCase()));
-        return pppoePackages.filter((pkg) => {
-            if (pkg.router_id != null && String(pkg.router_id) !== String(selectedRouterId)) {
-                return false;
-            }
-
-            const profile = String(pkg.mikrotik_profile || '').toLowerCase();
-            return profileSet.has(profile);
+        let filtered = filterPppoePackagesForRouter(pppoePackages, selectedRouterId, {
+            allowedProfiles: routerProfilesMap[selectedRouterId],
+            isLoadingProfiles,
         });
-    }, [pppoePackages, selectedRouterId, routerProfilesMap]);
+
+        if (editingCustomer?.package_id && showCustomerModal) {
+            const currentPackage = pppoePackages.find(
+                (pkg) => String(pkg.id) === String(editingCustomer.package_id),
+            );
+
+            if (currentPackage && !filtered.some((pkg) => String(pkg.id) === String(currentPackage.id))) {
+                filtered = [...filtered, currentPackage].sort((a, b) =>
+                    String(a.name).localeCompare(String(b.name), 'id'),
+                );
+            }
+        }
+
+        return filtered;
+    }, [pppoePackages, selectedRouterId, routerProfilesMap, isLoadingProfiles, editingCustomer, showCustomerModal]);
 
     useEffect(() => {
         if (lockedRouterId) {
@@ -176,14 +177,15 @@ function CustomersPageContent({
             return;
         }
 
-        if (routerProfilesMap[selectedRouterId]) {
+        if (routerProfilesMap[selectedRouterId] !== undefined) {
             return;
         }
 
         let cancelled = false;
+        const controller = new AbortController();
         setIsLoadingProfiles(true);
 
-        fetchRouterPackageProfiles(selectedRouterId)
+        fetchRouterPackageProfiles(selectedRouterId, { signal: controller.signal })
             .then((data) => {
                 if (cancelled) return;
                 setRouterProfilesMap((prev) => ({
@@ -192,7 +194,12 @@ function CustomersPageContent({
                 }));
             })
             .catch((err) => {
+                if (cancelled || err?.name === 'AbortError') return;
                 console.error('Gagal memuat profil router:', err);
+                setRouterProfilesMap((prev) => ({
+                    ...prev,
+                    [selectedRouterId]: [],
+                }));
             })
             .finally(() => {
                 if (!cancelled) {
@@ -202,6 +209,7 @@ function CustomersPageContent({
 
         return () => {
             cancelled = true;
+            controller.abort();
         };
     }, [selectedRouterId, showCustomerModal, routerProfilesMap]);
 
@@ -1033,7 +1041,11 @@ function CustomersPageContent({
                             <select 
                                 name="router_id" 
                                 value={selectedRouterId} 
-                                onChange={(e) => setSelectedRouterId(e.target.value)}
+                                onChange={(e) => {
+                                    const nextRouterId = e.target.value;
+                                    setSelectedRouterId(nextRouterId);
+                                    setSelectedPackageId('');
+                                }}
                                 className={`p-2 border rounded-lg ${themeInput}`}
                             >
                                 {routers.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
