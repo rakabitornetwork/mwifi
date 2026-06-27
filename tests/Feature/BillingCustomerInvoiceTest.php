@@ -189,6 +189,37 @@ class BillingCustomerInvoiceTest extends TestCase
         $this->assertSame('2026-06-25', $created['due_date']);
     }
 
+    public function test_manual_generate_uses_next_period_for_long_term_customer_outside_schedule_window(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-27'));
+
+        $customer = $this->makeCustomer(3, '2025-11-26');
+        $customer->update(['billing_date' => '2026-07-03']);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-0001-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-03',
+            'status' => 'paid',
+            'paid_at' => '2026-06-10',
+        ]);
+
+        $created = BillingService::generateInvoiceForCustomer($customer->fresh(), null, 0);
+
+        $this->assertSame('2026-07', $created['billing_period']);
+        $this->assertSame('2026-07-03', $created['due_date']);
+
+        $billing = BillingService::enrichCustomerBillingFields($customer->fresh());
+        $this->assertSame('2026-07-03', $billing['upcoming_due_date']);
+        $this->assertSame('2026-07-03', $customer->fresh()->billing_date?->format('Y-m-d'));
+    }
+
     public function test_admin_can_pass_due_extension_days_when_generating_invoice(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-06-20'));

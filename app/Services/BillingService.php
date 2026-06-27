@@ -194,6 +194,66 @@ class BillingService
     }
 
     /**
+     * Target periode & jatuh tempo untuk generate tagihan manual (admin).
+     * Mengutamakan jadwal H-N, lalu tagihan berikutnya setelah invoice terakhir yang lunas.
+     *
+     * @return array{period: string, due_date: Carbon}|null
+     */
+    public static function resolveManualInvoiceTarget(Customer $customer, ?Carbon $today = null): ?array
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+
+        $schedule = self::resolveInvoiceSchedule($customer, $today);
+        if ($schedule !== null) {
+            return $schedule;
+        }
+
+        if (!Invoice::where('customer_id', $customer->id)->exists()) {
+            return self::resolveFirstInvoiceTarget($customer);
+        }
+
+        $latestInvoice = self::findLatestRecurringInvoice($customer);
+        if ($latestInvoice) {
+            $nextPeriod = Carbon::createFromFormat('Y-m', $latestInvoice->billing_period)
+                ->addMonth()
+                ->format('Y-m');
+
+            if (Invoice::where('customer_id', $customer->id)
+                ->where('billing_period', $nextPeriod)
+                ->exists()) {
+                throw new \InvalidArgumentException("Invoice periode {$nextPeriod} sudah ada untuk pelanggan ini.");
+            }
+
+            if (self::isPeriodDeferredForCustomer($customer, $nextPeriod)) {
+                throw new \InvalidArgumentException("Periode {$nextPeriod} sedang ditunda (tunda bayar aktif).");
+            }
+
+            return [
+                'period' => $nextPeriod,
+                'due_date' => self::resolveDueDateForPeriod($customer, $nextPeriod),
+            ];
+        }
+
+        return self::resolveFirstInvoiceTarget($customer);
+    }
+
+    private static function findLatestRecurringInvoice(Customer $customer): ?Invoice
+    {
+        return Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->whereNotNull('billing_period')
+            ->orderByDesc('billing_period')
+            ->get()
+            ->first(function (Invoice $invoice) {
+                if (!preg_match('/^\d{4}-\d{2}$/', (string) $invoice->billing_period)) {
+                    return false;
+                }
+
+                return !VpsCatalogService::isVpsInvoice($invoice);
+            });
+    }
+
+    /**
      * Sinkronkan kolom billing_date pelanggan ke jatuh tempo berikutnya.
      */
     public static function syncCustomerBillingDate(Customer $customer, ?Carbon $today = null): void
@@ -458,7 +518,7 @@ class BillingService
                 'status' => 'unpaid',
             ]);
 
-            $customer->update(['billing_date' => $dueDate->toDateString()]);
+            self::syncCustomerBillingDate($customer->fresh());
 
             if ($sendWhatsApp) {
                 try {
@@ -969,17 +1029,13 @@ class BillingService
         $dueDate = null;
 
         if ($period === null) {
-            $schedule = self::resolveInvoiceSchedule($customer);
-            if ($schedule !== null) {
-                $period = $schedule['period'];
-                $dueDate = $schedule['due_date'];
-            } elseif (!Invoice::where('customer_id', $customer->id)->exists()) {
-                $firstTarget = self::resolveFirstInvoiceTarget($customer);
-                $period = $firstTarget['period'];
-                $dueDate = $firstTarget['due_date'];
-            } else {
-                $period = Carbon::now()->format('Y-m');
+            $target = self::resolveManualInvoiceTarget($customer);
+            if ($target === null) {
+                throw new \InvalidArgumentException('Tidak dapat menentukan periode tagihan berikutnya untuk pelanggan ini.');
             }
+
+            $period = $target['period'];
+            $dueDate = $target['due_date'];
         }
 
         if (Invoice::where('customer_id', $customer->id)
