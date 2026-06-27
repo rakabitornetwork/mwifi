@@ -735,22 +735,12 @@ class BillingService
     {
         $upcoming = self::resolveCustomerUpcomingDueDate($customer, $today);
 
-        if ($upcoming !== null) {
-            $current = $customer->billing_date
-                ? Carbon::parse($customer->billing_date)->startOfDay()
-                : null;
-
-            if ($current === null || !$current->equalTo($upcoming)) {
-                $customer->update(['billing_date' => $upcoming->toDateString()]);
-            }
-        }
-
         return [
-            'billing_date' => self::formatDateOnly($customer->fresh()->billing_date),
+            'billing_date' => self::formatDateOnly($customer->billing_date),
             'upcoming_due_date' => self::formatDateOnly($upcoming),
-            'billing_resume_date' => self::formatDateOnly($customer->fresh()->billing_resume_date),
-            'billing_pause_date' => self::formatDateOnly($customer->fresh()->billing_pause_date),
-            'pending_pause_status' => $customer->fresh()->pending_pause_status,
+            'billing_resume_date' => self::formatDateOnly($customer->billing_resume_date),
+            'billing_pause_date' => self::formatDateOnly($customer->billing_pause_date),
+            'pending_pause_status' => $customer->pending_pause_status,
         ];
     }
 

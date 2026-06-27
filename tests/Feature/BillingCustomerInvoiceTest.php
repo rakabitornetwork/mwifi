@@ -391,4 +391,34 @@ class BillingCustomerInvoiceTest extends TestCase
         $response->assertSessionHas('success');
         Http::assertSent(fn ($request) => $request->url() === 'http://127.0.0.1:3003/send-message');
     }
+
+    public function test_enrich_preserves_admin_billing_date_over_computed_upcoming(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-15'));
+
+        $customer = $this->makeCustomer(31, '2026-05-01');
+        $customer->update(['billing_date' => '2026-05-31']);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202605-0001-TEST',
+            'billing_period' => '2026-05',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-05-31',
+            'status' => 'paid',
+            'paid_at' => '2026-05-31 10:00:00',
+        ]);
+
+        $billing = BillingService::enrichCustomerBillingFields($customer->fresh());
+
+        $this->assertSame('2026-05-31', $billing['billing_date']);
+        $this->assertSame('2026-05-31', $customer->fresh()->billing_date?->format('Y-m-d'));
+        $this->assertSame('2026-06-30', $billing['upcoming_due_date']);
+
+        Carbon::setTestNow();
+    }
 }

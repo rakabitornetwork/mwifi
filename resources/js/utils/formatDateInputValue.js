@@ -52,5 +52,5 @@ export function resolveCustomerDueDate(customer) {
         return null;
     }
 
-    return customer.upcoming_due_date || customer.billing_date || null;
+    return customer.billing_date || customer.upcoming_due_date || null;
 }
