@@ -49,7 +49,7 @@ class CustomerPortalController extends Controller
                     ->map(fn (Invoice $invoice) => VpsCatalogService::transformInvoiceForShowcase($invoice))
                     ->values(),
                 'activeGateway' => SettingService::get('payment.active_gateway', 'tripay'),
-                'portalPayment' => PaymentInstructionService::portalManualPaymentInfo(),
+                'portalPayment' => VpsCatalogService::portalPaymentInfoForShowcase(),
             ]);
         }
 
@@ -120,7 +120,11 @@ class CustomerPortalController extends Controller
             ->where('status', 'unpaid')
             ->firstOrFail();
 
-        if (!PaymentInstructionService::isPortalGatewayCheckoutEnabled()) {
+        $vpsLoginIntent = (bool) $request->session()->get('customer_portal_vps_showcase', false);
+        $allowsCheckout = PaymentInstructionService::isPortalGatewayCheckoutEnabled()
+            || VpsCatalogService::allowsVpsPortalOnlineCheckout($customer, $invoice, $vpsLoginIntent);
+
+        if (! $allowsCheckout) {
             return response()->json([
                 'success' => false,
                 'message' => 'Pembayaran online gateway sementara dinonaktifkan. Silakan bayar tunai atau transfer manual ke rekening/e-wallet yang tercantum di portal.',

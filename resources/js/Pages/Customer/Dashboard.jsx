@@ -47,6 +47,7 @@ export default function CustomerDashboard({
     const isVpsPortal = portalView === 'vps';
     const isMidtransGateway = activeGateway === 'midtrans';
     const gatewayCheckoutEnabled = portalPayment?.gateway_checkout_enabled !== false;
+    const vpsUnpaidCheckoutEnabled = isVpsPortal && gatewayCheckoutEnabled;
     const { branding = {} } = usePage().props;
     const { isDarkMode, isAutoTheme, toggleTheme } = useScheduledTheme('mwifi.customer.theme');
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
@@ -74,7 +75,8 @@ export default function CustomerDashboard({
     const paidInvoices = invoices.filter(inv => inv.status === 'paid');
 
     const handlePay = async (invoiceId) => {
-        if (!gatewayCheckoutEnabled) {
+        const canCheckout = isVpsPortal ? vpsUnpaidCheckoutEnabled : gatewayCheckoutEnabled;
+        if (!canCheckout) {
             return;
         }
 
@@ -483,7 +485,7 @@ export default function CustomerDashboard({
                                                 </div>
 
                                                 <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 lg:gap-4 lg:shrink-0">
-                                                    {gatewayCheckoutEnabled ? (
+                                                    {(isVpsPortal ? vpsUnpaidCheckoutEnabled : gatewayCheckoutEnabled) ? (
                                                         activeGateway === 'tripay' ? (
                                                             <div className="flex flex-col gap-1 sm:w-44 lg:w-48">
                                                                 <label className="text-[9px] uppercase tracking-wider text-zinc-500 font-bold">Metode Bayar</label>
@@ -508,6 +510,7 @@ export default function CustomerDashboard({
                                                             </div>
                                                         )
                                                     ) : (
+                                                        !isVpsPortal && (
                                                         <CustomerManualPaymentInfo
                                                             portalPayment={portalPayment}
                                                             isDarkMode={isDarkMode}
@@ -516,6 +519,7 @@ export default function CustomerDashboard({
                                                             themeTextTitle={themeTextTitle}
                                                             compact
                                                         />
+                                                        )
                                                     )}
 
                                                     <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 lg:min-w-[11rem]">
@@ -527,20 +531,20 @@ export default function CustomerDashboard({
                                                         <button
                                                             type="button"
                                                             onClick={() => handlePay(inv.id)}
-                                                            disabled={!gatewayCheckoutEnabled || isPaying !== null}
+                                                            disabled={!(isVpsPortal ? vpsUnpaidCheckoutEnabled : gatewayCheckoutEnabled) || isPaying !== null}
                                                             title={
-                                                                gatewayCheckoutEnabled
+                                                                (isVpsPortal ? vpsUnpaidCheckoutEnabled : gatewayCheckoutEnabled)
                                                                     ? 'Bayar via payment gateway'
                                                                     : 'Pembayaran online dinonaktifkan — gunakan tunai atau transfer manual'
                                                             }
                                                             className={`shrink-0 px-4 py-2 text-white rounded-xl text-xs font-bold shadow-lg flex items-center justify-center space-x-1.5 transition-all duration-150 ${payButtonClass} ${
-                                                                !gatewayCheckoutEnabled || isPaying
+                                                                !(isVpsPortal ? vpsUnpaidCheckoutEnabled : gatewayCheckoutEnabled) || isPaying
                                                                     ? 'opacity-45 cursor-not-allowed hover:scale-100'
                                                                     : 'cursor-pointer hover:scale-[1.01]'
                                                             }`}
                                                         >
                                                             <span>
-                                                                {!gatewayCheckoutEnabled
+                                                                {!(isVpsPortal ? vpsUnpaidCheckoutEnabled : gatewayCheckoutEnabled)
                                                                     ? 'Bayar Online'
                                                                     : (isPaying === inv.id ? 'Memproses...' : 'Bayar')}
                                                             </span>

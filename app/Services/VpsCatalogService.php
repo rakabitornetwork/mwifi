@@ -395,6 +395,31 @@ class VpsCatalogService
     }
 
     /**
+     * Portal VPS: pembayaran online selalu aktif; info transfer manual disembunyikan di UI.
+     *
+     * @return array<string, mixed>
+     */
+    public static function portalPaymentInfoForShowcase(): array
+    {
+        $info = PaymentInstructionService::portalManualPaymentInfo();
+        $info['gateway_checkout_enabled'] = true;
+
+        return $info;
+    }
+
+    public static function allowsVpsPortalOnlineCheckout(
+        Customer $customer,
+        Invoice $invoice,
+        bool $vpsLoginIntent = false
+    ): bool {
+        if (! self::shouldUseShowcasePortal($customer, $vpsLoginIntent)) {
+            return false;
+        }
+
+        return self::shouldPresentAsVpsInvoice($invoice, $customer);
+    }
+
+    /**
      * @param  \Illuminate\Support\Collection<int, Invoice>  $invoices
      * @return \Illuminate\Support\Collection<int, Invoice>
      */

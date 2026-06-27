@@ -95,6 +95,7 @@ class CustomerVpsShowcasePortalTest extends TestCase
             ->assertInertia(fn ($page) => $page
                 ->component('Customer/Dashboard')
                 ->where('portalView', 'vps')
+                ->where('portalPayment.gateway_checkout_enabled', true)
                 ->where('customer.server_id', fn ($id) => str_starts_with($id, 'SRV-'))
                 ->where('customer.name', 'Pelanggan VPS Demo')
                 ->missing('customer.username')
@@ -104,6 +105,42 @@ class CustomerVpsShowcasePortalTest extends TestCase
                 ->has('invoices', 1)
                 ->where('invoices.0.service_label', 'Sewa VPS Cloud (Bulanan)')
             );
+    }
+
+    public function test_showcase_vps_invoice_allows_online_checkout_even_in_sandbox(): void
+    {
+        Setting::create([
+            'group' => 'payment',
+            'key' => 'payment.active_gateway',
+            'value' => 'midtrans',
+            'is_encrypted' => false,
+        ]);
+        Setting::create([
+            'group' => 'payment',
+            'key' => 'payment.midtrans.mode',
+            'value' => 'sandbox',
+            'is_encrypted' => false,
+        ]);
+
+        $this->seedVpsShowcaseSettings();
+        $customer = $this->makeCustomer();
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'VPS-BUSINESS-0001-AB12',
+            'billing_period' => 'vps:business',
+            'amount' => 199000,
+            'tax' => 0,
+            'total_amount' => 199000,
+            'due_date' => now()->addDays(3),
+            'status' => 'unpaid',
+        ]);
+
+        $this->actingAs($customer->user)
+            ->postJson("/customer/invoice/{$invoice->id}/pay", [
+                'payment_method' => 'all',
+            ])
+            ->assertJsonMissing(['message' => 'Pembayaran online gateway sementara dinonaktifkan. Silakan bayar tunai atau transfer manual ke rekening/e-wallet yang tercantum di portal.']);
     }
 
     public function test_showcase_customer_manual_generate_creates_vps_invoice(): void
