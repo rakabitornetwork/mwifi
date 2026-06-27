@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Save, Search, Trash2, Upload, Users, X, CalendarDays } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Save, Search, Trash2, Upload, Users, X } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
@@ -79,7 +79,6 @@ function CustomersPageContent({
     const savedFilters = useMemo(() => readAdminCustomersFilterPreference(), []);
 
     const [searchTerm, setSearchTerm] = useState(savedFilters.searchTerm);
-    const [billingDateFilter, setBillingDateFilter] = useState(savedFilters.billingDateFilter || '');
     const [routerFilter, setRouterFilter] = useState(() => resolveInitialRouterFilter(
         routers,
         lockedRouterId,
@@ -150,14 +149,13 @@ function CustomersPageContent({
         writeAdminCustomersFilterPreference({
             routerId: lockedRouterId ?? routerFilter,
             searchTerm,
-            billingDateFilter,
             expandedCustomerId,
         });
-    }, [routerFilter, searchTerm, billingDateFilter, lockedRouterId, expandedCustomerId]);
+    }, [routerFilter, searchTerm, lockedRouterId, expandedCustomerId]);
 
     useEffect(() => {
         setCustomerPage(1);
-    }, [searchTerm, billingDateFilter, routerFilter, pageSize, sortColumn, sortDirection]);
+    }, [searchTerm, routerFilter, pageSize, sortColumn, sortDirection]);
 
     useEffect(() => {
         if (showCustomerModal) {
@@ -267,10 +265,6 @@ function CustomersPageContent({
     }, {});
 
     const filteredCustomers = routerScopedCustomers.filter((cust) => {
-        if (billingDateFilter && getCustomerBillingDateValue(cust) !== billingDateFilter) {
-            return false;
-        }
-
         const term = searchTerm.trim().toLowerCase();
         if (!term) {
             return true;
@@ -704,27 +698,6 @@ function CustomersPageContent({
                         className={`lg:w-56 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
                         renderOption={(routerItem) => `${routerItem.name} (${routerCustomerCounts[routerItem.id] || 0})`}
                     />
-                    <div className={`relative lg:w-44 shrink-0 ${themeInput} rounded-xl`}>
-                        <CalendarDays className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none ${themeTextDesc}`} />
-                        <input
-                            type="date"
-                            value={billingDateFilter}
-                            onChange={(e) => setBillingDateFilter(e.target.value)}
-                            title="Filter tanggal tagih"
-                            aria-label="Filter tanggal tagih"
-                            className="w-full pl-9 pr-8 py-2 bg-transparent text-xs focus:outline-none rounded-xl"
-                        />
-                        {billingDateFilter ? (
-                            <button
-                                type="button"
-                                onClick={() => setBillingDateFilter('')}
-                                title="Hapus filter tanggal tagih"
-                                className={`absolute right-2 p-0.5 rounded-md cursor-pointer ${themeTextDesc} hover:text-rose-500`}
-                            >
-                                <X className="w-3.5 h-3.5" />
-                            </button>
-                        ) : null}
-                    </div>
                     <div className="relative flex-1">
                         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
                         <input
@@ -814,8 +787,8 @@ function CustomersPageContent({
                                     <td colSpan={canWrite ? 11 : 10} className={`py-8 text-center ${themeTextDesc}`}>
                                         {!routerFilter
                                             ? 'Pilih router Mikrotik terlebih dahulu.'
-                                            : searchTerm.trim() || billingDateFilter
-                                                ? `Tidak ada pelanggan PPPoE di ${selectedRouter?.name || 'router ini'} yang cocok dengan filter pencarian.`
+                                            : searchTerm.trim()
+                                                ? `Tidak ada pelanggan PPPoE di ${selectedRouter?.name || 'router ini'} yang cocok dengan pencarian.`
                                                 : `Belum ada pelanggan PPPoE di ${selectedRouter?.name || 'router ini'}.`}
                                     </td>
                                 </tr>
