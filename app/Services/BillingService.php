@@ -209,6 +209,20 @@ class BillingService
         }
 
         if (!Invoice::where('customer_id', $customer->id)->exists()) {
+            $serviceStart = self::resolveServiceStartDate($customer);
+
+            // Pelanggan lama tanpa riwayat invoice di sistem: selaraskan dengan jatuh tempo di UI,
+            // bukan siklus tagihan pertama dari tanggal mulai layanan.
+            if ($serviceStart->lt($today->copy()->startOfMonth())) {
+                $upcoming = self::resolveCustomerUpcomingDueDate($customer, $today);
+                if ($upcoming !== null) {
+                    return [
+                        'period' => $upcoming->format('Y-m'),
+                        'due_date' => $upcoming->copy()->startOfDay(),
+                    ];
+                }
+            }
+
             return self::resolveFirstInvoiceTarget($customer);
         }
 
@@ -279,8 +293,18 @@ class BillingService
     {
         $upcoming = self::resolveCustomerUpcomingDueDate($customer, $today);
 
+        if ($upcoming !== null) {
+            $current = $customer->billing_date
+                ? Carbon::parse($customer->billing_date)->startOfDay()
+                : null;
+
+            if ($current === null || !$current->equalTo($upcoming)) {
+                $customer->update(['billing_date' => $upcoming->toDateString()]);
+            }
+        }
+
         return [
-            'billing_date' => self::formatDateOnly($customer->billing_date),
+            'billing_date' => self::formatDateOnly($customer->fresh()->billing_date),
             'upcoming_due_date' => self::formatDateOnly($upcoming),
         ];
     }
