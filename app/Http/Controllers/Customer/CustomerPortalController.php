@@ -292,4 +292,51 @@ class CustomerPortalController extends Controller
             ], 503);
         }
     }
+
+    /**
+     * Disconnect a WiFi client from the authenticated customer's ONT.
+     */
+    public function kickConnectedDevice(Request $request)
+    {
+        $customer = Auth::user()->customer;
+
+        if (!$customer || $customer->service_type === 'hotspot') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Layanan hotspot tidak mendukung pengaturan WiFi ONT.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'device_id' => 'required|string|max:255',
+            'mac' => 'required|string|max:32',
+            'association_path' => 'nullable|string|max:512',
+        ]);
+
+        try {
+            $device = GenieAcsService::findDeviceByUsername($customer->username);
+
+            if ($device === null || ($device['id'] ?? null) !== $validated['device_id']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ONT Anda tidak cocok dengan sesi ini.',
+                ], 403);
+            }
+
+            $rawDevice = $device['_raw'] ?? null;
+            $result = GenieAcsService::kickConnectedDevice(
+                $device['id'],
+                $validated['mac'],
+                is_array($rawDevice) ? $rawDevice : null,
+                $validated['association_path'] ?? null
+            );
+
+            return response()->json($result, ($result['success'] ?? false) ? 200 : (int) ($result['http_status'] ?? 502));
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sistem monitoring ONT sedang tidak tersedia. Coba lagi nanti.',
+            ], 503);
+        }
+    }
 }

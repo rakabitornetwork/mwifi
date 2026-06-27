@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Eye, EyeOff, MonitorSmartphone, RefreshCw, RotateCcw, Save, Wifi } from 'lucide-react';
+import { Eye, EyeOff, MonitorSmartphone, RefreshCw, RotateCcw, Save, Unplug, Wifi } from 'lucide-react';
 import ToastStack from './Admin/ToastStack';
 import { PremiumPanel, PremiumPanelHeader } from './Admin/AdminPageCard';
 import { useOptionalAdminToast } from '../hooks/useAdminToast';
@@ -34,9 +34,19 @@ function DeviceMetaLine({ device, compact, themeTextDesc, className = '' }) {
     );
 }
 
-function ConnectedDevicesSection({ device, isDarkMode, themeTextTitle, themeTextSub, themeTextDesc }) {
+function ConnectedDevicesSection({
+    device,
+    isDarkMode,
+    themeTextTitle,
+    themeTextSub,
+    themeTextDesc,
+    canWrite,
+    kickingKey,
+    onKick,
+}) {
     const list = Array.isArray(device?.connected_device_list) ? device.connected_device_list : [];
     const count = device?.connected_devices ?? (list.length > 0 ? list.length : null);
+    const kickEnabled = canWrite && (device?.kick_supported !== false);
 
     if (count === null && list.length === 0) {
         return null;
@@ -45,6 +55,8 @@ function ConnectedDevicesSection({ device, isDarkMode, themeTextTitle, themeText
     const shell = isDarkMode
         ? 'border-zinc-800/80 bg-zinc-900/30'
         : 'border-zinc-200/80 bg-zinc-50/80';
+
+    const deviceKey = (item) => String(item.mac || item.path || item.name || '').toLowerCase();
 
     return (
         <div className={`rounded-lg border px-2.5 py-2 space-y-1.5 min-w-0 ${shell}`}>
@@ -56,19 +68,42 @@ function ConnectedDevicesSection({ device, isDarkMode, themeTextTitle, themeText
             </div>
             {list.length > 0 ? (
                 <ul className="space-y-1 min-w-0">
-                    {list.map((item, index) => (
-                        <li
-                            key={`${item.mac || item.name}-${index}`}
-                            className={`flex items-start justify-between gap-3 text-[10px] py-1 border-b last:border-0 ${isDarkMode ? 'border-zinc-800/50' : 'border-zinc-200/70'}`}
-                        >
-                            <span className={`font-medium min-w-0 break-words [overflow-wrap:anywhere] leading-snug ${themeTextTitle}`}>
-                                {item.name || 'Perangkat'}
-                            </span>
-                            <span className={`shrink-0 text-right font-mono text-[9px] leading-snug ${themeTextDesc}`}>
-                                {item.ip || item.mac || '—'}
-                            </span>
-                        </li>
-                    ))}
+                    {list.map((item, index) => {
+                        const key = deviceKey(item) || `device-${index}`;
+                        const isKicking = kickingKey === key;
+                        const canKickItem = kickEnabled && !!item.mac;
+
+                        return (
+                            <li
+                                key={`${item.mac || item.name}-${index}`}
+                                className={`flex items-center justify-between gap-2 text-[10px] py-1 border-b last:border-0 ${isDarkMode ? 'border-zinc-800/50' : 'border-zinc-200/70'}`}
+                            >
+                                <div className="min-w-0 flex-1">
+                                    <p className={`font-medium break-words [overflow-wrap:anywhere] leading-snug ${themeTextTitle}`}>
+                                        {item.name || 'Perangkat'}
+                                    </p>
+                                    <p className={`font-mono text-[9px] leading-snug ${themeTextDesc}`}>
+                                        {item.ip || item.mac || '—'}
+                                    </p>
+                                </div>
+                                {canKickItem ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => onKick?.(item)}
+                                        disabled={!!kickingKey}
+                                        title="Putuskan perangkat dari WiFi ONT"
+                                        className={`inline-flex items-center justify-center w-7 h-7 rounded-md border shrink-0 transition-colors cursor-pointer disabled:opacity-50 ${
+                                            isDarkMode
+                                                ? 'border-rose-500/30 text-rose-400 hover:bg-rose-500/10'
+                                                : 'border-rose-300 text-rose-600 hover:bg-rose-50'
+                                        }`}
+                                    >
+                                        <Unplug className={`w-3.5 h-3.5 ${isKicking ? 'animate-pulse' : ''}`} />
+                                    </button>
+                                ) : null}
+                            </li>
+                        );
+                    })}
                 </ul>
             ) : (
                 <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
@@ -114,6 +149,7 @@ export default function OntWifiPanel({
     const [isSaving, setIsSaving] = useState(false);
     const [isRebooting, setIsRebooting] = useState(false);
     const [isWaking, setIsWaking] = useState(false);
+    const [kickingKey, setKickingKey] = useState(null);
     const [saveError, setSaveError] = useState(null);
     const [localToasts, setLocalToasts] = useState([]);
     const { showToast: showAdminToast, hasProvider: hasAdminToast } = useOptionalAdminToast();
@@ -248,6 +284,60 @@ export default function OntWifiPanel({
             setSaveError(error?.message || 'Gagal mengubah WiFi ONT.');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleKickDevice = async (item) => {
+        if (!canWrite || !device?.id || kickingKey || !item?.mac) {
+            return;
+        }
+
+        const label = item.name || item.mac;
+        if (!confirm(`Putuskan "${label}" dari WiFi ONT pelanggan?`)) {
+            return;
+        }
+
+        const itemKey = String(item.mac || item.path || item.name || '').toLowerCase();
+        setKickingKey(itemKey);
+        setSaveError(null);
+
+        const kickUrl = apiBase === '/customer' ? '/customer/wifi/kick' : `${apiBase}/kick-device`;
+
+        try {
+            const res = await fetch(kickUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({
+                    device_id: device.id,
+                    mac: item.mac,
+                    association_path: item.path || undefined,
+                    ...(customerId ? { customer_id: customerId } : {}),
+                    ...(username ? { username } : {}),
+                }),
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Gagal memutuskan perangkat.');
+            }
+
+            if (data.device) {
+                setDevice(data.device);
+            } else {
+                await loadWifiStatus();
+            }
+
+            showSuccessToast(data.message || 'Perintah putuskan perangkat berhasil dikirim.');
+        } catch (error) {
+            setSaveError(error?.message || 'Gagal memutuskan perangkat dari WiFi ONT.');
+        } finally {
+            setKickingKey(null);
         }
     };
 
@@ -471,6 +561,9 @@ export default function OntWifiPanel({
                     themeTextTitle={themeTextTitle}
                     themeTextSub={themeTextSub}
                     themeTextDesc={themeTextDesc}
+                    canWrite={canWrite}
+                    kickingKey={kickingKey}
+                    onKick={handleKickDevice}
                 />
             )}
 

@@ -369,6 +369,100 @@ class GenieAcsService
     }
 
     /**
+     * Disconnect a WiFi client from the ONT via GenieACS setParameterValues.
+     *
+     * @return array{success: bool, message: string, http_status?: int, device?: array<string, mixed>|null}
+     */
+    public static function kickConnectedDevice(
+        string $deviceId,
+        string $mac,
+        ?array $rawDevice = null,
+        ?string $associationPath = null
+    ): array {
+        $mac = self::normalizeMacAddress($mac);
+        if ($mac === '') {
+            return [
+                'success' => false,
+                'message' => 'Alamat MAC perangkat tidak valid.',
+                'http_status' => 422,
+            ];
+        }
+
+        $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
+
+        if ($rawDevice === null) {
+            $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
+        }
+
+        if ($rawDevice === null) {
+            return [
+                'success' => false,
+                'message' => 'Perangkat ONT tidak ditemukan di GenieACS.',
+                'http_status' => 404,
+            ];
+        }
+
+        $parameterValues = self::buildKickParameterValues($rawDevice, $mac, $associationPath);
+        if ($parameterValues === []) {
+            return [
+                'success' => false,
+                'message' => 'ONT ini belum mendukung kick perangkat WiFi via TR-069.',
+                'http_status' => 422,
+            ];
+        }
+
+        $encodedId = self::encodeDeviceIdForApi($deviceId);
+        $taskUrl = "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=90";
+
+        Log::info('GenieACS kick client task', [
+            'device_id' => $deviceId,
+            'mac' => $mac,
+            'association_path' => $associationPath,
+            'parameter_values' => $parameterValues,
+        ]);
+
+        try {
+            $response = Http::timeout(100)->post($taskUrl, [
+                'name' => 'setParameterValues',
+                'parameterValues' => $parameterValues,
+            ]);
+
+            $status = $response->status();
+
+            if ($status === 200 || $status === 202) {
+                $username = self::extractUsername($rawDevice);
+                $refreshed = self::refreshWifiDeviceState(
+                    $deviceId,
+                    $username !== 'unknown_ont' ? $username : '',
+                    true
+                );
+
+                return [
+                    'success' => true,
+                    'message' => 'Perintah putuskan perangkat berhasil dikirim ke ONT.',
+                    'http_status' => $status,
+                    'device' => $refreshed !== null ? self::stripRawDevicePayload($refreshed) : null,
+                ];
+            }
+
+            Log::error("GenieACS kick client failed with status {$status}: " . $response->body());
+
+            return [
+                'success' => false,
+                'message' => 'GenieACS menolak permintaan kick perangkat (HTTP ' . $status . ').',
+                'http_status' => $status,
+            ];
+        } catch (Exception $e) {
+            Log::error('GenieACS kick client connection error: ' . $e->getMessage());
+
+            return [
+                'success' => false,
+                'message' => 'Tidak dapat terhubung ke GenieACS: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Trigger a reboot task for a device in GenieACS.
      */
     public static function rebootDevice(string $deviceId): bool
@@ -392,8 +486,10 @@ class GenieAcsService
             if ($response->successful()) {
                 Log::info("GenieACS: Successfully queued reboot task for device {$deviceId}");
 
-                // Trigger PPPoE Reconnect di MikroTik untuk memicu ONT menarik task reboot secara instan
-                self::kickPppoeSessionForDevice($rawDevice);
+                $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
+                if (is_array($rawDevice)) {
+                    self::kickPppoeSessionForDevice($rawDevice);
+                }
 
                 return true;
             }
@@ -557,7 +653,25 @@ class GenieAcsService
             'wifi_password' => $wifiPassword,
             'connected_devices' => $connectedDevices,
             'connected_device_list' => $connectedDeviceList,
+            'kick_supported' => self::deviceSupportsClientKick($rawDev),
         ];
+    }
+
+    /**
+     * Whether the ONT data model exposes a client-kick parameter we can target.
+     */
+    public static function deviceSupportsClientKick(array $rawDev): bool
+    {
+        $flat = self::flattenDeviceParameters($rawDev);
+        if ($flat === []) {
+            return false;
+        }
+
+        if (self::buildKickParameterValues($rawDev, 'AA:BB:CC:DD:EE:FF', null, $flat) !== []) {
+            return true;
+        }
+
+        return self::flatHasAnyKeyMatching($flat, '/WLANConfiguration|WiFi\.AccessPoint/');
     }
 
     /**
@@ -1201,6 +1315,7 @@ class GenieAcsService
                 'name' => $name,
                 'mac' => $mac !== '' ? $mac : null,
                 'ip' => $ip !== '' ? $ip : null,
+                'path' => $groupKey,
             ];
         }
 
@@ -1299,6 +1414,164 @@ class GenieAcsService
         }
 
         return $parameterValues;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $flat
+     * @return list<array{0: string, 1: string|bool|int, 2?: string}>
+     */
+    private static function buildKickParameterValues(
+        array $rawDev,
+        string $mac,
+        ?string $associationPath = null,
+        ?array $flat = null
+    ): array {
+        $flat ??= self::flattenDeviceParameters($rawDev);
+        if ($flat === []) {
+            return [];
+        }
+
+        $associationPath = $associationPath !== null ? trim($associationPath) : '';
+        if ($associationPath !== '') {
+            foreach (self::kickFieldNames() as $field) {
+                $path = "{$associationPath}.{$field}";
+                if (self::flatParameterWritable($flat, $path) || isset($flat[$path])) {
+                    return [[$path, self::kickValueForField($field, $mac), self::kickTypeForField($field)]];
+                }
+            }
+        }
+
+        $candidates = self::wlanKickParameterCandidates($flat);
+        foreach ($candidates as $path) {
+            if (self::flatParameterWritable($flat, $path) || isset($flat[$path])) {
+                return [[$path, self::kickValueForPath($path, $mac), self::kickTypeForPath($path)]];
+            }
+        }
+
+        foreach (array_keys($flat) as $path) {
+            if (!preg_match('/(?:WLANConfiguration|WiFi\.AccessPoint)/i', $path)) {
+                continue;
+            }
+            if (!preg_match('/(?:Kick|Disconnect|Deauth|KickOff|KickSta|StaKick)/i', $path)) {
+                continue;
+            }
+            if (!self::flatParameterWritable($flat, $path)) {
+                continue;
+            }
+
+            return [[$path, self::kickValueForPath($path, $mac), self::kickTypeForPath($path)]];
+        }
+
+        // Vendor defaults when kick parameter is not yet discovered in GenieACS cache.
+        if (self::flatHasAnyKeyMatching($flat, '/WLANConfiguration|WiFi\.AccessPoint/')) {
+            $wlanIndex = self::resolveActiveWlanIndex($flat);
+            $defaults = [
+                "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}.X_ZTE-COM_KickOffDevice",
+                "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}.X_ZTE-COM_KickSta",
+                "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}.X_HW_WIFIStaKick",
+                "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}.X_FH_KickOffDevice",
+                'Device.WiFi.AccessPoint.1.X_HW_WIFIStaKick',
+            ];
+
+            foreach ($defaults as $path) {
+                return [[$path, $mac, 'xsd:string']];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function kickFieldNames(): array
+    {
+        return [
+            'Kick',
+            'KickOff',
+            'KickDevice',
+            'KickSta',
+            'X_ZTE-COM_Kick',
+            'X_ZTE-COM_KickOffDevice',
+            'X_HW_WIFIStaKick',
+            'X_FH_KickOffDevice',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $flat
+     * @return list<string>
+     */
+    private static function wlanKickParameterCandidates(array $flat): array
+    {
+        $wlanIndex = self::resolveActiveWlanIndex($flat);
+        $wlanBase = "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}";
+
+        return [
+            "{$wlanBase}.X_ZTE-COM_KickOffDevice",
+            "{$wlanBase}.X_ZTE-COM_KickSta",
+            "{$wlanBase}.X_ZTE-COM_STA_KICK",
+            "{$wlanBase}.X_HW_WIFIStaKick",
+            "{$wlanBase}.X_HW_AssociateDeviceKick",
+            "{$wlanBase}.X_FH_KickOffDevice",
+            "{$wlanBase}.X_TP_KickDevice",
+            "{$wlanBase}.KickOffDevice",
+            "{$wlanBase}.KickSta",
+            'Device.WiFi.AccessPoint.1.Kick',
+            'Device.WiFi.AccessPoint.1.X_HW_WIFIStaKick',
+        ];
+    }
+
+    private static function kickValueForField(string $field, string $mac): string|bool|int
+    {
+        if (preg_match('/mac/i', $field)) {
+            return $mac;
+        }
+
+        if (preg_match('/^Kick$/i', $field)) {
+            return true;
+        }
+
+        return $mac;
+    }
+
+    private static function kickTypeForField(string $field): string
+    {
+        if (preg_match('/^Kick$/i', $field)) {
+            return 'xsd:boolean';
+        }
+
+        return 'xsd:string';
+    }
+
+    private static function kickValueForPath(string $path, string $mac): string|bool|int
+    {
+        if (preg_match('/\.Kick$/i', $path)) {
+            return true;
+        }
+
+        return $mac;
+    }
+
+    private static function kickTypeForPath(string $path): string
+    {
+        if (preg_match('/\.Kick$/i', $path)) {
+            return 'xsd:boolean';
+        }
+
+        return 'xsd:string';
+    }
+
+    public static function normalizeMacAddress(string $mac): string
+    {
+        $mac = strtoupper(trim($mac));
+        $mac = preg_replace('/[^0-9A-F]/', '', $mac) ?? '';
+
+        if (strlen($mac) !== 12) {
+            return '';
+        }
+
+        return implode(':', str_split($mac, 2));
     }
 
     private static function extractWifiPassword(array $rawDev): ?string

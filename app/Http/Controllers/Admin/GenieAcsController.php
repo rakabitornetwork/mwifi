@@ -169,6 +169,48 @@ class GenieAcsController extends Controller
         ], 500);
     }
 
+    /**
+     * Disconnect a WiFi client from a customer's ONT.
+     */
+    public function kickDevice(Request $request)
+    {
+        $validated = $request->validate([
+            'username' => 'nullable|string|max:255',
+            'customer_id' => 'nullable|integer|exists:customers,id',
+            'device_id' => 'required|string|max:255',
+            'mac' => 'required|string|max:32',
+            'association_path' => 'nullable|string|max:512',
+        ]);
+
+        $username = $this->resolveCustomerUsername($request);
+
+        try {
+            $device = GenieAcsService::findDeviceByUsername($username);
+
+            if ($device === null || ($device['id'] ?? null) !== $validated['device_id']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Perangkat ONT tidak cocok dengan pelanggan ini.',
+                ], 403);
+            }
+
+            $rawDevice = $device['_raw'] ?? null;
+            $result = GenieAcsService::kickConnectedDevice(
+                $device['id'],
+                $validated['mac'],
+                is_array($rawDevice) ? $rawDevice : null,
+                $validated['association_path'] ?? null
+            );
+
+            return response()->json($result, ($result['success'] ?? false) ? 200 : (int) ($result['http_status'] ?? 502));
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'GenieACS tidak dapat dihubungi: ' . $e->getMessage(),
+            ], 503);
+        }
+    }
+
     private function resolveCustomerUsername(Request $request): string
     {
         if ($request->filled('customer_id')) {
