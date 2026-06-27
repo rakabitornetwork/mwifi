@@ -85,7 +85,6 @@ export default function NetworkMapCustomerPopup({
     const rxStatus = ont.status || 'offline';
     const displayOrDash = (val) => (val === null || val === undefined || val === '' ? '—' : val);
     const initial = String(customer?.name || '?').charAt(0).toUpperCase();
-    const serviceLabel = String(customer?.service_type || 'pppoe').toUpperCase();
 
     const mapPopupTheme = {
         isDarkMode: false,
@@ -96,22 +95,23 @@ export default function NetworkMapCustomerPopup({
 
     return (
         <>
-            <header className="map-popup-hero">
-                <div className="map-popup-hero-glow" />
-                <div className="map-popup-hero-row">
-                    <div className="map-popup-avatar">{initial}</div>
-                    <div className="map-popup-hero-text">
-                        <h3 className="map-popup-name">{customer?.name}</h3>
-                        <p className="map-popup-sub">
-                            {customer?.username} · {serviceLabel}
-                        </p>
+            <header className="map-popup-header">
+                <div className="map-popup-header-bar" aria-hidden="true" />
+                <div className="map-popup-header-inner">
+                    <div className="map-popup-header-leading">
+                        <span className="map-popup-header-monogram" aria-hidden="true">{initial}</span>
+                        <div className="map-popup-header-copy">
+                            <h3 className="map-popup-header-title">{customer?.name}</h3>
+                            <p className="map-popup-header-subtitle">{customer?.username}</p>
+                        </div>
                     </div>
-                </div>
-                <div className="map-popup-badges">
-                    <span className={`map-popup-badge map-popup-badge--${statusMeta.variant}`}>{statusMeta.label}</span>
-                    <span className={`map-popup-badge map-popup-badge--${isOnline ? 'online' : 'offline'}`}>
-                        {isOnline ? 'Online' : 'Offline'}
-                    </span>
+                    <div className="map-popup-header-trailing">
+                        <span className={`map-popup-badge map-popup-badge--${statusMeta.variant}`}>{statusMeta.label}</span>
+                        <span className={`map-popup-badge map-popup-badge--${isOnline ? 'online' : 'offline'}`}>
+                            <span className="map-popup-badge-dot" aria-hidden="true" />
+                            {isOnline ? 'Online' : 'Offline'}
+                        </span>
+                    </div>
                 </div>
             </header>
 

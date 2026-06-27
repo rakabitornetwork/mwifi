@@ -155,66 +155,69 @@
     width: 100%;
 }
 
-.map-popup-hero {
+.map-popup-header {
     position: relative;
-    padding: 18px 18px 14px;
-    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 45%, #ccfbf1 100%);
-    color: #0f172a;
-    overflow: hidden;
-    border-bottom: 1px solid #a7f3d0;
     flex-shrink: 0;
-    z-index: 2;
+    background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+    border-bottom: 1px solid #eef2f7;
 }
 
-.map-popup-hero-glow {
-    position: absolute;
-    inset: -40% -20% auto auto;
-    width: 180px;
-    height: 180px;
-    border-radius: 999px;
-    background: radial-gradient(circle, rgba(52, 211, 153, 0.35) 0%, transparent 70%);
-    pointer-events: none;
+.map-popup-header-bar {
+    height: 2px;
+    background: linear-gradient(90deg, #10b981 0%, #14b8a6 50%, #06b6d4 100%);
 }
 
-.map-popup-hero-row {
-    position: relative;
+.map-popup-header-inner {
     display: flex;
     align-items: center;
-    gap: 12px;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 11px 14px 12px;
 }
 
-.map-popup-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
+.map-popup-header-leading {
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-size: 17px;
-    font-weight: 800;
-    color: #047857;
-    background: linear-gradient(145deg, #ffffff, #ecfdf5);
-    border: 1px solid #a7f3d0;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.12);
-    flex-shrink: 0;
-}
-
-.map-popup-hero-text {
+    gap: 10px;
     min-width: 0;
     flex: 1;
 }
 
-.map-popup-name {
-    margin: 0;
-    font-size: 15px;
+.map-popup-header-monogram {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 13px;
     font-weight: 800;
     letter-spacing: -0.02em;
-    color: #0f172a;
-    line-height: 1.25;
+    color: #047857;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
-.map-popup-sub {
-    margin: 4px 0 0;
+.map-popup-header-copy {
+    min-width: 0;
+}
+
+.map-popup-header-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: #0f172a;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.map-popup-header-subtitle {
+    margin: 2px 0 0;
     font-size: 10px;
     color: #64748b;
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -223,30 +226,39 @@
     text-overflow: ellipsis;
 }
 
-.map-popup-badges {
-    position: relative;
+.map-popup-header-trailing {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 12px;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
 }
 
 .map-popup-badge {
     display: inline-flex;
     align-items: center;
-    padding: 3px 9px;
+    gap: 5px;
+    padding: 2px 7px;
     border-radius: 999px;
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
     border: 1px solid transparent;
+    line-height: 1.2;
+}
+
+.map-popup-badge-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    flex-shrink: 0;
 }
 
 .map-popup-badge--success {
     color: #047857;
-    background: #ffffff;
-    border-color: #a7f3d0;
+    background: #ecfdf5;
+    border-color: #bbf7d0;
 }
 
 .map-popup-badge--warning {
@@ -263,20 +275,29 @@
 
 .map-popup-badge--neutral {
     color: #475569;
-    background: #ffffff;
+    background: #f8fafc;
     border-color: #e2e8f0;
 }
 
 .map-popup-badge--online {
-    color: #0e7490;
-    background: #ecfeff;
-    border-color: #a5f3fc;
+    color: #0f766e;
+    background: #f0fdfa;
+    border-color: #99f6e4;
+}
+
+.map-popup-badge--online .map-popup-badge-dot {
+    background: #14b8a6;
+    box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2);
 }
 
 .map-popup-badge--offline {
     color: #64748b;
     background: #f8fafc;
     border-color: #e2e8f0;
+}
+
+.map-popup-badge--offline .map-popup-badge-dot {
+    background: #94a3b8;
 }
 
 .map-popup-body {
@@ -602,8 +623,15 @@
         width: min(292px, calc(100vw - 40px)) !important;
     }
 
-    .map-popup-hero {
-        padding: 14px 12px 12px;
+    .map-popup-header-inner {
+        padding: 10px 12px 11px;
+        gap: 8px;
+    }
+
+    .map-popup-header-trailing {
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: flex-end;
     }
 
     .map-popup-body {
