@@ -1063,6 +1063,14 @@ class BillingService
         $result = null;
 
         DB::transaction(function () use ($customer, $period, $dueDate, $billing, $sendWhatsApp, &$result) {
+            if (Invoice::query()
+                ->where('customer_id', $customer->id)
+                ->where('billing_period', $period)
+                ->lockForUpdate()
+                ->exists()) {
+                return;
+            }
+
             $amount = $billing['amount'];
             $taxRate = (float) SettingService::get('system.tax_rate', 0);
             $tax = round($amount * $taxRate, 2);

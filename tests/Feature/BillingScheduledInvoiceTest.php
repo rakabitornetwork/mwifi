@@ -169,6 +169,28 @@ class BillingScheduledInvoiceTest extends TestCase
         $this->assertSame(1, Invoice::where('customer_id', $customer->id)->count());
     }
 
+    public function test_running_scheduled_generate_twice_does_not_create_duplicates(): void
+    {
+        $customer = $this->makeCustomer(20);
+        $today = Carbon::create(2026, 6, 15);
+
+        $firstRun = BillingService::generateScheduledInvoices($today);
+        $secondRun = BillingService::generateScheduledInvoices($today);
+
+        $this->assertSame(1, $firstRun);
+        $this->assertSame(0, $secondRun);
+        $this->assertSame(1, Invoice::where('customer_id', $customer->id)->count());
+    }
+
+    public function test_billing_generate_command_is_scheduled_every_six_hours(): void
+    {
+        $events = collect(app(\Illuminate\Console\Scheduling\Schedule::class)->events())
+            ->filter(fn ($event) => str_contains($event->command ?? '', 'billing:generate'));
+
+        $this->assertCount(1, $events);
+        $this->assertSame('0 */6 * * *', $events->first()->expression);
+    }
+
     public function test_records_activity_log_after_scheduled_run(): void
     {
         Http::fake([
@@ -215,7 +237,7 @@ class BillingScheduledInvoiceTest extends TestCase
             150000
         );
 
-        $this->assertStringContainsString('Generate Tagihan Otomatis', $message);
+        $this->assertStringContainsString('LAPORAN GENERATE TAGIHAN', $message);
         $this->assertStringContainsString('INV-TEST', $message);
         $this->assertStringContainsString('Budi', $message);
     }

@@ -19,7 +19,7 @@ class BillingGenerateCommand extends Command
      *
      * @var string
      */
-    protected $description = 'Generate invoice otomatis H-N sebelum jatuh tempo (default H-5), atau bulk per periode jika period diberikan';
+    protected $description = 'Generate invoice otomatis H-N sebelum jatuh tempo (default H-5, dijadwalkan setiap 6 jam), atau bulk per periode jika period diberikan';
 
     /**
      * Execute the console command.
