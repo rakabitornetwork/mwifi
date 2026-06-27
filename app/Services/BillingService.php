@@ -932,7 +932,7 @@ class BillingService
                 continue;
             }
 
-            $created = self::createInvoiceForCustomer($customer, $schedule['period'], $schedule['due_date']);
+            $created = self::createInvoiceForCustomer($customer, $schedule['period'], $schedule['due_date'], false);
             if ($created !== null) {
                 $count++;
                 $createdInvoices[] = $created;
@@ -1061,8 +1061,9 @@ class BillingService
         }
 
         $result = null;
+        $whatsappPayload = null;
 
-        DB::transaction(function () use ($customer, $period, $dueDate, $billing, $sendWhatsApp, &$result) {
+        DB::transaction(function () use ($customer, $period, $dueDate, $billing, $sendWhatsApp, &$result, &$whatsappPayload) {
             if (Invoice::query()
                 ->where('customer_id', $customer->id)
                 ->where('billing_period', $period)
@@ -1093,9 +1094,19 @@ class BillingService
 
             self::syncCustomerBillingDate($customer->fresh());
 
+            $result = [
+                'invoice_number' => $invNumber,
+                'customer_name' => $customer->name,
+                'total_amount' => $total,
+                'billing_period' => $period,
+                'due_date' => $dueDate->toDateString(),
+            ];
+
             if ($sendWhatsApp) {
-                try {
-                    $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_new', [
+                $whatsappPayload = [
+                    'phone' => $customer->phone_number,
+                    'username' => $customer->username,
+                    'message' => MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_new', [
                         'customer_name' => $customer->name,
                         'brand_name' => BrandingService::companyName(),
                         'period' => self::formatWhatsAppBillingPeriod($period),
@@ -1106,24 +1117,23 @@ class BillingService
                         'prorata_line' => self::buildProrataLine($billing['is_prorated'], (int) $billing['days_billed']),
                         'total' => self::formatWhatsAppMoney($total),
                         'due_date' => self::formatWhatsAppDueDate($dueDate),
-                    ]);
-
-                    if (class_exists(\App\Services\WhatsAppService::class)) {
-                        \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
-                    }
-                } catch (\Exception $waEx) {
-                    Log::error("Failed to send WhatsApp billing notification for {$customer->username}: " . $waEx->getMessage());
-                }
+                    ]),
+                ];
             }
-
-            $result = [
-                'invoice_number' => $invNumber,
-                'customer_name' => $customer->name,
-                'total_amount' => $total,
-                'billing_period' => $period,
-                'due_date' => $dueDate->toDateString(),
-            ];
         });
+
+        if ($whatsappPayload !== null) {
+            try {
+                if (class_exists(\App\Services\WhatsAppService::class)) {
+                    \App\Services\WhatsAppService::sendText(
+                        $whatsappPayload['phone'],
+                        $whatsappPayload['message']
+                    );
+                }
+            } catch (\Exception $waEx) {
+                Log::error("Failed to send WhatsApp billing notification for {$whatsappPayload['username']}: " . $waEx->getMessage());
+            }
+        }
 
         return $result;
     }
@@ -1586,7 +1596,7 @@ class BillingService
                 $dueDate = Carbon::now()->addDays(7)->startOfDay();
             }
 
-            if (self::createInvoiceForCustomer($customer, $period, $dueDate) !== null) {
+            if (self::createInvoiceForCustomer($customer, $period, $dueDate, false) !== null) {
                 $count++;
             }
         }
