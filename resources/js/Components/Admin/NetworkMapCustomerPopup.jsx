@@ -96,7 +96,6 @@ export default function NetworkMapCustomerPopup({
     return (
         <>
             <header className="map-popup-header">
-                <div className="map-popup-header-bar" aria-hidden="true" />
                 <div className="map-popup-header-inner">
                     <div className="map-popup-header-leading">
                         <span className="map-popup-header-monogram" aria-hidden="true">{initial}</span>

@@ -125,17 +125,18 @@
     width: 26px;
     height: 26px;
     border-radius: 999px;
-    background: rgba(15, 23, 42, 0.06);
-    color: #64748b;
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
     font-size: 18px;
     line-height: 26px;
     text-align: center;
     transition: background 0.2s ease, color 0.2s ease;
+    z-index: 3;
 }
 
 .leaflet-popup.customer-detail-popup a.leaflet-popup-close-button:hover {
-    background: rgba(15, 23, 42, 0.1);
-    color: #0f172a;
+    background: rgba(255, 255, 255, 0.3);
+    color: #ffffff;
 }
 
 .map-popup-customer {
@@ -158,21 +159,31 @@
 .map-popup-header {
     position: relative;
     flex-shrink: 0;
-    background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
-    border-bottom: 1px solid #eef2f7;
+    overflow: hidden;
+    background: linear-gradient(135deg, #047857 0%, #0d9488 42%, #0891b2 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
 }
 
-.map-popup-header-bar {
-    height: 2px;
-    background: linear-gradient(90deg, #10b981 0%, #14b8a6 50%, #06b6d4 100%);
+.map-popup-header::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 88% -20%, rgba(255, 255, 255, 0.28) 0%, transparent 52%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 48%);
+    pointer-events: none;
 }
 
 .map-popup-header-inner {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 11px 14px 12px;
+    padding: 12px 14px 13px;
+    padding-right: 38px;
 }
 
 .map-popup-header-leading {
@@ -194,10 +205,11 @@
     font-size: 13px;
     font-weight: 800;
     letter-spacing: -0.02em;
-    color: #047857;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(6px);
 }
 
 .map-popup-header-copy {
@@ -209,17 +221,18 @@
     font-size: 13px;
     font-weight: 700;
     letter-spacing: -0.015em;
-    color: #0f172a;
+    color: #ffffff;
     line-height: 1.25;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-shadow: 0 1px 2px rgba(4, 47, 46, 0.18);
 }
 
 .map-popup-header-subtitle {
     margin: 2px 0 0;
     font-size: 10px;
-    color: #64748b;
+    color: rgba(236, 253, 245, 0.82);
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     white-space: nowrap;
     overflow: hidden;
@@ -298,6 +311,56 @@
 
 .map-popup-badge--offline .map-popup-badge-dot {
     background: #94a3b8;
+}
+
+.map-popup-header .map-popup-badge {
+    backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.map-popup-header .map-popup-badge--success {
+    color: #ecfdf5;
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.24);
+}
+
+.map-popup-header .map-popup-badge--warning {
+    color: #fef3c7;
+    background: rgba(245, 158, 11, 0.22);
+    border-color: rgba(253, 224, 71, 0.35);
+}
+
+.map-popup-header .map-popup-badge--danger {
+    color: #fee2e2;
+    background: rgba(239, 68, 68, 0.22);
+    border-color: rgba(252, 165, 165, 0.35);
+}
+
+.map-popup-header .map-popup-badge--neutral {
+    color: #f1f5f9;
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+.map-popup-header .map-popup-badge--online {
+    color: #ecfeff;
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(165, 243, 252, 0.35);
+}
+
+.map-popup-header .map-popup-badge--online .map-popup-badge-dot {
+    background: #6ee7b7;
+    box-shadow: 0 0 0 2px rgba(110, 231, 183, 0.35);
+}
+
+.map-popup-header .map-popup-badge--offline {
+    color: rgba(241, 245, 249, 0.88);
+    background: rgba(15, 23, 42, 0.18);
+    border-color: rgba(255, 255, 255, 0.16);
+}
+
+.map-popup-header .map-popup-badge--offline .map-popup-badge-dot {
+    background: #cbd5e1;
 }
 
 .map-popup-body {
@@ -625,6 +688,7 @@
 
     .map-popup-header-inner {
         padding: 10px 12px 11px;
+        padding-right: 36px;
         gap: 8px;
     }
 
