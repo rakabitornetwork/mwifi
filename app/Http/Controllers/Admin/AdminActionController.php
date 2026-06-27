@@ -836,7 +836,9 @@ class AdminActionController extends Controller
     public function savePackage(Request $request)
     {
         $request->merge([
-            'mikrotik_profile' => $request->input('name')
+            'mikrotik_profile' => $request->filled('mikrotik_profile')
+                ? $request->input('mikrotik_profile')
+                : $request->input('name'),
         ]);
 
         $data = $request->validate([
@@ -2392,10 +2394,11 @@ class AdminActionController extends Controller
                 Package::updateOrCreate(
                     [
                         'mikrotik_profile' => $profileName,
-                        'type' => 'hotspot'
+                        'type' => 'hotspot',
                     ],
                     [
-                        'name' => "Hotspot - " . $profileName,
+                        'router_id' => $router->id,
+                        'name' => 'Hotspot - ' . $profileName,
                         'price' => $price,
                         'bandwidth_limit' => $bandwidth,
                         'validity' => '1d', // default validity 1 day

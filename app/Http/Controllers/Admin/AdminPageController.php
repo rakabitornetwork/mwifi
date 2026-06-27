@@ -361,7 +361,7 @@ class AdminPageController extends Controller
     {
         return Inertia::render('Admin/Hotspot/Index', [
             'routers' => Router::all(),
-            'packages' => Package::where('type', 'hotspot')->get(),
+            'packages' => Package::where('type', 'hotspot')->with('router')->orderBy('mikrotik_profile')->get(),
             'customers' => Customer::with(['package', 'router'])->where('service_type', 'hotspot')->get(),
             'hotspotVouchers' => HotspotVoucher::with('router')->orderByDesc('created_at')->get(),
             'hotspotSales' => HotspotSale::with('router')->orderByDesc('created_at')->get(),
