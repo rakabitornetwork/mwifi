@@ -186,32 +186,37 @@ class GenieAcsService
         $encodedId = self::doubleUrlEncodeDeviceId($deviceId);
 
         try {
-            $response = Http::timeout(130)
-                ->post("{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=120", [
+            // Hapus connection_request agar GenieACS langsung menjawab 202 tanpa menunggu timeout koneksi yang akan gagal.
+            $response = Http::timeout(10)
+                ->post("{$apiUrl}/devices/{$encodedId}/tasks", [
                     'name' => 'setParameterValues',
                     'parameterValues' => $parameterValues,
                 ]);
 
             $status = $response->status();
 
-            if ($status === 200) {
-                Log::info("GenieACS: WiFi credentials updated on device {$deviceId}");
+            if ($status === 200 || $status === 202) {
+                Log::info("GenieACS: WiFi credentials updated/queued on device {$deviceId}");
+
+                // Trigger PPPoE Reconnect di MikroTik untuk memaksa ONT melakukan Inform instan
+                try {
+                    $username = self::extractUsername($rawDevice);
+                    if ($username && $username !== 'unknown_ont') {
+                        $customer = \App\Models\Customer::where('username', $username)->first();
+                        if ($customer && $customer->router) {
+                            $connector = \App\Services\Router\RouterService::getConnector($customer->router);
+                            $connector->kickActiveConnection($customer->username);
+                            Log::info("GenieACS PPPoE Reconnect: Berhasil memutuskan sesi PPPoE {$username} pada router {$customer->router->name}");
+                        }
+                    }
+                } catch (Exception $e) {
+                    Log::error("GenieACS PPPoE Reconnect Error: " . $e->getMessage());
+                }
 
                 return [
                     'success' => true,
-                    'status' => 'executed',
-                    'message' => 'Perubahan WiFi berhasil diterapkan ke ONT.',
-                    'http_status' => $status,
-                ];
-            }
-
-            if ($status === 202) {
-                Log::info("GenieACS: WiFi credential task queued for device {$deviceId}");
-
-                return [
-                    'success' => true,
-                    'status' => 'queued',
-                    'message' => 'Perubahan WiFi dijadwalkan. ONT akan menerima perintah saat terhubung ke GenieACS.',
+                    'status' => $status === 200 ? 'executed' : 'queued',
+                    'message' => 'Perubahan WiFi berhasil dijadwalkan dan koneksi disegarkan.',
                     'http_status' => $status,
                 ];
             }
@@ -247,15 +252,34 @@ class GenieAcsService
         $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
 
         try {
-            // Send connection request task immediately to push execution
+            // Hapus connection_request agar langsung terantre instan tanpa timeout
             $encodedId = self::doubleUrlEncodeDeviceId($deviceId);
-            $response = Http::timeout(8)
-                ->post("{$apiUrl}/devices/{$encodedId}/tasks?connection_request", [
+            $response = Http::timeout(5)
+                ->post("{$apiUrl}/devices/{$encodedId}/tasks", [
                     'name' => 'reboot'
                 ]);
 
             if ($response->successful()) {
                 Log::info("GenieACS: Successfully queued reboot task for device {$deviceId}");
+
+                // Trigger PPPoE Reconnect di MikroTik untuk memicu ONT menarik task reboot secara instan
+                try {
+                    $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
+                    if ($rawDevice !== null) {
+                        $username = self::extractUsername($rawDevice);
+                        if ($username && $username !== 'unknown_ont') {
+                            $customer = \App\Models\Customer::where('username', $username)->first();
+                            if ($customer && $customer->router) {
+                                $connector = \App\Services\Router\RouterService::getConnector($customer->router);
+                                $connector->kickActiveConnection($customer->username);
+                                Log::info("GenieACS PPPoE Reconnect: Berhasil memutuskan sesi PPPoE {$username} pada router {$customer->router->name} untuk pemicu reboot");
+                            }
+                        }
+                    }
+                } catch (Exception $e) {
+                    Log::error("GenieACS PPPoE Reconnect Reboot Trigger Error: " . $e->getMessage());
+                }
+
                 return true;
             }
 
