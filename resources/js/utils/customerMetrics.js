@@ -1,3 +1,16 @@
+export function formatBandwidthLimitLabel(limit) {
+    if (limit == null || limit === '') {
+        return null;
+    }
+
+    const text = String(limit).trim();
+    if (!text || /bps/i.test(text)) {
+        return text;
+    }
+
+    return text.replace(/M/g, 'Mbps');
+}
+
 export function parseBandwidthLimit(limit) {
     if (!limit) return { down: 0, up: 0 };
     const parts = String(limit).split('/');

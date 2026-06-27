@@ -164,10 +164,14 @@ class CustomerPortalController extends Controller
             $device = GenieAcsService::findDeviceByUsername($customer->username);
 
             if ($device === null) {
+                $available = GenieAcsService::listRegisteredOntUsernames();
+
                 return response()->json([
                     'success' => false,
                     'found' => false,
-                    'message' => 'ONT Anda belum terdaftar di sistem. Hubungi support jika WiFi perlu diubah.',
+                    'message' => 'ONT untuk username "' . $customer->username . '" belum terdaftar di GenieACS.',
+                    'searched_username' => $customer->username,
+                    'available_usernames' => $available,
                 ], 404);
             }
 

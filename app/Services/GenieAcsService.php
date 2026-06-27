@@ -55,6 +55,12 @@ class GenieAcsService
                     'wifi_ssid' => 'BUDI-WiFi',
                     'wifi_password' => 'budi1234',
                     'connected_devices' => 4,
+                    'connected_device_list' => [
+                        ['name' => 'iPhone-Amir', 'mac' => 'AA:BB:CC:11:22:01', 'ip' => '192.168.1.12'],
+                        ['name' => 'Samsung-TV', 'mac' => 'AA:BB:CC:11:22:02', 'ip' => '192.168.1.15'],
+                        ['name' => 'Laptop-Kantor', 'mac' => 'AA:BB:CC:11:22:03', 'ip' => '192.168.1.18'],
+                        ['name' => 'Redmi-Note', 'mac' => 'AA:BB:CC:11:22:04', 'ip' => '192.168.1.21'],
+                    ],
                 ],
                 [
                     'id' => 'HWTC83C210D3_dewi',
@@ -68,6 +74,10 @@ class GenieAcsService
                     'wifi_ssid' => 'DEWI-HOME',
                     'wifi_password' => 'dewi5678',
                     'connected_devices' => 2,
+                    'connected_device_list' => [
+                        ['name' => 'OPPO-A78', 'mac' => 'BB:CC:DD:22:33:01', 'ip' => '192.168.1.7'],
+                        ['name' => 'Smart-TV-LG', 'mac' => 'BB:CC:DD:22:33:02', 'ip' => '192.168.1.9'],
+                    ],
                 ],
                 [
                     'id' => 'ZTEGC8B220C4_ahmad',
@@ -81,6 +91,14 @@ class GenieAcsService
                     'wifi_ssid' => 'AHMAD-NET',
                     'wifi_password' => 'ahmad999',
                     'connected_devices' => 6,
+                    'connected_device_list' => [
+                        ['name' => 'vivo-Y27', 'mac' => 'CC:DD:EE:33:44:01', 'ip' => '192.168.1.3'],
+                        ['name' => 'iPad-Ruangan', 'mac' => 'CC:DD:EE:33:44:02', 'ip' => '192.168.1.4'],
+                        ['name' => 'PC-Windows', 'mac' => 'CC:DD:EE:33:44:03', 'ip' => '192.168.1.5'],
+                        ['name' => 'Android-TV', 'mac' => 'CC:DD:EE:33:44:04', 'ip' => '192.168.1.6'],
+                        ['name' => 'Realme-C55', 'mac' => 'CC:DD:EE:33:44:05', 'ip' => '192.168.1.8'],
+                        ['name' => 'ESP32-Sensor', 'mac' => 'CC:DD:EE:33:44:06', 'ip' => '192.168.1.10'],
+                    ],
                 ],
                 [
                     'id' => 'FHGAC91277F1_joko',
@@ -106,11 +124,32 @@ class GenieAcsService
      */
     public static function findDeviceByUsername(string $username): ?array
     {
+        $needle = trim($username);
+        if ($needle === '') {
+            return null;
+        }
+
         $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
-        $rawDevices = self::fetchRawDevices($apiUrl);
+
+        try {
+            $rawDevices = self::fetchRawDevicesForLookup($apiUrl);
+        } catch (Exception $e) {
+            Log::warning('GenieACS findDeviceByUsername failed: ' . $e->getMessage());
+
+            return null;
+        }
 
         foreach ($rawDevices as $rawDev) {
             if (!is_array($rawDev)) {
+                continue;
+            }
+
+            $ontUsername = self::extractUsername($rawDev);
+            if ($ontUsername === '' || $ontUsername === 'unknown_ont') {
+                continue;
+            }
+
+            if (!self::usernameMatches($ontUsername, $needle)) {
                 continue;
             }
 
@@ -119,14 +158,46 @@ class GenieAcsService
                 continue;
             }
 
-            if (self::usernameMatches($parsed['username'] ?? '', $username)) {
-                $parsed['_raw'] = $rawDev;
+            $parsed['username'] = $ontUsername;
+            $parsed['_raw'] = $rawDev;
 
-                return $parsed;
-            }
+            return $parsed;
         }
 
         return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function listRegisteredOntUsernames(): array
+    {
+        $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
+
+        try {
+            $rawDevices = self::fetchRawDevicesForLookup($apiUrl);
+        } catch (Exception) {
+            return [];
+        }
+
+        $usernames = [];
+
+        foreach ($rawDevices as $rawDev) {
+            if (!is_array($rawDev)) {
+                continue;
+            }
+
+            $ontUsername = trim(self::extractUsername($rawDev));
+            if ($ontUsername === '' || $ontUsername === 'unknown_ont') {
+                continue;
+            }
+
+            $usernames[] = $ontUsername;
+        }
+
+        sort($usernames);
+
+        return array_values(array_unique($usernames));
     }
 
     /**
@@ -168,8 +239,6 @@ class GenieAcsService
             ];
         }
 
-        self::clearPendingDeviceTasks($apiUrl, $deviceId, ['setParameterValues', 'reboot']);
-
         $encodedId = self::encodeDeviceIdForApi($deviceId);
         $taskUrl = "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=120";
 
@@ -190,20 +259,25 @@ class GenieAcsService
             if ($status === 200 || $status === 202) {
                 Log::info("GenieACS: WiFi credentials updated/queued on device {$deviceId}");
 
-                self::triggerPppoeReconnect($rawDevice);
-
-                $message = $status === 200
-                    ? 'Perubahan WiFi berhasil diterapkan ke ONT.'
-                    : 'Perubahan WiFi dikirim ke GenieACS. ONT akan menerapkan saat terhubung (±1–2 menit).';
-
-                if (str_contains(strtolower($response->body()), 'offline')) {
-                    $message = 'Perintah ubah WiFi antre di GenieACS. Pastikan server GenieACS dapat menjangkau ONT (gunakan IP lokal/LAN, bukan cloud publik jika ONT di jaringan pribadi).';
+                // Trigger PPPoE Reconnect di MikroTik untuk memaksa ONT melakukan Inform instan
+                try {
+                    $username = self::extractUsername($rawDevice);
+                    if ($username && $username !== 'unknown_ont') {
+                        $customer = \App\Models\Customer::where('username', $username)->first();
+                        if ($customer && $customer->router) {
+                            $connector = \App\Services\Router\RouterService::getConnector($customer->router);
+                            $connector->kickActiveConnection($customer->username);
+                            Log::info("GenieACS PPPoE Reconnect: Berhasil memutuskan sesi PPPoE {$username} pada router {$customer->router->name}");
+                        }
+                    }
+                } catch (Exception $e) {
+                    Log::error("GenieACS PPPoE Reconnect Error: " . $e->getMessage());
                 }
 
                 return [
                     'success' => true,
                     'status' => $status === 200 ? 'executed' : 'queued',
-                    'message' => $message,
+                    'message' => 'Perubahan WiFi berhasil dijadwalkan dan koneksi disegarkan.',
                     'http_status' => $status,
                 ];
             }
@@ -239,8 +313,7 @@ class GenieAcsService
         $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
 
         try {
-            self::clearPendingDeviceTasks($apiUrl, $deviceId, ['reboot']);
-
+            // Hapus connection_request agar langsung terantre instan tanpa timeout
             $encodedId = self::encodeDeviceIdForApi($deviceId);
             $response = Http::timeout(130)
                 ->post("{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=120", [
@@ -250,9 +323,22 @@ class GenieAcsService
             if ($response->successful()) {
                 Log::info("GenieACS: Successfully queued reboot task for device {$deviceId}");
 
-                $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
-                if ($rawDevice !== null) {
-                    self::triggerPppoeReconnect($rawDevice);
+                // Trigger PPPoE Reconnect di MikroTik untuk memicu ONT menarik task reboot secara instan
+                try {
+                    $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
+                    if ($rawDevice !== null) {
+                        $username = self::extractUsername($rawDevice);
+                        if ($username && $username !== 'unknown_ont') {
+                            $customer = \App\Models\Customer::where('username', $username)->first();
+                            if ($customer && $customer->router) {
+                                $connector = \App\Services\Router\RouterService::getConnector($customer->router);
+                                $connector->kickActiveConnection($customer->username);
+                                Log::info("GenieACS PPPoE Reconnect: Berhasil memutuskan sesi PPPoE {$username} pada router {$customer->router->name} untuk pemicu reboot");
+                            }
+                        }
+                    }
+                } catch (Exception $e) {
+                    Log::error("GenieACS PPPoE Reconnect Reboot Trigger Error: " . $e->getMessage());
                 }
 
                 return true;
@@ -335,6 +421,28 @@ class GenieAcsService
         throw new Exception('GenieACS NBI API unreachable or returned invalid data.');
     }
 
+    /**
+     * Full device documents for username/WiFi lookup (projection breaks PPPoE username paths).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function fetchRawDevicesForLookup(string $apiUrl): array
+    {
+        $response = Http::timeout(20)->get("{$apiUrl}/devices");
+
+        if (!$response->successful()) {
+            throw new Exception('GenieACS NBI API unreachable (HTTP ' . $response->status() . ').');
+        }
+
+        $data = $response->json();
+
+        if (!is_array($data)) {
+            throw new Exception('GenieACS NBI API returned invalid data.');
+        }
+
+        return $data;
+    }
+
     private static function parseRawDevice(array $rawDev): ?array
     {
         $deviceId = $rawDev['_id'] ?? '';
@@ -355,11 +463,14 @@ class GenieAcsService
 
         $wifiPassword = self::extractWifiPassword($rawDev);
 
-        $connectedDevices = self::parseConnectedDevices(self::getNestedValue($rawDev, [
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations',
-            'InternetGatewayDevice.LANDevice.1.Hosts.HostNumberOfEntries',
-            'Device.WiFi.AccessPoint.1.AssociatedDeviceNumberOfEntries',
-        ]));
+        $connectedDeviceList = self::extractConnectedDeviceList($rawDev);
+        $connectedDevices = count($connectedDeviceList) > 0
+            ? count($connectedDeviceList)
+            : self::parseConnectedDevices(self::getNestedValue($rawDev, [
+                'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations',
+                'InternetGatewayDevice.LANDevice.1.Hosts.HostNumberOfEntries',
+                'Device.WiFi.AccessPoint.1.AssociatedDeviceNumberOfEntries',
+            ]));
 
         $isOnline = self::isDeviceOnline($rawDev);
         $rxRaw = self::extractRxRaw($rawDev);
@@ -389,6 +500,7 @@ class GenieAcsService
             'wifi_ssid' => $wifiSsid,
             'wifi_password' => $wifiPassword,
             'connected_devices' => $connectedDevices,
+            'connected_device_list' => $connectedDeviceList,
         ];
     }
 
@@ -778,6 +890,122 @@ class GenieAcsService
         return $count >= 0 ? $count : null;
     }
 
+    /**
+     * @return list<array{name: string, mac: ?string, ip: ?string}>
+     */
+    private static function extractConnectedDeviceList(array $rawDev): array
+    {
+        $flat = self::flattenDeviceParameters($rawDev);
+        if ($flat === []) {
+            return [];
+        }
+
+        $groups = [];
+
+        foreach (array_keys($flat) as $path) {
+            if (!preg_match('/^(.*\.(?:AssociatedDevice|Host))\.(\d+)\.(.+)$/', $path, $matches)) {
+                continue;
+            }
+
+            $groupKey = $matches[1] . '.' . $matches[2];
+            $field = $matches[3];
+            $groups[$groupKey][$field] = self::flatParameterValue($flat, $path);
+        }
+
+        $results = [];
+
+        foreach ($groups as $groupKey => $fields) {
+            $isHost = str_contains($groupKey, '.Host.');
+
+            if ($isHost) {
+                $active = $fields['Active'] ?? null;
+                if ($active !== null && !self::isTruthy($active)) {
+                    continue;
+                }
+
+                $layer = strtolower((string) ($fields['Layer1Interface'] ?? $fields['InterfaceType'] ?? ''));
+                if ($layer !== ''
+                    && !str_contains($layer, 'wlan')
+                    && !str_contains($layer, 'wifi')
+                    && !str_contains($layer, '802.11')
+                    && (str_contains($layer, 'ethernet') || str_contains($layer, 'lan'))) {
+                    continue;
+                }
+            }
+
+            $mac = self::pickFirstParameterField($fields, [
+                'AssociatedDeviceMACAddress',
+                'MACAddress',
+                'PhysAddress',
+            ]);
+            $ip = self::pickFirstParameterField($fields, [
+                'AssociatedDeviceIPAddress',
+                'IPAddress',
+            ]);
+            $name = self::pickFirstParameterField($fields, [
+                'AssociatedDeviceHostName',
+                'X_ZTE-COM_AssociatedDeviceName',
+                'X_ZTE-COM_DeviceName',
+                'HostName',
+                'DeviceName',
+            ]);
+
+            $name = trim((string) ($name ?? ''));
+            $mac = trim((string) ($mac ?? ''));
+            $ip = trim((string) ($ip ?? ''));
+
+            if ($name === '' && $mac === '' && $ip === '') {
+                continue;
+            }
+
+            if ($name === '') {
+                $name = $mac !== '' ? $mac : ($ip !== '' ? $ip : 'Perangkat');
+            }
+
+            $results[] = [
+                'name' => $name,
+                'mac' => $mac !== '' ? $mac : null,
+                'ip' => $ip !== '' ? $ip : null,
+            ];
+        }
+
+        $seen = [];
+        $deduped = [];
+
+        foreach ($results as $device) {
+            $key = strtolower($device['mac'] ?? $device['name']);
+            if ($key === '' || isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $deduped[] = $device;
+        }
+
+        usort($deduped, static fn (array $a, array $b): int => strcasecmp($a['name'], $b['name']));
+
+        return $deduped;
+    }
+
+    /**
+     * @param  array<string, mixed>  $fields
+     */
+    private static function pickFirstParameterField(array $fields, array $candidates): mixed
+    {
+        foreach ($candidates as $field) {
+            if (!array_key_exists($field, $fields)) {
+                continue;
+            }
+
+            $value = $fields[$field];
+            if ($value !== null && $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
     private static function doubleUrlEncodeDeviceId(string $deviceId): string
     {
         return rawurlencode(rawurlencode(urldecode($deviceId)));
@@ -810,7 +1038,7 @@ class GenieAcsService
         if ($password !== null && $password !== '') {
             $beaconType = self::flatParameterValue($flat, "{$base}.BeaconType");
             if (self::isOpenBeaconType($beaconType)) {
-                array_unshift($parameterValues, ["{$base}.BeaconType", self::resolveWpaBeaconType($flat), 'xsd:string']);
+                $parameterValues[] = ["{$base}.BeaconType", self::resolveWpaBeaconType($flat), 'xsd:string'];
             }
 
             $passwordPath = self::resolvePasswordPathForWlan($flat, $base);
@@ -859,8 +1087,8 @@ class GenieAcsService
         }
 
         return self::getNestedValue($rawDev, [
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
             'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
             'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.PreSharedKey',
             'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
         ]);
@@ -872,8 +1100,8 @@ class GenieAcsService
     private static function passwordPathCandidates(string $wlanBase): array
     {
         return [
-            "{$wlanBase}.KeyPassphrase",
             "{$wlanBase}.PreSharedKey.1.KeyPassphrase",
+            "{$wlanBase}.KeyPassphrase",
             "{$wlanBase}.PreSharedKey.1.PreSharedKey",
             "{$wlanBase}.X_TP_PreSharedKey",
         ];
@@ -887,73 +1115,7 @@ class GenieAcsService
             }
         }
 
-        return "{$wlanBase}.KeyPassphrase";
-    }
-
-    private static function clearPendingDeviceTasks(string $apiUrl, string $deviceId, array $taskNames = []): int
-    {
-        try {
-            $response = Http::timeout(10)->get("{$apiUrl}/tasks", [
-                'query' => json_encode(['device' => $deviceId]),
-            ]);
-
-            if (!$response->successful()) {
-                return 0;
-            }
-
-            $tasks = $response->json();
-            if (!is_array($tasks)) {
-                return 0;
-            }
-
-            $removed = 0;
-            foreach ($tasks as $task) {
-                $name = $task['name'] ?? '';
-                $taskId = $task['_id'] ?? null;
-                if (!$taskId) {
-                    continue;
-                }
-                if ($taskNames !== [] && !in_array($name, $taskNames, true)) {
-                    continue;
-                }
-
-                $delete = Http::timeout(5)->delete("{$apiUrl}/tasks/" . urlencode($taskId));
-                if ($delete->successful()) {
-                    $removed++;
-                }
-            }
-
-            if ($removed > 0) {
-                Log::info("GenieACS: Cleared {$removed} pending task(s) for device {$deviceId}");
-            }
-
-            return $removed;
-        } catch (Exception $e) {
-            Log::warning("GenieACS clearPendingDeviceTasks error: " . $e->getMessage());
-
-            return 0;
-        }
-    }
-
-    private static function triggerPppoeReconnect(array $rawDevice): void
-    {
-        try {
-            $username = self::extractUsername($rawDevice);
-            if (!$username || $username === 'unknown_ont') {
-                return;
-            }
-
-            $customer = \App\Models\Customer::where('username', $username)->first();
-            if (!$customer || !$customer->router) {
-                return;
-            }
-
-            $connector = \App\Services\Router\RouterService::getConnector($customer->router);
-            $connector->kickActiveConnection($customer->username);
-            Log::info("GenieACS PPPoE Reconnect: Berhasil memutuskan sesi PPPoE {$username} pada router {$customer->router->name}");
-        } catch (Exception $e) {
-            Log::error('GenieACS PPPoE Reconnect Error: ' . $e->getMessage());
-        }
+        return "{$wlanBase}.PreSharedKey.1.KeyPassphrase";
     }
 
     private static function resolveActiveWlanIndex(array $flat): int

@@ -14,8 +14,24 @@ import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadO
 import getVisiblePages from '../../../utils/getVisiblePages';
 import { formatDateInputValue, formatDisplayDate, todayDateInputValue } from '../../../utils/formatDateInputValue';
 import { fetchRouterPackageProfiles } from '../../../utils/fetchRouterPackageProfiles';
+import {
+    readAdminCustomersFilterPreference,
+    writeAdminCustomersFilterPreference,
+} from '../../../utils/adminCustomersFilterPreference';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 500, 1000];
+
+function resolveInitialRouterFilter(routers, lockedRouterId, initialRouterId, savedRouterId) {
+    if (lockedRouterId) {
+        return lockedRouterId;
+    }
+
+    if (savedRouterId && routers.some((router) => String(router.id) === savedRouterId)) {
+        return savedRouterId;
+    }
+
+    return initialRouterId;
+}
 
 function getCustomerEmail(customer) {
     return customer?.portal_email || customer?.user?.email || '';
@@ -55,8 +71,15 @@ function CustomersPageContent({
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
     const themeLabel = isDarkMode ? 'text-zinc-400' : 'text-zinc-650';
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const [routerFilter, setRouterFilter] = useState(initialRouterId);
+    const savedFilters = useMemo(() => readAdminCustomersFilterPreference(), []);
+
+    const [searchTerm, setSearchTerm] = useState(savedFilters.searchTerm);
+    const [routerFilter, setRouterFilter] = useState(() => resolveInitialRouterFilter(
+        routers,
+        lockedRouterId,
+        initialRouterId,
+        savedFilters.routerId,
+    ));
     const [pageSize, setPageSize] = useState(10);
     const [sortColumn, setSortColumn] = useState('package');
     const [sortDirection, setSortDirection] = useState('desc');
@@ -71,7 +94,7 @@ function CustomersPageContent({
     const [showDeleteCustomerModal, setShowDeleteCustomerModal] = useState(false);
     const [customerToDelete, setCustomerToDelete] = useState(null);
     const [deleteMode, setDeleteMode] = useState('local_only');
-    const [expandedCustomerId, setExpandedCustomerId] = useState(null);
+    const [expandedCustomerId, setExpandedCustomerId] = useState(savedFilters.expandedCustomerId);
     const customerDetailPanelRef = useRef(null);
     const [showImportModal, setShowImportModal] = useState(false);
     const [importCsvFile, setImportCsvFile] = useState(null);
@@ -116,6 +139,14 @@ function CustomersPageContent({
             setRouterFilter(lockedRouterId);
         }
     }, [lockedRouterId]);
+
+    useEffect(() => {
+        writeAdminCustomersFilterPreference({
+            routerId: lockedRouterId ?? routerFilter,
+            searchTerm,
+            expandedCustomerId,
+        });
+    }, [routerFilter, searchTerm, lockedRouterId, expandedCustomerId]);
 
     useEffect(() => {
         setCustomerPage(1);
@@ -346,8 +377,8 @@ function CustomersPageContent({
     const paginationRangeEnd = Math.min(customerPage * pageSize, sortedCustomers.length);
     const visiblePages = getVisiblePages(customerPage, totalCustomerPages);
     const expandedCustomer = useMemo(
-        () => paginatedCustomers.find((cust) => cust.id === expandedCustomerId) ?? null,
-        [paginatedCustomers, expandedCustomerId]
+        () => sortedCustomers.find((cust) => cust.id === expandedCustomerId) ?? null,
+        [sortedCustomers, expandedCustomerId]
     );
     const paginationNavButton = isDarkMode
         ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-400'
@@ -383,21 +414,27 @@ function CustomersPageContent({
     };
 
     useEffect(() => {
+        if (!expandedCustomerId) {
+            return;
+        }
+
+        const index = sortedCustomers.findIndex((cust) => cust.id === expandedCustomerId);
+        if (index === -1) {
+            setExpandedCustomerId(null);
+            return;
+        }
+
+        const targetPage = Math.floor(index / pageSize) + 1;
+        setCustomerPage((current) => (current === targetPage ? current : targetPage));
+    }, [expandedCustomerId, sortedCustomers, pageSize]);
+
+    useEffect(() => {
         if (!expandedCustomerId || !customerDetailPanelRef.current) {
             return;
         }
 
         customerDetailPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, [expandedCustomerId]);
-
-    useEffect(() => {
-        if (
-            expandedCustomerId
-            && !paginatedCustomers.some((cust) => cust.id === expandedCustomerId)
-        ) {
-            setExpandedCustomerId(null);
-        }
-    }, [paginatedCustomers, expandedCustomerId]);
+    }, [expandedCustomerId, expandedCustomer]);
 
     const handleSaveCustomer = (e) => {
         e.preventDefault();
@@ -919,7 +956,7 @@ function CustomersPageContent({
                 )}
             </AdminPageCard>
 
-            <TransitionModal show={showCustomerModal} onClose={closeCustomerModal} themeCard={themeCard} maxWidth="lg" className="!flex !flex-col !overflow-hidden max-h-[min(90dvh,calc(100dvh-1.5rem))] !space-y-0">
+            <TransitionModal show={showCustomerModal} onClose={closeCustomerModal} themeCard={themeCard} maxWidth="lg" className="!flex !flex-col !overflow-hidden !space-y-0">
                 <div className={`flex items-start justify-between gap-3 pb-3 border-b shrink-0 ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold min-w-0 flex-1 pr-2 ${themeTextTitle}`}>
                         {editingCustomer ? 'Edit Pelanggan PPPoE' : 'Tambah Pelanggan PPPoE'}
@@ -929,7 +966,7 @@ function CustomersPageContent({
                     </button>
                 </div>
                 <form onSubmit={handleSaveCustomer} className="flex flex-col flex-1 min-h-0 mt-4">
-                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 text-xs pr-0.5">
+                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 text-xs pr-0.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
                     <input type="hidden" name="id" value={editingCustomer ? editingCustomer.id : ''} />
                     <input type="hidden" name="service_type" value="pppoe" />
 
@@ -1068,9 +1105,8 @@ function CustomersPageContent({
                             <span className={`text-[10px] ${themeTextDesc}`}>Dasar prorata bulan pertama: tgl mulai layanan s/d tgl jatuh tempo, dibagi 30 hari.</span>
                         </div>
                     </div>
-                    </div>
 
-                    <div className={`flex justify-end pt-3 gap-2 shrink-0 border-t ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                    <div className="flex justify-end gap-2 pt-2">
                         <button
                             type="button"
                             onClick={() => setShowCustomerModal(false)}
@@ -1086,6 +1122,7 @@ function CustomersPageContent({
                         >
                             <Save className="w-4 h-4" />
                         </button>
+                    </div>
                     </div>
                 </form>
             </TransitionModal>

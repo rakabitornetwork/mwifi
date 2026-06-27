@@ -1,8 +1,82 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Eye, EyeOff, RefreshCw, RotateCcw, Save, Wifi } from 'lucide-react';
+import { Eye, EyeOff, MonitorSmartphone, RefreshCw, RotateCcw, Save, Wifi } from 'lucide-react';
+import ToastStack from './Admin/ToastStack';
+import { PremiumPanel, PremiumPanelHeader } from './Admin/AdminPageCard';
+import { useOptionalAdminToast } from '../hooks/useAdminToast';
+import {
+    formatOntDeviceMeta,
+    isOntOnline,
+    rxAttenuationClass,
+} from '../utils/ontDisplay';
 
 function csrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+}
+
+function DeviceMetaLine({ device, compact, themeTextDesc, className = '' }) {
+    if (compact || !device) {
+        return null;
+    }
+
+    const meta = formatOntDeviceMeta(device);
+    if (!meta) {
+        return null;
+    }
+
+    const { model, rx, quality } = meta;
+
+    return (
+        <p className={`text-[10px] min-w-0 leading-snug ${className} ${themeTextDesc}`}>
+            <span>{model}</span>
+            <span> · Redaman </span>
+            <span className={rxAttenuationClass(quality)}>{rx}</span>
+        </p>
+    );
+}
+
+function ConnectedDevicesSection({ device, isDarkMode, themeTextTitle, themeTextSub, themeTextDesc }) {
+    const list = Array.isArray(device?.connected_device_list) ? device.connected_device_list : [];
+    const count = device?.connected_devices ?? (list.length > 0 ? list.length : null);
+
+    if (count === null && list.length === 0) {
+        return null;
+    }
+
+    const shell = isDarkMode
+        ? 'border-zinc-800/80 bg-zinc-900/30'
+        : 'border-zinc-200/80 bg-zinc-50/80';
+
+    return (
+        <div className={`rounded-lg border px-2.5 py-2 space-y-1.5 min-w-0 ${shell}`}>
+            <div className="flex items-center gap-1.5">
+                <MonitorSmartphone className={`w-3.5 h-3.5 shrink-0 ${themeTextSub}`} />
+                <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>
+                    Perangkat Terhubung ({count ?? list.length})
+                </p>
+            </div>
+            {list.length > 0 ? (
+                <ul className="space-y-1 min-w-0">
+                    {list.map((item, index) => (
+                        <li
+                            key={`${item.mac || item.name}-${index}`}
+                            className={`flex items-start justify-between gap-3 text-[10px] py-1 border-b last:border-0 ${isDarkMode ? 'border-zinc-800/50' : 'border-zinc-200/70'}`}
+                        >
+                            <span className={`font-medium min-w-0 break-words [overflow-wrap:anywhere] leading-snug ${themeTextTitle}`}>
+                                {item.name || 'Perangkat'}
+                            </span>
+                            <span className={`shrink-0 text-right font-mono text-[9px] leading-snug ${themeTextDesc}`}>
+                                {item.ip || item.mac || '—'}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            ) : (
+                <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
+                    {count} perangkat terdeteksi. Nama perangkat belum dilaporkan oleh ONT.
+                </p>
+            )}
+        </div>
+    );
 }
 
 export default function OntWifiPanel({
@@ -12,17 +86,21 @@ export default function OntWifiPanel({
     canWrite = true,
     showReboot = false,
     compact = false,
+    premiumEmbed = false,
+    premiumAccent = 'violet',
+    bare = false,
     theme = {},
     onUpdated,
 }) {
     const {
         isDarkMode = true,
+        themeCard = '',
         themeTextTitle = 'text-white',
         themeTextSub = 'text-zinc-400',
         themeTextDesc = 'text-zinc-500',
     } = theme;
 
-    const themeInnerWidget = theme.themeInnerWidget || (isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60');
+    const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
     const themeInput = isDarkMode
         ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';
@@ -33,11 +111,30 @@ export default function OntWifiPanel({
     const [ssid, setSsid] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [rebootAfter, setRebootAfter] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isRebooting, setIsRebooting] = useState(false);
-    const [saveMessage, setSaveMessage] = useState(null);
     const [saveError, setSaveError] = useState(null);
+    const [localToasts, setLocalToasts] = useState([]);
+    const { showToast: showAdminToast, hasProvider: hasAdminToast } = useOptionalAdminToast();
+
+    const showSuccessToast = useCallback((message) => {
+        const text = message || 'Perubahan WiFi ONT berhasil.';
+        if (hasAdminToast) {
+            showAdminToast(text, 'success');
+            return;
+        }
+
+        const id = Date.now() + Math.random().toString(36).slice(2, 9);
+        setLocalToasts((prev) => {
+            if (prev.some((toast) => toast.message === text && toast.type === 'success')) {
+                return prev;
+            }
+            return [...prev, { id, message: text, type: 'success' }];
+        });
+        setTimeout(() => {
+            setLocalToasts((current) => current.filter((toast) => toast.id !== id));
+        }, 5000);
+    }, [hasAdminToast, showAdminToast]);
 
     const statusQuery = useCallback(() => {
         const params = new URLSearchParams();
@@ -52,7 +149,6 @@ export default function OntWifiPanel({
     const loadWifiStatus = useCallback(async () => {
         setIsLoading(true);
         setLoadError(null);
-        setSaveMessage(null);
         setSaveError(null);
 
         try {
@@ -66,7 +162,14 @@ export default function OntWifiPanel({
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok || !data.found) {
-                throw new Error(data.message || 'ONT tidak ditemukan di GenieACS.');
+                let message = data.message || 'ONT tidak ditemukan di GenieACS.';
+                if (data.searched_username) {
+                    message += ` (username: ${data.searched_username})`;
+                }
+                if (Array.isArray(data.available_usernames) && data.available_usernames.length > 0) {
+                    message += `. Terdaftar di GenieACS: ${data.available_usernames.join(', ')}`;
+                }
+                throw new Error(message);
             }
 
             setDevice(data.device);
@@ -101,7 +204,6 @@ export default function OntWifiPanel({
         }
 
         setIsSaving(true);
-        setSaveMessage(null);
         setSaveError(null);
 
         try {
@@ -114,10 +216,6 @@ export default function OntWifiPanel({
                 payload.customer_id = customerId;
             } else if (username) {
                 payload.username = username;
-            }
-
-            if (showReboot && rebootAfter) {
-                payload.reboot_after = true;
             }
 
             if (device?.id) {
@@ -141,8 +239,8 @@ export default function OntWifiPanel({
                 throw new Error(data.message || 'Gagal mengubah WiFi ONT.');
             }
 
-            setSaveMessage(data.message || 'Perubahan WiFi dikirim ke ONT.');
             setPassword('');
+            showSuccessToast(data.message || 'Perubahan WiFi ONT berhasil.');
             await loadWifiStatus();
             onUpdated?.(data);
         } catch (error) {
@@ -182,7 +280,7 @@ export default function OntWifiPanel({
                 throw new Error(data.message || 'Gagal mengirim perintah reboot.');
             }
 
-            setSaveMessage(data.message || 'Perintah reboot ONT dikirim.');
+            showSuccessToast(data.message || 'Perintah reboot ONT berhasil dikirim.');
         } catch (error) {
             setSaveError(error?.message || 'Gagal mengirim perintah reboot.');
         } finally {
@@ -190,21 +288,71 @@ export default function OntWifiPanel({
         }
     };
 
+    const ontOnlineBadge = (online) => (
+        <span className={`inline-flex px-2 py-0.5 rounded-md text-[9px] font-bold border ${
+            online
+                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+        }`}>
+            {online ? 'ONT Online' : 'ONT Offline'}
+        </span>
+    );
+
+    const wrapPremium = (content, { subtitle = null, trailing = null } = {}) => {
+        if (!premiumEmbed) {
+            return content;
+        }
+
+        return (
+            <PremiumPanel
+                accent={premiumAccent}
+                themeCard={themeCard}
+                isDarkMode={isDarkMode}
+                className="h-full"
+                bodyClassName="p-3 space-y-3"
+            >
+                <PremiumPanelHeader
+                    icon={Wifi}
+                    accent={premiumAccent}
+                    isDarkMode={isDarkMode}
+                    themeTextTitle={themeTextTitle}
+                    themeTextDesc={themeTextDesc}
+                    title="WiFi ONT"
+                    subtitle={subtitle}
+                    trailing={trailing}
+                />
+                {content}
+            </PremiumPanel>
+        );
+    };
+
     if (isLoading) {
+        const content = <p className={`text-[10px] ${themeTextDesc}`}>Memuat data WiFi ONT...</p>;
+
+        if (premiumEmbed) {
+            return wrapPremium(content);
+        }
+
+        if (bare) {
+            return content;
+        }
+
         return (
             <div className={`rounded-lg border p-2 ${themeInnerWidget}`}>
-                <p className={`text-[10px] ${themeTextDesc}`}>Memuat data WiFi ONT...</p>
+                {content}
             </div>
         );
     }
 
     if (loadError) {
-        return (
-            <div className={`rounded-lg border p-2 space-y-2 ${themeInnerWidget}`}>
-                <div className="flex items-center gap-1.5">
-                    <Wifi className={`w-3.5 h-3.5 ${themeTextSub}`} />
-                    <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>WiFi ONT</p>
-                </div>
+        const content = (
+            <>
+                {!premiumEmbed && !bare && (
+                    <div className="flex items-center gap-1.5">
+                        <Wifi className={`w-3.5 h-3.5 ${themeTextSub}`} />
+                        <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>WiFi ONT</p>
+                    </div>
+                )}
                 <p className="text-[10px] text-amber-500">{loadError}</p>
                 <button
                     type="button"
@@ -214,39 +362,69 @@ export default function OntWifiPanel({
                     <RefreshCw className="w-3 h-3" />
                     Coba lagi
                 </button>
+            </>
+        );
+
+        if (premiumEmbed) {
+            return wrapPremium(content);
+        }
+
+        if (bare) {
+            return <div className="space-y-2">{content}</div>;
+        }
+
+        return (
+            <div className={`rounded-lg border p-2 space-y-2 ${themeInnerWidget}`}>
+                {content}
             </div>
         );
     }
 
-    const ontOnline = device?.status && device.status !== 'offline';
+    const ontOnline = isOntOnline(device);
+    const deviceMeta = !compact && device ? (
+        <DeviceMetaLine device={device} themeTextDesc={themeTextDesc} />
+    ) : null;
 
-    return (
-        <div className={`rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
-            <div className="flex items-start justify-between gap-2">
-                <div>
-                    <div className="flex items-center gap-1.5">
-                        <Wifi className={`w-3.5 h-3.5 ${themeTextSub}`} />
-                        <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>WiFi ONT</p>
+    const formContent = (
+        <>
+            {!premiumEmbed && !bare && (
+                <div className="flex items-start justify-between gap-2">
+                    <div>
+                        <div className="flex items-center gap-1.5">
+                            <Wifi className={`w-3.5 h-3.5 ${themeTextSub}`} />
+                            <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>WiFi ONT</p>
+                        </div>
+                        {deviceMeta ? (
+                            <div className="mt-0.5">{deviceMeta}</div>
+                        ) : null}
                     </div>
-                    {!compact && (
-                        <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
-                            {device?.model || device?.product_class || 'ONT'} · Redaman {device?.rx || '—'}
-                        </p>
-                    )}
+                    {ontOnlineBadge(ontOnline)}
                 </div>
-                <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-bold border ${
-                    ontOnline
-                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                        : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
-                }`}>
-                    {ontOnline ? 'ONT Online' : 'ONT Offline'}
-                </span>
-            </div>
+            )}
+
+            {bare && (
+                <div className="flex items-center justify-between gap-2">
+                    {deviceMeta ? (
+                        <div className="min-w-0 flex-1 truncate">{deviceMeta}</div>
+                    ) : <span />}
+                    {ontOnlineBadge(ontOnline)}
+                </div>
+            )}
 
             {device?.wifi_password && !compact && (
                 <p className={`text-[10px] ${themeTextDesc}`}>
                     Password saat ini: <span className={`font-mono ${themeTextTitle}`}>{device.wifi_password}</span>
                 </p>
+            )}
+
+            {!compact && (
+                <ConnectedDevicesSection
+                    device={device}
+                    isDarkMode={isDarkMode}
+                    themeTextTitle={themeTextTitle}
+                    themeTextSub={themeTextSub}
+                    themeTextDesc={themeTextDesc}
+                />
             )}
 
             <form onSubmit={handleSave} className="space-y-2 min-w-0">
@@ -258,7 +436,7 @@ export default function OntWifiPanel({
                         onChange={(e) => setSsid(e.target.value)}
                         maxLength={32}
                         disabled={!canWrite || isSaving}
-                        className={`w-full px-2 py-1.5 border rounded-lg text-[11px] font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 ${themeInput}`}
+                        className={`w-full px-2.5 py-2 border rounded-lg text-[11px] font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 ${themeInput}`}
                         placeholder="Nama jaringan WiFi"
                     />
                 </div>
@@ -273,7 +451,7 @@ export default function OntWifiPanel({
                             minLength={8}
                             maxLength={63}
                             disabled={!canWrite || isSaving}
-                            className={`w-full px-2 py-1.5 pr-8 border rounded-lg text-[11px] font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 ${themeInput}`}
+                            className={`w-full px-2.5 py-2 pr-8 border rounded-lg text-[11px] font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 ${themeInput}`}
                             placeholder="Kosongkan jika tidak diubah"
                         />
                         <button
@@ -288,22 +466,6 @@ export default function OntWifiPanel({
                     <p className={`text-[9px] ${themeTextDesc}`}>Minimal 8 karakter (WPA).</p>
                 </div>
 
-                {showReboot && canWrite && (
-                    <label className={`flex items-center gap-2 text-[10px] ${themeTextSub} cursor-pointer`}>
-                        <input
-                            type="checkbox"
-                            checked={rebootAfter}
-                            onChange={(e) => setRebootAfter(e.target.checked)}
-                            disabled={isSaving}
-                            className="rounded border-zinc-600"
-                        />
-                        Reboot ONT setelah perubahan
-                    </label>
-                )}
-
-                {saveMessage && (
-                    <p className="text-[10px] text-emerald-500">{saveMessage}</p>
-                )}
                 {saveError && (
                     <p className="text-[10px] text-rose-500">{saveError}</p>
                 )}
@@ -345,6 +507,26 @@ export default function OntWifiPanel({
                     </div>
                 )}
             </form>
+        </>
+    );
+
+    return (
+        <>
+        {!hasAdminToast && (
+            <ToastStack toasts={localToasts} setToasts={setLocalToasts} isDarkMode={isDarkMode} />
+        )}
+        {premiumEmbed ? (
+            wrapPremium(formContent, {
+                subtitle: deviceMeta,
+                trailing: ontOnlineBadge(ontOnline),
+            })
+        ) : bare ? (
+            <div className="space-y-2 min-w-0">{formContent}</div>
+        ) : (
+        <div className={`rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
+            {formContent}
         </div>
+        )}
+        </>
     );
 }

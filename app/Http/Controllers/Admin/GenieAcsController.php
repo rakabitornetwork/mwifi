@@ -32,10 +32,14 @@ class GenieAcsController extends Controller
             $device = GenieAcsService::findDeviceByUsername($username);
 
             if ($device === null) {
+                $available = GenieAcsService::listRegisteredOntUsernames();
+
                 return response()->json([
                     'success' => false,
                     'found' => false,
-                    'message' => 'ONT tidak terdaftar di GenieACS untuk username ini.',
+                    'message' => 'ONT tidak terdaftar di GenieACS untuk username "' . $username . '". Username PPPoE di mWiFi harus sama dengan di ONT.',
+                    'searched_username' => $username,
+                    'available_usernames' => $available,
                 ], 404);
             }
 
@@ -66,7 +70,6 @@ class GenieAcsController extends Controller
             'device_id' => 'nullable|string|max:255',
             'ssid' => 'nullable|string|max:32',
             'password' => 'nullable|string|min:8|max:63',
-            'reboot_after' => 'nullable|boolean',
         ]);
 
         if (empty(trim((string) ($validated['ssid'] ?? ''))) && empty(trim((string) ($validated['password'] ?? '')))) {
@@ -102,9 +105,13 @@ class GenieAcsController extends Controller
             }
 
             if ($device === null) {
+                $available = GenieAcsService::listRegisteredOntUsernames();
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'ONT tidak terdaftar di GenieACS untuk username ini.',
+                    'message' => 'ONT tidak terdaftar di GenieACS untuk username "' . $username . '".',
+                    'searched_username' => $username,
+                    'available_usernames' => $available,
                 ], 404);
             }
 
@@ -118,12 +125,6 @@ class GenieAcsController extends Controller
 
             if (!($result['success'] ?? false)) {
                 return response()->json($result, 502);
-            }
-
-            if ($request->boolean('reboot_after')) {
-                GenieAcsService::rebootDevice($device['id']);
-                $result['reboot_queued'] = true;
-                $result['message'] .= ' Perintah reboot ONT juga dikirim.';
             }
 
             return response()->json($result);

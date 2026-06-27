@@ -95,7 +95,7 @@ export function PremiumPanelHeader({
                 ) : null}
             </div>
             {subtitle ? (
-                <p className={`text-[10px] mt-1.5 pl-9 truncate ${themeTextDesc || ''}`}>{subtitle}</p>
+                <div className={`text-[10px] mt-1.5 pl-9 min-w-0 ${themeTextDesc || ''}`}>{subtitle}</div>
             ) : null}
         </div>
     );

@@ -3,11 +3,13 @@ import { useScheduledTheme } from '../../hooks/useScheduledTheme';
 import { Link, router, usePage } from '@inertiajs/react';
 import PullToRefresh from '../../Components/PullToRefresh';
 import OntWifiPanel from '../../Components/OntWifiPanel';
+import CustomerOntStatusLabel from '../../Components/CustomerOntStatusLabel';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
 import { formatRupiah } from '../../utils/formatRupiah';
 import { formatDisplayDate } from '../../utils/formatDateInputValue';
+import { formatBandwidthLimitLabel } from '../../utils/customerMetrics';
 import { getTimeOfDayGreeting } from '../../utils/timeOfDayGreeting';
 import {
     LogOut,
@@ -225,12 +227,20 @@ export default function CustomerDashboard({
                             </p>
                         </div>
                         <div className="flex items-center gap-3">
-                            <div className="flex items-center space-x-2">
-                                <Activity className={`w-4 h-4 animate-pulse ${accentIconClass}`} />
-                                <span className={`text-xs font-bold ${accentIconClass}`}>
-                                    {isVpsPortal ? 'Instance Running' : 'Koneksi ONT Aktif'}
-                                </span>
-                            </div>
+                            {isVpsPortal ? (
+                                <div className="flex items-center space-x-2">
+                                    <Activity className={`w-4 h-4 animate-pulse ${accentIconClass}`} />
+                                    <span className={`text-xs font-bold ${accentIconClass}`}>
+                                        Instance Running
+                                    </span>
+                                </div>
+                            ) : (
+                                <CustomerOntStatusLabel
+                                    enabled={customer.service_type !== 'hotspot'}
+                                    accentIconClass={accentIconClass}
+                                    themeTextDesc={themeTextDesc}
+                                />
+                            )}
                         </div>
                     </div>
 
@@ -342,7 +352,9 @@ export default function CustomerDashboard({
                                     <div className="space-y-3 text-xs">
                                         <div className={`p-3 rounded-xl border ${themeInnerWidget} space-y-1`}>
                                             <p className={`font-bold text-sm ${themeTextTitle}`}>{customer.package.name}</p>
-                                            <p className={`text-[10px] font-bold text-emerald-500 uppercase tracking-widest`}>Batas Bandwidth: {customer.package.bandwidth_limit}</p>
+                                            <p className={`text-[10px] font-bold text-emerald-500 uppercase tracking-widest`}>
+                                                Batas Bandwidth: {formatBandwidthLimitLabel(customer.package.bandwidth_limit) || '—'}
+                                            </p>
                                         </div>
                                         <div>
                                             <p className={themeTextDesc}>Deskripsi Layanan</p>
@@ -375,6 +387,7 @@ export default function CustomerDashboard({
                                         apiBase="/customer"
                                         username={customer.username}
                                         canWrite
+                                        bare
                                         theme={{
                                             isDarkMode,
                                             themeTextTitle,

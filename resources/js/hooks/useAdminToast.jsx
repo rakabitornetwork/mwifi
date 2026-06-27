@@ -55,3 +55,19 @@ export function useAdminToast() {
     }
     return context;
 }
+
+const noopToastApi = {
+    toasts: [],
+    setToasts: () => {},
+    showToast: () => {},
+    hasProvider: false,
+};
+
+export function useOptionalAdminToast() {
+    const context = useContext(AdminToastContext);
+    if (!context) {
+        return noopToastApi;
+    }
+
+    return { ...context, hasProvider: true };
+}

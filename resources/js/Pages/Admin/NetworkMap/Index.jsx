@@ -674,7 +674,6 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                             compact
                             theme={theme}
                             onUpdated={() => {
-                                showToast('Perubahan WiFi ONT dikirim.', 'success');
                                 fetchNetworkMapMetrics();
                             }}
                         />

@@ -1,12 +1,26 @@
 import { useEffect, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Database, Edit, FileText, History, RefreshCw } from 'lucide-react';
+import {
+    Activity,
+    ArrowDown,
+    ArrowUp,
+    Edit,
+    ExternalLink,
+    FileText,
+    History,
+    MapPin,
+    Receipt,
+    RefreshCw,
+    User,
+    Wifi,
+} from 'lucide-react';
 import { formatRupiah } from '../../utils/formatRupiah';
 import { formatBytes, quotaUsagePercent } from '../../utils/formatBytes';
 import { formatDisplayDate } from '../../utils/formatDateInputValue';
 import { readAdminWhatsAppPreference, writeAdminWhatsAppPreference } from '../../utils/adminWhatsAppPreference';
 import WhatsAppNotifyCheckbox from './WhatsAppNotifyCheckbox';
 import OntWifiPanel from '../OntWifiPanel';
+import { formatBandwidthLimitLabel } from '../../utils/customerMetrics';
 
 function formatDate(value) {
     return formatDisplayDate(value);
@@ -27,29 +41,147 @@ function statusMeta(status) {
     }
 }
 
-function DetailItem({ label, value, mono = false, themeTextTitle, themeTextSub, className = '' }) {
+function panelDivider(isDarkMode) {
+    return isDarkMode ? 'border-zinc-800/50' : 'border-zinc-200/70';
+}
+
+function SectionBlock({ icon: Icon, title, meta, trailing, children, themeTextSub, themeTextDesc }) {
     return (
-        <div className={`min-w-0 ${className}`}>
-            <p className={`text-[9px] font-bold uppercase tracking-wide leading-tight ${themeTextSub}`}>{label}</p>
-            <p className={`text-[11px] mt-0.5 break-words [overflow-wrap:anywhere] leading-snug ${mono ? 'font-mono' : ''} ${themeTextTitle}`}>
+        <section className="space-y-3 min-w-0 h-full">
+            <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2 min-w-0">
+                    <Icon className={`w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-500/70`} />
+                    <div className="min-w-0">
+                        <h4 className={`text-[10px] font-bold uppercase tracking-[0.14em] ${themeTextSub}`}>{title}</h4>
+                        {meta ? (
+                            <p className={`text-[10px] mt-0.5 leading-snug ${themeTextDesc}`}>{meta}</p>
+                        ) : null}
+                    </div>
+                </div>
+                {trailing ? <div className="shrink-0">{trailing}</div> : null}
+            </div>
+            {children}
+        </section>
+    );
+}
+
+function InfoGrid({ children }) {
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3">
+            {children}
+        </div>
+    );
+}
+
+function InfoCell({ label, value, mono = false, className = '', themeTextTitle, themeTextSub, span = false, row = false, isDarkMode, isLast = false }) {
+    if (row) {
+        const divider = isDarkMode ? 'border-zinc-800/50' : 'border-zinc-100';
+
+        return (
+            <div className={`flex items-baseline justify-between gap-4 min-w-0 py-2 ${!isLast ? `border-b ${divider}` : ''} ${className}`}>
+                <p className={`text-[10px] font-medium shrink-0 ${themeTextSub}`}>{label}</p>
+                <p className={`text-[11px] font-semibold text-right break-words [overflow-wrap:anywhere] leading-snug ${mono ? 'font-mono text-[10px]' : ''} ${themeTextTitle}`}>
+                    {value || '—'}
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div className={`min-w-0 ${span ? 'sm:col-span-2' : ''} ${className}`}>
+            <p className={`text-[9px] font-semibold uppercase tracking-wide leading-tight ${themeTextSub}`}>{label}</p>
+            <p className={`text-[11px] mt-1 font-medium break-words [overflow-wrap:anywhere] leading-snug ${mono ? 'font-mono text-[10px]' : ''} ${themeTextTitle}`}>
                 {value || '—'}
             </p>
         </div>
     );
 }
 
-function QuotaCard({ label, usedBytes, limitBytes, gradient }) {
-    const pct = quotaUsagePercent(usedBytes, limitBytes);
+function NoticeBox({ tone = 'rose', title, children, isDarkMode }) {
+    const styles = {
+        rose: isDarkMode ? 'border-rose-500/20 bg-rose-500/5' : 'border-rose-200/80 bg-rose-50/50',
+        zinc: isDarkMode ? 'border-zinc-600/30 bg-zinc-800/30' : 'border-zinc-200 bg-zinc-50',
+        indigo: isDarkMode ? 'border-indigo-500/20 bg-indigo-500/5' : 'border-indigo-200/80 bg-indigo-50/50',
+    };
+    const titles = { rose: 'text-rose-500', zinc: 'text-zinc-500', indigo: 'text-indigo-500' };
 
     return (
-        <div className={`rounded-lg border p-2 text-white shadow-md min-w-0 ${gradient}`}>
-            <p className="text-[9px] font-bold uppercase tracking-wide text-white/80 leading-tight">{label}</p>
-            <p className="text-xs font-black font-mono mt-0.5 text-white break-all">{formatBytes(usedBytes)}</p>
-            <p className="text-[9px] mt-0.5 text-white/70 leading-snug break-words">
-                {limitBytes
-                    ? (pct !== null ? `${pct.toFixed(1)}% dari kuota ${formatBytes(limitBytes)}` : `Kuota ${formatBytes(limitBytes)}`)
-                    : 'Tidak ada batas kuota di RouterOS'}
+        <div className={`rounded-lg border px-3 py-2.5 space-y-0.5 ${styles[tone] || styles.rose}`}>
+            <p className={`text-[9px] font-bold uppercase tracking-wide ${titles[tone] || titles.rose}`}>{title}</p>
+            {children}
+        </div>
+    );
+}
+
+const QUOTA_CARD_THEMES = {
+    indigo: {
+        cardDark: 'border-indigo-500/25 bg-indigo-500/8',
+        cardLight: 'border-indigo-200/80 bg-indigo-50/70',
+        iconWrapDark: 'bg-indigo-500/15 border-indigo-500/25',
+        iconWrapLight: 'bg-indigo-100/80 border-indigo-200',
+        icon: 'text-indigo-500',
+        value: 'text-indigo-500',
+        bar: 'bg-indigo-500',
+        trackDark: 'bg-indigo-950/40',
+        trackLight: 'bg-indigo-100',
+    },
+    sky: {
+        cardDark: 'border-sky-500/25 bg-sky-500/8',
+        cardLight: 'border-sky-200/80 bg-sky-50/70',
+        iconWrapDark: 'bg-sky-500/15 border-sky-500/25',
+        iconWrapLight: 'bg-sky-100/80 border-sky-200',
+        icon: 'text-sky-500',
+        value: 'text-sky-500',
+        bar: 'bg-sky-500',
+        trackDark: 'bg-sky-950/40',
+        trackLight: 'bg-sky-100',
+    },
+    violet: {
+        cardDark: 'border-violet-500/25 bg-violet-500/8',
+        cardLight: 'border-violet-200/80 bg-violet-50/70',
+        iconWrapDark: 'bg-violet-500/15 border-violet-500/25',
+        iconWrapLight: 'bg-violet-100/80 border-violet-200',
+        icon: 'text-violet-500',
+        value: 'text-violet-500',
+        bar: 'bg-violet-500',
+        trackDark: 'bg-violet-950/40',
+        trackLight: 'bg-violet-100',
+    },
+};
+
+function QuotaStat({ icon: Icon, tone = 'indigo', label, usedBytes, limitBytes, isDarkMode, themeTextSub, themeTextDesc }) {
+    const pct = quotaUsagePercent(usedBytes, limitBytes);
+    const barWidth = pct !== null ? Math.min(pct, 100) : 0;
+    const styles = QUOTA_CARD_THEMES[tone] || QUOTA_CARD_THEMES.indigo;
+
+    return (
+        <div className={`rounded-xl border p-3 min-w-0 ${isDarkMode ? styles.cardDark : styles.cardLight}`}>
+            <div className="flex items-center gap-2 mb-2">
+                <div className={`p-1.5 rounded-lg border shrink-0 ${isDarkMode ? styles.iconWrapDark : styles.iconWrapLight}`}>
+                    <Icon className={`w-3.5 h-3.5 ${styles.icon}`} />
+                </div>
+                <p className={`text-[9px] font-bold uppercase tracking-wide ${themeTextSub}`}>{label}</p>
+            </div>
+            <p className={`text-sm font-bold font-mono break-all ${styles.value}`}>
+                {formatBytes(usedBytes)}
             </p>
+            {limitBytes && pct !== null ? (
+                <div className="mt-2.5 space-y-1.5">
+                    <div className={`h-1 rounded-full overflow-hidden ${isDarkMode ? styles.trackDark : styles.trackLight}`}>
+                        <div
+                            className={`h-full rounded-full transition-all duration-500 ${styles.bar}`}
+                            style={{ width: `${barWidth}%` }}
+                        />
+                    </div>
+                    <p className={`text-[9px] leading-snug ${themeTextDesc}`}>
+                        {pct.toFixed(1)}% dari {formatBytes(limitBytes)}
+                    </p>
+                </div>
+            ) : (
+                <p className={`text-[9px] mt-1.5 leading-snug ${themeTextDesc}`}>
+                    {limitBytes ? `Kuota ${formatBytes(limitBytes)}` : 'Tanpa batas kuota RouterOS'}
+                </p>
+            )}
         </div>
     );
 }
@@ -59,6 +191,7 @@ const QUOTA_POLL_MS = 30000;
 export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite = true }) {
     const {
         isDarkMode,
+        themeCard,
         themeTextTitle,
         themeTextSub,
         themeTextDesc,
@@ -190,21 +323,13 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
     };
 
     const isBillingActionBusy = isGeneratingInvoice || isBackfilling;
-
-    const themeInnerWidget = isDarkMode
-        ? 'bg-zinc-950/40 border-zinc-900 hover:border-emerald-500/25 transition-all duration-300'
-        : 'bg-white border-zinc-200/60 shadow-xs hover:border-emerald-300/60 hover:shadow-sm transition-all duration-300';
-
-    const detailTheme = {
-        ...theme,
-        themeInnerWidget,
-    };
-
     const status = statusMeta(customer.status);
     const hasGps = customer.latitude != null && customer.longitude != null && customer.latitude !== '' && customer.longitude !== '';
     const mapsUrl = hasGps
         ? `https://www.google.com/maps?q=${customer.latitude},${customer.longitude}`
         : null;
+    const isHotspot = customer.service_type === 'hotspot';
+    const divider = panelDivider(isDarkMode);
 
     useEffect(() => {
         let cancelled = false;
@@ -253,294 +378,280 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
     const totalBytes = quota?.total_bytes ?? (downloadBytes + uploadBytes);
     const isOnline = !!quota?.online;
 
+    const onlineBadge = (
+        <span className={`inline-flex px-2 py-0.5 rounded-md text-[9px] font-bold border ${
+            isOnline
+                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+        }`}>
+            {isOnline ? 'Online' : 'Offline'}
+        </span>
+    );
+
     return (
-        <div className={`customer-detail-panel border-t-2 border-l-4 ${
-            isDarkMode
-                ? 'border-t-zinc-800/60 border-l-emerald-600/80 bg-gradient-to-r from-emerald-950/10 via-zinc-950/20 to-zinc-950/10'
-                : 'border-t-zinc-200 border-l-emerald-500 bg-gradient-to-r from-emerald-50/30 via-zinc-50/20 to-emerald-50/10'
-        } p-3 sm:p-4 min-w-0 max-w-full overflow-hidden`}>
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3 min-w-0">
+        <div className={`customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-3 py-4 sm:px-4 min-w-0 max-w-full overflow-hidden`}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div className="min-w-0">
-                    <p className={`text-xs font-bold ${themeTextTitle}`}>Detail Lengkap Pelanggan</p>
-                    <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
-                        {customer.name} · {customer.username}
-                    </p>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${themeTextSub}`}>Detail Lengkap Pelanggan</p>
+                    <p className={`text-sm font-bold mt-1 truncate ${themeTextTitle}`}>{customer.name}</p>
+                    <p className={`text-[11px] font-mono mt-0.5 ${themeTextDesc}`}>{customer.username}</p>
                 </div>
-                {canWrite && (
-                <button
-                    type="button"
-                    onClick={() => onEdit?.(customer)}
-                    title="Edit Pelanggan"
-                    className="self-start inline-block p-1 text-emerald-500 hover:text-emerald-400 cursor-pointer transition-colors"
-                >
-                    <Edit className="w-4 h-4" />
-                </button>
-                )}
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <span className={`inline-flex px-2.5 py-1 rounded-lg text-[10px] font-bold border ${status.className}`}>
+                        {status.label}
+                    </span>
+                    {canWrite && (
+                        <button
+                            type="button"
+                            onClick={() => onEdit?.(customer)}
+                            title="Edit Pelanggan"
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
+                                isDarkMode
+                                    ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                                    : 'border-zinc-300 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                            }`}
+                        >
+                            <Edit className="w-3.5 h-3.5" />
+                            Edit
+                        </button>
+                    )}
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 min-w-0 w-full items-start">
-                {/* Kolom Kiri: Informasi Profil, Jaringan, dan Quota (xl:col-span-2) */}
-                <div className="xl:col-span-2 space-y-3 min-w-0">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className={`rounded-lg border p-3 space-y-2.5 min-w-0 ${themeInnerWidget}`}>
-                            <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Identitas & Kontak</p>
-                            <DetailItem label="Nama Lengkap" value={customer.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                            <DetailItem label="Username Layanan" value={customer.username} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                            <DetailItem label="Password Portal" value={customer.password} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                            <DetailItem label="Nomor Telepon (WA)" value={customer.phone_number} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                            <DetailItem
-                                label="Email Portal"
-                                value={customer.portal_email || customer.user?.email}
-                                mono
-                                themeTextTitle={themeTextTitle}
-                                themeTextSub={themeTextSub}
-                            />
-                            <DetailItem label="Alamat Lengkap" value={customer.address} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                        </div>
+            <div className={`${themeCard} rounded-2xl border overflow-hidden`}>
+                <div className={`grid grid-cols-1 lg:grid-cols-2 border-b ${divider}`}>
+                    <div className={`p-4 sm:p-5 lg:border-r ${divider}`}>
+                        <SectionBlock icon={User} title="Identitas & Kontak" themeTextSub={themeTextSub}>
+                            <InfoGrid>
+                                <InfoCell label="Nama Lengkap" value={customer.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                <InfoCell label="Username" value={customer.username} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                <InfoCell label="Password Portal" value={customer.password} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                <InfoCell label="Telepon (WA)" value={customer.phone_number} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                <InfoCell
+                                    label="Email Portal"
+                                    value={customer.portal_email || customer.user?.email}
+                                    mono
+                                    themeTextTitle={themeTextTitle}
+                                    themeTextSub={themeTextSub}
+                                    span
+                                />
+                                <InfoCell label="Alamat" value={customer.address} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} span />
+                            </InfoGrid>
+                        </SectionBlock>
+                    </div>
 
-                        <div className="space-y-3 min-w-0">
-                            <div className={`rounded-lg border p-3 space-y-2.5 min-w-0 ${themeInnerWidget}`}>
-                                <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Lokasi & Jaringan</p>
-                                <DetailItem label="Lintang GPS (Latitude)" value={hasGps ? String(customer.latitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                                <DetailItem label="Bujur GPS (Longitude)" value={hasGps ? String(customer.longitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                                {mapsUrl && (
-                                    <a
-                                        href={mapsUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex text-[10px] font-bold text-sky-500 hover:underline"
-                                    >
-                                        Buka di Google Maps
-                                    </a>
-                                )}
-                                <DetailItem label="Router" value={customer.router?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                                <DetailItem
-                                    label="Paket Internet"
+                    <div className="p-4 sm:p-5">
+                        <SectionBlock icon={MapPin} title="Lokasi & Jaringan" themeTextSub={themeTextSub}>
+                            <InfoGrid>
+                                <InfoCell label="Latitude" value={hasGps ? String(customer.latitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                <InfoCell label="Longitude" value={hasGps ? String(customer.longitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                <InfoCell label="Router" value={customer.router?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                <InfoCell
+                                    label="Paket"
                                     value={customer.package ? `${customer.package.name} · ${formatRupiah(customer.package.price)}` : null}
                                     themeTextTitle={themeTextTitle}
                                     themeTextSub={themeTextSub}
                                 />
-                                <DetailItem label="Batas Kecepatan Paket" value={customer.package?.bandwidth_limit} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                                <DetailItem label="Titik ODP" value={customer.odp?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                            </div>
+                                <InfoCell label="Kecepatan" value={formatBandwidthLimitLabel(customer.package?.bandwidth_limit)} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                <InfoCell label="ODP" value={customer.odp?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                            </InfoGrid>
+                            {mapsUrl && (
+                                <a
+                                    href={mapsUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`inline-flex items-center gap-1.5 mt-1 text-[10px] font-semibold transition-colors ${
+                                        isDarkMode ? 'text-sky-400 hover:text-sky-300' : 'text-sky-600 hover:text-sky-700'
+                                    }`}
+                                >
+                                    <ExternalLink className="w-3 h-3" />
+                                    Google Maps
+                                </a>
+                            )}
+                        </SectionBlock>
+                    </div>
+                </div>
 
-                            {customer.service_type !== 'hotspot' && (
+                <div className={`grid grid-cols-1 ${!isHotspot ? 'lg:grid-cols-2' : ''} border-b ${divider}`}>
+                    {!isHotspot && (
+                        <div className={`p-4 sm:p-5 lg:border-r ${divider}`}>
+                            <SectionBlock icon={Wifi} title="WiFi ONT" themeTextSub={themeTextSub}>
                                 <OntWifiPanel
                                     apiBase="/admin/gpon"
                                     customerId={customer.id}
                                     username={customer.username}
                                     canWrite={canWrite}
                                     showReboot
-                                    theme={detailTheme}
+                                    bare
+                                    theme={theme}
                                 />
-                            )}
+                            </SectionBlock>
                         </div>
-                    </div>
+                    )}
 
-                    {/* Card Quota Bandwidth */}
-                    <div className={`rounded-lg border p-3 space-y-3 min-w-0 ${themeInnerWidget}`}>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between min-w-0">
-                            <div className="flex flex-col gap-1 min-w-0 flex-1">
-                                <div className="flex items-start gap-2 min-w-0">
-                                    <Database className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
-                                    <p className={`text-[10px] font-bold uppercase tracking-wider break-words ${themeTextSub}`}>Quota Bandwidth (Total Pemakaian)</p>
+                    <div className={`p-4 sm:p-5 ${isHotspot ? '' : ''}`}>
+                        <SectionBlock icon={Receipt} title="Status & Billing" themeTextSub={themeTextSub}>
+                            <div className="min-w-0">
+                                <InfoCell row label="Status Akun" value={status.label} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} />
+                                <InfoCell row label="Mulai Layanan" value={formatDate(customer.service_start_date)} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} />
+                                <InfoCell row label="Jatuh Tempo" value={customer.billing_date ? formatDisplayDate(customer.billing_date) : null} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} isLast />
+                            </div>
+
+                            <div className="space-y-2 pt-1">
+                                {customer.latest_unpaid_invoice ? (
+                                    <NoticeBox tone="rose" isDarkMode={isDarkMode} title="Tagihan Belum Lunas">
+                                        <p className={`text-[11px] font-mono font-semibold break-all ${themeTextTitle}`}>{customer.latest_unpaid_invoice.invoice_number}</p>
+                                        <p className={`text-[10px] mt-0.5 ${themeTextSub}`}>
+                                            {customer.latest_unpaid_invoice.billing_period} · {formatRupiah(customer.latest_unpaid_invoice.total_amount)}
+                                        </p>
+                                        <p className={`text-[10px] ${themeTextDesc}`}>Jatuh tempo {formatDate(customer.latest_unpaid_invoice.due_date)}</p>
+                                    </NoticeBox>
+                                ) : customer.latest_canceled_invoice ? (
+                                    <NoticeBox tone="zinc" isDarkMode={isDarkMode} title={customer.pending_deferral ? 'Tagihan Ditunda' : 'Invoice Dibatalkan'}>
+                                        <p className={`text-[11px] font-mono font-semibold break-all ${themeTextTitle}`}>{customer.latest_canceled_invoice.invoice_number}</p>
+                                        <p className={`text-[10px] mt-0.5 ${themeTextSub}`}>
+                                            {customer.latest_canceled_invoice.billing_period} · {formatRupiah(customer.latest_canceled_invoice.total_amount)}
+                                        </p>
+                                        <p className={`text-[10px] ${themeTextDesc} leading-relaxed`}>
+                                            {customer.pending_deferral
+                                                ? `Tunda bayar aktif — jatuh tempo gabungan ${formatDate(customer.pending_deferral.combined_due_date)}.`
+                                                : 'Pulihkan invoice di menu Tagihan untuk bayar manual.'}
+                                        </p>
+                                    </NoticeBox>
+                                ) : (
+                                    <p className={`text-[10px] ${themeTextDesc}`}>Tidak ada tagihan belum lunas.</p>
+                                )}
+
+                                {customer.pending_deferral ? (
+                                    <NoticeBox tone="indigo" isDarkMode={isDarkMode} title="Tunda Bayar">
+                                        <p className={`text-[10px] ${themeTextSub}`}>
+                                            Periode {(customer.pending_deferral.periods || []).join(' + ')}
+                                        </p>
+                                        <p className={`text-[10px] ${themeTextDesc}`}>
+                                            Jatuh tempo {formatDate(customer.pending_deferral.combined_due_date)}
+                                        </p>
+                                    </NoticeBox>
+                                ) : null}
+                            </div>
+
+                            {canWrite ? (
+                                <div className={`mt-4 pt-4 space-y-2.5 border-t ${divider}`}>
+                                    <p className={`text-[9px] font-bold uppercase tracking-[0.12em] ${themeTextSub}`}>Aksi Tagihan</p>
+                                    <div className="space-y-2">
+                                        <select
+                                            id={`due-extension-${customer.id}`}
+                                            value={dueExtensionDays}
+                                            onChange={(e) => setDueExtensionDays(e.target.value)}
+                                            disabled={!canGenerateManualInvoice || isBillingActionBusy}
+                                            className={`w-full px-2.5 py-2 border rounded-lg text-[10px] font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 ${themeInput}`}
+                                        >
+                                            <option value="0">Jatuh tempo normal</option>
+                                            <option value="3">Perpanjang 3 hari</option>
+                                            <option value="5">Perpanjang 5 hari</option>
+                                            <option value="7">Perpanjang 7 hari</option>
+                                        </select>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={handleGenerateInvoice}
+                                                disabled={!canGenerateManualInvoice || isBillingActionBusy}
+                                                title={generateInvoiceDisabledReason || 'Generate tagihan manual'}
+                                                className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[10px] font-bold transition-colors ${
+                                                    canGenerateManualInvoice && !isBillingActionBusy
+                                                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white cursor-pointer'
+                                                        : isDarkMode
+                                                            ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed opacity-60'
+                                                            : 'bg-zinc-100 text-zinc-400 cursor-not-allowed opacity-70'
+                                                }`}
+                                            >
+                                                {isGeneratingInvoice ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                                                Generate Manual
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={handleBackfillInvoices}
+                                                disabled={!canGenerateManualInvoice || isBillingActionBusy}
+                                                title={generateInvoiceDisabledReason || 'Generate tagihan terlewat'}
+                                                className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-[10px] font-bold transition-colors ${
+                                                    canGenerateManualInvoice && !isBillingActionBusy
+                                                        ? 'bg-indigo-500 hover:bg-indigo-600 text-white cursor-pointer'
+                                                        : isDarkMode
+                                                            ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed opacity-60'
+                                                            : 'bg-zinc-100 text-zinc-400 cursor-not-allowed opacity-70'
+                                                }`}
+                                            >
+                                                {isBackfilling ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <History className="w-3.5 h-3.5" />}
+                                                Generate Terlewat
+                                            </button>
+                                        </div>
+                                        <WhatsAppNotifyCheckbox
+                                            checked={sendWhatsApp}
+                                            onChange={handleWhatsAppPreferenceChange}
+                                            disabled={!canGenerateManualInvoice || isBillingActionBusy}
+                                            themeTextDesc={themeTextDesc}
+                                        />
+                                    </div>
+                                    {generateInvoiceDisabledReason && (
+                                        <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>{generateInvoiceDisabledReason}</p>
+                                    )}
                                 </div>
-                                {quota?.period && (
-                                    <span className={`text-[10px] break-words ${themeTextDesc}`}>
-                                        Periode {quota.period} · reset otomatis tiap tanggal 1
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                                {isLoadingQuota && (
-                                    <span className={`text-[10px] inline-flex items-center gap-1 ${themeTextSub}`}>
-                                        <RefreshCw className="w-3 h-3 animate-spin" />
-                                        Memuat...
-                                    </span>
-                                )}
-                                <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                    isOnline
-                                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                                        : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
-                                }`}>
-                                    {isOnline ? 'Online' : 'Offline'}
-                                </span>
-                            </div>
-                        </div>
-
-                        {quotaError && (
-                            <p className="text-[10px] text-amber-500">{quotaError}</p>
-                        )}
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 min-w-0 w-full">
-                            <QuotaCard
-                                label="Total Quota Terpakai"
-                                usedBytes={totalBytes}
-                                limitBytes={null}
-                                gradient="bg-gradient-to-br from-indigo-500 to-violet-600 border-indigo-400/20 shadow-indigo-500/10"
-                            />
-                            <QuotaCard
-                                label="Download Terpakai"
-                                usedBytes={downloadBytes}
-                                limitBytes={quota?.download_limit_bytes}
-                                gradient="bg-gradient-to-br from-sky-500 to-blue-600 border-sky-400/20 shadow-sky-500/10"
-                            />
-                            <QuotaCard
-                                label="Upload Terpakai"
-                                usedBytes={uploadBytes}
-                                limitBytes={quota?.upload_limit_bytes}
-                                gradient="bg-gradient-to-br from-violet-500 to-fuchsia-600 border-violet-400/20 shadow-violet-500/10"
-                            />
-                        </div>
+                            ) : null}
+                        </SectionBlock>
                     </div>
                 </div>
 
-                {/* Kolom Kanan: Status & Billing / Actions (xl:col-span-1) */}
-                <div className={`rounded-lg border p-3 space-y-3.5 min-w-0 ${themeInnerWidget} xl:col-span-1`}>
-                    <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Status & Billing</p>
-                    <div>
-                        <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Status Akun</p>
-                        <span className={`inline-flex mt-1 px-2 py-0.5 rounded text-[10px] font-bold border ${status.className}`}>
-                            {status.label}
-                        </span>
-                    </div>
-                    <DetailItem label="Tgl Jatuh Tempo" value={customer.billing_date ? formatDisplayDate(customer.billing_date) : null} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                    <DetailItem label="Tgl Mulai Layanan" value={formatDate(customer.service_start_date)} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-
-                    {customer.latest_unpaid_invoice ? (
-                        <div className={`rounded-lg border p-2.5 ${isDarkMode ? 'border-rose-500/20 bg-rose-500/5' : 'border-rose-200 bg-rose-50/80'}`}>
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-rose-500">Tagihan Belum Lunas</p>
-                            <p className={`text-xs font-mono font-bold mt-1 break-all ${themeTextTitle}`}>{customer.latest_unpaid_invoice.invoice_number}</p>
-                            <p className={`text-[10px] mt-0.5 break-words ${themeTextSub}`}>
-                                Periode {customer.latest_unpaid_invoice.billing_period} · {formatRupiah(customer.latest_unpaid_invoice.total_amount)}
-                            </p>
-                            <p className={`text-[10px] ${themeTextDesc}`}>
-                                Jatuh tempo {formatDate(customer.latest_unpaid_invoice.due_date)}
-                            </p>
-                        </div>
-                    ) : customer.latest_canceled_invoice ? (
-                        <div className={`rounded-lg border p-2.5 ${isDarkMode ? 'border-zinc-500/20 bg-zinc-500/5' : 'border-zinc-300 bg-zinc-100/80'}`}>
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-500">
-                                {customer.pending_deferral ? 'Tagihan Periode Ditunda' : 'Invoice Dibatalkan'}
-                            </p>
-                            <p className={`text-xs font-mono font-bold mt-1 break-all ${themeTextTitle}`}>{customer.latest_canceled_invoice.invoice_number}</p>
-                            <p className={`text-[10px] mt-0.5 break-words ${themeTextSub}`}>
-                                Periode {customer.latest_canceled_invoice.billing_period} · {formatRupiah(customer.latest_canceled_invoice.total_amount)}
-                            </p>
-                            <p className={`text-[10px] ${themeTextDesc} break-words leading-relaxed`}>
-                                {customer.pending_deferral
-                                    ? `Tunda bayar aktif — invoice akumulasi terbit otomatis, jatuh tempo gabungan ${formatDate(customer.pending_deferral.combined_due_date)}.`
-                                    : 'Buka menu Tagihan dan klik Pulihkan pada baris invoice untuk Bayar Manual.'}
-                            </p>
-                        </div>
-                    ) : (
-                        <p className={`text-[10px] ${themeTextDesc}`}>Tidak ada tagihan belum lunas.</p>
-                    )}
-
-                    {customer.pending_deferral ? (
-                        <div className={`rounded-lg border p-2.5 ${isDarkMode ? 'border-indigo-500/20 bg-indigo-500/5' : 'border-indigo-200 bg-indigo-50/80'}`}>
-                            <p className="text-[10px] font-bold uppercase tracking-wide text-indigo-500">Tunda Bayar</p>
-                            <p className={`text-[10px] mt-1 ${themeTextSub}`}>
-                                Periode {(customer.pending_deferral.periods || []).join(' + ')}
-                            </p>
-                            <p className={`text-[10px] ${themeTextDesc}`}>
-                                Jatuh tempo gabungan {formatDate(customer.pending_deferral.combined_due_date)}
-                            </p>
-                        </div>
-                    ) : null}
-
-                    {canWrite ? (
-                    <div className="pt-1 space-y-2.5 min-w-0">
-                        <div className="flex flex-col gap-2">
-                            <div className="flex flex-col gap-1 min-w-0">
-                                <label
-                                    htmlFor={`due-extension-${customer.id}`}
-                                    className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}
-                                >
-                                    Perpanjangan jatuh tempo
-                                </label>
-                                <select
-                                    id={`due-extension-${customer.id}`}
-                                    value={dueExtensionDays}
-                                    onChange={(e) => setDueExtensionDays(e.target.value)}
-                                    disabled={!canGenerateManualInvoice || isBillingActionBusy}
-                                    className={`w-full px-2 py-1.5 border rounded-lg text-[10px] font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 ${themeInput}`}
-                                >
-                                    <option value="0">Tanpa perpanjangan (jatuh tempo normal)</option>
-                                    <option value="3">3 hari ke depan</option>
-                                    <option value="5">5 hari ke depan</option>
-                                    <option value="7">7 hari ke depan</option>
-                                </select>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={handleGenerateInvoice}
-                                disabled={!canGenerateManualInvoice || isBillingActionBusy}
-                                title={
-                                    generateInvoiceDisabledReason
-                                        ? generateInvoiceDisabledReason
-                                        : isBillingActionBusy
-                                            ? 'Memproses tagihan...'
-                                            : 'Generate tagihan manual untuk pelanggan ini'
-                                }
-                                className={`inline-flex w-full items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
-                                    canGenerateManualInvoice && !isBillingActionBusy
-                                        ? 'bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-500 cursor-pointer'
-                                        : isDarkMode
-                                            ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40 cursor-not-allowed opacity-60'
-                                            : 'border-zinc-200 text-zinc-400 bg-zinc-100 cursor-not-allowed opacity-70'
-                                }`}
-                            >
-                                {isGeneratingInvoice ? (
-                                    <RefreshCw className="w-3.5 h-3.5 shrink-0 animate-spin" />
-                                ) : (
-                                    <FileText className="w-3.5 h-3.5 shrink-0" />
+                <div className="p-4 sm:p-5">
+                    <SectionBlock
+                        icon={Activity}
+                        title="Quota Bandwidth"
+                        meta={quota?.period ? `Periode ${quota.period} · reset tiap tanggal 1` : undefined}
+                        trailing={(
+                            <div className="flex items-center gap-2">
+                                {isLoadingQuota && (
+                                    <RefreshCw className={`w-3 h-3 animate-spin ${themeTextSub}`} />
                                 )}
-                                <span className="text-center">Generate Tagihan Manual</span>
-                            </button>
-                            <WhatsAppNotifyCheckbox
-                                checked={sendWhatsApp}
-                                onChange={handleWhatsAppPreferenceChange}
-                                disabled={!canGenerateManualInvoice || isBillingActionBusy}
+                                {onlineBadge}
+                            </div>
+                        )}
+                        themeTextSub={themeTextSub}
+                        themeTextDesc={themeTextDesc}
+                    >
+                        {quotaError && (
+                            <p className="text-[10px] text-amber-500 mb-2">{quotaError}</p>
+                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <QuotaStat
+                                icon={Activity}
+                                tone="indigo"
+                                label="Total"
+                                usedBytes={totalBytes}
+                                limitBytes={null}
+                                isDarkMode={isDarkMode}
+                                themeTextSub={themeTextSub}
                                 themeTextDesc={themeTextDesc}
                             />
-                            <button
-                                type="button"
-                                onClick={handleBackfillInvoices}
-                                disabled={!canGenerateManualInvoice || isBillingActionBusy}
-                                title={
-                                    generateInvoiceDisabledReason
-                                        ? generateInvoiceDisabledReason
-                                        : isBillingActionBusy
-                                            ? 'Memproses tagihan...'
-                                            : 'Generate semua tagihan bulan terlewat sejak mulai layanan'
-                                }
-                                className={`inline-flex w-full items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${
-                                    canGenerateManualInvoice && !isBillingActionBusy
-                                        ? 'bg-indigo-500 hover:bg-indigo-600 text-white border-indigo-500 cursor-pointer'
-                                        : isDarkMode
-                                            ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40 cursor-not-allowed opacity-60'
-                                            : 'border-zinc-200 text-zinc-400 bg-zinc-100 cursor-not-allowed opacity-70'
-                                }`}
-                            >
-                                {isBackfilling ? (
-                                    <RefreshCw className="w-3.5 h-3.5 shrink-0 animate-spin" />
-                                ) : (
-                                    <History className="w-3.5 h-3.5 shrink-0" />
-                                )}
-                                <span className="text-center">Generate Tagihan Terlewat</span>
-                            </button>
+                            <QuotaStat
+                                icon={ArrowDown}
+                                tone="sky"
+                                label="Download"
+                                usedBytes={downloadBytes}
+                                limitBytes={quota?.download_limit_bytes}
+                                isDarkMode={isDarkMode}
+                                themeTextSub={themeTextSub}
+                                themeTextDesc={themeTextDesc}
+                            />
+                            <QuotaStat
+                                icon={ArrowUp}
+                                tone="violet"
+                                label="Upload"
+                                usedBytes={uploadBytes}
+                                limitBytes={quota?.upload_limit_bytes}
+                                isDarkMode={isDarkMode}
+                                themeTextSub={themeTextSub}
+                                themeTextDesc={themeTextDesc}
+                            />
                         </div>
-                        <p className={`text-[10px] leading-relaxed break-words ${themeTextDesc}`}>
-                            <span className="font-semibold">Manual</span> membuat satu invoice periode berjalan.{' '}
-                            <span className="font-semibold">Terlewat</span> mengisi semua bulan yang belum punya invoice sejak mulai layanan hingga bulan ini.
-                            Pilih perpanjangan jika jatuh tempo sudah lewat. Untuk tunda bayar lebih lama, gunakan Tunda Bayar di menu Tagihan.
-                        </p>
-                        {generateInvoiceDisabledReason && (
-                            <p className={`text-[10px] leading-relaxed break-words ${themeTextDesc}`}>{generateInvoiceDisabledReason}</p>
-                        )}
-                    </div>
-                    ) : null}
+                    </SectionBlock>
                 </div>
             </div>
         </div>

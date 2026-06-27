@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export default function TransitionModal({
     show,
@@ -10,6 +11,11 @@ export default function TransitionModal({
 }) {
     const [render, setRender] = useState(show);
     const [animateShow, setAnimateShow] = useState(show);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
         if (show) {
@@ -21,6 +27,19 @@ export default function TransitionModal({
         setAnimateShow(false);
         const timer = setTimeout(() => setRender(false), 300);
         return () => clearTimeout(timer);
+    }, [show]);
+
+    useEffect(() => {
+        if (!show) {
+            return undefined;
+        }
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
     }, [show]);
 
     useEffect(() => {
@@ -40,7 +59,7 @@ export default function TransitionModal({
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [show, onClose]);
 
-    if (!render) {
+    if (!render || !mounted) {
         return null;
     }
 
@@ -58,18 +77,19 @@ export default function TransitionModal({
         }
     };
 
-    return (
+    return createPortal(
         <div
-            className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-start sm:items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain transition-opacity duration-300 ease-out ${animateShow ? 'opacity-100' : 'opacity-0'}`}
+            className={`fixed inset-0 z-[200] bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-hidden transition-opacity duration-300 ease-out ${animateShow ? 'opacity-100' : 'opacity-0'}`}
             onClick={handleBackdropClick}
             role="dialog"
             aria-modal="true"
         >
             <div
-                className={`w-full my-auto sm:my-0 ${maxWidthClasses[maxWidth] || 'max-w-md'} max-h-[min(90dvh,calc(100dvh-1.5rem))] overflow-y-auto overscroll-contain border rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl ${themeCard} transition-all duration-300 ease-out transform ${animateShow ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'} ${className}`}
+                className={`w-full ${maxWidthClasses[maxWidth] || 'max-w-md'} max-h-[min(90dvh,calc(100dvh-env(safe-area-inset-bottom,0px)-1.5rem))] overflow-hidden overscroll-contain border rounded-2xl p-4 sm:p-6 space-y-4 shadow-xl ${themeCard} transition-all duration-300 ease-out transform ${animateShow ? 'scale-100 translate-y-0' : 'scale-95 translate-y-4'} ${className}`}
             >
                 {children}
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
