@@ -12,7 +12,10 @@ import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
 import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import { readDeviceCoordinates } from '../../../utils/deviceGps';
-import { buildCustomerMapPopup, getCustomerPopupOptions } from '../../../utils/networkMapPopup';
+import { buildCustomerMapPopup, getCustomerPopupOptions, updateCustomerMapPopupLiveMetrics } from '../../../utils/networkMapPopup';
+
+const METRICS_POLL_MS = 15000;
+const LIVE_TRAFFIC_POLL_MS = 3000;
 
 const isPppoeCustomer = (cust) => cust?.service_type !== 'hotspot';
 
@@ -35,6 +38,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
     const [odpLng, setOdpLng] = useState('');
     const [networkMapMetrics, setNetworkMapMetrics] = useState({ ont: {}, traffic: {} });
     const [wifiModalCustomer, setWifiModalCustomer] = useState(null);
+    const [openCustomerPopupId, setOpenCustomerPopupId] = useState(null);
 
     const popupOptions = { canWrite: canWrite };
 
@@ -45,13 +49,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
     networkMapMetricsRef.current = networkMapMetrics;
     const canWriteRef = useRef(canWrite);
     canWriteRef.current = canWrite;
-
-    useEffect(() => {
-        if (showOdpModal) {
-            setOdpLat(editingOdp ? String(editingOdp.latitude) : '');
-            setOdpLng(editingOdp ? String(editingOdp.longitude) : '');
-        }
-    }, [showOdpModal, editingOdp]);
+    const fetchNetworkMapMetricsRef = useRef(async () => {});
 
     const fetchNetworkMapMetrics = async () => {
         try {
@@ -63,22 +61,35 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
         }
     };
 
-    useEffect(() => {
-        fetchNetworkMapMetrics();
-        const interval = setInterval(fetchNetworkMapMetrics, 15000);
-        return () => clearInterval(interval);
-    }, []);
+    fetchNetworkMapMetricsRef.current = fetchNetworkMapMetrics;
 
     useEffect(() => {
-        const custId = openCustomerPopupIdRef.current;
+        fetchNetworkMapMetrics();
+        const intervalMs = openCustomerPopupId ? LIVE_TRAFFIC_POLL_MS : METRICS_POLL_MS;
+        const interval = setInterval(fetchNetworkMapMetrics, intervalMs);
+        return () => clearInterval(interval);
+    }, [openCustomerPopupId]);
+
+    useEffect(() => {
+        const custId = openCustomerPopupId;
         if (!custId) return;
 
         const marker = customerMarkersRef.current[custId];
         const cust = customers.find((c) => c.id === custId);
-        if (marker && cust && marker.isPopupOpen()) {
-            marker.setPopupContent(buildCustomerMapPopup(cust, networkMapMetrics, popupOptions));
+        if (!marker || !cust || !marker.isPopupOpen()) return;
+
+        const popupEl = marker.getPopup()?.getElement();
+        if (!popupEl) return;
+
+        updateCustomerMapPopupLiveMetrics(popupEl, cust, networkMapMetrics, popupOptions);
+    }, [networkMapMetrics, customers, canWrite, openCustomerPopupId]);
+
+    useEffect(() => {
+        if (showOdpModal) {
+            setOdpLat(editingOdp ? String(editingOdp.latitude) : '');
+            setOdpLng(editingOdp ? String(editingOdp.longitude) : '');
         }
-    }, [networkMapMetrics, customers, canWrite]);
+    }, [showOdpModal, editingOdp]);
 
     const handleOdpRowClick = (odp) => {
         if (mapRef.current && odp.latitude && odp.longitude) {
@@ -387,12 +398,15 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
             marker.on('popupopen', () => {
                 openCustomerPopupIdRef.current = cust.id;
+                setOpenCustomerPopupId(cust.id);
                 marker.setPopupContent(buildCustomerMapPopup(cust, networkMapMetricsRef.current, { canWrite: canWriteRef.current }));
+                fetchNetworkMapMetricsRef.current();
             });
 
             marker.on('popupclose', () => {
                 if (openCustomerPopupIdRef.current === cust.id) {
                     openCustomerPopupIdRef.current = null;
+                    setOpenCustomerPopupId(null);
                 }
             });
 

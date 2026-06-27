@@ -51,6 +51,34 @@ function mapPopupRxClass(status) {
     return '';
 }
 
+function buildOntStatsGridHtml(ont, metricsLoaded) {
+    const rxText = ont.rx || (metricsLoaded ? 'Tidak tersedia' : 'Memuat...');
+    const rxStatus = ont.status || 'offline';
+    const displayOrDash = (val) => (val === null || val === undefined || val === '') ? '—' : escapeMapHtml(val);
+
+    return `
+        <div class="map-popup-stats-grid" data-live-ont>
+            ${mapPopupStat('Redaman', escapeMapHtml(rxText), mapPopupRxClass(rxStatus))}
+            ${mapPopupStat('Suhu ONT', displayOrDash(ont.temperature))}
+            ${mapPopupStat('Perangkat WiFi', ont.connected_devices !== null && ont.connected_devices !== undefined ? `${ont.connected_devices} unit` : '—')}
+            ${mapPopupStat('Product Class', displayOrDash(ont.product_class || ont.model))}
+        </div>
+    `;
+}
+
+function buildTrafficSpeedometerGridHtml(traffic, bandwidth) {
+    return `
+        <div class="map-speedometer-grid" data-live-traffic>
+            ${buildSpeedometerGauge('Download', traffic.download_bps || 0, bandwidth.down, 'down')}
+            ${buildSpeedometerGauge('Upload', traffic.upload_bps || 0, bandwidth.up, 'up')}
+        </div>
+    `;
+}
+
+function buildConnectionBadgeHtml(isOnline) {
+    return mapPopupBadge(isOnline ? 'Online' : 'Offline', isOnline ? 'online' : 'offline');
+}
+
 function buildSpeedometerGauge(label, bps, maxMbps, type) {
     const maxBps = maxMbps > 0 ? maxMbps * 1_000_000 : 0;
     const pct = maxBps > 0 ? Math.min(100, ((Number(bps) || 0) / maxBps) * 100) : 0;
@@ -116,6 +144,34 @@ function formatSpeedBpsLocal(bps) {
     return `${Math.round(value)} bps`;
 }
 
+export function updateCustomerMapPopupLiveMetrics(popupRoot, cust, metrics = {}) {
+    if (!popupRoot || !cust) {
+        return;
+    }
+
+    const ont = resolveOntMetrics(metrics, cust.username);
+    const traffic = resolveTrafficMetrics(metrics, cust);
+    const metricsLoaded = metrics && (Object.keys(metrics.ont || {}).length > 0 || (metrics.ont_devices || []).length > 0);
+    const pkg = cust.package || {};
+    const bandwidth = parseBandwidthLimit(pkg.bandwidth_limit);
+    const isOnline = !!traffic.online;
+
+    const connectionBadge = popupRoot.querySelector('[data-live-badge="connection"]');
+    if (connectionBadge) {
+        connectionBadge.innerHTML = buildConnectionBadgeHtml(isOnline);
+    }
+
+    const ontHost = popupRoot.querySelector('[data-live-ont]');
+    if (ontHost) {
+        ontHost.outerHTML = buildOntStatsGridHtml(ont, metricsLoaded).trim();
+    }
+
+    const trafficHost = popupRoot.querySelector('[data-live-traffic]');
+    if (trafficHost) {
+        trafficHost.outerHTML = buildTrafficSpeedometerGridHtml(traffic, bandwidth).trim();
+    }
+}
+
 export function getCustomerPopupOptions() {
     const mobile = window.matchMedia('(max-width: 639px)').matches;
 
@@ -138,8 +194,6 @@ export function buildCustomerMapPopup(cust, metrics = {}, options = {}) {
     const isOnline = !!traffic.online;
     const statusMeta = mapPopupStatusVariant(cust.status);
     const odpName = cust.odp?.name || '-';
-    const rxText = ont.rx || (metricsLoaded ? 'Tidak tersedia' : 'Memuat...');
-    const rxStatus = ont.status || 'offline';
     const displayOrDash = (val) => (val === null || val === undefined || val === '') ? '—' : escapeMapHtml(val);
     const initial = escapeMapHtml(String(cust.name || '?').charAt(0).toUpperCase());
     const serviceLabel = escapeMapHtml(String(cust.service_type || 'pppoe').toUpperCase());
@@ -162,7 +216,7 @@ export function buildCustomerMapPopup(cust, metrics = {}, options = {}) {
                 </div>
                 <div class="map-popup-badges">
                     ${mapPopupBadge(statusMeta.label, statusMeta.variant)}
-                    ${mapPopupBadge(isOnline ? 'Online' : 'Offline', isOnline ? 'online' : 'offline')}
+                    <span data-live-badge="connection">${buildConnectionBadgeHtml(isOnline)}</span>
                 </div>
             </header>
 
@@ -176,14 +230,7 @@ export function buildCustomerMapPopup(cust, metrics = {}, options = {}) {
                     </div>
                 `)}
 
-                ${mapPopupSection('ONT & Jaringan', iconNetwork, `
-                    <div class="map-popup-stats-grid">
-                        ${mapPopupStat('Redaman', escapeMapHtml(rxText), mapPopupRxClass(rxStatus))}
-                        ${mapPopupStat('Suhu ONT', displayOrDash(ont.temperature))}
-                        ${mapPopupStat('Perangkat WiFi', ont.connected_devices !== null && ont.connected_devices !== undefined ? `${ont.connected_devices} unit` : '—')}
-                        ${mapPopupStat('Product Class', displayOrDash(ont.product_class || ont.model))}
-                    </div>
-                `)}
+                ${mapPopupSection('ONT & Jaringan', iconNetwork, buildOntStatsGridHtml(ont, metricsLoaded))}
 
                 ${mapPopupSection('WiFi Pelanggan', iconWifi, `
                     <div class="map-popup-credential-grid">
@@ -203,12 +250,7 @@ export function buildCustomerMapPopup(cust, metrics = {}, options = {}) {
                     ` : ''}
                 `)}
 
-                ${mapPopupSection('Traffic Langsung', iconTraffic, `
-                    <div class="map-speedometer-grid">
-                        ${buildSpeedometerGauge('Download', traffic.download_bps || 0, bandwidth.down, 'down')}
-                        ${buildSpeedometerGauge('Upload', traffic.upload_bps || 0, bandwidth.up, 'up')}
-                    </div>
-                `)}
+                ${mapPopupSection('Traffic Langsung', iconTraffic, buildTrafficSpeedometerGridHtml(traffic, bandwidth))}
 
                 <footer class="map-popup-footer">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s7-4.5 7-11a7 7 0 1 0-14 0c0 6.5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
