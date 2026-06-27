@@ -149,6 +149,7 @@ export default function NetworkMapCustomerPopup({
                             maxMbps={bandwidth.down}
                             type="down"
                             isDarkMode={false}
+                            compact
                             gaugeId={`${gaugeScope}-down`}
                         />
                         <CustomerTrafficSpeedometer
@@ -157,6 +158,7 @@ export default function NetworkMapCustomerPopup({
                             maxMbps={bandwidth.up}
                             type="up"
                             isDarkMode={false}
+                            compact
                             gaugeId={`${gaugeScope}-up`}
                         />
                     </div>

@@ -92,6 +92,7 @@ export default function CustomerTrafficSpeedometer({
     type = 'down',
     isDarkMode = true,
     gaugeId = 'gauge',
+    compact = false,
 }) {
     const theme = THEMES[type] || THEMES.down;
     const { Icon } = theme;
@@ -121,7 +122,9 @@ export default function CustomerTrafficSpeedometer({
 
     return (
         <div
-            className="customer-traffic-gauge group relative flex flex-col items-center w-full min-w-0 rounded-2xl border p-2.5 pt-3 overflow-hidden"
+            className={`customer-traffic-gauge group relative flex flex-col items-center w-full min-w-0 rounded-2xl border overflow-hidden ${
+                compact ? 'p-1.5 pt-2 map-popup-traffic-gauge' : 'p-2.5 pt-3'
+            }`}
             style={{
                 background: cardBg,
                 borderColor: cardBorder,
@@ -130,20 +133,22 @@ export default function CustomerTrafficSpeedometer({
                     : 'inset 0 1px 0 rgba(255,255,255,0.9), 0 8px 20px rgba(15,23,42,0.06)',
             }}
         >
+            {!compact && (
             <div
                 className="pointer-events-none absolute inset-x-0 top-0 h-16 opacity-70"
                 style={{
                     background: `radial-gradient(ellipse at 50% 0%, ${theme.glow}, transparent 70%)`,
                 }}
             />
+            )}
 
             <div className={`relative z-10 inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[8px] font-bold uppercase tracking-[0.14em] ${theme.badgeClass}`}>
                 <Icon className="w-3 h-3" strokeWidth={2.5} />
                 <span>{label}</span>
             </div>
 
-            <div className="relative z-10 w-full mt-1 px-0.5">
-                <svg viewBox="0 0 120 72" className="w-full h-auto block" aria-hidden="true">
+            <div className={`relative z-10 w-full px-0.5 ${compact ? 'mt-0.5' : 'mt-1'}`}>
+                <svg viewBox="0 0 120 72" className={`w-full block ${compact ? 'h-[58px]' : 'h-auto'}`} aria-hidden="true">
                     <defs>
                         <linearGradient id={`${gaugeId}-arc-${type}`} x1="0%" y1="0%" x2="100%" y2="0%">
                             <stop offset="0%" stopColor={theme.gradientStops[0]} />
@@ -227,8 +232,8 @@ export default function CustomerTrafficSpeedometer({
                 </svg>
             </div>
 
-            <div className="relative z-10 -mt-1 w-full text-center min-w-0 px-1">
-                <p className={`text-sm sm:text-base font-bold font-mono tracking-tight truncate ${theme.valueClass}`}>
+            <div className={`relative z-10 w-full text-center min-w-0 px-1 ${compact ? 'mt-0' : '-mt-1'}`}>
+                <p className={`${compact ? 'text-[11px]' : 'text-sm sm:text-base'} font-bold font-mono tracking-tight truncate ${theme.valueClass}`}>
                     {formatSpeedBps(bps)}
                 </p>
                 <p className={`text-[9px] mt-0.5 font-medium ${isDarkMode ? 'text-zinc-500' : 'text-zinc-400'}`}>
