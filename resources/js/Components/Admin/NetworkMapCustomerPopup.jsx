@@ -12,7 +12,7 @@ function MapPopupSection({ title, iconSvg, accent, children }) {
                 <span className="map-popup-card-icon" dangerouslySetInnerHTML={{ __html: iconSvg }} />
                 <span className="map-popup-card-title">{title}</span>
             </div>
-            <div className="map-popup-card-content">
+            <div className="map-popup-card-inner">
                 {children}
             </div>
         </section>

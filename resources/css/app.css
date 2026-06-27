@@ -110,11 +110,11 @@
     margin: 0;
     width: 360px !important;
     line-height: 1.45;
-    height: min(48vh, 380px);
     max-height: min(48vh, 380px);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .leaflet-popup.customer-detail-popup .leaflet-popup-tip {
@@ -146,28 +146,17 @@
     font-family: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
     color: #0f172a;
     font-size: 11px;
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    height: 100%;
-    max-height: 100%;
-    overflow: hidden;
 }
 
 .map-popup-react-root {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    height: 100%;
     min-width: 0;
     width: 100%;
-    overflow: hidden;
 }
 
 .map-popup-header {
-    position: relative;
+    position: sticky;
+    top: 0;
+    z-index: 5;
     flex-shrink: 0;
     overflow: hidden;
     background: linear-gradient(135deg, #047857 0%, #0d9488 42%, #0891b2 100%);
@@ -375,43 +364,19 @@
 
 .map-popup-body {
     padding: 12px 14px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+    display: block;
     background: linear-gradient(180deg, #fafafa 0%, #ffffff 100%);
-    flex: 1;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: #a7f3d0 transparent;
-    -webkit-overflow-scrolling: touch;
 }
 
-.map-popup-body::-webkit-scrollbar {
-    width: 6px;
-}
-
-.map-popup-body::-webkit-scrollbar-track {
-    background: transparent;
-    margin: 4px 0;
-}
-
-.map-popup-body::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 999px;
-}
-
-.map-popup-body::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+.map-popup-body > * + * {
+    margin-top: 10px;
 }
 
 .map-popup-card {
     background: #ffffff;
     border: 1px solid #eef2f7;
     border-radius: 14px;
-    overflow: hidden;
+    overflow: visible;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
@@ -422,6 +387,7 @@
     gap: 8px;
     padding: 8px 12px;
     overflow: hidden;
+    border-radius: 13px 13px 0 0;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
@@ -453,9 +419,9 @@
     background: linear-gradient(135deg, #be123c 0%, #db2777 52%, #ec4899 100%);
 }
 
-.map-popup-card-content {
+.map-popup-card-inner {
     padding: 10px 12px 11px;
-    min-height: 0;
+    display: block;
 }
 
 .map-popup-card-icon {
@@ -735,7 +701,6 @@
 @media (max-width: 639px) {
     .leaflet-popup.customer-detail-popup .leaflet-popup-content {
         width: min(292px, calc(100vw - 40px)) !important;
-        height: min(52vh, 380px);
         max-height: min(52vh, 380px);
     }
 
@@ -755,7 +720,7 @@
         padding: 10px 11px 12px;
     }
 
-    .map-popup-card-content {
+    .map-popup-card-inner {
         padding: 9px 10px 10px;
     }
 
