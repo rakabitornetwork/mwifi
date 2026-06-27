@@ -39,8 +39,37 @@ class BillingScheduledInvoiceTest extends TestCase
 
         Setting::create([
             'group' => 'system',
+            'key' => 'system.billing_notify_customer',
+            'value' => '0',
+            'is_encrypted' => false,
+        ]);
+
+        Setting::create([
+            'group' => 'system',
             'key' => 'system.billing_admin_phone',
             'value' => '628111222333',
+            'is_encrypted' => false,
+        ]);
+    }
+
+    private function seedWhatsAppSettings(): void
+    {
+        Setting::create([
+            'key' => 'whatsapp.enabled',
+            'group' => 'whatsapp',
+            'value' => '1',
+            'is_encrypted' => false,
+        ]);
+        Setting::create([
+            'key' => 'whatsapp.api_url',
+            'group' => 'whatsapp',
+            'value' => 'http://127.0.0.1:3003',
+            'is_encrypted' => false,
+        ]);
+        Setting::create([
+            'key' => 'whatsapp.session_id',
+            'group' => 'whatsapp',
+            'value' => 'mwifi_session',
             'is_encrypted' => false,
         ]);
     }
@@ -208,6 +237,7 @@ class BillingScheduledInvoiceTest extends TestCase
         $this->assertSame(1, $log->meta['invoice_count']);
         $this->assertTrue($log->meta['admin_notified']);
         $this->assertSame('628111222333', $log->meta['admin_phone']);
+        $this->assertSame(['sent' => 0, 'failed' => 0, 'skipped' => 0], $log->meta['customer_whatsapp']);
     }
 
     public function test_records_zero_invoice_run_in_activity_log(): void
@@ -240,5 +270,46 @@ class BillingScheduledInvoiceTest extends TestCase
         $this->assertStringContainsString('LAPORAN GENERATE TAGIHAN', $message);
         $this->assertStringContainsString('INV-TEST', $message);
         $this->assertStringContainsString('Budi', $message);
+    }
+
+    public function test_sends_customer_whatsapp_when_notify_enabled(): void
+    {
+        $this->seedWhatsAppSettings();
+        Setting::where('key', 'system.billing_notify_customer')->update(['value' => '1']);
+
+        Http::fake([
+            'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
+        ]);
+
+        $this->makeCustomer(20);
+        $today = Carbon::create(2026, 6, 15);
+
+        BillingService::generateScheduledInvoices($today);
+
+        Http::assertSent(fn ($request) => $request->url() === 'http://127.0.0.1:3003/send-message');
+
+        $log = BillingActivityLog::first();
+        $this->assertSame(1, $log->meta['customer_whatsapp']['sent']);
+        $this->assertSame(0, $log->meta['customer_whatsapp']['failed']);
+    }
+
+    public function test_skips_customer_whatsapp_when_notify_disabled(): void
+    {
+        $this->seedWhatsAppSettings();
+        Setting::where('key', 'system.billing_notify_admin')->update(['value' => '0']);
+
+        Http::fake([
+            'http://127.0.0.1:3003/send-message' => Http::response(['success' => true], 200),
+        ]);
+
+        $this->makeCustomer(20);
+        $today = Carbon::create(2026, 6, 15);
+
+        BillingService::generateScheduledInvoices($today);
+
+        Http::assertNothingSent();
+
+        $log = BillingActivityLog::first();
+        $this->assertSame(['sent' => 0, 'failed' => 0, 'skipped' => 0], $log->meta['customer_whatsapp']);
     }
 }

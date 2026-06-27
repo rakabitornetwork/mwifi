@@ -1736,6 +1736,7 @@ class AdminActionController extends Controller
             'system.billing_prorata_enabled' => 'nullable|in:0,1',
             'system.billing_generate_days_before' => 'nullable|integer|min:1|max:30',
             'system.billing_notify_admin' => 'nullable|in:0,1',
+            'system.billing_notify_customer' => 'nullable|in:0,1',
             'system.billing_admin_phone' => 'nullable|string|max:30',
             'payment.bank_name' => 'nullable|string|max:100',
             'payment.bank_account_number' => 'nullable|string|max:50',

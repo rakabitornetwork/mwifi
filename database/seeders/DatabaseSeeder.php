@@ -42,6 +42,7 @@ class DatabaseSeeder extends Seeder
             ['group' => 'system', 'key' => 'system.billing_prorata_enabled', 'value' => '1', 'is_encrypted' => false],
             ['group' => 'system', 'key' => 'system.billing_generate_days_before', 'value' => '5', 'is_encrypted' => false],
             ['group' => 'system', 'key' => 'system.billing_notify_admin', 'value' => '1', 'is_encrypted' => false],
+            ['group' => 'system', 'key' => 'system.billing_notify_customer', 'value' => '1', 'is_encrypted' => false],
             ['group' => 'system', 'key' => 'system.billing_admin_phone', 'value' => '', 'is_encrypted' => false],
             ['group' => 'mikrotik', 'key' => 'mikrotik.active_router_id', 'value' => '', 'is_encrypted' => false],
             ['group' => 'mikrotik', 'key' => 'mikrotik.isolir_profile', 'value' => 'ISOLIR', 'is_encrypted' => false],

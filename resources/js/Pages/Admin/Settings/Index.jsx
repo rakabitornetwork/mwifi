@@ -54,6 +54,7 @@ function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl =
     const prorataEnabledDefault = settingsMap['system.billing_prorata_enabled'] !== '0';
     const billingGenerateDaysBeforeDefault = Math.min(30, Math.max(1, parseInt(settingsMap['system.billing_generate_days_before'] || '5', 10) || 5));
     const billingNotifyAdminDefault = settingsMap['system.billing_notify_admin'] !== '0';
+    const billingNotifyCustomerDefault = settingsMap['system.billing_notify_customer'] !== '0';
     const billingAdminPhoneDefault = settingsMap['system.billing_admin_phone'] || '';
     const appName = branding.app_name || settingsMap['system.app_name'] || 'mWiFi';
     const companyName = branding.company_name || settingsMap['system.company_name'] || branding.display_name || appName;
@@ -87,6 +88,9 @@ function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl =
 
         const billingNotifyCheckbox = form.querySelector('input[name="system_billing_notify_admin_ui"]');
         formData.set('system[billing_notify_admin]', billingNotifyCheckbox?.checked ? '1' : '0');
+
+        const billingNotifyCustomerCheckbox = form.querySelector('input[name="system_billing_notify_customer_ui"]');
+        formData.set('system[billing_notify_customer]', billingNotifyCustomerCheckbox?.checked ? '1' : '0');
 
         router.post('/admin/settings/save', formData, {
             forceFormData: true,
@@ -439,6 +443,18 @@ function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl =
                                 type="checkbox"
                                 name="system_billing_notify_admin_ui"
                                 defaultChecked={billingNotifyAdminDefault}
+                                className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer shrink-0 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
+                            />
+                        </label>
+                        <label className={`flex items-center justify-between gap-3 p-3 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 bg-zinc-900/40' : 'border-zinc-200 bg-white'}`}>
+                            <div>
+                                <span className={`font-bold block ${themeTextTitle}`}>Notifikasi WhatsApp ke pelanggan (scheduler)</span>
+                                <span className={`text-[10px] ${themeTextDesc}`}>Kirim tagihan baru ke pelanggan setelah invoice otomatis dibuat. Invoice dibuat dulu (fase 1), WA dikirim setelah selesai (fase 2) dengan jeda bulk.</span>
+                            </div>
+                            <input
+                                type="checkbox"
+                                name="system_billing_notify_customer_ui"
+                                defaultChecked={billingNotifyCustomerDefault}
                                 className={`rounded text-emerald-500 focus:ring-emerald-500 cursor-pointer shrink-0 ${isDarkMode ? 'focus:ring-offset-zinc-950 bg-zinc-900 border-zinc-800' : 'focus:ring-offset-white bg-white border-zinc-300'}`}
                             />
                         </label>

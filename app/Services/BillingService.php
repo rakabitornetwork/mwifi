@@ -617,6 +617,14 @@ class BillingService
         );
     }
 
+    public static function isCustomerNotifyEnabled(): bool
+    {
+        return filter_var(
+            SettingService::get('system.billing_notify_customer', '1'),
+            FILTER_VALIDATE_BOOLEAN
+        );
+    }
+
     /**
      * Phone number for admin billing notifications (falls back to company phone).
      */
@@ -939,7 +947,19 @@ class BillingService
             }
         }
 
-        self::recordScheduledInvoiceRun($today, $daysBeforeDue, $count, $createdInvoices);
+        $customerWhatsAppStats = ['sent' => 0, 'failed' => 0, 'skipped' => 0];
+        if ($count > 0 && self::isCustomerNotifyEnabled()) {
+            $customerWhatsAppStats = self::sendScheduledCustomerWhatsAppNotifications($createdInvoices);
+            Log::info('Billing scheduled customer WhatsApp notifications completed.', [
+                'run_date' => $today->toDateString(),
+                'invoice_count' => $count,
+                'whatsapp_sent' => $customerWhatsAppStats['sent'],
+                'whatsapp_failed' => $customerWhatsAppStats['failed'],
+                'whatsapp_skipped' => $customerWhatsAppStats['skipped'],
+            ]);
+        }
+
+        self::recordScheduledInvoiceRun($today, $daysBeforeDue, $count, $createdInvoices, $customerWhatsAppStats);
 
         $deferralCount = self::processScheduledDeferrals($today);
         if ($deferralCount > 0) {
@@ -957,8 +977,16 @@ class BillingService
      *
      * @param array<int, array<string, mixed>> $createdInvoices
      */
-    public static function recordScheduledInvoiceRun(Carbon $runDate, int $daysBeforeDue, int $count, array $createdInvoices): BillingActivityLog
-    {
+    /**
+     * @param array{sent: int, failed: int, skipped: int} $customerWhatsAppStats
+     */
+    public static function recordScheduledInvoiceRun(
+        Carbon $runDate,
+        int $daysBeforeDue,
+        int $count,
+        array $createdInvoices,
+        array $customerWhatsAppStats = ['sent' => 0, 'failed' => 0, 'skipped' => 0]
+    ): BillingActivityLog {
         $totalAmount = array_sum(array_column($createdInvoices, 'total_amount'));
         $brandName = BrandingService::companyName();
         $dateLabel = $runDate->format('d-m-Y');
@@ -967,6 +995,14 @@ class BillingService
             $message = "Generate tagihan otomatis (H-{$daysBeforeDue}) pada {$dateLabel}: tidak ada invoice baru.";
         } else {
             $message = "Generate tagihan otomatis (H-{$daysBeforeDue}) pada {$dateLabel}: {$count} invoice baru, total Rp " . number_format($totalAmount, 0, ',', '.') . '.';
+            if (self::isCustomerNotifyEnabled()) {
+                $message .= sprintf(
+                    ' WA pelanggan: %d terkirim, %d gagal, %d dilewati.',
+                    $customerWhatsAppStats['sent'] ?? 0,
+                    $customerWhatsAppStats['failed'] ?? 0,
+                    $customerWhatsAppStats['skipped'] ?? 0
+                );
+            }
         }
 
         $adminNotified = false;
@@ -992,6 +1028,7 @@ class BillingService
             'invoice_count' => $count,
             'total_amount' => $totalAmount,
             'admin_notified' => $adminNotified,
+            'customer_whatsapp' => $customerWhatsAppStats,
         ]);
 
         return BillingActivityLog::create([
@@ -1004,8 +1041,92 @@ class BillingService
                 'invoices' => $createdInvoices,
                 'admin_notified' => $adminNotified,
                 'admin_phone' => $adminPhone,
+                'customer_whatsapp' => $customerWhatsAppStats,
             ],
             'run_date' => $runDate->toDateString(),
+        ]);
+    }
+
+    /**
+     * Kirim WA tagihan baru ke pelanggan setelah semua invoice scheduler selesai dibuat (fase 2).
+     *
+     * @param array<int, array<string, mixed>> $createdInvoices
+     * @return array{sent: int, failed: int, skipped: int}
+     */
+    public static function sendScheduledCustomerWhatsAppNotifications(array $createdInvoices): array
+    {
+        $sent = 0;
+        $failed = 0;
+        $skipped = 0;
+
+        foreach ($createdInvoices as $row) {
+            $invoiceNumber = $row['invoice_number'] ?? null;
+            if (!is_string($invoiceNumber) || $invoiceNumber === '') {
+                $skipped++;
+                continue;
+            }
+
+            $invoice = Invoice::query()
+                ->where('invoice_number', $invoiceNumber)
+                ->with('customer')
+                ->first();
+
+            if (!$invoice?->customer) {
+                $skipped++;
+                continue;
+            }
+
+            if (empty(trim((string) $invoice->customer->phone_number))) {
+                $skipped++;
+                continue;
+            }
+
+            $message = self::buildNewInvoiceWhatsAppMessage($invoice);
+            if ($message === null) {
+                $failed++;
+                continue;
+            }
+
+            try {
+                if (class_exists(\App\Services\WhatsAppService::class)
+                    && \App\Services\WhatsAppService::sendText($invoice->customer->phone_number, $message)) {
+                    $sent++;
+                } else {
+                    $failed++;
+                }
+            } catch (\Exception $e) {
+                Log::error("Failed to send scheduled invoice WhatsApp for {$invoice->customer->username}: " . $e->getMessage());
+                $failed++;
+            }
+        }
+
+        return [
+            'sent' => $sent,
+            'failed' => $failed,
+            'skipped' => $skipped,
+        ];
+    }
+
+    public static function buildNewInvoiceWhatsAppMessage(Invoice $invoice): ?string
+    {
+        $invoice->loadMissing('customer');
+        $customer = $invoice->customer;
+
+        if (!$customer) {
+            return null;
+        }
+
+        return MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_new', [
+            'customer_name' => $customer->name,
+            'brand_name' => BrandingService::companyName(),
+            'period' => self::formatWhatsAppBillingPeriod($invoice->billing_period),
+            'invoice_number' => $invoice->invoice_number,
+            'service_type' => strtoupper($customer->service_type),
+            'username' => $customer->username,
+            'subtotal' => self::formatWhatsAppMoney((float) $invoice->amount),
+            'prorata_line' => self::buildProrataLine((bool) $invoice->is_prorated, (int) $invoice->days_billed),
+            'total' => self::formatWhatsAppMoney((float) $invoice->total_amount),
+            'due_date' => self::formatWhatsAppDueDate($invoice->due_date),
         ]);
     }
 
