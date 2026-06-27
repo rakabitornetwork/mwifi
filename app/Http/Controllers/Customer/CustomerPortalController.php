@@ -52,7 +52,7 @@ class CustomerPortalController extends Controller
 
         return Inertia::render('Customer/Dashboard', [
             'portalView' => 'default',
-            'customer' => $customer,
+            'customer' => array_merge($customer->toArray(), BillingService::enrichCustomerBillingFields($customer)),
             'invoices' => BillingService::appendNextBillingToInvoices($invoices),
             'activeGateway' => SettingService::get('payment.active_gateway', 'tripay'),
         ]);

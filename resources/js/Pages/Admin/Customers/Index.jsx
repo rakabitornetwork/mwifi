@@ -12,7 +12,7 @@ import { useAssignedRouter } from '../../../hooks/useAssignedRouter';
 import AssignedRouterFilter from '../../../Components/Admin/AssignedRouterFilter';
 import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import getVisiblePages from '../../../utils/getVisiblePages';
-import { formatDateInputValue, formatDisplayDate, todayDateInputValue } from '../../../utils/formatDateInputValue';
+import { formatDateInputValue, formatDisplayDate, resolveCustomerDueDate, todayDateInputValue } from '../../../utils/formatDateInputValue';
 import { fetchRouterPackageProfiles } from '../../../utils/fetchRouterPackageProfiles';
 import {
     readAdminCustomersFilterPreference,
@@ -281,7 +281,7 @@ function CustomersPageContent({
             case 'odp':
                 return cust.odp?.name || '';
             case 'billing_date':
-                return formatDateInputValue(cust.billing_date) || '';
+                return formatDateInputValue(resolveCustomerDueDate(cust)) || '';
             case 'status':
                 return cust.status || '';
             default:
@@ -797,7 +797,7 @@ function CustomersPageContent({
                                         <td className="py-3 px-2">{cust.router ? cust.router.name : '—'}</td>
                                         <td className="py-3 px-2">{cust.package ? cust.package.name : '—'}</td>
                                         <td className="py-3 px-2 font-mono text-[10px]">{cust.odp ? cust.odp.name : '—'}</td>
-                                        <td className="py-3 px-2">{formatDisplayDate(cust.billing_date)}</td>
+                                        <td className="py-3 px-2">{formatDisplayDate(resolveCustomerDueDate(cust))}</td>
                                         <td className="py-3 px-2">
                                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                                 cust.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :

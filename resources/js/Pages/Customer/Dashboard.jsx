@@ -8,7 +8,7 @@ import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
 import { formatRupiah } from '../../utils/formatRupiah';
-import { formatDisplayDate } from '../../utils/formatDateInputValue';
+import { formatDisplayDate, resolveCustomerDueDate } from '../../utils/formatDateInputValue';
 import { formatBandwidthLimitLabel } from '../../utils/customerMetrics';
 import { getTimeOfDayGreeting } from '../../utils/timeOfDayGreeting';
 import {
@@ -304,7 +304,7 @@ export default function CustomerDashboard({
                                         </div>
                                         <div>
                                             <p className={themeTextDesc}>Tgl Jatuh Tempo</p>
-                                            <p className={`font-semibold ${themeTextTitle}`}>{formatDisplayDate(customer.billing_date)}</p>
+                                            <p className={`font-semibold ${themeTextTitle}`}>{formatDisplayDate(resolveCustomerDueDate(customer))}</p>
                                         </div>
                                     </div>
                                 )}

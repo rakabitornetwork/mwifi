@@ -94,6 +94,31 @@ class BillingNextInvoiceTest extends TestCase
         $this->assertSame(120000.0, $preview['total_amount']);
     }
 
+    public function test_sync_customer_billing_date_after_paid_invoice_advances_to_next_due(): void
+    {
+        $invoice = $this->makePaidInvoice();
+        $customer = $invoice->customer;
+
+        $customer->update(['billing_date' => '2026-06-25']);
+        $customer->refresh();
+
+        BillingService::syncCustomerBillingDate($customer);
+
+        $this->assertSame('2026-07-25', $customer->fresh()->billing_date?->format('Y-m-d'));
+    }
+
+    public function test_resolve_customer_upcoming_due_date_matches_next_billing_preview(): void
+    {
+        $invoice = $this->makePaidInvoice();
+        $customer = $invoice->customer->fresh();
+
+        $upcoming = BillingService::resolveCustomerUpcomingDueDate($customer);
+        $preview = BillingService::resolveNextBillingPreview($invoice);
+
+        $this->assertNotNull($upcoming);
+        $this->assertSame($preview['due_date'], $upcoming->format('Y-m-d'));
+    }
+
     public function test_returns_existing_next_invoice_when_already_generated(): void
     {
         $invoice = $this->makePaidInvoice();

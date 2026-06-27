@@ -13,8 +13,12 @@ import { useAssignedRouter, resolveDefaultRouterId } from '../../../hooks/useAss
 import AssignedRouterFilter from '../../../Components/Admin/AssignedRouterFilter';
 import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import { formatRupiah } from '../../../utils/formatRupiah';
-import { formatDateInputValue, formatDisplayDate } from '../../../utils/formatDateInputValue';
+import { formatDisplayDate, resolveCustomerDueDate } from '../../../utils/formatDateInputValue';
 import getVisiblePages from '../../../utils/getVisiblePages';
+import {
+    readAdminInvoicesFilterPreference,
+    writeAdminInvoicesFilterPreference,
+} from '../../../utils/adminInvoicesFilterPreference';
 
 function formatTimeAgo(isoString) {
     if (!isoString) return '-';
@@ -94,10 +98,42 @@ function parseInvoicesPageQuery(url = '') {
         return {
             status: INVOICE_STATUS_FILTERS.has(status) ? status : 'all',
             router: routerParam === 'all' ? '' : (routerParam || null),
+            hasStatusParam: searchParams.has('status'),
+            hasRouterParam: searchParams.has('router'),
         };
     } catch {
-        return { status: 'all', router: null };
+        return { status: 'all', router: null, hasStatusParam: false, hasRouterParam: false };
     }
+}
+
+function resolveInitialInvoicesRouterFilter(routers, lockedRouterId, savedRouterId, query) {
+    if (lockedRouterId) {
+        return lockedRouterId;
+    }
+
+    if (query.hasRouterParam && query.router !== null) {
+        if (query.router === '' || routers.some((router) => String(router.id) === query.router)) {
+            return query.router;
+        }
+    }
+
+    if (savedRouterId && routers.some((router) => String(router.id) === savedRouterId)) {
+        return savedRouterId;
+    }
+
+    return resolveDefaultRouterId(routers);
+}
+
+function resolveInitialInvoicesStatusFilter(savedStatusFilter, query) {
+    if (query.hasStatusParam) {
+        return query.status;
+    }
+
+    if (INVOICE_STATUS_FILTERS.has(savedStatusFilter)) {
+        return savedStatusFilter;
+    }
+
+    return query.status;
 }
 
 function InvoicesPageContent({
@@ -114,20 +150,19 @@ function InvoicesPageContent({
     const { isRouterScoped, lockedRouterId } = useAssignedRouter(routers);
     const pageUrl = usePage().url;
     const initialQuery = useMemo(() => parseInvoicesPageQuery(pageUrl), [pageUrl]);
+    const savedFilters = useMemo(() => readAdminInvoicesFilterPreference(), []);
 
-    const [searchTerm, setSearchTerm] = useState('');
-    const [routerFilter, setRouterFilter] = useState(() => {
-        if (lockedRouterId) {
-            return lockedRouterId;
-        }
-
-        if (initialQuery.router !== null) {
-            return initialQuery.router;
-        }
-
-        return resolveDefaultRouterId(routers);
-    });
-    const [statusFilter, setStatusFilter] = useState(initialQuery.status);
+    const [searchTerm, setSearchTerm] = useState(savedFilters.searchTerm);
+    const [routerFilter, setRouterFilter] = useState(() => resolveInitialInvoicesRouterFilter(
+        routers,
+        lockedRouterId,
+        savedFilters.routerId,
+        initialQuery,
+    ));
+    const [statusFilter, setStatusFilter] = useState(() => resolveInitialInvoicesStatusFilter(
+        savedFilters.statusFilter,
+        initialQuery,
+    ));
     const [invoicePage, setInvoicePage] = useState(1);
     const invoicePageSize = 10;
     const [showDeferModal, setShowDeferModal] = useState(false);
@@ -198,13 +233,21 @@ function InvoicesPageContent({
         }
 
         const query = parseInvoicesPageQuery(pageUrl);
-        if (query.router !== null) {
+        if (query.hasRouterParam && query.router !== null) {
             setRouterFilter(query.router);
         }
-        if (query.status !== 'all') {
+        if (query.hasStatusParam) {
             setStatusFilter(query.status);
         }
     }, [pageUrl, lockedRouterId]);
+
+    useEffect(() => {
+        writeAdminInvoicesFilterPreference({
+            routerId: lockedRouterId ?? routerFilter,
+            searchTerm,
+            statusFilter,
+        });
+    }, [routerFilter, searchTerm, statusFilter, lockedRouterId]);
 
     useEffect(() => {
         setInvoicePage(1);
@@ -283,7 +326,7 @@ function InvoicesPageContent({
 
         setDeferCustomerId(String(customer.id));
         setDeferCustomerLabel(
-            `${customer.name} (${customer.username}) · ${formatDisplayDate(customer.billing_date)}`
+            `${customer.name} (${customer.username}) · ${formatDisplayDate(resolveCustomerDueDate(customer))}`
         );
         setDeferMonthsCount('2');
         setDeferDueDate('');

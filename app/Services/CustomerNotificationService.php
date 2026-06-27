@@ -57,7 +57,9 @@ class CustomerNotificationService
             'gps_coordinates' => self::gpsCoordinates($customer),
             'maps_link_line' => self::mapsLinkLine($customer),
             'service_type' => strtoupper((string) $customer->service_type),
-            'billing_date' => (string) BillingService::formatBillingDateLabel($customer->billing_date),
+            'billing_date' => (string) BillingService::formatBillingDateLabel(
+                BillingService::resolveCustomerUpcomingDueDate($customer) ?? $customer->billing_date
+            ),
             'status_label' => self::statusLabel((string) $customer->status),
             'billing_info' => $billingPreview['billing_info'] ?? '',
             'billing_period' => $billingPreview['period_label'] ?? '-',

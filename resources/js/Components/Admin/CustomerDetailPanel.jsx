@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatRupiah';
 import { formatBytes, quotaUsagePercent } from '../../utils/formatBytes';
-import { formatDisplayDate } from '../../utils/formatDateInputValue';
+import { formatDisplayDate, resolveCustomerDueDate } from '../../utils/formatDateInputValue';
 import { readAdminWhatsAppPreference, writeAdminWhatsAppPreference } from '../../utils/adminWhatsAppPreference';
 import WhatsAppNotifyCheckbox from './WhatsAppNotifyCheckbox';
 import OntWifiPanel from '../OntWifiPanel';
@@ -494,7 +494,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                             <div className="min-w-0">
                                 <InfoCell row label="Status Akun" value={status.label} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} />
                                 <InfoCell row label="Mulai Layanan" value={formatDate(customer.service_start_date)} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} />
-                                <InfoCell row label="Jatuh Tempo" value={customer.billing_date ? formatDisplayDate(customer.billing_date) : null} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} isLast />
+                                <InfoCell row label="Jatuh Tempo" value={resolveCustomerDueDate(customer) ? formatDisplayDate(resolveCustomerDueDate(customer)) : null} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} isLast />
                             </div>
 
                             <div className="space-y-2 pt-1">

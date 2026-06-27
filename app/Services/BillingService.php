@@ -149,6 +149,83 @@ class BillingService
     }
 
     /**
+     * Jatuh tempo berikutnya yang relevan untuk tampilan data pelanggan.
+     * Mengikuti logika tagihan selanjutnya di log invoice (unpaid → paid preview → jadwal).
+     */
+    public static function resolveCustomerUpcomingDueDate(Customer $customer, ?Carbon $today = null): ?Carbon
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+
+        $pendingDeferral = BillingDeferral::query()
+            ->where('customer_id', $customer->id)
+            ->where('status', 'pending')
+            ->latest('id')
+            ->first();
+
+        if ($pendingDeferral?->combined_due_date) {
+            return Carbon::parse($pendingDeferral->combined_due_date)->startOfDay();
+        }
+
+        $unpaid = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->orderBy('due_date')
+            ->first();
+
+        if ($unpaid?->due_date) {
+            return Carbon::parse($unpaid->due_date)->startOfDay();
+        }
+
+        $latestPaid = Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('status', 'paid')
+            ->whereNotNull('billing_period')
+            ->orderByDesc('billing_period')
+            ->first();
+
+        if ($latestPaid) {
+            $preview = self::resolveNextBillingPreview($latestPaid);
+            if (!empty($preview['due_date'])) {
+                return Carbon::parse($preview['due_date'])->startOfDay();
+            }
+        }
+
+        return self::resolveNextDueDateFrom($customer, $today);
+    }
+
+    /**
+     * Sinkronkan kolom billing_date pelanggan ke jatuh tempo berikutnya.
+     */
+    public static function syncCustomerBillingDate(Customer $customer, ?Carbon $today = null): void
+    {
+        $upcoming = self::resolveCustomerUpcomingDueDate($customer, $today);
+        if ($upcoming === null) {
+            return;
+        }
+
+        $current = $customer->billing_date
+            ? Carbon::parse($customer->billing_date)->startOfDay()
+            : null;
+
+        if ($current === null || !$current->equalTo($upcoming)) {
+            $customer->update(['billing_date' => $upcoming->toDateString()]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function enrichCustomerBillingFields(Customer $customer, ?Carbon $today = null): array
+    {
+        $upcoming = self::resolveCustomerUpcomingDueDate($customer, $today);
+
+        return [
+            'billing_date' => self::formatDateOnly($customer->billing_date),
+            'upcoming_due_date' => self::formatDateOnly($upcoming),
+        ];
+    }
+
+    /**
      * Resolve billing period and due date for a customer's first invoice (matches registration preview).
      *
      * @return array{period: string, due_date: Carbon}
@@ -381,6 +458,8 @@ class BillingService
                 'status' => 'unpaid',
             ]);
 
+            $customer->update(['billing_date' => $dueDate->toDateString()]);
+
             if ($sendWhatsApp) {
                 try {
                     $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.invoice_new', [
@@ -580,6 +659,13 @@ class BillingService
         return $invoices->map(function (Invoice $invoice) use ($pendingDeferralsByCustomer) {
             $data = $invoice->toArray();
             $data['due_date'] = self::formatDateOnly($invoice->due_date);
+
+            if ($invoice->customer) {
+                $data['customer'] = array_merge(
+                    $data['customer'] ?? [],
+                    self::enrichCustomerBillingFields($invoice->customer)
+                );
+            }
 
             if ($invoice->status === 'paid') {
                 $data['next_billing'] = self::resolveNextBillingPreview($invoice);
@@ -1380,6 +1466,11 @@ class BillingService
             ]);
 
             $customer = $invoice->customer;
+            if ($customer) {
+                self::syncCustomerBillingDate($customer->fresh());
+                $customer = $customer->fresh();
+            }
+
             $isVpsOrder = \App\Services\VpsCatalogService::isVpsInvoice($invoice);
             $wasRestricted = $customer && in_array($customer->status, ['isolated', 'inactive', 'suspended'], true);
             $shouldRestoreService = $customer
@@ -1551,6 +1642,10 @@ class BillingService
             }
 
             DB::commit();
+
+            if ($customer) {
+                self::syncCustomerBillingDate($customer->fresh());
+            }
 
             $kind = $hasGateway ? 'gateway sandbox' : 'manual';
             Log::info("Paid invoice reversed ({$kind}) for invoice {$invoice->invoice_number}");

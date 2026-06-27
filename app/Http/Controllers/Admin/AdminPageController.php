@@ -180,7 +180,7 @@ class AdminPageController extends Controller
                 $latestCanceled = $customer->invoices->firstWhere('status', 'canceled');
                 $pendingDeferral = $customer->billingDeferrals->first();
 
-                return array_merge($customer->toArray(), [
+                return array_merge($customer->toArray(), BillingService::enrichCustomerBillingFields($customer), [
                     'portal_email' => $customer->displayPortalEmail(),
                     'service_start_date' => $customer->service_start_date?->format('Y-m-d'),
                     'latest_unpaid_invoice' => $latestUnpaid ? [
@@ -347,7 +347,9 @@ class AdminPageController extends Controller
         return Inertia::render('Admin/Invoices/Index', [
             'invoices' => BillingService::appendNextBillingToInvoices($invoiceQuery->get()),
             'routers' => $scope->routersQuery()->orderBy('name')->get(['id', 'name', 'status']),
-            'customers' => $customerQuery->get(),
+            'customers' => $customerQuery->get()->map(function (Customer $customer) {
+                return array_merge($customer->toArray(), BillingService::enrichCustomerBillingFields($customer));
+            })->values(),
             'billingDeferrals' => BillingService::serializeBillingDeferrals($deferralQuery->get()),
             'billingActivityLogs' => $billingLogs,
             'isolationActivityLogs' => $isolationLogs,

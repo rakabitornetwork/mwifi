@@ -46,3 +46,11 @@ export function formatDisplayDate(value, locale = 'id-ID') {
         year: 'numeric',
     });
 }
+
+export function resolveCustomerDueDate(customer) {
+    if (!customer) {
+        return null;
+    }
+
+    return customer.upcoming_due_date || customer.billing_date || null;
+}
