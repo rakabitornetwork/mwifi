@@ -1,5 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { formatSpeedBps } from '../utils/formatSpeedBps';
+
+const GAUGE_ANIMATION_MS = 750;
 
 const THEMES = {
     down: {
@@ -28,6 +31,60 @@ function polar(cx, cy, radius, angleDeg) {
     };
 }
 
+function easeOutCubic(t) {
+    return 1 - (1 - t) ** 3;
+}
+
+function useAnimatedPercent(target) {
+    const [animated, setAnimated] = useState(target);
+    const animatedRef = useRef(target);
+    const frameRef = useRef(null);
+
+    useEffect(() => {
+        if (frameRef.current !== null) {
+            cancelAnimationFrame(frameRef.current);
+        }
+
+        const from = animatedRef.current;
+        const to = target;
+
+        if (Math.abs(from - to) < 0.05) {
+            animatedRef.current = to;
+            setAnimated(to);
+            return undefined;
+        }
+
+        const startTime = performance.now();
+
+        const tick = (now) => {
+            const progress = Math.min(1, (now - startTime) / GAUGE_ANIMATION_MS);
+            const next = from + (to - from) * easeOutCubic(progress);
+            animatedRef.current = next;
+            setAnimated(next);
+
+            if (progress < 1) {
+                frameRef.current = requestAnimationFrame(tick);
+                return;
+            }
+
+            animatedRef.current = to;
+            setAnimated(to);
+            frameRef.current = null;
+        };
+
+        frameRef.current = requestAnimationFrame(tick);
+
+        return () => {
+            if (frameRef.current !== null) {
+                cancelAnimationFrame(frameRef.current);
+                frameRef.current = null;
+            }
+        };
+    }, [target]);
+
+    return animated;
+}
+
 export default function CustomerTrafficSpeedometer({
     label,
     bps = 0,
@@ -40,13 +97,14 @@ export default function CustomerTrafficSpeedometer({
     const { Icon } = theme;
     const maxBps = maxMbps > 0 ? maxMbps * 1_000_000 : 0;
     const pct = maxBps > 0 ? Math.min(100, ((Number(bps) || 0) / maxBps) * 100) : 0;
+    const animatedPct = useAnimatedPercent(pct);
 
     const cx = 60;
     const cy = 56;
     const radius = 44;
     const arcLength = Math.PI * radius;
-    const dash = (pct / 100) * arcLength;
-    const needleAngle = 180 - (pct / 100) * 180;
+    const dash = (animatedPct / 100) * arcLength;
+    const needleAngle = 180 - (animatedPct / 100) * 180;
     const needleLen = radius - 12;
     const needleTip = polar(cx, cy, needleLen, needleAngle);
     const maxLabel = maxMbps > 0 ? `${maxMbps}M` : '—';
@@ -138,7 +196,6 @@ export default function CustomerTrafficSpeedometer({
                         strokeLinecap="round"
                         strokeDasharray={`${dash.toFixed(2)} ${arcLength.toFixed(2)}`}
                         filter={`url(#${gaugeId}-glow-${type})`}
-                        className="customer-traffic-gauge-arc"
                     />
 
                     <line
@@ -149,7 +206,6 @@ export default function CustomerTrafficSpeedometer({
                         stroke={theme.gradientStops[1]}
                         strokeWidth="2.2"
                         strokeLinecap="round"
-                        className="customer-traffic-gauge-needle"
                     />
                     <circle
                         cx={cx}
