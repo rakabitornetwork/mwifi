@@ -644,14 +644,21 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                 </div>
             </AdminPageCard>
 
-            <TransitionModal show={showPackageModal} onClose={() => setShowPackageModal(false)} themeCard={themeCard} maxWidth="md">
-                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
-                    <h3 className={`text-sm font-bold ${themeTextTitle}`}>
+            <TransitionModal
+                show={showPackageModal}
+                onClose={() => setShowPackageModal(false)}
+                themeCard={themeCard}
+                maxWidth="md"
+                className="!flex !flex-col !overflow-hidden !space-y-0"
+            >
+                <div className={`flex items-start justify-between gap-3 pb-3 border-b shrink-0 ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                    <h3 className={`text-sm font-bold min-w-0 flex-1 pr-2 ${themeTextTitle}`}>
                         {editingPackage ? 'Edit Paket Layanan' : 'Tambah Paket Layanan'}
                     </h3>
                     <button type="button" onClick={() => setShowPackageModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form onSubmit={handleSavePackage} className="space-y-3 text-xs">
+                <form onSubmit={handleSavePackage} className="flex flex-col flex-1 min-h-0 mt-4">
+                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 text-xs pr-0.5">
                     {routerFilter && (
                         <div className={`text-[10px] font-semibold ${routerProfileError ? 'text-amber-500' : themeTextSub}`}>
                             Router: <span className={themeTextTitle}>{selectedRouter?.name || '—'}</span>
@@ -867,7 +874,8 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                             className={`p-2 border rounded-lg ${themeInput}`}
                         />
                     </div>
-                    <div className={`sticky bottom-0 -mx-4 px-4 sm:-mx-6 sm:px-6 py-3 mt-1 flex justify-end gap-2 border-t ${isDarkMode ? 'border-zinc-800/40 bg-zinc-900/95' : 'border-zinc-200 bg-white/95'} backdrop-blur-sm`}>
+                    </div>
+                    <div className={`shrink-0 pt-3 mt-3 flex justify-end gap-2 border-t ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'} pb-[max(0px,env(safe-area-inset-bottom,0px))]`}>
                         <button type="button" onClick={() => setShowPackageModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
                         <button type="submit" title="Simpan" className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"><Save className="w-4 h-4" /></button>
                     </div>
