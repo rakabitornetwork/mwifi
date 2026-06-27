@@ -9,6 +9,7 @@ use App\Services\Payment\PaymentService;
 use App\Services\BrandingService;
 use App\Services\GenieAcsService;
 use App\Services\SettingService;
+use App\Services\Router\CustomerLiveTrafficService;
 use App\Services\VpsCatalogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -143,6 +144,28 @@ class CustomerPortalController extends Controller
                 'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Live download/upload rates and monthly bandwidth quota for the authenticated customer.
+     */
+    public function trafficStatus(Request $request)
+    {
+        $customer = Auth::user()->customer()->with(['router', 'package'])->firstOrFail();
+
+        if (VpsCatalogService::shouldUseShowcasePortal($customer, (bool) $request->session()->get('customer_portal_vps_showcase', false))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Portal VPS tidak mendukung monitor trafik RouterOS.',
+            ], 422);
+        }
+
+        $payload = CustomerLiveTrafficService::getPayload(
+            $customer,
+            $request->boolean('sample_quota', false)
+        );
+
+        return response()->json($payload, ($payload['success'] ?? false) ? 200 : 503);
     }
 
     /**

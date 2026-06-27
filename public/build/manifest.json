@@ -136,6 +136,10 @@
     "file": "assets/fonts-DkuEHybc.css",
     "src": "_fonts-DkuEHybc.css"
   },
+  "_formatBytes-BymiRaes.js": {
+    "file": "assets/formatBytes-BymiRaes.js",
+    "name": "formatBytes"
+  },
   "_formatDateInputValue-BC7ZZY7h.js": {
     "file": "assets/formatDateInputValue-BC7ZZY7h.js",
     "name": "formatDateInputValue"
@@ -143,6 +147,10 @@
   "_formatRupiah-BPNt29Go.js": {
     "file": "assets/formatRupiah-BPNt29Go.js",
     "name": "formatRupiah"
+  },
+  "_formatSpeedBps-DeyHbE11.js": {
+    "file": "assets/formatSpeedBps-DeyHbE11.js",
+    "name": "formatSpeedBps"
   },
   "_getVisiblePages-tDY32sHw.js": {
     "file": "assets/getVisiblePages-tDY32sHw.js",
@@ -273,7 +281,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DUXWxT1k.css",
+    "file": "assets/app-B-UWe2fT.css",
     "name": "app",
     "names": [
       "app.css"
@@ -295,7 +303,7 @@
     ]
   },
   "resources/js/Pages/Admin/Customers/Index.jsx": {
-    "file": "assets/Index-CITwbRu2.js",
+    "file": "assets/Index-35Loqk1l.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Customers/Index.jsx",
     "isDynamicEntry": true,
@@ -312,13 +320,14 @@
       "_GpsCoordinateFields-DQGKmm5W.js",
       "_customerMetrics-CA4_Rpq8.js",
       "_fetchRouterPackageProfiles-Cc5MZjgn.js",
+      "_formatBytes-BymiRaes.js",
       "_formatDateInputValue-BC7ZZY7h.js",
       "_formatRupiah-BPNt29Go.js",
       "_getVisiblePages-tDY32sHw.js"
     ]
   },
   "resources/js/Pages/Admin/Dashboard/Index.jsx": {
-    "file": "assets/Index-WHwz93cE.js",
+    "file": "assets/Index-Ct47tUPb.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Dashboard/Index.jsx",
     "isDynamicEntry": true,
@@ -328,7 +337,8 @@
       "_vendor-core-BdAy7cNf.js",
       "_AdminLayout-DOXNlkOx.js",
       "_AdminPageCard-yAHjGuWB.js",
-      "_formatRupiah-BPNt29Go.js"
+      "_formatRupiah-BPNt29Go.js",
+      "_formatSpeedBps-DeyHbE11.js"
     ],
     "dynamicImports": [
       "resources/js/Components/Admin/DashboardCharts.jsx"
@@ -594,7 +604,7 @@
     ]
   },
   "resources/js/Pages/Customer/Dashboard.jsx": {
-    "file": "assets/Dashboard-BwLs4g4g.js",
+    "file": "assets/Dashboard-BdqlbEm8.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Customer/Dashboard.jsx",
     "isDynamicEntry": true,
@@ -607,8 +617,10 @@
       "_customerMetrics-CA4_Rpq8.js",
       "_SeoHead-nLwnVrqS.js",
       "_useScheduledTheme-B6ZCoPip.js",
+      "_formatBytes-BymiRaes.js",
       "_formatDateInputValue-BC7ZZY7h.js",
-      "_formatRupiah-BPNt29Go.js"
+      "_formatRupiah-BPNt29Go.js",
+      "_formatSpeedBps-DeyHbE11.js"
     ]
   },
   "resources/js/Pages/Customer/Login.jsx": {
@@ -668,7 +680,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-xQbeVgkd.js",
+    "file": "assets/app-De9gVRce.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

@@ -1,0 +1,1 @@
+function e(e){let t=Number(e)||0;return t>=1e9?`${(t/1e9).toFixed(2)} Gbps`:t>=1e6?`${(t/1e6).toFixed(1)} Mbps`:t>=1e3?`${Math.round(t/1e3)} Kbps`:`${Math.round(t)} bps`}function t(e){return Number(((Number(e)||0)/1e6).toFixed(2))}export{e as n,t};

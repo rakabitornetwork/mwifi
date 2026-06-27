@@ -100,6 +100,7 @@ Route::middleware(['auth', 'customer'])->group(function () {
     Route::get('customer/dashboard', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'index']);
     Route::get('customer/invoice/{invoice}/print', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'printInvoice']);
     Route::post('customer/invoice/{invoice}/pay', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'payInvoice']);
+    Route::get('customer/traffic', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'trafficStatus']);
     Route::get('customer/wifi', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'wifiStatus']);
     Route::post('customer/wifi', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'updateWifi']);
     Route::post('customer/wifi/wake', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'wakeOnt']);

@@ -3,6 +3,7 @@ import { useScheduledTheme } from '../../hooks/useScheduledTheme';
 import { Link, router, usePage } from '@inertiajs/react';
 import PullToRefresh from '../../Components/PullToRefresh';
 import OntWifiPanel from '../../Components/OntWifiPanel';
+import CustomerLiveTrafficPanel from '../../Components/CustomerLiveTrafficPanel';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
@@ -362,6 +363,18 @@ export default function CustomerDashboard({
                                     <p className="text-xs text-rose-500">Belum ada paket internet terpasang pada akun Anda.</p>
                                 )}
                             </div>
+
+                            {!isVpsPortal && (
+                                <CustomerLiveTrafficPanel
+                                    bandwidthLimit={customer.package?.bandwidth_limit || ''}
+                                    accentIconClass={accentIconClass}
+                                    themeCard={themeCard}
+                                    themeTextTitle={themeTextTitle}
+                                    themeTextSub={themeTextSub}
+                                    themeTextDesc={themeTextDesc}
+                                    isDarkMode={isDarkMode}
+                                />
+                            )}
 
                             {!isVpsPortal && customer.service_type !== 'hotspot' && (
                                 <div className={`border rounded-2xl p-5 space-y-3 ${themeCard}`}>
