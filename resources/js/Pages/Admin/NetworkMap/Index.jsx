@@ -6,13 +6,17 @@ import 'leaflet/dist/leaflet.css';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
-import OntWifiPanel from '../../../Components/OntWifiPanel';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
 import { ReadOnlyTableActionsPlaceholder } from '../../../Components/Admin/ReadOnlyStaffBanner';
 import { readDeviceCoordinates } from '../../../utils/deviceGps';
-import { buildCustomerMapPopup, getCustomerPopupOptions, updateCustomerMapPopupLiveMetrics } from '../../../utils/networkMapPopup';
+import { getCustomerPopupOptions } from '../../../utils/networkMapPopup';
+import {
+    buildMapPopupShellHtml,
+    renderNetworkMapCustomerPopup,
+    unmountNetworkMapCustomerPopup,
+} from '../../../utils/networkMapPopupMount.jsx';
 
 const METRICS_POLL_MS = 15000;
 const LIVE_TRAFFIC_POLL_MS = 3000;
@@ -37,14 +41,14 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
     const [odpLat, setOdpLat] = useState('');
     const [odpLng, setOdpLng] = useState('');
     const [networkMapMetrics, setNetworkMapMetrics] = useState({ ont: {}, traffic: {} });
-    const [wifiModalCustomer, setWifiModalCustomer] = useState(null);
     const [openCustomerPopupId, setOpenCustomerPopupId] = useState(null);
-
-    const popupOptions = { canWrite: canWrite };
 
     const mapRef = useRef(null);
     const customerMarkersRef = useRef({});
     const openCustomerPopupIdRef = useRef(null);
+    const popupReactRootRef = useRef(null);
+    const customersRef = useRef(customers);
+    customersRef.current = customers;
     const networkMapMetricsRef = useRef(networkMapMetrics);
     networkMapMetricsRef.current = networkMapMetrics;
     const canWriteRef = useRef(canWrite);
@@ -63,6 +67,27 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
     fetchNetworkMapMetricsRef.current = fetchNetworkMapMetrics;
 
+    const renderOpenCustomerPopupRef = useRef(() => {});
+
+    const renderOpenCustomerPopup = (customerId, metrics = networkMapMetricsRef.current) => {
+        const cust = customersRef.current.find((c) => c.id === customerId);
+        const rootEl = popupReactRootRef.current;
+        if (!cust || !rootEl) {
+            return;
+        }
+
+        renderNetworkMapCustomerPopup(rootEl, {
+            customer: cust,
+            metrics,
+            canWrite: canWriteRef.current,
+            onWifiUpdated: () => {
+                fetchNetworkMapMetricsRef.current();
+            },
+        });
+    };
+
+    renderOpenCustomerPopupRef.current = renderOpenCustomerPopup;
+
     useEffect(() => {
         fetchNetworkMapMetrics();
         const intervalMs = openCustomerPopupId ? LIVE_TRAFFIC_POLL_MS : METRICS_POLL_MS;
@@ -71,18 +96,17 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
     }, [openCustomerPopupId]);
 
     useEffect(() => {
-        const custId = openCustomerPopupId;
-        if (!custId) return;
+        if (!openCustomerPopupId) {
+            return;
+        }
 
-        const marker = customerMarkersRef.current[custId];
-        const cust = customers.find((c) => c.id === custId);
-        if (!marker || !cust || !marker.isPopupOpen()) return;
+        const marker = customerMarkersRef.current[openCustomerPopupId];
+        if (!marker?.isPopupOpen()) {
+            return;
+        }
 
-        const popupEl = marker.getPopup()?.getElement();
-        if (!popupEl) return;
-
-        updateCustomerMapPopupLiveMetrics(popupEl, cust, networkMapMetrics, popupOptions);
-    }, [networkMapMetrics, customers, canWrite, openCustomerPopupId]);
+        renderOpenCustomerPopup(openCustomerPopupId, networkMapMetrics);
+    }, [networkMapMetrics, openCustomerPopupId, canWrite, customers]);
 
     useEffect(() => {
         if (showOdpModal) {
@@ -272,17 +296,6 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
             const popupNode = e.popup.getElement();
             if (!popupNode) return;
 
-            const wifiBtn = popupNode.querySelector('.map-popup-wifi-edit-btn');
-            if (wifiBtn && !wifiBtn.dataset.bound) {
-                wifiBtn.dataset.bound = '1';
-                wifiBtn.addEventListener('click', () => {
-                    const customerId = Number(wifiBtn.dataset.customerId);
-                    const cust = customers.find((c) => c.id === customerId);
-                    if (!cust) return;
-                    setWifiModalCustomer(cust);
-                });
-            }
-
             const form = popupNode.querySelector('#mini-odp-form');
             if (form) {
                 setTimeout(() => {
@@ -394,16 +407,24 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
             const marker = L.marker([lat, lng], { icon: customerIcon(cust.status) })
                 .addTo(map)
-                .bindPopup(() => buildCustomerMapPopup(cust, networkMapMetricsRef.current, { canWrite: canWriteRef.current }), getCustomerPopupOptions());
+                .bindPopup(() => buildMapPopupShellHtml(cust.id), getCustomerPopupOptions());
 
             marker.on('popupopen', () => {
                 openCustomerPopupIdRef.current = cust.id;
                 setOpenCustomerPopupId(cust.id);
-                marker.setPopupContent(buildCustomerMapPopup(cust, networkMapMetricsRef.current, { canWrite: canWriteRef.current }));
+                marker.setPopupContent(buildMapPopupShellHtml(cust.id));
+
+                const popupEl = marker.getPopup()?.getElement();
+                popupReactRootRef.current = popupEl?.querySelector('.map-popup-react-root') ?? null;
+                renderOpenCustomerPopupRef.current(cust.id, networkMapMetricsRef.current);
                 fetchNetworkMapMetricsRef.current();
             });
 
             marker.on('popupclose', () => {
+                if (popupReactRootRef.current) {
+                    unmountNetworkMapCustomerPopup(popupReactRootRef.current);
+                    popupReactRootRef.current = null;
+                }
                 if (openCustomerPopupIdRef.current === cust.id) {
                     openCustomerPopupIdRef.current = null;
                     setOpenCustomerPopupId(null);
@@ -652,47 +673,6 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                         </button>
                     </div>
                 </form>
-            </TransitionModal>
-
-            <TransitionModal
-                show={!!wifiModalCustomer}
-                onClose={() => setWifiModalCustomer(null)}
-                themeCard={themeCard}
-                maxWidth="md"
-            >
-                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
-                    <div>
-                        <h3 className={`text-sm font-bold ${themeTextTitle}`}>Ubah WiFi ONT</h3>
-                        {wifiModalCustomer && (
-                            <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
-                                {wifiModalCustomer.name} · {wifiModalCustomer.username}
-                            </p>
-                        )}
-                    </div>
-                    <button
-                        type="button"
-                        onClick={() => setWifiModalCustomer(null)}
-                        className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
-                </div>
-                {wifiModalCustomer && (
-                    <div className="pt-3">
-                        <OntWifiPanel
-                            apiBase="/admin/gpon"
-                            customerId={wifiModalCustomer.id}
-                            username={wifiModalCustomer.username}
-                            canWrite={canWrite}
-                            showReboot
-                            compact
-                            theme={theme}
-                            onUpdated={() => {
-                                fetchNetworkMapMetrics();
-                            }}
-                        />
-                    </div>
-                )}
             </TransitionModal>
         </>
     );

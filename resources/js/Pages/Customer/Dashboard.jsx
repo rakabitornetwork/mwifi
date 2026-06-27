@@ -388,14 +388,12 @@ export default function CustomerDashboard({
                                     <div className="flex items-center space-x-2 pb-2 border-b border-zinc-800/40">
                                         <Wifi className={`w-4 h-4 ${accentIconClass}`} />
                                         <h2 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>
-                                            Pengaturan WiFi Rumah
+                                            WiFi ONT
                                         </h2>
                                     </div>
-                                    <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
-                                        Ubah nama jaringan WiFi dan password router ONT Anda. Perubahan diterapkan langsung ke perangkat via sistem monitoring.
-                                    </p>
                                     <OntWifiPanel
                                         apiBase="/customer"
+                                        customerId={customer.id}
                                         username={customer.username}
                                         canWrite
                                         bare

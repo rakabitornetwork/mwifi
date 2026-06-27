@@ -49,6 +49,16 @@
       "_vendor-core-CJ5AMTKy.js"
     ]
   },
+  "_CustomerTrafficSpeedometer-S53ZLd76.js": {
+    "file": "assets/CustomerTrafficSpeedometer-S53ZLd76.js",
+    "name": "CustomerTrafficSpeedometer",
+    "imports": [
+      "_rolldown-runtime-QTnfLwEv.js",
+      "_vendor-BXfUUSDP.js",
+      "_vendor-core-CJ5AMTKy.js",
+      "_formatSpeedBps-DeyHbE11.js"
+    ]
+  },
   "_GpsCoordinateFields-Dr2Gmd1_.js": {
     "file": "assets/GpsCoordinateFields-Dr2Gmd1_.js",
     "name": "GpsCoordinateFields",
@@ -281,7 +291,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DHIzSRsN.css",
+    "file": "assets/app-CLDimKEj.css",
     "name": "app",
     "names": [
       "app.css"
@@ -465,7 +475,7 @@
     ]
   },
   "resources/js/Pages/Admin/NetworkMap/Index.jsx": {
-    "file": "assets/Index-DP7P_R9N.js",
+    "file": "assets/Index-DlkFgF-z.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/NetworkMap/Index.jsx",
     "isDynamicEntry": true,
@@ -477,6 +487,7 @@
       "_AdminPageCard-aX1Wqrt_.js",
       "_useAdminToast-CoX7-bC0.js",
       "_TransitionModal-Cp9O1hIF.js",
+      "_CustomerTrafficSpeedometer-S53ZLd76.js",
       "_GpsCoordinateFields-Dr2Gmd1_.js",
       "_customerMetrics-Ctr0zG31.js",
       "_formatRupiah-BPNt29Go.js"
@@ -604,7 +615,7 @@
     ]
   },
   "resources/js/Pages/Customer/Dashboard.jsx": {
-    "file": "assets/Dashboard-Dmwisvoz.js",
+    "file": "assets/Dashboard-CuNvOOaB.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Customer/Dashboard.jsx",
     "isDynamicEntry": true,
@@ -614,13 +625,13 @@
       "_vendor-core-CJ5AMTKy.js",
       "_AppFooter-CYRZTYOD.js",
       "_PullToRefresh-QKBW2p3Y.js",
+      "_CustomerTrafficSpeedometer-S53ZLd76.js",
       "_customerMetrics-Ctr0zG31.js",
       "_SeoHead-BogHkvJS.js",
       "_useScheduledTheme-B6ZCoPip.js",
       "_formatBytes-BymiRaes.js",
       "_formatDateInputValue-BC7ZZY7h.js",
-      "_formatRupiah-BPNt29Go.js",
-      "_formatSpeedBps-DeyHbE11.js"
+      "_formatRupiah-BPNt29Go.js"
     ]
   },
   "resources/js/Pages/Customer/Login.jsx": {
@@ -680,7 +691,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-elVVsGIO.js",
+    "file": "assets/app-GLH2Kw6O.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,
