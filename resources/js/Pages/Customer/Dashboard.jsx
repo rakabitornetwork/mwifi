@@ -3,7 +3,6 @@ import { useScheduledTheme } from '../../hooks/useScheduledTheme';
 import { Link, router, usePage } from '@inertiajs/react';
 import PullToRefresh from '../../Components/PullToRefresh';
 import OntWifiPanel from '../../Components/OntWifiPanel';
-import CustomerOntStatusLabel from '../../Components/CustomerOntStatusLabel';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
@@ -226,22 +225,14 @@ export default function CustomerDashboard({
                                     : 'Kelola layanan internet Anda secara mandiri di satu dasbor terpadu.'}
                             </p>
                         </div>
-                        <div className="flex items-center gap-3">
-                            {isVpsPortal ? (
-                                <div className="flex items-center space-x-2">
-                                    <Activity className={`w-4 h-4 animate-pulse ${accentIconClass}`} />
-                                    <span className={`text-xs font-bold ${accentIconClass}`}>
-                                        Instance Running
-                                    </span>
-                                </div>
-                            ) : (
-                                <CustomerOntStatusLabel
-                                    enabled={customer.service_type !== 'hotspot'}
-                                    accentIconClass={accentIconClass}
-                                    themeTextDesc={themeTextDesc}
-                                />
-                            )}
-                        </div>
+                        {isVpsPortal ? (
+                            <div className="flex items-center space-x-2">
+                                <Activity className={`w-4 h-4 animate-pulse ${accentIconClass}`} />
+                                <span className={`text-xs font-bold ${accentIconClass}`}>
+                                    Instance Running
+                                </span>
+                            </div>
+                        ) : null}
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
