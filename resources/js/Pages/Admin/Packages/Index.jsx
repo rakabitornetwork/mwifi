@@ -25,8 +25,30 @@ function packageHasNumericPrefix(pkg) {
     return /^\d/.test(name);
 }
 
+function isHotspotPackage(pkg) {
+    return pkg?.type === 'hotspot';
+}
+
+/** PPPoE tetap hanya yang namanya berawalan angka; hotspot selalu ditampilkan. */
+function packageIsVisibleOnPackagesPage(pkg) {
+    return isHotspotPackage(pkg) || packageHasNumericPrefix(pkg);
+}
+
 function profileHasNumericPrefix(name) {
     return /^\d/.test(String(name ?? '').trim());
+}
+
+function packageMatchesRouterProfiles(pkg, numericProfileSet, allProfileSet) {
+    const profile = String(pkg.mikrotik_profile || '').trim().toLowerCase();
+    if (profile === '') {
+        return false;
+    }
+
+    if (isHotspotPackage(pkg)) {
+        return allProfileSet.has(profile);
+    }
+
+    return numericProfileSet.has(profile);
 }
 
 function packageBelongsToRouter(pkg, routerId) {
@@ -350,9 +372,16 @@ function PackagesPageContent({ packages = [], routers = [] }) {
         [numericRouterProfiles],
     );
 
+    const allRouterProfileSet = useMemo(
+        () => new Set(routerProfiles.map((name) => String(name).toLowerCase())),
+        [routerProfiles],
+    );
+
+    const hotspotRouterProfiles = filterRouterOs?.hotspot_profiles || [];
+
     const filteredPackages = useMemo(() => {
         const sorted = [...packages]
-            .filter(packageHasNumericPrefix)
+            .filter(packageIsVisibleOnPackagesPage)
             .filter((pkg) => packageBelongsToRouter(pkg, routerFilter))
             .sort((a, b) => String(a.name).localeCompare(String(b.name), 'id'));
 
@@ -364,18 +393,22 @@ function PackagesPageContent({ packages = [], routers = [] }) {
             return [];
         }
 
-        if (routerProfileError || profileSet.size === 0) {
+        if (routerProfileError) {
             return [];
         }
 
-        const matched = sorted.filter((pkg) => profileSet.has(String(pkg.mikrotik_profile || '').toLowerCase()));
+        if (allRouterProfileSet.size === 0) {
+            return [];
+        }
+
+        const matched = sorted.filter((pkg) => packageMatchesRouterProfiles(pkg, profileSet, allRouterProfileSet));
 
         return dedupePackagesByMikrotikProfile(matched);
-    }, [packages, routerFilter, isLoadingRouterProfiles, routerProfileError, profileSet]);
+    }, [packages, routerFilter, isLoadingRouterProfiles, routerProfileError, profileSet, allRouterProfileSet]);
 
     const duplicatePackages = useMemo(() => {
         const scoped = packages
-            .filter(packageHasNumericPrefix)
+            .filter(packageIsVisibleOnPackagesPage)
             .filter((pkg) => packageBelongsToRouter(pkg, routerFilter));
 
         return listDuplicatePackages(scoped);
@@ -517,7 +550,12 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                             <>
                                 Menampilkan {filteredPackages.length} paket yang ada di router{' '}
                                 <span className={themeTextTitle}>{selectedRouter?.name}</span>
-                                {' '}({numericRouterProfiles.length} profil RouterOS berawalan angka)
+                                {' '}
+                                ({numericRouterProfiles.length} profil PPPoE berawalan angka
+                                {hotspotRouterProfiles.length > 0
+                                    ? ` · ${hotspotRouterProfiles.length} profil hotspot`
+                                    : ''}
+                                )
                                 {duplicatePackageCount > 0 && (
                                     <span className="block mt-1 text-amber-500">
                                         {duplicatePackageCount} paket duplikat di database — hapus dari daftar di bawah.
@@ -588,7 +626,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                                 ? 'Memuat paket dari router terpilih...'
                                                 : routerProfileError
                                                     ? 'Tidak dapat memuat profil router. Periksa koneksi RouterOS.'
-                                                    : 'Tidak ada paket yang cocok dengan profil di router ini.')
+                                                    : 'Tidak ada paket PPPoE/hotspot yang cocok dengan profil di router ini.')
                                             : 'Belum ada paket layanan terdaftar.'}
                                     </td>
                                 </tr>
