@@ -281,7 +281,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-B-UWe2fT.css",
+    "file": "assets/app-CJNxI0S-.css",
     "name": "app",
     "names": [
       "app.css"
@@ -604,7 +604,7 @@
     ]
   },
   "resources/js/Pages/Customer/Dashboard.jsx": {
-    "file": "assets/Dashboard-BdqlbEm8.js",
+    "file": "assets/Dashboard-BdMc5hbw.js",
     "name": "Dashboard",
     "src": "resources/js/Pages/Customer/Dashboard.jsx",
     "isDynamicEntry": true,
@@ -680,7 +680,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-De9gVRce.js",
+    "file": "assets/app-Of9pz4zS.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

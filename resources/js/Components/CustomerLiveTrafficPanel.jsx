@@ -1,25 +1,11 @@
 import { useCallback, useEffect, useId, useState } from 'react';
 import { Activity, ArrowDown, ArrowUp, RefreshCw } from 'lucide-react';
-import BandwidthSpeedometer from './Admin/BandwidthSpeedometer';
+import CustomerTrafficSpeedometer from './CustomerTrafficSpeedometer';
 import { formatBytes } from '../utils/formatBytes';
-import { formatSpeedBps } from '../utils/formatSpeedBps';
 import { parseBandwidthLimit } from '../utils/customerMetrics';
 
 const LIVE_POLL_MS = 3000;
 const QUOTA_SAMPLE_EVERY = 10;
-
-function TrafficStat({ label, bps, tone, themeTextDesc }) {
-    const toneClass = tone === 'down' ? 'text-emerald-500' : 'text-sky-500';
-
-    return (
-        <div className="rounded-xl border border-zinc-800/40 bg-zinc-950/20 p-3 min-w-0">
-            <p className={`text-[9px] font-bold uppercase tracking-wide ${themeTextDesc}`}>{label}</p>
-            <p className={`mt-1 text-lg font-bold font-mono ${toneClass}`}>
-                {formatSpeedBps(bps)}
-            </p>
-        </div>
-    );
-}
 
 function QuotaMiniStat({ icon: Icon, label, usedBytes, toneClass, themeTextSub, themeTextDesc }) {
     return (
@@ -138,32 +124,23 @@ export default function CustomerLiveTrafficPanel({
                 <p className="text-[10px] text-amber-500">{loadError}</p>
             ) : null}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex justify-center">
-                    <BandwidthSpeedometer
-                        label="Download"
-                        bps={downloadBps}
-                        maxMbps={bandwidth.down}
-                        type="down"
-                        isDarkMode={isDarkMode}
-                        gaugeId={`${gaugeId}-down`}
-                    />
-                </div>
-                <div className="flex justify-center">
-                    <BandwidthSpeedometer
-                        label="Upload"
-                        bps={uploadBps}
-                        maxMbps={bandwidth.up}
-                        type="up"
-                        isDarkMode={isDarkMode}
-                        gaugeId={`${gaugeId}-up`}
-                    />
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <TrafficStat label="Download Live" bps={downloadBps} tone="down" themeTextDesc={themeTextDesc} />
-                <TrafficStat label="Upload Live" bps={uploadBps} tone="up" themeTextDesc={themeTextDesc} />
+            <div className="grid grid-cols-2 gap-2.5">
+                <CustomerTrafficSpeedometer
+                    label="Download"
+                    bps={downloadBps}
+                    maxMbps={bandwidth.down}
+                    type="down"
+                    isDarkMode={isDarkMode}
+                    gaugeId={`${gaugeId}-down`}
+                />
+                <CustomerTrafficSpeedometer
+                    label="Upload"
+                    bps={uploadBps}
+                    maxMbps={bandwidth.up}
+                    type="up"
+                    isDarkMode={isDarkMode}
+                    gaugeId={`${gaugeId}-up`}
+                />
             </div>
 
             <div className="pt-1 border-t border-zinc-800/30">
