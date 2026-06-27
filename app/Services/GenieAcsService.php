@@ -159,36 +159,28 @@ class GenieAcsService
             ];
         }
 
-        $parameterValues = [];
+        $parameterValues = self::buildWifiParameterValues($rawDevice, $ssid, $password);
 
-        if ($ssid !== null && $ssid !== '') {
-            $ssidPath = self::resolveSsidParameterPath($rawDevice);
-            if ($ssidPath === null) {
-                return [
-                    'success' => false,
-                    'message' => 'Path parameter SSID tidak ditemukan di ONT ini.',
-                ];
-            }
-            $parameterValues[] = [$ssidPath, $ssid, 'xsd:string'];
+        if ($parameterValues === []) {
+            return [
+                'success' => false,
+                'message' => 'Tidak ada parameter WiFi yang valid untuk diubah pada ONT ini.',
+            ];
         }
 
-        if ($password !== null && $password !== '') {
-            $passwordPath = self::resolvePasswordParameterPath($rawDevice);
-            if ($passwordPath === null) {
-                return [
-                    'success' => false,
-                    'message' => 'Path parameter password WiFi tidak ditemukan di ONT ini.',
-                ];
-            }
-            $parameterValues[] = [$passwordPath, $password, 'xsd:string'];
-        }
+        self::clearPendingDeviceTasks($apiUrl, $deviceId, ['setParameterValues', 'reboot']);
 
-        $encodedId = self::doubleUrlEncodeDeviceId($deviceId);
+        $encodedId = self::encodeDeviceIdForApi($deviceId);
+        $taskUrl = "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=120";
+
+        Log::info('GenieACS WiFi update task', [
+            'device_id' => $deviceId,
+            'parameter_values' => $parameterValues,
+        ]);
 
         try {
-            // Hapus connection_request agar GenieACS langsung menjawab 202 tanpa menunggu timeout koneksi yang akan gagal.
-            $response = Http::timeout(10)
-                ->post("{$apiUrl}/devices/{$encodedId}/tasks", [
+            $response = Http::timeout(130)
+                ->post($taskUrl, [
                     'name' => 'setParameterValues',
                     'parameterValues' => $parameterValues,
                 ]);
@@ -198,25 +190,20 @@ class GenieAcsService
             if ($status === 200 || $status === 202) {
                 Log::info("GenieACS: WiFi credentials updated/queued on device {$deviceId}");
 
-                // Trigger PPPoE Reconnect di MikroTik untuk memaksa ONT melakukan Inform instan
-                try {
-                    $username = self::extractUsername($rawDevice);
-                    if ($username && $username !== 'unknown_ont') {
-                        $customer = \App\Models\Customer::where('username', $username)->first();
-                        if ($customer && $customer->router) {
-                            $connector = \App\Services\Router\RouterService::getConnector($customer->router);
-                            $connector->kickActiveConnection($customer->username);
-                            Log::info("GenieACS PPPoE Reconnect: Berhasil memutuskan sesi PPPoE {$username} pada router {$customer->router->name}");
-                        }
-                    }
-                } catch (Exception $e) {
-                    Log::error("GenieACS PPPoE Reconnect Error: " . $e->getMessage());
+                self::triggerPppoeReconnect($rawDevice);
+
+                $message = $status === 200
+                    ? 'Perubahan WiFi berhasil diterapkan ke ONT.'
+                    : 'Perubahan WiFi dikirim ke GenieACS. ONT akan menerapkan saat terhubung (±1–2 menit).';
+
+                if (str_contains(strtolower($response->body()), 'offline')) {
+                    $message = 'Perintah ubah WiFi antre di GenieACS. Pastikan server GenieACS dapat menjangkau ONT (gunakan IP lokal/LAN, bukan cloud publik jika ONT di jaringan pribadi).';
                 }
 
                 return [
                     'success' => true,
                     'status' => $status === 200 ? 'executed' : 'queued',
-                    'message' => 'Perubahan WiFi berhasil dijadwalkan dan koneksi disegarkan.',
+                    'message' => $message,
                     'http_status' => $status,
                 ];
             }
@@ -252,32 +239,20 @@ class GenieAcsService
         $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
 
         try {
-            // Hapus connection_request agar langsung terantre instan tanpa timeout
-            $encodedId = self::doubleUrlEncodeDeviceId($deviceId);
-            $response = Http::timeout(5)
-                ->post("{$apiUrl}/devices/{$encodedId}/tasks", [
+            self::clearPendingDeviceTasks($apiUrl, $deviceId, ['reboot']);
+
+            $encodedId = self::encodeDeviceIdForApi($deviceId);
+            $response = Http::timeout(130)
+                ->post("{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=120", [
                     'name' => 'reboot'
                 ]);
 
             if ($response->successful()) {
                 Log::info("GenieACS: Successfully queued reboot task for device {$deviceId}");
 
-                // Trigger PPPoE Reconnect di MikroTik untuk memicu ONT menarik task reboot secara instan
-                try {
-                    $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
-                    if ($rawDevice !== null) {
-                        $username = self::extractUsername($rawDevice);
-                        if ($username && $username !== 'unknown_ont') {
-                            $customer = \App\Models\Customer::where('username', $username)->first();
-                            if ($customer && $customer->router) {
-                                $connector = \App\Services\Router\RouterService::getConnector($customer->router);
-                                $connector->kickActiveConnection($customer->username);
-                                Log::info("GenieACS PPPoE Reconnect: Berhasil memutuskan sesi PPPoE {$username} pada router {$customer->router->name} untuk pemicu reboot");
-                            }
-                        }
-                    }
-                } catch (Exception $e) {
-                    Log::error("GenieACS PPPoE Reconnect Reboot Trigger Error: " . $e->getMessage());
+                $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
+                if ($rawDevice !== null) {
+                    self::triggerPppoeReconnect($rawDevice);
                 }
 
                 return true;
@@ -329,7 +304,10 @@ class GenieAcsService
             'InternetGatewayDevice.WANDevice.1.X_GponInterafceConfig.TransceiverTemperature',
             'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
             'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase',
             'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.PreSharedKey',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.BeaconType',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.Enable',
             'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations',
             'InternetGatewayDevice.LANDevice.1.Hosts.HostNumberOfEntries',
             'Device.WiFi.SSID.1.SSID',
@@ -375,11 +353,7 @@ class GenieAcsService
 
         $wifiSsid = self::extractWifiSsid($rawDev);
 
-        $wifiPassword = self::getNestedValue($rawDev, [
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.PreSharedKey',
-            'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
-        ]);
+        $wifiPassword = self::extractWifiPassword($rawDev);
 
         $connectedDevices = self::parseConnectedDevices(self::getNestedValue($rawDev, [
             'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations',
@@ -566,6 +540,23 @@ class GenieAcsService
 
     private static function extractWifiSsid(array $rawDev): ?string
     {
+        $flat = self::flattenDeviceParameters($rawDev);
+        if ($flat !== []) {
+            $wlanIndex = self::resolveActiveWlanIndex($flat);
+            $ssid = self::flatParameterValue(
+                $flat,
+                "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}.SSID"
+            );
+            if ($ssid !== null && $ssid !== '') {
+                return trim((string) $ssid);
+            }
+
+            $tr181Ssid = self::flatParameterValue($flat, 'Device.WiFi.SSID.1.SSID');
+            if ($tr181Ssid !== null && $tr181Ssid !== '') {
+                return trim((string) $tr181Ssid);
+            }
+        }
+
         $value = self::getNestedValue($rawDev, [
             'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
             'Device.WiFi.SSID.1.SSID',
@@ -789,28 +780,343 @@ class GenieAcsService
 
     private static function doubleUrlEncodeDeviceId(string $deviceId): string
     {
-        return rawurlencode(rawurlencode($deviceId));
+        return rawurlencode(rawurlencode(urldecode($deviceId)));
+    }
+
+    private static function encodeDeviceIdForApi(string $deviceId): string
+    {
+        return self::doubleUrlEncodeDeviceId($deviceId);
+    }
+
+    /**
+     * @return list<array{0: string, 1: string, 2?: string}>
+     */
+    private static function buildWifiParameterValues(array $rawDev, ?string $ssid, ?string $password): array
+    {
+        $flat = self::flattenDeviceParameters($rawDev);
+
+        if (self::flatHasAnyKeyMatching($flat, '/^Device\.WiFi\./') && !self::flatHasAnyKeyMatching($flat, '/WLANConfiguration/')) {
+            return self::buildWifiParameterValuesTr181($flat, $ssid, $password);
+        }
+
+        $wlanIndex = self::resolveActiveWlanIndex($flat);
+        $base = "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}";
+        $parameterValues = [];
+
+        if ($ssid !== null && $ssid !== '') {
+            $parameterValues[] = ["{$base}.SSID", $ssid, 'xsd:string'];
+        }
+
+        if ($password !== null && $password !== '') {
+            $beaconType = self::flatParameterValue($flat, "{$base}.BeaconType");
+            if (self::isOpenBeaconType($beaconType)) {
+                array_unshift($parameterValues, ["{$base}.BeaconType", self::resolveWpaBeaconType($flat), 'xsd:string']);
+            }
+
+            $passwordPath = self::resolvePasswordPathForWlan($flat, $base);
+            $parameterValues[] = [$passwordPath, $password, 'xsd:string'];
+        }
+
+        return $parameterValues;
+    }
+
+    /**
+     * @return list<array{0: string, 1: string, 2?: string}>
+     */
+    private static function buildWifiParameterValuesTr181(array $flat, ?string $ssid, ?string $password): array
+    {
+        $parameterValues = [];
+
+        if ($ssid !== null && $ssid !== '') {
+            $parameterValues[] = ['Device.WiFi.SSID.1.SSID', $ssid, 'xsd:string'];
+        }
+
+        if ($password !== null && $password !== '') {
+            $parameterValues[] = ['Device.WiFi.AccessPoint.1.Security.KeyPassphrase', $password, 'xsd:string'];
+        }
+
+        return $parameterValues;
+    }
+
+    private static function extractWifiPassword(array $rawDev): ?string
+    {
+        $flat = self::flattenDeviceParameters($rawDev);
+        if ($flat !== []) {
+            $wlanIndex = self::resolveActiveWlanIndex($flat);
+            $base = "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}";
+
+            foreach (self::passwordPathCandidates($base) as $path) {
+                $val = self::flatParameterValue($flat, $path);
+                if ($val !== null && $val !== '') {
+                    return trim((string) $val);
+                }
+            }
+
+            $tr181 = self::flatParameterValue($flat, 'Device.WiFi.AccessPoint.1.Security.KeyPassphrase');
+            if ($tr181 !== null && $tr181 !== '') {
+                return trim((string) $tr181);
+            }
+        }
+
+        return self::getNestedValue($rawDev, [
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.KeyPassphrase',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.PreSharedKey',
+            'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
+        ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function passwordPathCandidates(string $wlanBase): array
+    {
+        return [
+            "{$wlanBase}.KeyPassphrase",
+            "{$wlanBase}.PreSharedKey.1.KeyPassphrase",
+            "{$wlanBase}.PreSharedKey.1.PreSharedKey",
+            "{$wlanBase}.X_TP_PreSharedKey",
+        ];
+    }
+
+    private static function resolvePasswordPathForWlan(array $flat, string $wlanBase): string
+    {
+        foreach (self::passwordPathCandidates($wlanBase) as $path) {
+            if (self::flatParameterWritable($flat, $path)) {
+                return $path;
+            }
+        }
+
+        return "{$wlanBase}.KeyPassphrase";
+    }
+
+    private static function clearPendingDeviceTasks(string $apiUrl, string $deviceId, array $taskNames = []): int
+    {
+        try {
+            $response = Http::timeout(10)->get("{$apiUrl}/tasks", [
+                'query' => json_encode(['device' => $deviceId]),
+            ]);
+
+            if (!$response->successful()) {
+                return 0;
+            }
+
+            $tasks = $response->json();
+            if (!is_array($tasks)) {
+                return 0;
+            }
+
+            $removed = 0;
+            foreach ($tasks as $task) {
+                $name = $task['name'] ?? '';
+                $taskId = $task['_id'] ?? null;
+                if (!$taskId) {
+                    continue;
+                }
+                if ($taskNames !== [] && !in_array($name, $taskNames, true)) {
+                    continue;
+                }
+
+                $delete = Http::timeout(5)->delete("{$apiUrl}/tasks/" . urlencode($taskId));
+                if ($delete->successful()) {
+                    $removed++;
+                }
+            }
+
+            if ($removed > 0) {
+                Log::info("GenieACS: Cleared {$removed} pending task(s) for device {$deviceId}");
+            }
+
+            return $removed;
+        } catch (Exception $e) {
+            Log::warning("GenieACS clearPendingDeviceTasks error: " . $e->getMessage());
+
+            return 0;
+        }
+    }
+
+    private static function triggerPppoeReconnect(array $rawDevice): void
+    {
+        try {
+            $username = self::extractUsername($rawDevice);
+            if (!$username || $username === 'unknown_ont') {
+                return;
+            }
+
+            $customer = \App\Models\Customer::where('username', $username)->first();
+            if (!$customer || !$customer->router) {
+                return;
+            }
+
+            $connector = \App\Services\Router\RouterService::getConnector($customer->router);
+            $connector->kickActiveConnection($customer->username);
+            Log::info("GenieACS PPPoE Reconnect: Berhasil memutuskan sesi PPPoE {$username} pada router {$customer->router->name}");
+        } catch (Exception $e) {
+            Log::error('GenieACS PPPoE Reconnect Error: ' . $e->getMessage());
+        }
+    }
+
+    private static function resolveActiveWlanIndex(array $flat): int
+    {
+        $scores = [];
+
+        foreach (array_keys($flat) as $path) {
+            if (!preg_match('/\.WLANConfiguration\.(\d+)\.Enable$/', $path, $matches)) {
+                continue;
+            }
+
+            $index = (int) $matches[1];
+            if (!self::isTruthy(self::flatParameterValue($flat, $path))) {
+                continue;
+            }
+
+            $base = preg_replace('/\.Enable$/', '', $path);
+            $associations = (int) (self::flatParameterValue($flat, "{$base}.TotalAssociations") ?? 0);
+            $scores[$index] = max($associations, 1);
+        }
+
+        if ($scores === []) {
+            return 1;
+        }
+
+        arsort($scores);
+
+        return (int) array_key_first($scores);
+    }
+
+    private static function resolveWpaBeaconType(array $flat): string
+    {
+        foreach (array_keys($flat) as $path) {
+            if (!str_ends_with($path, '.BeaconType')) {
+                continue;
+            }
+
+            $val = self::flatParameterValue($flat, $path);
+            if ($val !== null && !self::isOpenBeaconType($val)) {
+                return (string) $val;
+            }
+        }
+
+        return 'WPA/WPA2';
+    }
+
+    private static function isOpenBeaconType(mixed $beaconType): bool
+    {
+        if ($beaconType === null || $beaconType === '') {
+            return true;
+        }
+
+        $normalized = strtolower(trim((string) $beaconType));
+
+        return in_array($normalized, ['none', 'basic', 'open'], true);
+    }
+
+    private static function isTruthy(mixed $value): bool
+    {
+        if ($value === null || $value === '') {
+            return false;
+        }
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+
+        return in_array($normalized, ['1', 'true', 'yes', 'enabled', 'on'], true);
+    }
+
+    private static function flattenDeviceParameters(array $data, string $prefix = ''): array
+    {
+        $flat = [];
+
+        foreach ($data as $key => $val) {
+            if (!is_string($key) && !is_int($key)) {
+                continue;
+            }
+
+            if ($prefix === '' && in_array($key, ['_id', '_lastInform', '_registered', '_tags', '_deviceId'], true)) {
+                $flat[$key] = $val;
+                continue;
+            }
+
+            $path = $prefix === '' ? (string) $key : "{$prefix}.{$key}";
+
+            if (!is_array($val)) {
+                continue;
+            }
+
+            if (array_key_exists('_value', $val)) {
+                $flat[$path] = $val;
+                continue;
+            }
+
+            $flat = array_merge($flat, self::flattenDeviceParameters($val, $path));
+        }
+
+        return $flat;
+    }
+
+    private static function flatParameterValue(array $flat, string $path): mixed
+    {
+        if (!isset($flat[$path])) {
+            return null;
+        }
+
+        $val = $flat[$path];
+
+        if (is_array($val) && array_key_exists('_value', $val)) {
+            return $val['_value'];
+        }
+
+        return is_array($val) ? null : $val;
+    }
+
+    private static function flatParameterWritable(array $flat, string $path): bool
+    {
+        if (!isset($flat[$path])) {
+            return false;
+        }
+
+        $val = $flat[$path];
+        if (!is_array($val)) {
+            return true;
+        }
+
+        if (array_key_exists('_writable', $val) && $val['_writable'] === false) {
+            return false;
+        }
+
+        return array_key_exists('_value', $val) || $val !== [];
+    }
+
+    private static function flatHasAnyKeyMatching(array $flat, string $pattern): bool
+    {
+        foreach (array_keys($flat) as $path) {
+            if (preg_match($pattern, $path)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function fetchRawDeviceById(string $apiUrl, string $deviceId): ?array
     {
-        $encodedId = self::doubleUrlEncodeDeviceId($deviceId);
+        try {
+            $query = json_encode(['_id' => $deviceId]);
+            $response = Http::timeout(10)->get("{$apiUrl}/devices", [
+                'query' => $query
+            ]);
 
-        $response = Http::timeout(10)->get("{$apiUrl}/devices/{$encodedId}");
-
-        if ($response->successful()) {
-            $data = $response->json();
-            if (is_array($data) && ($data['_id'] ?? null)) {
-                return $data;
+            if ($response->successful()) {
+                $data = $response->json();
+                if (is_array($data) && !empty($data)) {
+                    return $data[0];
+                }
             }
-        }
-
-        $fallback = Http::timeout(10)->get("{$apiUrl}/devices/" . urlencode($deviceId));
-        if ($fallback->successful()) {
-            $data = $fallback->json();
-            if (is_array($data) && ($data['_id'] ?? null)) {
-                return $data;
-            }
+        } catch (Exception $e) {
+            Log::error("GenieACS fetchRawDeviceById error: " . $e->getMessage());
         }
 
         return null;
@@ -835,122 +1141,5 @@ class GenieAcsService
         }
 
         return strtolower(trim(explode('@', $ontUsername)[0])) === $needleLower;
-    }
-
-    private static function resolveSsidParameterPath(array $rawDev): ?string
-    {
-        $preferred = [
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
-            'Device.WiFi.SSID.1.SSID',
-        ];
-
-        foreach ($preferred as $path) {
-            if (self::parameterPathExists($rawDev, $path)) {
-                return $path;
-            }
-        }
-
-        foreach (array_keys($rawDev) as $key) {
-            if (!is_string($key) || !str_contains($key, 'WLANConfiguration') || !str_ends_with($key, '.SSID')) {
-                continue;
-            }
-
-            if (self::parameterPathExists($rawDev, $key)) {
-                return $key;
-            }
-        }
-
-        foreach (array_keys($rawDev) as $key) {
-            if (!is_string($key) || !str_contains($key, 'Device.WiFi.SSID') || !str_ends_with($key, '.SSID')) {
-                continue;
-            }
-
-            if (self::parameterPathExists($rawDev, $key)) {
-                return $key;
-            }
-        }
-
-        return 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID';
-    }
-
-    private static function resolvePasswordParameterPath(array $rawDev): ?string
-    {
-        $candidates = [];
-
-        foreach (array_keys($rawDev) as $key) {
-            if (!is_string($key)) {
-                continue;
-            }
-
-            $leaf = str_contains($key, '.') ? substr($key, strrpos($key, '.') + 1) : $key;
-            $leafLower = strtolower($leaf);
-
-            if (!str_contains($key, 'WLANConfiguration')
-                && !str_contains($key, 'Device.WiFi.AccessPoint')
-                && !str_contains($key, 'Device.WiFi.SSID')) {
-                continue;
-            }
-
-            if (!in_array($leafLower, [
-                'keypassphrase',
-                'presharedkey',
-                'x_tp_presharedkey',
-                'passphrase',
-            ], true) && !str_ends_with($key, '.PreSharedKey.1.PreSharedKey')) {
-                continue;
-            }
-
-            if (self::parameterPathExists($rawDev, $key)) {
-                $candidates[] = $key;
-            }
-        }
-
-        $preferredSuffixes = [
-            'KeyPassphrase',
-            'PreSharedKey.1.PreSharedKey',
-            'PreSharedKey.1.KeyPassphrase',
-            'X_TP_PreSharedKey',
-        ];
-
-        foreach ($preferredSuffixes as $suffix) {
-            foreach ($candidates as $path) {
-                if (str_ends_with($path, $suffix)) {
-                    return $path;
-                }
-            }
-        }
-
-        if ($candidates !== []) {
-            return $candidates[0];
-        }
-
-        $fallbacks = [
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.PreSharedKey',
-            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
-            'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
-        ];
-
-        foreach ($fallbacks as $path) {
-            if (self::parameterPathExists($rawDev, $path)) {
-                return $path;
-            }
-        }
-
-        return $fallbacks[0];
-    }
-
-    private static function parameterPathExists(array $rawDev, string $path): bool
-    {
-        if (!isset($rawDev[$path])) {
-            return false;
-        }
-
-        $val = $rawDev[$path];
-
-        if (is_array($val) && array_key_exists('_writable', $val) && $val['_writable'] === false) {
-            return false;
-        }
-
-        return true;
     }
 }

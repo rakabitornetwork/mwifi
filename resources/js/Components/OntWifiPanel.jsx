@@ -22,7 +22,7 @@ export default function OntWifiPanel({
         themeTextDesc = 'text-zinc-500',
     } = theme;
 
-    const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
+    const themeInnerWidget = theme.themeInnerWidget || (isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60');
     const themeInput = isDarkMode
         ? 'bg-zinc-900 border-zinc-800 text-white focus:border-zinc-700'
         : 'bg-white border-zinc-200 text-zinc-800 focus:border-zinc-300';

@@ -191,7 +191,15 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
 
     const isBillingActionBusy = isGeneratingInvoice || isBackfilling;
 
-    const themeInnerWidget = isDarkMode ? 'bg-zinc-950/40 border-zinc-900' : 'bg-zinc-50 border-zinc-200/60';
+    const themeInnerWidget = isDarkMode
+        ? 'bg-zinc-950/40 border-zinc-900 hover:border-emerald-500/25 transition-all duration-300'
+        : 'bg-white border-zinc-200/60 shadow-xs hover:border-emerald-300/60 hover:shadow-sm transition-all duration-300';
+
+    const detailTheme = {
+        ...theme,
+        themeInnerWidget,
+    };
+
     const status = statusMeta(customer.status);
     const hasGps = customer.latitude != null && customer.longitude != null && customer.latitude !== '' && customer.longitude !== '';
     const mapsUrl = hasGps
@@ -246,7 +254,11 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
     const isOnline = !!quota?.online;
 
     return (
-        <div className={`customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-2 py-3 sm:px-3 min-w-0 max-w-full overflow-hidden`}>
+        <div className={`customer-detail-panel border-t-2 border-l-4 ${
+            isDarkMode
+                ? 'border-t-zinc-800/60 border-l-emerald-600/80 bg-gradient-to-r from-emerald-950/10 via-zinc-950/20 to-zinc-950/10'
+                : 'border-t-zinc-200 border-l-emerald-500 bg-gradient-to-r from-emerald-50/30 via-zinc-50/20 to-emerald-50/10'
+        } p-3 sm:p-4 min-w-0 max-w-full overflow-hidden`}>
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3 min-w-0">
                 <div className="min-w-0">
                     <p className={`text-xs font-bold ${themeTextTitle}`}>Detail Lengkap Pelanggan</p>
@@ -266,60 +278,125 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                 )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 min-w-0 w-full">
-                <div className={`rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
-                    <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Identitas & Kontak</p>
-                    <DetailItem label="Nama Lengkap" value={customer.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                    <DetailItem label="Username Layanan" value={customer.username} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                    <DetailItem label="Password Portal" value={customer.password} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                    <DetailItem label="Nomor Telepon (WA)" value={customer.phone_number} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                    <DetailItem
-                        label="Email Portal"
-                        value={customer.portal_email || customer.user?.email}
-                        mono
-                        themeTextTitle={themeTextTitle}
-                        themeTextSub={themeTextSub}
-                    />
-                    <DetailItem label="Alamat Lengkap" value={customer.address} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 min-w-0 w-full items-start">
+                {/* Kolom Kiri: Informasi Profil, Jaringan, dan Quota (xl:col-span-2) */}
+                <div className="xl:col-span-2 space-y-3 min-w-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className={`rounded-lg border p-3 space-y-2.5 min-w-0 ${themeInnerWidget}`}>
+                            <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Identitas & Kontak</p>
+                            <DetailItem label="Nama Lengkap" value={customer.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                            <DetailItem label="Username Layanan" value={customer.username} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                            <DetailItem label="Password Portal" value={customer.password} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                            <DetailItem label="Nomor Telepon (WA)" value={customer.phone_number} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                            <DetailItem
+                                label="Email Portal"
+                                value={customer.portal_email || customer.user?.email}
+                                mono
+                                themeTextTitle={themeTextTitle}
+                                themeTextSub={themeTextSub}
+                            />
+                            <DetailItem label="Alamat Lengkap" value={customer.address} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                        </div>
+
+                        <div className="space-y-3 min-w-0">
+                            <div className={`rounded-lg border p-3 space-y-2.5 min-w-0 ${themeInnerWidget}`}>
+                                <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Lokasi & Jaringan</p>
+                                <DetailItem label="Lintang GPS (Latitude)" value={hasGps ? String(customer.latitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                <DetailItem label="Bujur GPS (Longitude)" value={hasGps ? String(customer.longitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                {mapsUrl && (
+                                    <a
+                                        href={mapsUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex text-[10px] font-bold text-sky-500 hover:underline"
+                                    >
+                                        Buka di Google Maps
+                                    </a>
+                                )}
+                                <DetailItem label="Router" value={customer.router?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                <DetailItem
+                                    label="Paket Internet"
+                                    value={customer.package ? `${customer.package.name} · ${formatRupiah(customer.package.price)}` : null}
+                                    themeTextTitle={themeTextTitle}
+                                    themeTextSub={themeTextSub}
+                                />
+                                <DetailItem label="Batas Kecepatan Paket" value={customer.package?.bandwidth_limit} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                                <DetailItem label="Titik ODP" value={customer.odp?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
+                            </div>
+
+                            {customer.service_type !== 'hotspot' && (
+                                <OntWifiPanel
+                                    apiBase="/admin/gpon"
+                                    customerId={customer.id}
+                                    username={customer.username}
+                                    canWrite={canWrite}
+                                    showReboot
+                                    theme={detailTheme}
+                                />
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Card Quota Bandwidth */}
+                    <div className={`rounded-lg border p-3 space-y-3 min-w-0 ${themeInnerWidget}`}>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between min-w-0">
+                            <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                <div className="flex items-start gap-2 min-w-0">
+                                    <Database className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
+                                    <p className={`text-[10px] font-bold uppercase tracking-wider break-words ${themeTextSub}`}>Quota Bandwidth (Total Pemakaian)</p>
+                                </div>
+                                {quota?.period && (
+                                    <span className={`text-[10px] break-words ${themeTextDesc}`}>
+                                        Periode {quota.period} · reset otomatis tiap tanggal 1
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                {isLoadingQuota && (
+                                    <span className={`text-[10px] inline-flex items-center gap-1 ${themeTextSub}`}>
+                                        <RefreshCw className="w-3 h-3 animate-spin" />
+                                        Memuat...
+                                    </span>
+                                )}
+                                <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                    isOnline
+                                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                        : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+                                }`}>
+                                    {isOnline ? 'Online' : 'Offline'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {quotaError && (
+                            <p className="text-[10px] text-amber-500">{quotaError}</p>
+                        )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 min-w-0 w-full">
+                            <QuotaCard
+                                label="Total Quota Terpakai"
+                                usedBytes={totalBytes}
+                                limitBytes={null}
+                                gradient="bg-gradient-to-br from-indigo-500 to-violet-600 border-indigo-400/20 shadow-indigo-500/10"
+                            />
+                            <QuotaCard
+                                label="Download Terpakai"
+                                usedBytes={downloadBytes}
+                                limitBytes={quota?.download_limit_bytes}
+                                gradient="bg-gradient-to-br from-sky-500 to-blue-600 border-sky-400/20 shadow-sky-500/10"
+                            />
+                            <QuotaCard
+                                label="Upload Terpakai"
+                                usedBytes={uploadBytes}
+                                limitBytes={quota?.upload_limit_bytes}
+                                gradient="bg-gradient-to-br from-violet-500 to-fuchsia-600 border-violet-400/20 shadow-violet-500/10"
+                            />
+                        </div>
+                    </div>
                 </div>
 
-                <div className={`rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
-                    <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Lokasi & Jaringan</p>
-                    <DetailItem label="Lintang GPS (Latitude)" value={hasGps ? String(customer.latitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                    <DetailItem label="Bujur GPS (Longitude)" value={hasGps ? String(customer.longitude) : null} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                    {mapsUrl && (
-                        <a
-                            href={mapsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex text-[10px] font-bold text-sky-500 hover:underline"
-                        >
-                            Buka di Google Maps
-                        </a>
-                    )}
-                    <DetailItem label="Router" value={customer.router?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                    <DetailItem
-                        label="Paket Internet"
-                        value={customer.package ? `${customer.package.name} · ${formatRupiah(customer.package.price)}` : null}
-                        themeTextTitle={themeTextTitle}
-                        themeTextSub={themeTextSub}
-                    />
-                    <DetailItem label="Batas Kecepatan Paket" value={customer.package?.bandwidth_limit} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                    <DetailItem label="Titik ODP" value={customer.odp?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
-                </div>
-
-                {customer.service_type !== 'hotspot' && (
-                    <OntWifiPanel
-                        apiBase="/admin/gpon"
-                        customerId={customer.id}
-                        username={customer.username}
-                        canWrite={canWrite}
-                        showReboot
-                        theme={theme}
-                    />
-                )}
-
-                <div className={`rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
+                {/* Kolom Kanan: Status & Billing / Actions (xl:col-span-1) */}
+                <div className={`rounded-lg border p-3 space-y-3.5 min-w-0 ${themeInnerWidget} xl:col-span-1`}>
                     <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Status & Billing</p>
                     <div>
                         <p className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Status Akun</p>
@@ -373,7 +450,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                     ) : null}
 
                     {canWrite ? (
-                    <div className="pt-1 space-y-2 min-w-0">
+                    <div className="pt-1 space-y-2.5 min-w-0">
                         <div className="flex flex-col gap-2">
                             <div className="flex flex-col gap-1 min-w-0">
                                 <label
@@ -464,62 +541,6 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                         )}
                     </div>
                     ) : null}
-                </div>
-            </div>
-
-            <div className={`mt-2 rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between min-w-0">
-                    <div className="flex flex-col gap-1 min-w-0 flex-1">
-                        <div className="flex items-start gap-2 min-w-0">
-                            <Database className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
-                            <p className={`text-[10px] font-bold uppercase tracking-wider break-words ${themeTextSub}`}>Quota Bandwidth (Total Pemakaian)</p>
-                        </div>
-                        {quota?.period && (
-                            <span className={`text-[10px] break-words ${themeTextDesc}`}>
-                                Periode {quota.period} · reset otomatis tiap tanggal 1
-                            </span>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                        {isLoadingQuota && (
-                            <span className={`text-[10px] inline-flex items-center gap-1 ${themeTextSub}`}>
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                                Memuat...
-                            </span>
-                        )}
-                        <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${
-                            isOnline
-                                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
-                                : 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
-                        }`}>
-                            {isOnline ? 'Online' : 'Offline'}
-                        </span>
-                    </div>
-                </div>
-
-                {quotaError && (
-                    <p className="text-[10px] text-amber-500">{quotaError}</p>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 min-w-0 w-full">
-                    <QuotaCard
-                        label="Total Quota Terpakai"
-                        usedBytes={totalBytes}
-                        limitBytes={null}
-                        gradient="bg-gradient-to-br from-indigo-500 to-violet-600 border-indigo-400/20 shadow-indigo-500/10"
-                    />
-                    <QuotaCard
-                        label="Download Terpakai"
-                        usedBytes={downloadBytes}
-                        limitBytes={quota?.download_limit_bytes}
-                        gradient="bg-gradient-to-br from-sky-500 to-blue-600 border-sky-400/20 shadow-sky-500/10"
-                    />
-                    <QuotaCard
-                        label="Upload Terpakai"
-                        usedBytes={uploadBytes}
-                        limitBytes={quota?.upload_limit_bytes}
-                        gradient="bg-gradient-to-br from-violet-500 to-fuchsia-600 border-violet-400/20 shadow-violet-500/10"
-                    />
                 </div>
             </div>
         </div>
