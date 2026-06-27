@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Save, Search, Trash2, Upload, Users, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Edit, Eye, Plus, RefreshCw, Save, Search, Trash2, Upload, Users, X, CalendarDays } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
@@ -36,6 +36,10 @@ function resolveInitialRouterFilter(routers, lockedRouterId, initialRouterId, sa
 
 function getCustomerEmail(customer) {
     return customer?.portal_email || customer?.user?.email || '';
+}
+
+function getCustomerBillingDateValue(customer) {
+    return formatDateInputValue(resolveCustomerDueDate(customer)) || '';
 }
 
 function getModalEmailValue(customer) {
@@ -75,6 +79,7 @@ function CustomersPageContent({
     const savedFilters = useMemo(() => readAdminCustomersFilterPreference(), []);
 
     const [searchTerm, setSearchTerm] = useState(savedFilters.searchTerm);
+    const [billingDateFilter, setBillingDateFilter] = useState(savedFilters.billingDateFilter || '');
     const [routerFilter, setRouterFilter] = useState(() => resolveInitialRouterFilter(
         routers,
         lockedRouterId,
@@ -145,13 +150,14 @@ function CustomersPageContent({
         writeAdminCustomersFilterPreference({
             routerId: lockedRouterId ?? routerFilter,
             searchTerm,
+            billingDateFilter,
             expandedCustomerId,
         });
-    }, [routerFilter, searchTerm, lockedRouterId, expandedCustomerId]);
+    }, [routerFilter, searchTerm, billingDateFilter, lockedRouterId, expandedCustomerId]);
 
     useEffect(() => {
         setCustomerPage(1);
-    }, [searchTerm, routerFilter, pageSize, sortColumn, sortDirection]);
+    }, [searchTerm, billingDateFilter, routerFilter, pageSize, sortColumn, sortDirection]);
 
     useEffect(() => {
         if (showCustomerModal) {
@@ -261,14 +267,27 @@ function CustomersPageContent({
     }, {});
 
     const filteredCustomers = routerScopedCustomers.filter((cust) => {
-        const term = searchTerm.toLowerCase();
+        if (billingDateFilter && getCustomerBillingDateValue(cust) !== billingDateFilter) {
+            return false;
+        }
+
+        const term = searchTerm.trim().toLowerCase();
+        if (!term) {
+            return true;
+        }
+
+        const billingDateIso = getCustomerBillingDateValue(cust).toLowerCase();
+        const billingDateLabel = formatDisplayDate(resolveCustomerDueDate(cust)).toLowerCase();
+
         return (
             cust.name.toLowerCase().includes(term) ||
             cust.username.toLowerCase().includes(term) ||
             (cust.phone_number && cust.phone_number.toLowerCase().includes(term)) ||
             getCustomerEmail(cust).toLowerCase().includes(term) ||
             (cust.package && cust.package.name.toLowerCase().includes(term)) ||
-            (cust.odp && cust.odp.name.toLowerCase().includes(term))
+            (cust.odp && cust.odp.name.toLowerCase().includes(term)) ||
+            billingDateIso.includes(term) ||
+            billingDateLabel.includes(term)
         );
     });
 
@@ -289,7 +308,7 @@ function CustomersPageContent({
             case 'odp':
                 return cust.odp?.name || '';
             case 'billing_date':
-                return formatDateInputValue(resolveCustomerDueDate(cust)) || '';
+                return getCustomerBillingDateValue(cust);
             case 'status':
                 return cust.status || '';
             default:
@@ -685,11 +704,32 @@ function CustomersPageContent({
                         className={`lg:w-56 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
                         renderOption={(routerItem) => `${routerItem.name} (${routerCustomerCounts[routerItem.id] || 0})`}
                     />
+                    <div className={`relative lg:w-44 shrink-0 ${themeInput} rounded-xl`}>
+                        <CalendarDays className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none ${themeTextDesc}`} />
+                        <input
+                            type="date"
+                            value={billingDateFilter}
+                            onChange={(e) => setBillingDateFilter(e.target.value)}
+                            title="Filter tanggal tagih"
+                            aria-label="Filter tanggal tagih"
+                            className="w-full pl-9 pr-8 py-2 bg-transparent text-xs focus:outline-none rounded-xl"
+                        />
+                        {billingDateFilter ? (
+                            <button
+                                type="button"
+                                onClick={() => setBillingDateFilter('')}
+                                title="Hapus filter tanggal tagih"
+                                className={`absolute right-2 p-0.5 rounded-md cursor-pointer ${themeTextDesc} hover:text-rose-500`}
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        ) : null}
+                    </div>
                     <div className="relative flex-1">
                         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
                         <input
                             type="text"
-                            placeholder="Cari nama, username, telepon, email, paket, ODP..."
+                            placeholder="Cari nama, username, telepon, email, paket, ODP, tanggal tagih..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
@@ -774,8 +814,8 @@ function CustomersPageContent({
                                     <td colSpan={canWrite ? 11 : 10} className={`py-8 text-center ${themeTextDesc}`}>
                                         {!routerFilter
                                             ? 'Pilih router Mikrotik terlebih dahulu.'
-                                            : searchTerm.trim()
-                                                ? `Tidak ada pelanggan PPPoE di ${selectedRouter?.name || 'router ini'} yang cocok dengan pencarian.`
+                                            : searchTerm.trim() || billingDateFilter
+                                                ? `Tidak ada pelanggan PPPoE di ${selectedRouter?.name || 'router ini'} yang cocok dengan filter pencarian.`
                                                 : `Belum ada pelanggan PPPoE di ${selectedRouter?.name || 'router ini'}.`}
                                     </td>
                                 </tr>
