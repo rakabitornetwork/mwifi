@@ -128,7 +128,8 @@ export function getCustomerPopupOptions() {
     };
 }
 
-export function buildCustomerMapPopup(cust, metrics = {}) {
+export function buildCustomerMapPopup(cust, metrics = {}, options = {}) {
+    const { canWrite = false } = options;
     const ont = resolveOntMetrics(metrics, cust.username);
     const traffic = resolveTrafficMetrics(metrics, cust);
     const metricsLoaded = metrics && (Object.keys(metrics.ont || {}).length > 0 || (metrics.ont_devices || []).length > 0);
@@ -195,6 +196,11 @@ export function buildCustomerMapPopup(cust, metrics = {}) {
                             <span class="map-popup-credential-value">${displayOrDash(ont.wifi_password)}</span>
                         </div>
                     </div>
+                    ${canWrite ? `
+                        <button type="button" class="map-popup-wifi-edit-btn" data-customer-id="${cust.id}" data-customer-username="${escapeMapHtml(cust.username)}" data-customer-name="${escapeMapHtml(cust.name)}">
+                            Ubah WiFi
+                        </button>
+                    ` : ''}
                 `)}
 
                 ${mapPopupSection('Traffic Langsung', iconTraffic, `

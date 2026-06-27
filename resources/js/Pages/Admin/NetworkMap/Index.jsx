@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import AdminPageCard from '../../../Components/Admin/AdminPageCard';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
+import OntWifiPanel from '../../../Components/OntWifiPanel';
 import GpsCoordinateFields from '../../../Components/GpsCoordinateFields';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
@@ -33,6 +34,9 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
     const [odpLat, setOdpLat] = useState('');
     const [odpLng, setOdpLng] = useState('');
     const [networkMapMetrics, setNetworkMapMetrics] = useState({ ont: {}, traffic: {} });
+    const [wifiModalCustomer, setWifiModalCustomer] = useState(null);
+
+    const popupOptions = { canWrite: canWrite };
 
     const mapRef = useRef(null);
     const customerMarkersRef = useRef({});
@@ -72,9 +76,9 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
         const marker = customerMarkersRef.current[custId];
         const cust = customers.find((c) => c.id === custId);
         if (marker && cust && marker.isPopupOpen()) {
-            marker.setPopupContent(buildCustomerMapPopup(cust, networkMapMetrics));
+            marker.setPopupContent(buildCustomerMapPopup(cust, networkMapMetrics, popupOptions));
         }
-    }, [networkMapMetrics, customers]);
+    }, [networkMapMetrics, customers, canWrite]);
 
     const handleOdpRowClick = (odp) => {
         if (mapRef.current && odp.latitude && odp.longitude) {
@@ -256,6 +260,18 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
         map.on('popupopen', (e) => {
             const popupNode = e.popup.getElement();
             if (!popupNode) return;
+
+            const wifiBtn = popupNode.querySelector('.map-popup-wifi-edit-btn');
+            if (wifiBtn && !wifiBtn.dataset.bound) {
+                wifiBtn.dataset.bound = '1';
+                wifiBtn.addEventListener('click', () => {
+                    const customerId = Number(wifiBtn.dataset.customerId);
+                    const cust = customers.find((c) => c.id === customerId);
+                    if (!cust) return;
+                    setWifiModalCustomer(cust);
+                });
+            }
+
             const form = popupNode.querySelector('#mini-odp-form');
             if (form) {
                 setTimeout(() => {
@@ -367,11 +383,11 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
             const marker = L.marker([lat, lng], { icon: customerIcon(cust.status) })
                 .addTo(map)
-                .bindPopup(() => buildCustomerMapPopup(cust, networkMapMetricsRef.current), getCustomerPopupOptions());
+                .bindPopup(() => buildCustomerMapPopup(cust, networkMapMetricsRef.current, { canWrite: canWriteRef.current }), getCustomerPopupOptions());
 
             marker.on('popupopen', () => {
                 openCustomerPopupIdRef.current = cust.id;
-                marker.setPopupContent(buildCustomerMapPopup(cust, networkMapMetricsRef.current));
+                marker.setPopupContent(buildCustomerMapPopup(cust, networkMapMetricsRef.current, { canWrite: canWriteRef.current }));
             });
 
             marker.on('popupclose', () => {
@@ -622,6 +638,48 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                         </button>
                     </div>
                 </form>
+            </TransitionModal>
+
+            <TransitionModal
+                show={!!wifiModalCustomer}
+                onClose={() => setWifiModalCustomer(null)}
+                themeCard={themeCard}
+                maxWidth="md"
+            >
+                <div className={`flex justify-between items-center pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+                    <div>
+                        <h3 className={`text-sm font-bold ${themeTextTitle}`}>Ubah WiFi ONT</h3>
+                        {wifiModalCustomer && (
+                            <p className={`text-[10px] mt-0.5 ${themeTextDesc}`}>
+                                {wifiModalCustomer.name} · {wifiModalCustomer.username}
+                            </p>
+                        )}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setWifiModalCustomer(null)}
+                        className="text-zinc-500 hover:text-white transition-colors cursor-pointer"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+                {wifiModalCustomer && (
+                    <div className="pt-3">
+                        <OntWifiPanel
+                            apiBase="/admin/gpon"
+                            customerId={wifiModalCustomer.id}
+                            username={wifiModalCustomer.username}
+                            canWrite={canWrite}
+                            showReboot
+                            compact
+                            theme={theme}
+                            onUpdated={() => {
+                                showToast('Perubahan WiFi ONT dikirim.', 'success');
+                                fetchNetworkMapMetrics();
+                            }}
+                        />
+                    </div>
+                )}
             </TransitionModal>
         </>
     );

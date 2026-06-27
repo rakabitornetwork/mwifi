@@ -419,6 +419,27 @@
     word-break: break-all;
 }
 
+.map-popup-wifi-edit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin-top: 8px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    border: 1px solid #bfdbfe;
+    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+    color: #1d4ed8;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+}
+
+.map-popup-wifi-edit-btn:hover {
+    background: linear-gradient(180deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
 .map-speedometer-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

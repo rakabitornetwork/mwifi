@@ -6,6 +6,7 @@ import { formatBytes, quotaUsagePercent } from '../../utils/formatBytes';
 import { formatDisplayDate } from '../../utils/formatDateInputValue';
 import { readAdminWhatsAppPreference, writeAdminWhatsAppPreference } from '../../utils/adminWhatsAppPreference';
 import WhatsAppNotifyCheckbox from './WhatsAppNotifyCheckbox';
+import OntWifiPanel from '../OntWifiPanel';
 
 function formatDate(value) {
     return formatDisplayDate(value);
@@ -306,6 +307,17 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                     <DetailItem label="Batas Kecepatan Paket" value={customer.package?.bandwidth_limit} mono themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                     <DetailItem label="Titik ODP" value={customer.odp?.name} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} />
                 </div>
+
+                {customer.service_type !== 'hotspot' && (
+                    <OntWifiPanel
+                        apiBase="/admin/gpon"
+                        customerId={customer.id}
+                        username={customer.username}
+                        canWrite={canWrite}
+                        showReboot
+                        theme={theme}
+                    />
+                )}
 
                 <div className={`rounded-lg border p-2 space-y-2 min-w-0 ${themeInnerWidget}`}>
                     <p className={`text-[9px] font-bold uppercase tracking-wider ${themeTextSub}`}>Status & Billing</p>

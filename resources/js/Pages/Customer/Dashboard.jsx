@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useScheduledTheme } from '../../hooks/useScheduledTheme';
 import { Link, router, usePage } from '@inertiajs/react';
 import PullToRefresh from '../../Components/PullToRefresh';
+import OntWifiPanel from '../../Components/OntWifiPanel';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
@@ -358,6 +359,31 @@ export default function CustomerDashboard({
                                     <p className="text-xs text-rose-500">Belum ada paket internet terpasang pada akun Anda.</p>
                                 )}
                             </div>
+
+                            {!isVpsPortal && customer.service_type !== 'hotspot' && (
+                                <div className={`border rounded-2xl p-5 space-y-3 ${themeCard}`}>
+                                    <div className="flex items-center space-x-2 pb-2 border-b border-zinc-800/40">
+                                        <Wifi className={`w-4 h-4 ${accentIconClass}`} />
+                                        <h2 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>
+                                            Pengaturan WiFi Rumah
+                                        </h2>
+                                    </div>
+                                    <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
+                                        Ubah nama jaringan WiFi dan password router ONT Anda. Perubahan diterapkan langsung ke perangkat via sistem monitoring.
+                                    </p>
+                                    <OntWifiPanel
+                                        apiBase="/customer"
+                                        username={customer.username}
+                                        canWrite
+                                        theme={{
+                                            isDarkMode,
+                                            themeTextTitle,
+                                            themeTextSub,
+                                            themeTextDesc,
+                                        }}
+                                    />
+                                </div>
+                            )}
 
                         </div>
 

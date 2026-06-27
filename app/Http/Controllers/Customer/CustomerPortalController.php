@@ -7,10 +7,12 @@ use App\Models\Invoice;
 use App\Services\BillingService;
 use App\Services\Payment\PaymentService;
 use App\Services\BrandingService;
+use App\Services\GenieAcsService;
 use App\Services\SettingService;
 use App\Services\VpsCatalogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Exception;
 
@@ -140,6 +142,114 @@ class CustomerPortalController extends Controller
                 'success' => false,
                 'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Get current WiFi credentials for the authenticated customer's ONT.
+     */
+    public function wifiStatus(Request $request)
+    {
+        $customer = Auth::user()->customer;
+
+        if (!$customer || $customer->service_type === 'hotspot') {
+            return response()->json([
+                'success' => false,
+                'found' => false,
+                'message' => 'Layanan hotspot tidak mendukung pengaturan WiFi ONT.',
+            ], 422);
+        }
+
+        try {
+            $device = GenieAcsService::findDeviceByUsername($customer->username);
+
+            if ($device === null) {
+                return response()->json([
+                    'success' => false,
+                    'found' => false,
+                    'message' => 'ONT Anda belum terdaftar di sistem. Hubungi support jika WiFi perlu diubah.',
+                ], 404);
+            }
+
+            unset($device['_raw']);
+
+            return response()->json([
+                'success' => true,
+                'found' => true,
+                'device' => $device,
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'found' => false,
+                'message' => 'Sistem monitoring ONT sedang tidak tersedia. Coba lagi nanti.',
+            ], 503);
+        }
+    }
+
+    /**
+     * Update WiFi SSID and/or password for the authenticated customer's ONT.
+     */
+    public function updateWifi(Request $request)
+    {
+        $customer = Auth::user()->customer;
+
+        if (!$customer || $customer->service_type === 'hotspot') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Layanan hotspot tidak mendukung pengaturan WiFi ONT.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'ssid' => 'nullable|string|max:32',
+            'password' => 'nullable|string|min:8|max:63',
+        ]);
+
+        if (empty(trim((string) ($validated['ssid'] ?? ''))) && empty(trim((string) ($validated['password'] ?? '')))) {
+            throw ValidationException::withMessages([
+                'ssid' => 'Isi nama WiFi baru atau password WiFi baru.',
+            ]);
+        }
+
+        $ssid = isset($validated['ssid']) ? trim($validated['ssid']) : null;
+        $password = isset($validated['password']) ? trim($validated['password']) : null;
+
+        if ($ssid === '') {
+            $ssid = null;
+        }
+        if ($password === '') {
+            $password = null;
+        }
+
+        try {
+            $device = GenieAcsService::findDeviceByUsername($customer->username);
+
+            if ($device === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ONT Anda belum terdaftar di sistem. Hubungi support.',
+                ], 404);
+            }
+
+            $rawDevice = $device['_raw'] ?? null;
+            $result = GenieAcsService::updateWifiCredentials(
+                $device['id'],
+                $ssid,
+                $password,
+                is_array($rawDevice) ? $rawDevice : null
+            );
+
+            if (!($result['success'] ?? false)) {
+                return response()->json($result, 502);
+            }
+
+            return response()->json($result);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sistem monitoring ONT sedang tidak tersedia. Coba lagi nanti.',
+            ], 503);
         }
     }
 }

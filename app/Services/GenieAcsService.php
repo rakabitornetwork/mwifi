@@ -100,10 +100,141 @@ class GenieAcsService
     }
 
     /**
-     * Trigger a reboot task for a device in GenieACS.
+     * Find a parsed ONT device by PPPoE username (no mock fallback).
      *
-     * @param string $deviceId
-     * @return bool
+     * @return array<string, mixed>|null Parsed device with optional _raw key
+     */
+    public static function findDeviceByUsername(string $username): ?array
+    {
+        $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
+        $rawDevices = self::fetchRawDevices($apiUrl);
+
+        foreach ($rawDevices as $rawDev) {
+            if (!is_array($rawDev)) {
+                continue;
+            }
+
+            $parsed = self::parseRawDevice($rawDev);
+            if ($parsed === null) {
+                continue;
+            }
+
+            if (self::usernameMatches($parsed['username'] ?? '', $username)) {
+                $parsed['_raw'] = $rawDev;
+
+                return $parsed;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Push SSID and/or WiFi password changes to an ONT via GenieACS setParameterValues.
+     *
+     * @return array{success: bool, status?: string, message: string, http_status?: int}
+     */
+    public static function updateWifiCredentials(string $deviceId, ?string $ssid, ?string $password, ?array $rawDevice = null): array
+    {
+        $ssid = $ssid !== null ? trim($ssid) : null;
+        $password = $password !== null ? trim($password) : null;
+
+        if (($ssid === null || $ssid === '') && ($password === null || $password === '')) {
+            return [
+                'success' => false,
+                'message' => 'SSID atau password WiFi harus diisi.',
+            ];
+        }
+
+        $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
+
+        if ($rawDevice === null) {
+            $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
+        }
+
+        if ($rawDevice === null) {
+            return [
+                'success' => false,
+                'message' => 'Perangkat ONT tidak ditemukan di GenieACS.',
+            ];
+        }
+
+        $parameterValues = [];
+
+        if ($ssid !== null && $ssid !== '') {
+            $ssidPath = self::resolveSsidParameterPath($rawDevice);
+            if ($ssidPath === null) {
+                return [
+                    'success' => false,
+                    'message' => 'Path parameter SSID tidak ditemukan di ONT ini.',
+                ];
+            }
+            $parameterValues[] = [$ssidPath, $ssid, 'xsd:string'];
+        }
+
+        if ($password !== null && $password !== '') {
+            $passwordPath = self::resolvePasswordParameterPath($rawDevice);
+            if ($passwordPath === null) {
+                return [
+                    'success' => false,
+                    'message' => 'Path parameter password WiFi tidak ditemukan di ONT ini.',
+                ];
+            }
+            $parameterValues[] = [$passwordPath, $password, 'xsd:string'];
+        }
+
+        $encodedId = self::doubleUrlEncodeDeviceId($deviceId);
+
+        try {
+            $response = Http::timeout(130)
+                ->post("{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=120", [
+                    'name' => 'setParameterValues',
+                    'parameterValues' => $parameterValues,
+                ]);
+
+            $status = $response->status();
+
+            if ($status === 200) {
+                Log::info("GenieACS: WiFi credentials updated on device {$deviceId}");
+
+                return [
+                    'success' => true,
+                    'status' => 'executed',
+                    'message' => 'Perubahan WiFi berhasil diterapkan ke ONT.',
+                    'http_status' => $status,
+                ];
+            }
+
+            if ($status === 202) {
+                Log::info("GenieACS: WiFi credential task queued for device {$deviceId}");
+
+                return [
+                    'success' => true,
+                    'status' => 'queued',
+                    'message' => 'Perubahan WiFi dijadwalkan. ONT akan menerima perintah saat terhubung ke GenieACS.',
+                    'http_status' => $status,
+                ];
+            }
+
+            Log::error("GenieACS WiFi update failed with status {$status}: " . $response->body());
+
+            return [
+                'success' => false,
+                'message' => 'GenieACS menolak permintaan ubah WiFi (HTTP ' . $status . ').',
+                'http_status' => $status,
+            ];
+        } catch (Exception $e) {
+            Log::error('GenieACS WiFi update connection error: ' . $e->getMessage());
+
+            return [
+                'success' => false,
+                'message' => 'Tidak dapat terhubung ke GenieACS: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Trigger a reboot task for a device in GenieACS.
      */
     public static function rebootDevice(string $deviceId): bool
     {
@@ -117,8 +248,9 @@ class GenieAcsService
 
         try {
             // Send connection request task immediately to push execution
+            $encodedId = self::doubleUrlEncodeDeviceId($deviceId);
             $response = Http::timeout(8)
-                ->post("{$apiUrl}/devices/" . urlencode($deviceId) . "/tasks?connection_request", [
+                ->post("{$apiUrl}/devices/{$encodedId}/tasks?connection_request", [
                     'name' => 'reboot'
                 ]);
 
@@ -629,5 +761,172 @@ class GenieAcsService
 
         $count = (int) $raw;
         return $count >= 0 ? $count : null;
+    }
+
+    private static function doubleUrlEncodeDeviceId(string $deviceId): string
+    {
+        return rawurlencode(rawurlencode($deviceId));
+    }
+
+    private static function fetchRawDeviceById(string $apiUrl, string $deviceId): ?array
+    {
+        $encodedId = self::doubleUrlEncodeDeviceId($deviceId);
+
+        $response = Http::timeout(10)->get("{$apiUrl}/devices/{$encodedId}");
+
+        if ($response->successful()) {
+            $data = $response->json();
+            if (is_array($data) && ($data['_id'] ?? null)) {
+                return $data;
+            }
+        }
+
+        $fallback = Http::timeout(10)->get("{$apiUrl}/devices/" . urlencode($deviceId));
+        if ($fallback->successful()) {
+            $data = $fallback->json();
+            if (is_array($data) && ($data['_id'] ?? null)) {
+                return $data;
+            }
+        }
+
+        return null;
+    }
+
+    private static function normalizeUsername(string $username): string
+    {
+        return strtolower(trim(explode('@', $username)[0]));
+    }
+
+    private static function usernameMatches(string $ontUsername, string $needle): bool
+    {
+        if ($ontUsername === '' || $ontUsername === 'unknown_ont') {
+            return false;
+        }
+
+        $ontLower = strtolower(trim($ontUsername));
+        $needleLower = self::normalizeUsername($needle);
+
+        if ($ontLower === $needleLower) {
+            return true;
+        }
+
+        return strtolower(trim(explode('@', $ontUsername)[0])) === $needleLower;
+    }
+
+    private static function resolveSsidParameterPath(array $rawDev): ?string
+    {
+        $preferred = [
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID',
+            'Device.WiFi.SSID.1.SSID',
+        ];
+
+        foreach ($preferred as $path) {
+            if (self::parameterPathExists($rawDev, $path)) {
+                return $path;
+            }
+        }
+
+        foreach (array_keys($rawDev) as $key) {
+            if (!is_string($key) || !str_contains($key, 'WLANConfiguration') || !str_ends_with($key, '.SSID')) {
+                continue;
+            }
+
+            if (self::parameterPathExists($rawDev, $key)) {
+                return $key;
+            }
+        }
+
+        foreach (array_keys($rawDev) as $key) {
+            if (!is_string($key) || !str_contains($key, 'Device.WiFi.SSID') || !str_ends_with($key, '.SSID')) {
+                continue;
+            }
+
+            if (self::parameterPathExists($rawDev, $key)) {
+                return $key;
+            }
+        }
+
+        return 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID';
+    }
+
+    private static function resolvePasswordParameterPath(array $rawDev): ?string
+    {
+        $candidates = [];
+
+        foreach (array_keys($rawDev) as $key) {
+            if (!is_string($key)) {
+                continue;
+            }
+
+            $leaf = str_contains($key, '.') ? substr($key, strrpos($key, '.') + 1) : $key;
+            $leafLower = strtolower($leaf);
+
+            if (!str_contains($key, 'WLANConfiguration')
+                && !str_contains($key, 'Device.WiFi.AccessPoint')
+                && !str_contains($key, 'Device.WiFi.SSID')) {
+                continue;
+            }
+
+            if (!in_array($leafLower, [
+                'keypassphrase',
+                'presharedkey',
+                'x_tp_presharedkey',
+                'passphrase',
+            ], true) && !str_ends_with($key, '.PreSharedKey.1.PreSharedKey')) {
+                continue;
+            }
+
+            if (self::parameterPathExists($rawDev, $key)) {
+                $candidates[] = $key;
+            }
+        }
+
+        $preferredSuffixes = [
+            'KeyPassphrase',
+            'PreSharedKey.1.PreSharedKey',
+            'PreSharedKey.1.KeyPassphrase',
+            'X_TP_PreSharedKey',
+        ];
+
+        foreach ($preferredSuffixes as $suffix) {
+            foreach ($candidates as $path) {
+                if (str_ends_with($path, $suffix)) {
+                    return $path;
+                }
+            }
+        }
+
+        if ($candidates !== []) {
+            return $candidates[0];
+        }
+
+        $fallbacks = [
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.PreSharedKey.1.PreSharedKey',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.KeyPassphrase',
+            'Device.WiFi.AccessPoint.1.Security.KeyPassphrase',
+        ];
+
+        foreach ($fallbacks as $path) {
+            if (self::parameterPathExists($rawDev, $path)) {
+                return $path;
+            }
+        }
+
+        return $fallbacks[0];
+    }
+
+    private static function parameterPathExists(array $rawDev, string $path): bool
+    {
+        if (!isset($rawDev[$path])) {
+            return false;
+        }
+
+        $val = $rawDev[$path];
+
+        if (is_array($val) && array_key_exists('_writable', $val) && $val['_writable'] === false) {
+            return false;
+        }
+
+        return true;
     }
 }
