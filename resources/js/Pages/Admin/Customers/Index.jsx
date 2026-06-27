@@ -1077,20 +1077,6 @@ function CustomersPageContent({
                             </select>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Tgl Jatuh Tempo</label>
-                            <input
-                                required
-                                name="billing_date"
-                                type="date"
-                                defaultValue={
-                                    editingCustomer?.billing_date
-                                        ? formatDateInputValue(editingCustomer.billing_date)
-                                        : todayDateInputValue()
-                                }
-                                className={`p-2 border rounded-lg ${themeInput}`}
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Tgl Mulai Layanan</label>
                             <input
                                 name="service_start_date"
@@ -1103,6 +1089,20 @@ function CustomersPageContent({
                                 className={`p-2 border rounded-lg ${themeInput}`}
                             />
                             <span className={`text-[10px] ${themeTextDesc}`}>Dasar prorata bulan pertama: tgl mulai layanan s/d tgl jatuh tempo, dibagi 30 hari.</span>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Tgl Jatuh Tempo</label>
+                            <input
+                                required
+                                name="billing_date"
+                                type="date"
+                                defaultValue={
+                                    editingCustomer?.billing_date
+                                        ? formatDateInputValue(editingCustomer.billing_date)
+                                        : todayDateInputValue()
+                                }
+                                className={`p-2 border rounded-lg ${themeInput}`}
+                            />
                         </div>
                     </div>
 

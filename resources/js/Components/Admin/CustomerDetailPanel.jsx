@@ -493,8 +493,8 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                         <SectionBlock icon={Receipt} title="Status & Billing" themeTextSub={themeTextSub}>
                             <div className="min-w-0">
                                 <InfoCell row label="Status Akun" value={status.label} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} />
-                                <InfoCell row label="Mulai Layanan" value={formatDate(customer.service_start_date)} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} />
-                                <InfoCell row label="Jatuh Tempo" value={resolveCustomerDueDate(customer) ? formatDisplayDate(resolveCustomerDueDate(customer)) : null} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} isLast />
+                                <InfoCell row label="Jatuh Tempo" value={resolveCustomerDueDate(customer) ? formatDisplayDate(resolveCustomerDueDate(customer)) : null} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} />
+                                <InfoCell row label="Mulai Layanan" value={formatDate(customer.service_start_date)} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} isLast />
                             </div>
 
                             <div className="space-y-2 pt-1">
