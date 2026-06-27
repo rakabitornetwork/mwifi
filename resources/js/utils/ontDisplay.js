@@ -38,6 +38,10 @@ export function resolveRxQuality(device) {
 }
 
 export function isOntOnline(device) {
+    if (typeof device?.online === 'boolean') {
+        return device.online;
+    }
+
     return Boolean(device?.status && device.status !== 'offline');
 }
 

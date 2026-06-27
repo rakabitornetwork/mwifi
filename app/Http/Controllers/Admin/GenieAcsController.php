@@ -29,17 +29,14 @@ class GenieAcsController extends Controller
         $username = $this->resolveCustomerUsername($request);
 
         try {
-            $device = GenieAcsService::findDeviceByUsername($username);
+            $probe = $request->boolean('probe', true);
+            $device = GenieAcsService::findDeviceByUsernameForWifi($username, $probe);
 
             if ($device === null) {
-                $available = GenieAcsService::listRegisteredOntUsernames();
-
                 return response()->json([
                     'success' => false,
                     'found' => false,
                     'message' => 'ONT tidak terdaftar di GenieACS untuk username "' . $username . '". Username PPPoE di mWiFi harus sama dengan di ONT.',
-                    'searched_username' => $username,
-                    'available_usernames' => $available,
                 ], 404);
             }
 
@@ -105,13 +102,9 @@ class GenieAcsController extends Controller
             }
 
             if ($device === null) {
-                $available = GenieAcsService::listRegisteredOntUsernames();
-
                 return response()->json([
                     'success' => false,
                     'message' => 'ONT tidak terdaftar di GenieACS untuk username "' . $username . '".',
-                    'searched_username' => $username,
-                    'available_usernames' => $available,
                 ], 404);
             }
 
@@ -124,7 +117,7 @@ class GenieAcsController extends Controller
             );
 
             if (!($result['success'] ?? false)) {
-                return response()->json($result, 502);
+                return response()->json($result, (int) ($result['http_status'] ?? 502));
             }
 
             return response()->json($result);
@@ -134,6 +127,21 @@ class GenieAcsController extends Controller
                 'message' => 'GenieACS tidak dapat dihubungi: ' . $e->getMessage(),
             ], 503);
         }
+    }
+
+    /**
+     * Ask GenieACS to connection-request the ONT so it checks in (wake from offline).
+     */
+    public function wake(Request $request)
+    {
+        $request->validate([
+            'device_id' => 'required|string',
+        ]);
+
+        $deviceId = $request->input('device_id');
+        $result = GenieAcsService::requestDeviceConnection($deviceId);
+
+        return response()->json($result, ($result['success'] ?? false) ? 200 : 502);
     }
 
     /**

@@ -102,6 +102,7 @@ Route::middleware(['auth', 'customer'])->group(function () {
     Route::post('customer/invoice/{invoice}/pay', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'payInvoice']);
     Route::get('customer/wifi', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'wifiStatus']);
     Route::post('customer/wifi', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'updateWifi']);
+    Route::post('customer/wifi/wake', [\App\Http\Controllers\Customer\CustomerPortalController::class, 'wakeOnt']);
 });
 
 Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function () {
@@ -129,6 +130,7 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::get('admin/gpon/status', [\App\Http\Controllers\Admin\GenieAcsController::class, 'status']);
     Route::get('admin/gpon/wifi', [\App\Http\Controllers\Admin\GenieAcsController::class, 'wifiStatus']);
     Route::post('admin/gpon/wifi', [\App\Http\Controllers\Admin\GenieAcsController::class, 'updateWifi']);
+    Route::post('admin/gpon/wake', [\App\Http\Controllers\Admin\GenieAcsController::class, 'wake']);
     Route::post('admin/gpon/reboot', [\App\Http\Controllers\Admin\GenieAcsController::class, 'reboot']);
     Route::get('admin/network-map/metrics', [\App\Http\Controllers\Admin\NetworkMapController::class, 'metrics']);
 

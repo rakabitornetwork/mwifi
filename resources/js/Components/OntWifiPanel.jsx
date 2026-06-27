@@ -113,6 +113,7 @@ export default function OntWifiPanel({
     const [showPassword, setShowPassword] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isRebooting, setIsRebooting] = useState(false);
+    const [isWaking, setIsWaking] = useState(false);
     const [saveError, setSaveError] = useState(null);
     const [localToasts, setLocalToasts] = useState([]);
     const { showToast: showAdminToast, hasProvider: hasAdminToast } = useOptionalAdminToast();
@@ -138,6 +139,7 @@ export default function OntWifiPanel({
 
     const statusQuery = useCallback(() => {
         const params = new URLSearchParams();
+        params.set('probe', '1');
         if (customerId) {
             params.set('customer_id', String(customerId));
         } else if (username) {
@@ -162,14 +164,7 @@ export default function OntWifiPanel({
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok || !data.found) {
-                let message = data.message || 'ONT tidak ditemukan di GenieACS.';
-                if (data.searched_username) {
-                    message += ` (username: ${data.searched_username})`;
-                }
-                if (Array.isArray(data.available_usernames) && data.available_usernames.length > 0) {
-                    message += `. Terdaftar di GenieACS: ${data.available_usernames.join(', ')}`;
-                }
-                throw new Error(message);
+                throw new Error(data.message || 'ONT tidak ditemukan di GenieACS.');
             }
 
             setDevice(data.device);
@@ -240,13 +235,61 @@ export default function OntWifiPanel({
             }
 
             setPassword('');
+            if (data.device) {
+                setDevice(data.device);
+                setSsid(data.device?.wifi_ssid || nextSsid);
+            }
             showSuccessToast(data.message || 'Perubahan WiFi ONT berhasil.');
-            await loadWifiStatus();
+            if (!data.device) {
+                await loadWifiStatus();
+            }
             onUpdated?.(data);
         } catch (error) {
             setSaveError(error?.message || 'Gagal mengubah WiFi ONT.');
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const handleWake = async () => {
+        if (!canWrite || !device?.id || isWaking) {
+            return;
+        }
+
+        setIsWaking(true);
+        setSaveError(null);
+
+        const wakeUrl = apiBase === '/customer' ? '/customer/wifi/wake' : `${apiBase}/wake`;
+
+        try {
+            const res = await fetch(wakeUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': csrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({ device_id: device.id }),
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || 'Gagal menghubungi ONT.');
+            }
+
+            showSuccessToast(data.message || 'Permintaan koneksi TR-069 dikirim.');
+            if (data.device) {
+                setDevice(data.device);
+                setSsid(data.device?.wifi_ssid || '');
+            } else {
+                await loadWifiStatus();
+            }
+        } catch (error) {
+            setSaveError(error?.message || 'Gagal menghubungi ONT.');
+        } finally {
+            setIsWaking(false);
         }
     };
 
@@ -381,6 +424,10 @@ export default function OntWifiPanel({
     }
 
     const ontOnline = isOntOnline(device);
+    const wifiFormDisabled = !canWrite || isSaving;
+    const lastInformLabel = device?.last_inform
+        ? new Date(device.last_inform).toLocaleString('id-ID')
+        : null;
     const deviceMeta = !compact && device ? (
         <DeviceMetaLine device={device} themeTextDesc={themeTextDesc} />
     ) : null;
@@ -427,6 +474,25 @@ export default function OntWifiPanel({
                 />
             )}
 
+            {!ontOnline && (
+                <div className={`rounded-lg border px-2.5 py-2 space-y-1.5 ${isDarkMode ? 'border-zinc-700/60 bg-zinc-900/30' : 'border-zinc-200 bg-zinc-50'}`}>
+                    <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
+                        Status ACS belum terbarui, tetapi perubahan WiFi tetap dapat diterapkan lewat koneksi TR-069 langsung.
+                    </p>
+                    {lastInformLabel ? (
+                        <p className={`text-[9px] ${themeTextDesc}`}>
+                            Terakhir inform periodik: {lastInformLabel}
+                        </p>
+                    ) : null}
+                </div>
+            )}
+
+            {device?.acs_inform_stale && ontOnline && (
+                <p className={`text-[9px] ${themeTextDesc}`}>
+                    ONT merespons TR-069; inform periodik ACS belum diperbarui.
+                </p>
+            )}
+
             <form onSubmit={handleSave} className="space-y-2 min-w-0">
                 <div className="space-y-1">
                     <label className={`text-[10px] font-bold uppercase tracking-wide ${themeTextSub}`}>Nama WiFi (SSID)</label>
@@ -435,7 +501,7 @@ export default function OntWifiPanel({
                         value={ssid}
                         onChange={(e) => setSsid(e.target.value)}
                         maxLength={32}
-                        disabled={!canWrite || isSaving}
+                        disabled={wifiFormDisabled}
                         className={`w-full px-2.5 py-2 border rounded-lg text-[11px] font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 ${themeInput}`}
                         placeholder="Nama jaringan WiFi"
                     />
@@ -450,7 +516,7 @@ export default function OntWifiPanel({
                             onChange={(e) => setPassword(e.target.value)}
                             minLength={8}
                             maxLength={63}
-                            disabled={!canWrite || isSaving}
+                            disabled={wifiFormDisabled}
                             className={`w-full px-2.5 py-2 pr-8 border rounded-lg text-[11px] font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30 disabled:opacity-60 ${themeInput}`}
                             placeholder="Kosongkan jika tidak diubah"
                         />
@@ -474,12 +540,25 @@ export default function OntWifiPanel({
                     <div className="flex flex-wrap gap-2 pt-1">
                         <button
                             type="submit"
-                            disabled={isSaving}
+                            disabled={wifiFormDisabled}
                             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-60 cursor-pointer"
                         >
                             <Save className="w-3 h-3" />
                             {isSaving ? 'Menyimpan...' : 'Simpan WiFi'}
                         </button>
+                        {!ontOnline && (
+                            <button
+                                type="button"
+                                onClick={handleWake}
+                                disabled={isWaking || isSaving}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border cursor-pointer disabled:opacity-60 ${
+                                    isDarkMode ? 'border-sky-700/50 text-sky-400 hover:bg-sky-500/10' : 'border-sky-300 text-sky-700 hover:bg-sky-50'
+                                }`}
+                            >
+                                <RefreshCw className={`w-3 h-3 ${isWaking ? 'animate-spin' : ''}`} />
+                                {isWaking ? 'Memeriksa...' : 'Perbarui Status'}
+                            </button>
+                        )}
                         <button
                             type="button"
                             onClick={loadWifiStatus}

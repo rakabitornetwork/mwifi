@@ -168,6 +168,71 @@ class GenieAcsService
     }
 
     /**
+     * Find ONT for WiFi panel with fresh GenieACS data and optional TR-069 reachability probe.
+     *
+     * @return array<string, mixed>|null Parsed device with optional _raw key
+     */
+    public static function findDeviceByUsernameForWifi(string $username, bool $probeIfOffline = true): ?array
+    {
+        $device = self::findDeviceByUsername($username);
+        if ($device === null) {
+            return null;
+        }
+
+        $resolvedUsername = is_string($device['username'] ?? null) && $device['username'] !== ''
+            ? $device['username']
+            : $username;
+
+        return self::refreshWifiDeviceState($device['id'], $resolvedUsername, $probeIfOffline);
+    }
+
+    /**
+     * Re-fetch a device document and optionally probe TR-069 when periodic inform is stale.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function refreshWifiDeviceState(string $deviceId, string $username = '', bool $probeIfOffline = true): ?array
+    {
+        $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
+        $rawDev = self::fetchRawDeviceById($apiUrl, $deviceId);
+
+        if ($rawDev === null) {
+            return null;
+        }
+
+        $reachable = false;
+        if ($probeIfOffline && !self::isDeviceOnline($rawDev)) {
+            $reachable = self::probeDeviceReachability($apiUrl, $deviceId);
+            if ($reachable) {
+                $rawDev = self::fetchRawDeviceById($apiUrl, $deviceId) ?? $rawDev;
+            }
+        }
+
+        $parsed = self::parseRawDevice($rawDev, ['reachable' => $reachable]);
+        if ($parsed === null) {
+            return null;
+        }
+
+        $extractedUsername = trim(self::extractUsername($rawDev));
+        $parsed['username'] = $extractedUsername !== '' && $extractedUsername !== 'unknown_ont'
+            ? $extractedUsername
+            : $username;
+        $parsed['_raw'] = $rawDev;
+
+        return $parsed;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function stripRawDevicePayload(array $device): array
+    {
+        unset($device['_raw']);
+
+        return $device;
+    }
+
+    /**
      * @return list<string>
      */
     public static function listRegisteredOntUsernames(): array
@@ -259,26 +324,30 @@ class GenieAcsService
             if ($status === 200 || $status === 202) {
                 Log::info("GenieACS: WiFi credentials updated/queued on device {$deviceId}");
 
-                // Trigger PPPoE Reconnect di MikroTik untuk memaksa ONT melakukan Inform instan
-                try {
-                    $username = self::extractUsername($rawDevice);
-                    if ($username && $username !== 'unknown_ont') {
-                        $customer = \App\Models\Customer::where('username', $username)->first();
-                        if ($customer && $customer->router) {
-                            $connector = \App\Services\Router\RouterService::getConnector($customer->router);
-                            $connector->kickActiveConnection($customer->username);
-                            Log::info("GenieACS PPPoE Reconnect: Berhasil memutuskan sesi PPPoE {$username} pada router {$customer->router->name}");
-                        }
-                    }
-                } catch (Exception $e) {
-                    Log::error("GenieACS PPPoE Reconnect Error: " . $e->getMessage());
+                self::kickPppoeSessionForDevice($rawDevice);
+
+                $username = self::extractUsername($rawDevice);
+                $freshRaw = self::fetchRawDeviceById($apiUrl, $deviceId) ?? $rawDevice;
+                $parsed = self::parseRawDevice($freshRaw, [
+                    'reachable' => $status === 200 || self::isDeviceOnline($freshRaw),
+                ]);
+                $refreshed = null;
+                if ($parsed !== null) {
+                    $extractedUsername = trim(self::extractUsername($freshRaw));
+                    $parsed['username'] = $extractedUsername !== '' && $extractedUsername !== 'unknown_ont'
+                        ? $extractedUsername
+                        : $username;
+                    $refreshed = $parsed;
                 }
 
                 return [
                     'success' => true,
                     'status' => $status === 200 ? 'executed' : 'queued',
-                    'message' => 'Perubahan WiFi berhasil dijadwalkan dan koneksi disegarkan.',
+                    'message' => $status === 200
+                        ? 'Perubahan WiFi berhasil diterapkan ke ONT.'
+                        : 'Perubahan WiFi dijadwalkan ke ONT.',
                     'http_status' => $status,
+                    'device' => $refreshed !== null ? self::stripRawDevicePayload($refreshed) : null,
                 ];
             }
 
@@ -324,22 +393,7 @@ class GenieAcsService
                 Log::info("GenieACS: Successfully queued reboot task for device {$deviceId}");
 
                 // Trigger PPPoE Reconnect di MikroTik untuk memicu ONT menarik task reboot secara instan
-                try {
-                    $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
-                    if ($rawDevice !== null) {
-                        $username = self::extractUsername($rawDevice);
-                        if ($username && $username !== 'unknown_ont') {
-                            $customer = \App\Models\Customer::where('username', $username)->first();
-                            if ($customer && $customer->router) {
-                                $connector = \App\Services\Router\RouterService::getConnector($customer->router);
-                                $connector->kickActiveConnection($customer->username);
-                                Log::info("GenieACS PPPoE Reconnect: Berhasil memutuskan sesi PPPoE {$username} pada router {$customer->router->name} untuk pemicu reboot");
-                            }
-                        }
-                    }
-                } catch (Exception $e) {
-                    Log::error("GenieACS PPPoE Reconnect Reboot Trigger Error: " . $e->getMessage());
-                }
+                self::kickPppoeSessionForDevice($rawDevice);
 
                 return true;
             }
@@ -443,7 +497,7 @@ class GenieAcsService
         return $data;
     }
 
-    private static function parseRawDevice(array $rawDev): ?array
+    private static function parseRawDevice(array $rawDev, array $options = []): ?array
     {
         $deviceId = $rawDev['_id'] ?? '';
         if (!$deviceId) {
@@ -472,19 +526,18 @@ class GenieAcsService
                 'Device.WiFi.AccessPoint.1.AssociatedDeviceNumberOfEntries',
             ]));
 
-        $isOnline = self::isDeviceOnline($rawDev);
+        $acsOnline = self::isDeviceOnline($rawDev);
+        $reachable = (bool) ($options['reachable'] ?? false);
+        $treatAsOnline = $acsOnline || $reachable;
+        $lastInform = $rawDev['_lastInform'] ?? null;
         $rxRaw = self::extractRxRaw($rawDev);
 
-        if ($isOnline && $rxRaw !== null) {
+        if ($rxRaw !== null) {
             $rxVal = self::parseRxPower($rxRaw);
             $rxText = $rxVal . ' dBm';
             $status = self::determineStatus($rxVal);
-        } elseif ($rxRaw !== null) {
-            $rxVal = self::parseRxPower($rxRaw);
-            $rxText = $rxVal . ' dBm';
-            $status = 'offline';
         } else {
-            $rxText = 'Offline';
+            $rxText = $treatAsOnline ? 'Tidak tersedia' : 'Offline';
             $status = 'offline';
         }
 
@@ -496,12 +549,131 @@ class GenieAcsService
             'product_class' => $productClass,
             'rx' => $rxText,
             'status' => $status,
+            'online' => $treatAsOnline,
+            'acs_inform_stale' => !$acsOnline && $treatAsOnline,
+            'last_inform' => is_string($lastInform) ? $lastInform : null,
             'temperature' => $temperature,
             'wifi_ssid' => $wifiSsid,
             'wifi_password' => $wifiPassword,
             'connected_devices' => $connectedDevices,
             'connected_device_list' => $connectedDeviceList,
         ];
+    }
+
+    /**
+     * Whether GenieACS has heard from the ONT recently (same rule as GenieACS UI: last inform within threshold).
+     */
+    public static function deviceIsOnline(?array $rawDevice): bool
+    {
+        return is_array($rawDevice) && self::isDeviceOnline($rawDevice);
+    }
+
+    /**
+     * Ask GenieACS to send a TR-069 connection request so the ONT checks in sooner.
+     *
+     * @return array{success: bool, message: string}
+     */
+    public static function requestDeviceConnection(string $deviceId, ?array $rawDevice = null): array
+    {
+        $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
+
+        if ($rawDevice === null) {
+            $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
+        }
+
+        if ($rawDevice === null) {
+            return [
+                'success' => false,
+                'message' => 'Perangkat ONT tidak ditemukan di GenieACS.',
+            ];
+        }
+
+        $encodedId = self::encodeDeviceIdForApi($deviceId);
+
+        try {
+            $response = Http::timeout(40)->post(
+                "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=30",
+                [
+                    'name' => 'getParameterValues',
+                    'parameterNames' => ['InternetGatewayDevice.DeviceInfo.UpTime'],
+                ]
+            );
+
+            self::kickPppoeSessionForDevice($rawDevice);
+
+            if ($response->successful()) {
+                $refreshed = self::refreshWifiDeviceState($deviceId, '', true);
+
+                return [
+                    'success' => true,
+                    'message' => 'Permintaan koneksi TR-069 dikirim. Status ONT diperbarui.',
+                    'device' => $refreshed !== null ? self::stripRawDevicePayload($refreshed) : null,
+                ];
+            }
+
+            Log::warning('GenieACS connection request failed', [
+                'device_id' => $deviceId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'GenieACS tidak dapat menghubungi ONT (HTTP ' . $response->status() . '). Pastikan ONT menyala dan URL ACS di ONT benar.',
+            ];
+        } catch (Exception $e) {
+            Log::error('GenieACS connection request error: ' . $e->getMessage());
+
+            return [
+                'success' => false,
+                'message' => 'Tidak dapat terhubung ke GenieACS: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    private static function kickPppoeSessionForDevice(array $rawDevice): void
+    {
+        try {
+            $username = self::extractUsername($rawDevice);
+            if ($username === '' || $username === 'unknown_ont') {
+                return;
+            }
+
+            $customer = \App\Models\Customer::where('username', $username)->first();
+            if (!$customer || !$customer->router) {
+                return;
+            }
+
+            $connector = \App\Services\Router\RouterService::getConnector($customer->router);
+            $connector->kickActiveConnection($customer->username);
+            Log::info("GenieACS PPPoE kick: sesi {$username} diputus pada router {$customer->router->name}");
+        } catch (Exception $e) {
+            Log::error('GenieACS PPPoE kick error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Try to reach the ONT immediately via GenieACS connection request.
+     */
+    private static function probeDeviceReachability(string $apiUrl, string $deviceId): bool
+    {
+        $encodedId = self::encodeDeviceIdForApi($deviceId);
+
+        try {
+            $response = Http::timeout(30)->post(
+                "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=20",
+                [
+                    'name' => 'getParameterValues',
+                    'parameterNames' => ['InternetGatewayDevice.DeviceInfo.UpTime'],
+                ]
+            );
+
+            return $response->status() === 200;
+        } catch (Exception $e) {
+            Log::debug('GenieACS reachability probe failed for ' . $deviceId . ': ' . $e->getMessage());
+
+            return false;
+        }
     }
 
     private static function isDeviceOnline(array $rawDev): bool
@@ -538,21 +710,47 @@ class GenieAcsService
 
     private static function extractUsername(array $rawDev): string
     {
-        $value = self::getNestedValue($rawDev, [
+        $fixedPaths = [
             'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.Username',
-            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1.Username',
             'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.2.Username',
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.3.Username',
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1.Username',
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.2.Username',
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.3.WANPPPConnection.1.Username',
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.4.WANPPPConnection.1.Username',
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.5.WANPPPConnection.1.Username',
             'Device.PPP.Interface.1.Username',
+            'Device.PPP.Interface.2.Username',
             'VirtualParameters.pppUsername',
             'VirtualParameters.pppoeUsername',
-        ]);
+            'VirtualParameters.pppoeUsername2',
+            'VirtualParameters.pppoeUsername3',
+        ];
 
-        if ($value !== null && $value !== '') {
-            return trim((string) $value);
+        $candidates = [];
+
+        foreach ($fixedPaths as $path) {
+            $value = self::getNestedValue($rawDev, [$path]);
+            $username = self::normalizeOntUsernameValue($value);
+            if ($username !== null) {
+                $candidates[] = $username;
+            }
+        }
+
+        $flat = self::flattenDeviceParameters($rawDev);
+        foreach (array_keys($flat) as $path) {
+            if (!self::isOntUsernameParameterPath($path)) {
+                continue;
+            }
+
+            $username = self::normalizeOntUsernameValue(self::flatParameterValue($flat, $path));
+            if ($username !== null) {
+                $candidates[] = $username;
+            }
         }
 
         foreach ($rawDev as $key => $val) {
-            if (!is_string($key) || !str_contains($key, 'WANPPPConnection') || !str_ends_with($key, '.Username')) {
+            if (!is_string($key) || !self::isOntUsernameParameterPath($key)) {
                 continue;
             }
 
@@ -560,12 +758,49 @@ class GenieAcsService
                 ? $val['_value']
                 : (!is_array($val) ? $val : null);
 
-            if ($extracted !== null && $extracted !== '') {
-                return trim((string) $extracted);
+            $username = self::normalizeOntUsernameValue($extracted);
+            if ($username !== null) {
+                $candidates[] = $username;
             }
         }
 
-        return 'unknown_ont';
+        $candidates = array_values(array_unique($candidates));
+        if ($candidates === []) {
+            return 'unknown_ont';
+        }
+
+        foreach ($candidates as $username) {
+            if (str_contains($username, '@')) {
+                return $username;
+            }
+        }
+
+        return $candidates[0];
+    }
+
+    private static function isOntUsernameParameterPath(string $path): bool
+    {
+        if (preg_match('/ManagementServer/i', $path)) {
+            return false;
+        }
+
+        return preg_match('/WANPPPConnection\.\d+\.Username$/', $path) === 1
+            || preg_match('/Device\.PPP\.Interface\.\d+\.Username$/', $path) === 1
+            || preg_match('/^VirtualParameters\.(pppoeUsername\d*|pppUsername\d*)$/i', $path) === 1;
+    }
+
+    private static function normalizeOntUsernameValue(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $username = trim((string) $value);
+        if ($username === '' || strtolower($username) === 'blank') {
+            return null;
+        }
+
+        return $username;
     }
 
     /**
@@ -1295,13 +1530,11 @@ class GenieAcsService
             return false;
         }
 
-        $ontLower = strtolower(trim($ontUsername));
-        $needleLower = self::normalizeUsername($needle);
+        $ontFull = strtolower(trim($ontUsername));
+        $needleFull = strtolower(trim($needle));
+        $ontLocal = self::normalizeUsername($ontUsername);
+        $needleLocal = self::normalizeUsername($needle);
 
-        if ($ontLower === $needleLower) {
-            return true;
-        }
-
-        return strtolower(trim(explode('@', $ontUsername)[0])) === $needleLower;
+        return $ontFull === $needleFull || $ontLocal === $needleLocal;
     }
 }

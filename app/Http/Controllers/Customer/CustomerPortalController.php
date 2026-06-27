@@ -161,17 +161,14 @@ class CustomerPortalController extends Controller
         }
 
         try {
-            $device = GenieAcsService::findDeviceByUsername($customer->username);
+            $probe = $request->boolean('probe', true);
+            $device = GenieAcsService::findDeviceByUsernameForWifi($customer->username, $probe);
 
             if ($device === null) {
-                $available = GenieAcsService::listRegisteredOntUsernames();
-
                 return response()->json([
                     'success' => false,
                     'found' => false,
                     'message' => 'ONT untuk username "' . $customer->username . '" belum terdaftar di GenieACS.',
-                    'searched_username' => $customer->username,
-                    'available_usernames' => $available,
                 ], 404);
             }
 
@@ -245,10 +242,49 @@ class CustomerPortalController extends Controller
             );
 
             if (!($result['success'] ?? false)) {
-                return response()->json($result, 502);
+                return response()->json($result, (int) ($result['http_status'] ?? 502));
             }
 
             return response()->json($result);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sistem monitoring ONT sedang tidak tersedia. Coba lagi nanti.',
+            ], 503);
+        }
+    }
+
+    /**
+     * Ask GenieACS to connection-request the customer's ONT.
+     */
+    public function wakeOnt(Request $request)
+    {
+        $customer = Auth::user()->customer;
+
+        if (!$customer || $customer->service_type === 'hotspot') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Layanan hotspot tidak mendukung pengaturan WiFi ONT.',
+            ], 422);
+        }
+
+        try {
+            $device = GenieAcsService::findDeviceByUsername($customer->username);
+
+            if ($device === null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'ONT Anda belum terdaftar di sistem. Hubungi support.',
+                ], 404);
+            }
+
+            $rawDevice = $device['_raw'] ?? null;
+            $result = GenieAcsService::requestDeviceConnection(
+                $device['id'],
+                is_array($rawDevice) ? $rawDevice : null
+            );
+
+            return response()->json($result, ($result['success'] ?? false) ? 200 : 502);
         } catch (Exception $e) {
             return response()->json([
                 'success' => false,
