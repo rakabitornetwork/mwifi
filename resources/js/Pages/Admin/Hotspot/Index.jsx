@@ -143,7 +143,7 @@ function HotspotPageContent({
     const [generatePackageId, setGeneratePackageId] = useState('');
     const [generateBasePrice, setGenerateBasePrice] = useState('');
     const [generateAgentProfit, setGenerateAgentProfit] = useState('');
-    const [filterPackageName, setFilterPackageName] = useState('');
+    const [filterAgentName, setFilterAgentName] = useState('');
 
     const [hotspotMemberPage, setHotspotMemberPage] = useState(1);
     const [showMemberModal, setShowMemberModal] = useState(false);
@@ -661,7 +661,7 @@ function HotspotPageContent({
 
     // Filtered agent report calculations
     const filteredSales = (agentReport?.sales || []).filter(sale => 
-        !filterPackageName || sale.package_name === filterPackageName
+        !filterAgentName || (sale.agent_name || 'Tanpa Agen') === filterAgentName
     );
 
     const filteredGrossRevenue = filteredSales.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
@@ -1138,21 +1138,23 @@ function HotspotPageContent({
                                     />
                                 </div>
                                 <div className="flex flex-col gap-1 sm:col-span-2">
-                                    <label className={`text-[10px] font-bold uppercase ${themeLabel}`}>Filter Paket (Profile)</label>
+                                    <label className={`text-[10px] font-bold uppercase ${themeLabel}`}>Filter Agen</label>
                                     <select
-                                        value={filterPackageName}
+                                        value={filterAgentName}
                                         onChange={(e) => {
-                                            setFilterPackageName(e.target.value);
+                                            setFilterAgentName(e.target.value);
                                             setAgentReportPage(1);
                                         }}
                                         className={`px-3 py-2 border rounded-xl text-xs ${themeInput}`}
                                     >
-                                        <option value="">Semua Paket / Profile</option>
-                                        {Array.from(new Set([
-                                            ...packages.map((p) => 'Hotspot Profile: ' + (p.mikrotik_profile || 'default')),
-                                            ...(agentReport?.sales || []).map((s) => s.package_name)
-                                        ])).filter(Boolean).sort().map((pkgName) => (
-                                            <option key={pkgName} value={pkgName}>{pkgName}</option>
+                                        <option value="">Semua Agen</option>
+                                        <option value="Tanpa Agen">Tanpa Agen (Otomatis)</option>
+                                        {Array.from(new Set(
+                                            (agentReport?.sales || [])
+                                                .map((s) => s.agent_name)
+                                                .filter(Boolean)
+                                        )).sort().map((agentName) => (
+                                            <option key={agentName} value={agentName}>{agentName}</option>
                                         ))}
                                     </select>
                                 </div>
