@@ -143,6 +143,7 @@ function HotspotPageContent({
     const [generatePackageId, setGeneratePackageId] = useState('');
     const [generateBasePrice, setGenerateBasePrice] = useState('');
     const [generateAgentProfit, setGenerateAgentProfit] = useState('');
+    const [filterPackageName, setFilterPackageName] = useState('');
 
     const [hotspotMemberPage, setHotspotMemberPage] = useState(1);
     const [showMemberModal, setShowMemberModal] = useState(false);
@@ -658,6 +659,46 @@ function HotspotPageContent({
             .map((v) => v.comment),
     )];
 
+    // Filtered agent report calculations
+    const filteredSales = (agentReport?.sales || []).filter(sale => 
+        !filterPackageName || sale.package_name === filterPackageName
+    );
+
+    const filteredGrossRevenue = filteredSales.reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
+    const filteredAgentTotal = filteredSales.reduce((sum, s) => sum + parseFloat(s.agent_amount || 0), 0);
+    const filteredOwnerTotal = filteredSales.reduce((sum, s) => sum + parseFloat(s.owner_amount || 0), 0);
+    const filteredUnattributedRevenue = filteredSales.filter(s => !s.agent_id).reduce((sum, s) => sum + parseFloat(s.price || 0), 0);
+    const filteredSaleCount = filteredSales.length;
+
+    // Recalculate agentSummary based on filteredSales
+    const agentSummaryMap = new Map();
+    filteredSales.forEach(sale => {
+        if (!sale.agent_id) return;
+        const existing = agentSummaryMap.get(sale.agent_id);
+        if (existing) {
+            existing.sale_count += 1;
+            existing.gross_revenue += parseFloat(sale.price || 0);
+            existing.agent_amount += parseFloat(sale.agent_amount || 0);
+            existing.owner_amount += parseFloat(sale.owner_amount || 0);
+            existing.commission_sum += parseFloat(sale.commission_percent || 0);
+        } else {
+            agentSummaryMap.set(sale.agent_id, {
+                agent_id: sale.agent_id,
+                agent_name: sale.agent_name || 'Agen',
+                sale_count: 1,
+                gross_revenue: parseFloat(sale.price || 0),
+                agent_amount: parseFloat(sale.agent_amount || 0),
+                owner_amount: parseFloat(sale.owner_amount || 0),
+                commission_sum: parseFloat(sale.commission_percent || 0),
+            });
+        }
+    });
+
+    const filteredAgents = Array.from(agentSummaryMap.values()).map(a => ({
+        ...a,
+        average_commission_percent: a.sale_count > 0 ? Math.round(((a.commission_sum / a.sale_count) + Number.EPSILON) * 100) / 100 : 0
+    })).sort((a, b) => b.gross_revenue - a.gross_revenue);
+
     return (
         <>
             <AdminPageCard
@@ -1096,24 +1137,25 @@ function HotspotPageContent({
                                         className={`px-3 py-2 border rounded-xl text-xs ${themeInput}`}
                                     />
                                 </div>
-                                {!isOperatorView && (
-                                    <div className="flex flex-col gap-1 sm:col-span-2">
-                                        <label className={`text-[10px] font-bold uppercase ${themeLabel}`}>Filter Agen</label>
-                                        <select
-                                            value={agentFilterId}
-                                            onChange={(e) => setAgentFilterId(e.target.value)}
-                                            className={`px-3 py-2 border rounded-xl text-xs ${themeInput}`}
-                                        >
-                                            <option value="">Semua Agen</option>
-                                            {hotspotAgents.map((agent) => (
-                                                <option key={agent.id} value={agent.id}>
-                                                    {agent.name}
-                                                    {agent.hotspot_commission_percent != null ? ` (${agent.hotspot_commission_percent}%)` : ''}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
+                                <div className="flex flex-col gap-1 sm:col-span-2">
+                                    <label className={`text-[10px] font-bold uppercase ${themeLabel}`}>Filter Paket (Profile)</label>
+                                    <select
+                                        value={filterPackageName}
+                                        onChange={(e) => {
+                                            setFilterPackageName(e.target.value);
+                                            setAgentReportPage(1);
+                                        }}
+                                        className={`px-3 py-2 border rounded-xl text-xs ${themeInput}`}
+                                    >
+                                        <option value="">Semua Paket / Profile</option>
+                                        {Array.from(new Set([
+                                            ...packages.map((p) => 'Hotspot Profile: ' + (p.mikrotik_profile || 'default')),
+                                            ...(agentReport?.sales || []).map((s) => s.package_name)
+                                        ])).filter(Boolean).sort().map((pkgName) => (
+                                            <option key={pkgName} value={pkgName}>{pkgName}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                             <button
                                 type="button"
@@ -1125,38 +1167,6 @@ function HotspotPageContent({
                                 <RefreshCw className={`w-4 h-4 ${isLoadingAgentReport ? 'animate-spin' : ''}`} />
                             </button>
                         </div>
-
-                        {canManageCommissionSettings && (
-                            <div className={`border rounded-2xl p-4 ${themeInnerWidget} flex flex-col sm:flex-row sm:items-end gap-3`}>
-                                <div className="flex-1 space-y-1">
-                                    <p className={`text-xs font-bold ${themeTextTitle}`}>Persentase Bagi Hasil Default (Operator Hotspot)</p>
-                                    <p className={`text-[10px] ${themeTextSub}`}>
-                                        Dipakai saat agen tidak punya persentase khusus di menu User. Penjualan otomatis tidak mendapat komisi agen.
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        max="100"
-                                        step="0.01"
-                                        value={defaultCommissionInput}
-                                        onChange={(e) => setDefaultCommissionInput(e.target.value)}
-                                        className={`w-24 px-3 py-2 border rounded-lg text-xs font-mono ${themeInput}`}
-                                    />
-                                    <span className={`text-xs font-bold ${themeTextSub}`}>%</span>
-                                    <button
-                                        type="button"
-                                        onClick={handleSaveDefaultCommission}
-                                        disabled={isSavingCommissionSettings}
-                                        title="Simpan persentase default"
-                                        className="p-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50"
-                                    >
-                                        <Save className={`w-4 h-4 ${isSavingCommissionSettings ? 'animate-pulse' : ''}`} />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
 
                         {agentReportError && (
                             <div className={`text-[11px] font-semibold rounded-xl border px-3 py-2 ${isDarkMode ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
@@ -1174,29 +1184,29 @@ function HotspotPageContent({
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                                     <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-emerald-50/50 border-emerald-100'}`}>
                                         <span className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Total Penjualan</span>
-                                        <p className={`text-2xl font-extrabold mt-2 ${themeTextTitle}`}>{formatRupiah(agentReport.summary?.gross_revenue || 0)}</p>
-                                        <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>{agentReport.summary?.sale_count || 0} transaksi</span>
+                                        <p className={`text-2xl font-extrabold mt-2 ${themeTextTitle}`}>{formatRupiah(filteredGrossRevenue)}</p>
+                                        <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>{filteredSaleCount} transaksi</span>
                                     </div>
                                     <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-violet-50/50 border-violet-100'}`}>
                                         <span className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Bagian Agen</span>
-                                        <p className="text-2xl font-extrabold mt-2 text-violet-500">{formatRupiah(agentReport.summary?.agent_total || 0)}</p>
+                                        <p className="text-2xl font-extrabold mt-2 text-violet-500">{formatRupiah(filteredAgentTotal)}</p>
                                         <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Total komisi agen</span>
                                     </div>
                                     <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-sky-50/50 border-sky-100'}`}>
                                         <span className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Bagian Pemilik</span>
-                                        <p className="text-2xl font-extrabold mt-2 text-sky-500">{formatRupiah(agentReport.summary?.owner_total || 0)}</p>
+                                        <p className="text-2xl font-extrabold mt-2 text-sky-500">{formatRupiah(filteredOwnerTotal)}</p>
                                         <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Setelah bagi hasil agen</span>
                                     </div>
                                     <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-amber-50/50 border-amber-100'}`}>
                                         <span className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Tanpa Agen</span>
-                                        <p className="text-2xl font-extrabold mt-2 text-amber-500">{formatRupiah(agentReport.summary?.unattributed_revenue || 0)}</p>
+                                        <p className="text-2xl font-extrabold mt-2 text-amber-500">{formatRupiah(filteredUnattributedRevenue)}</p>
                                         <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Penjualan otomatis / tanpa pencatat</span>
                                     </div>
                                 </div>
 
                                 {/* Daily Trend Chart */}
                                 {(() => {
-                                    const sales = agentReport.sales || [];
+                                    const sales = filteredSales;
                                     const finalChartData = buildHotspotDailyRevenueChartData(sales);
                                     if (finalChartData.length === 0) return null;
 
@@ -1229,7 +1239,7 @@ function HotspotPageContent({
                                     );
                                 })()}
 
-                                {!isOperatorView && (agentReport.agents?.length || 0) > 0 && (
+                                {!isOperatorView && (filteredAgents.length || 0) > 0 && (
                                     <div className="space-y-3">
                                         <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Ringkasan per Agen</h3>
                                         <div className="admin-table-scroll">
@@ -1245,7 +1255,7 @@ function HotspotPageContent({
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-zinc-800/20 text-xs">
-                                                    {agentReport.agents.map((agent) => (
+                                                    {filteredAgents.map((agent) => (
                                                         <tr key={agent.agent_id} className={`${themeTextSub} hover:bg-zinc-900/10`}>
                                                             <td className={`py-3 px-2 font-bold ${themeTextTitle}`}>{agent.agent_name}</td>
                                                             <td className="py-3 px-2 font-mono">{agent.sale_count}</td>
@@ -1281,7 +1291,7 @@ function HotspotPageContent({
                                             </thead>
                                             <tbody className="divide-y divide-zinc-800/20 text-xs">
                                                 {(() => {
-                                                    const sales = agentReport.sales || [];
+                                                    const sales = filteredSales;
                                                     const totalPages = Math.ceil(sales.length / agentReportPageSize) || 1;
                                                     const paginated = sales.slice(
                                                         (agentReportPage - 1) * agentReportPageSize,
@@ -1325,13 +1335,13 @@ function HotspotPageContent({
                                     </div>
 
                                     {(() => {
-                                        const totalPages = Math.ceil((agentReport.sales?.length || 0) / agentReportPageSize) || 1;
+                                        const totalPages = Math.ceil((filteredSales.length || 0) / agentReportPageSize) || 1;
                                         if (totalPages <= 1) return null;
 
                                         return (
                                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-zinc-800/10 text-xs">
                                                 <span className={`text-center sm:text-left ${themeTextSub}`}>
-                                                    Halaman {agentReportPage} dari {totalPages} ({agentReport.sales.length} transaksi)
+                                                    Halaman {agentReportPage} dari {totalPages} ({filteredSales.length} transaksi)
                                                 </span>
                                                 <div className="flex gap-2">
                                                     <button
