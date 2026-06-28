@@ -747,7 +747,7 @@ class BillingService
 
     /**
      * Target periode & jatuh tempo untuk generate tagihan manual (admin).
-     * Mengutamakan jadwal H-N, lalu tagihan berikutnya setelah invoice terakhir yang lunas.
+     * Mengutamakan jadwal H-N, periode terlewat yang sudah jatuh tempo, lalu periode berikutnya.
      *
      * @return array{period: string, due_date: Carbon}|null
      */
@@ -760,44 +760,56 @@ class BillingService
             return $schedule;
         }
 
-        if (!Invoice::where('customer_id', $customer->id)->exists()) {
-            $serviceStart = self::resolveServiceStartDate($customer);
+        $hasInvoices = Invoice::where('customer_id', $customer->id)->exists();
 
-            // Pelanggan lama tanpa riwayat invoice di sistem: selaraskan dengan jatuh tempo di UI,
-            // bukan siklus tagihan pertama dari tanggal mulai layanan.
-            if ($serviceStart->lt($today->copy()->startOfMonth())) {
-                $upcoming = self::resolveCustomerUpcomingDueDate($customer, $today);
-                if ($upcoming !== null) {
-                    return [
-                        'period' => $upcoming->format('Y-m'),
-                        'due_date' => $upcoming->copy()->startOfDay(),
-                    ];
+        if ($hasInvoices) {
+            $overdueMissing = self::resolveOverdueMissingInvoiceTarget($customer, $today);
+            if ($overdueMissing !== null) {
+                return $overdueMissing;
+            }
+
+            $latestInvoice = self::findLatestRecurringInvoice($customer);
+            if ($latestInvoice) {
+                $nextPeriod = Carbon::createFromFormat('Y-m', $latestInvoice->billing_period)
+                    ->addMonth()
+                    ->format('Y-m');
+
+                if (Invoice::where('customer_id', $customer->id)
+                    ->where('billing_period', $nextPeriod)
+                    ->exists()) {
+                    throw new \InvalidArgumentException("Invoice periode {$nextPeriod} sudah ada untuk pelanggan ini.");
                 }
+
+                if (self::isPeriodDeferredForCustomer($customer, $nextPeriod)) {
+                    throw new \InvalidArgumentException("Periode {$nextPeriod} sedang ditunda (tunda bayar aktif).");
+                }
+
+                return [
+                    'period' => $nextPeriod,
+                    'due_date' => self::resolveDueDateForPeriod($customer, $nextPeriod),
+                ];
             }
 
             return self::resolveFirstInvoiceTarget($customer);
         }
 
-        $latestInvoice = self::findLatestRecurringInvoice($customer);
-        if ($latestInvoice) {
-            $nextPeriod = Carbon::createFromFormat('Y-m', $latestInvoice->billing_period)
-                ->addMonth()
-                ->format('Y-m');
+        $serviceStart = self::resolveServiceStartDate($customer);
 
-            if (Invoice::where('customer_id', $customer->id)
-                ->where('billing_period', $nextPeriod)
-                ->exists()) {
-                throw new \InvalidArgumentException("Invoice periode {$nextPeriod} sudah ada untuk pelanggan ini.");
+        // Pelanggan lama tanpa riwayat invoice di sistem: selaraskan dengan jatuh tempo di UI,
+        // bukan siklus tagihan pertama dari tanggal mulai layanan.
+        if ($serviceStart->lt($today->copy()->startOfMonth())) {
+            $anchorOverdue = self::resolveRecentAnchorOverduePeriod($customer, $today);
+            if ($anchorOverdue !== null) {
+                return $anchorOverdue;
             }
 
-            if (self::isPeriodDeferredForCustomer($customer, $nextPeriod)) {
-                throw new \InvalidArgumentException("Periode {$nextPeriod} sedang ditunda (tunda bayar aktif).");
+            $upcoming = self::resolveCustomerUpcomingDueDate($customer, $today);
+            if ($upcoming !== null) {
+                return [
+                    'period' => $upcoming->format('Y-m'),
+                    'due_date' => $upcoming->copy()->startOfDay(),
+                ];
             }
-
-            return [
-                'period' => $nextPeriod,
-                'due_date' => self::resolveDueDateForPeriod($customer, $nextPeriod),
-            ];
         }
 
         return self::resolveFirstInvoiceTarget($customer);
@@ -902,8 +914,147 @@ class BillingService
     }
 
     /**
-     * Generate invoices for customers whose billing schedule falls on today's run (H-N before due date).
+     * Periode tagihan terlewat yang jatuh temponya sudah lewat (catch-up scheduler / manual).
+     *
+     * @return array{period: string, due_date: Carbon}|null
      */
+    public static function resolveOverdueMissingInvoiceTarget(Customer $customer, ?Carbon $today = null): ?array
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+        $customer->loadMissing('package');
+
+        if ($customer->service_type !== 'pppoe' || !$customer->package) {
+            return null;
+        }
+
+        $latestInvoice = self::findLatestRecurringInvoice($customer);
+
+        if ($latestInvoice === null) {
+            return self::resolveRecentAnchorOverduePeriod($customer, $today);
+        }
+
+        $startPeriod = Carbon::createFromFormat('Y-m', $latestInvoice->billing_period)
+            ->addMonth()
+            ->format('Y-m');
+        $endPeriod = $today->format('Y-m');
+        $monthlyPrice = (float) $customer->package->price;
+
+        for ($current = $startPeriod; $current <= $endPeriod; $current = self::addMonthsToPeriod($current, 1)) {
+            if (self::customerHasInvoiceCoverageForPeriod($customer, $current)) {
+                continue;
+            }
+
+            if (self::isPeriodDeferredForCustomer($customer, $current)) {
+                continue;
+            }
+
+            if (self::calculateInvoiceAmount($customer, $current, $monthlyPrice) === null) {
+                continue;
+            }
+
+            $dueDate = self::resolveDueDateForPeriod($customer, $current);
+
+            if ($dueDate->lt($today)) {
+                return [
+                    'period' => $current,
+                    'due_date' => $dueDate,
+                ];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Periode jatuh tempo dari billing_date yang baru diubah admin (bulan ini / bulan lalu).
+     *
+     * @return array{period: string, due_date: Carbon}|null
+     */
+    public static function resolveRecentAnchorOverduePeriod(Customer $customer, ?Carbon $today = null): ?array
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+        $anchor = self::resolveBillingAnchorDate($customer);
+        $period = $anchor->format('Y-m');
+        $periodStart = Carbon::createFromFormat('Y-m', $period)->startOfMonth();
+        $lookbackStart = $today->copy()->subMonth()->startOfMonth();
+
+        if ($periodStart->lt($lookbackStart)) {
+            return null;
+        }
+
+        $dueDate = self::resolveDueDateForPeriod($customer, $period);
+
+        if ($dueDate->gt($today)) {
+            return null;
+        }
+
+        if (self::customerHasInvoiceCoverageForPeriod($customer, $period)) {
+            return null;
+        }
+
+        if (self::isPeriodDeferredForCustomer($customer, $period)) {
+            return null;
+        }
+
+        return [
+            'period' => $period,
+            'due_date' => $dueDate,
+        ];
+    }
+
+    /**
+     * Jadwal H-N atau catch-up periode terlewat yang sudah jatuh tempo.
+     *
+     * @return array{period: string, due_date: Carbon}|null
+     */
+    public static function resolveScheduledInvoiceTarget(Customer $customer, ?Carbon $today = null, ?int $daysBeforeDue = null): ?array
+    {
+        $today = ($today ?? Carbon::today())->copy()->startOfDay();
+
+        $schedule = self::resolveInvoiceSchedule($customer, $today, $daysBeforeDue);
+        if ($schedule !== null) {
+            return $schedule;
+        }
+
+        return self::resolveOverdueMissingInvoiceTarget($customer, $today);
+    }
+
+    /**
+     * Buat invoice untuk periode terlewat yang sudah jatuh tempo (jika belum ada).
+     *
+     * @return array{invoice_number: string, customer_name: string, total_amount: float, billing_period: string, due_date: string}|null
+     */
+    public static function ensureOverdueInvoiceForCustomer(Customer $customer, ?Carbon $today = null): ?array
+    {
+        $customer->loadMissing('package');
+
+        if ($customer->service_type !== 'pppoe' || !$customer->package) {
+            return null;
+        }
+
+        if (!in_array($customer->status, ['active', 'isolated'], true)) {
+            return null;
+        }
+
+        if (self::customerHasPendingServicePause($customer)) {
+            return null;
+        }
+
+        if (self::customerHasPastDueUnpaidInvoices($customer)) {
+            return null;
+        }
+
+        $target = self::resolveOverdueMissingInvoiceTarget($customer, $today);
+        if ($target === null) {
+            $target = self::resolveRecentAnchorOverduePeriod($customer, $today);
+        }
+
+        if ($target === null) {
+            return null;
+        }
+
+        return self::createInvoiceForCustomer($customer, $target['period'], $target['due_date'], false);
+    }
     public static function generateScheduledInvoices(?Carbon $today = null): int
     {
         $today = ($today ?? Carbon::today())->copy()->startOfDay();
@@ -925,7 +1076,7 @@ class BillingService
                 continue;
             }
 
-            $schedule = self::resolveInvoiceSchedule($customer, $today, $daysBeforeDue);
+            $schedule = self::resolveScheduledInvoiceTarget($customer, $today, $daysBeforeDue);
             if ($schedule === null) {
                 continue;
             }
@@ -2040,6 +2191,96 @@ class BillingService
     }
 
     /**
+     * Isolir satu pelanggan aktif yang punya tagihan unpaid lewat jatuh tempo.
+     *
+     * @return array<string, mixed>|null Ringkasan isolir jika berhasil.
+     */
+    public static function attemptAutoIsolationForCustomer(Customer $customer, ?Invoice $invoice = null): ?array
+    {
+        $customer->loadMissing(['router', 'package']);
+
+        if ($customer->status !== 'active') {
+            return null;
+        }
+
+        if (!self::isCustomerEligibleForAutoIsolation($customer)) {
+            return null;
+        }
+
+        if (self::customerHasPendingDeferral($customer)) {
+            return null;
+        }
+
+        $invoice = $invoice ?? Invoice::query()
+            ->where('customer_id', $customer->id)
+            ->where('status', 'unpaid')
+            ->where('due_date', '<', Carbon::today())
+            ->orderBy('due_date')
+            ->first();
+
+        if (!$invoice) {
+            return null;
+        }
+
+        DB::beginTransaction();
+        try {
+            $customer->update(['status' => 'isolated']);
+
+            $router = $customer->router;
+            $isolirProfile = SettingService::get('mikrotik.isolir_profile', 'ISOLIR');
+
+            if ($router && $router->status) {
+                $connector = RouterService::getConnector($router);
+
+                $success = $connector->updateSecret($customer->username, [
+                    'profile' => $isolirProfile,
+                ]);
+
+                if ($success) {
+                    $connector->kickActiveConnection($customer->username);
+                    Log::info("Customer {$customer->username} successfully isolated on router {$router->name}");
+                } else {
+                    Log::warning("Failed to update PPPoE profile for {$customer->username} on router {$router->name}");
+                }
+            }
+
+            $waNotified = false;
+            try {
+                $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.isolation', [
+                    'customer_name' => $customer->name,
+                    'brand_name' => BrandingService::companyName(),
+                    'username' => $customer->username,
+                    'invoice_number' => $invoice->invoice_number,
+                    'total' => self::formatWhatsAppMoney((float) $invoice->total_amount),
+                    'due_date' => self::formatWhatsAppDueDate($invoice->due_date),
+                ]);
+                if (class_exists(\App\Services\WhatsAppService::class)) {
+                    $waNotified = \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
+                }
+            } catch (Exception $waEx) {
+                Log::error("Failed to send WhatsApp isolation alert to {$customer->phone_number}: " . $waEx->getMessage());
+            }
+
+            DB::commit();
+
+            return [
+                'customer_name' => $customer->name,
+                'customer_username' => $customer->username,
+                'invoice_number' => $invoice->invoice_number,
+                'total_amount' => (float) $invoice->total_amount,
+                'due_date' => $invoice->due_date->toDateString(),
+                'router_name' => $router?->name,
+                'wa_notified' => $waNotified,
+            ];
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error("Failed to isolate customer {$customer->username}: " . $e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
      * Check for past due invoices and automatically isolate unpaid customers.
      *
      * @return int Number of isolated customers.
@@ -2049,6 +2290,15 @@ class BillingService
         $count = 0;
         $today = Carbon::today();
         $isolatedCustomers = [];
+
+        Customer::where('status', 'active')
+            ->where('service_type', 'pppoe')
+            ->with('package')
+            ->chunkById(100, function ($customers) use ($today) {
+                foreach ($customers as $customer) {
+                    self::ensureOverdueInvoiceForCustomer($customer, $today);
+                }
+            });
 
         $invoices = Invoice::where('status', 'unpaid')
             ->where('due_date', '<', $today)
@@ -2060,68 +2310,14 @@ class BillingService
 
         foreach ($invoices as $invoice) {
             $customer = $invoice->customer;
-
-            if (!$customer || !self::isCustomerEligibleForAutoIsolation($customer)) {
+            if (!$customer) {
                 continue;
             }
 
-            if (self::customerHasPendingDeferral($customer)) {
-                continue;
-            }
-
-            DB::beginTransaction();
-            try {
-                $customer->update(['status' => 'isolated']);
-
-                $router = $customer->router;
-                $isolirProfile = SettingService::get('mikrotik.isolir_profile', 'ISOLIR');
-
-                if ($router && $router->status) {
-                    $connector = RouterService::getConnector($router);
-
-                    $success = $connector->updateSecret($customer->username, [
-                        'profile' => $isolirProfile
-                    ]);
-
-                    if ($success) {
-                        $connector->kickActiveConnection($customer->username);
-                        Log::info("Customer {$customer->username} successfully isolated on router {$router->name}");
-                    } else {
-                        Log::warning("Failed to update PPPoE profile for {$customer->username} on router {$router->name}");
-                    }
-                }
-
-                $waNotified = false;
-                try {
-                    $message = MessageTemplateService::renderWithPaymentInstructions('whatsapp.template.isolation', [
-                        'customer_name' => $customer->name,
-                        'brand_name' => BrandingService::companyName(),
-                        'username' => $customer->username,
-                        'invoice_number' => $invoice->invoice_number,
-                        'total' => self::formatWhatsAppMoney((float) $invoice->total_amount),
-                        'due_date' => self::formatWhatsAppDueDate($invoice->due_date),
-                    ]);
-                    if (class_exists(\App\Services\WhatsAppService::class)) {
-                        $waNotified = \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
-                    }
-                } catch (Exception $waEx) {
-                    Log::error("Failed to send WhatsApp isolation alert to {$customer->phone_number}: " . $waEx->getMessage());
-                }
-
-                DB::commit();
+            $result = self::attemptAutoIsolationForCustomer($customer, $invoice);
+            if ($result !== null) {
                 $count++;
-                $isolatedCustomers[] = [
-                    'customer_name' => $customer->name,
-                    'customer_username' => $customer->username,
-                    'invoice_number' => $invoice->invoice_number,
-                    'total_amount' => (float) $invoice->total_amount,
-                    'due_date' => $invoice->due_date->toDateString(),
-                    'router_name' => $router?->name,
-                    'wa_notified' => $waNotified,
-                ];
-            } catch (Exception $e) {
-                DB::rollBack();
-                Log::error("Failed to isolate customer {$customer->username}: " . $e->getMessage());
+                $isolatedCustomers[] = $result;
             }
         }
 

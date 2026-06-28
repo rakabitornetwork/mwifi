@@ -94,4 +94,40 @@ class BillingIsolationPackageTest extends TestCase
         $this->assertSame('active', $skipped->fresh()->status);
         $this->assertSame('isolated', $isolated->fresh()->status);
     }
+
+    public function test_isolir_check_creates_overdue_invoice_before_isolating(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-28'));
+
+        $customer = $this->makeActiveCustomer('150K Rumahan');
+        $customer->update(['billing_date' => '2026-06-20']);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202605-0001-TEST',
+            'billing_period' => '2026-05',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-05-20',
+            'status' => 'paid',
+            'paid_at' => '2026-05-21',
+        ]);
+
+        $this->assertFalse(
+            Invoice::where('customer_id', $customer->id)->where('billing_period', '2026-06')->exists()
+        );
+
+        $count = BillingService::isolatePastDueCustomers();
+
+        $this->assertSame(1, $count);
+        $this->assertTrue(
+            Invoice::where('customer_id', $customer->id)->where('billing_period', '2026-06')->exists()
+        );
+        $this->assertSame('isolated', $customer->fresh()->status);
+
+        Carbon::setTestNow();
+    }
 }

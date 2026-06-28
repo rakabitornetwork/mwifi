@@ -405,6 +405,7 @@ class AdminActionController extends Controller
 
         $oldOdpId = $customer?->odp_id;
         $previousStatus = $customer?->status;
+        $previousBillingDate = $customer?->billing_date?->format('Y-m-d');
         $pauseNotice = null;
 
         if ($id && $customer && ($data['service_type'] ?? $customer->service_type) === 'pppoe') {
@@ -439,6 +440,19 @@ class AdminActionController extends Controller
         }
 
         $savedCustomer = Customer::updateOrCreate(['id' => $id], $data);
+
+        if (
+            $savedCustomer->service_type === 'pppoe'
+            && $previousBillingDate !== null
+            && $savedCustomer->billing_date?->format('Y-m-d') !== $previousBillingDate
+        ) {
+            $billingCustomer = $savedCustomer->fresh();
+            BillingService::ensureOverdueInvoiceForCustomer($billingCustomer);
+
+            if ($billingCustomer->status === 'active') {
+                BillingService::attemptAutoIsolationForCustomer($billingCustomer->fresh());
+            }
+        }
 
         if ($savedCustomer->service_type === 'pppoe') {
             $resumeDate = !empty($request->input('billing_resume_date'))

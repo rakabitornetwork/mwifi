@@ -421,4 +421,101 @@ class BillingCustomerInvoiceTest extends TestCase
 
         Carbon::setTestNow();
     }
+
+    public function test_manual_generate_targets_overdue_june_when_may_paid_and_june_missing(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-28'));
+
+        $customer = $this->makeCustomer(20, '2025-01-01');
+        $customer->update(['billing_date' => '2026-06-20']);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202605-0001-TEST',
+            'billing_period' => '2026-05',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-05-20',
+            'status' => 'paid',
+            'paid_at' => '2026-05-21',
+        ]);
+
+        $target = BillingService::resolveManualInvoiceTarget($customer->fresh());
+        $this->assertSame('2026-06', $target['period']);
+        $this->assertSame('2026-06-20', $target['due_date']->format('Y-m-d'));
+
+        $created = BillingService::generateInvoiceForCustomer($customer->fresh(), null, 0);
+        $this->assertSame('2026-06', $created['billing_period']);
+        $this->assertSame('2026-06-20', $created['due_date']);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_manual_generate_uses_backdated_billing_date_for_current_overdue_month(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-28'));
+
+        $customer = $this->makeCustomer(20, '2025-11-26');
+        $customer->update(['billing_date' => '2026-06-20']);
+
+        $this->assertSame(0, Invoice::where('customer_id', $customer->id)->count());
+
+        $target = BillingService::resolveManualInvoiceTarget($customer->fresh());
+        $this->assertSame('2026-06', $target['period']);
+        $this->assertSame('2026-06-20', $target['due_date']->format('Y-m-d'));
+
+        Carbon::setTestNow();
+    }
+
+    public function test_scheduled_generate_catches_up_overdue_period_after_window_passed(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-28'));
+
+        $customer = $this->makeCustomer(20, '2025-01-01');
+        $customer->update(['billing_date' => '2026-06-20']);
+
+        Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202605-0001-TEST',
+            'billing_period' => '2026-05',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-05-20',
+            'status' => 'paid',
+            'paid_at' => '2026-05-21',
+        ]);
+
+        $count = BillingService::generateScheduledInvoices();
+
+        $this->assertSame(1, $count);
+        $invoice = Invoice::where('customer_id', $customer->id)->where('billing_period', '2026-06')->first();
+        $this->assertNotNull($invoice);
+        $this->assertSame('2026-06-20', $invoice->due_date->format('Y-m-d'));
+
+        Carbon::setTestNow();
+    }
+
+    public function test_ensure_overdue_invoice_creates_missing_june_invoice(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-28'));
+
+        $customer = $this->makeCustomer(20, '2025-01-01');
+        $customer->update(['billing_date' => '2026-06-20']);
+
+        $created = BillingService::ensureOverdueInvoiceForCustomer($customer->fresh());
+
+        $this->assertNotNull($created);
+        $this->assertSame('2026-06', $created['billing_period']);
+        $this->assertTrue(
+            Invoice::where('customer_id', $customer->id)->where('billing_period', '2026-06')->exists()
+        );
+
+        Carbon::setTestNow();
+    }
 }
