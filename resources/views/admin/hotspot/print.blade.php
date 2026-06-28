@@ -2,6 +2,28 @@
 $brandName = $branding['company_name'] ?? $branding['app_name'] ?? 'Hotspot';
 $loginDisplay = preg_replace('#^https?://#', '', rtrim($loginUrl, '/'));
 
+function formatValidityIndonesian($validity) {
+    if (!$validity || strtolower($validity) === 'unlimited') {
+        return 'Unlimited';
+    }
+
+    $units = [
+        'w' => ' Minggu',
+        'd' => ' Hari',
+        'h' => ' Jam',
+        'm' => ' Menit',
+        's' => ' Detik'
+    ];
+
+    $formatted = preg_replace_callback('/(\d+)([wdhms])/i', function ($matches) use ($units) {
+        $value = $matches[1];
+        $unit = strtolower($matches[2]);
+        return $value . ($units[$unit] ?? $matches[2]) . ' ';
+    }, $validity);
+
+    return preg_replace('/\s+/', ' ', trim($formatted));
+}
+
 function getVoucherTheme($price, $colorPalette) {
     $palettes = [
         'amber' => [
@@ -311,7 +333,7 @@ function getVoucherTheme($price, $colorPalette) {
                     $isDualCredential = $v->password && $v->password !== $v->username;
                     $qrVal = $loginUrl . '?username=' . urlencode($v->username) . '&password=' . urlencode($v->password ?: $v->username);
                     $validityLabel = $v->validity ?: 'Unlimited';
-                    $validityDisplay = strtoupper($validityLabel);
+                    $validityDisplay = formatValidityIndonesian($validityLabel);
                     $loginHost = \Illuminate\Support\Str::limit($loginDisplay, 14, '…');
                 @endphp
                 <div class="voucher-card">
