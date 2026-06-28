@@ -351,24 +351,26 @@ export default function WhatsAppGatewayPanel({
                             {waStatusLabel[waSession.status] || waSession.status}
                         </span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <button
                             type="button"
                             onClick={handleStartWaSession}
                             disabled={isLoadingWaSession || isPollingWaSession}
                             title="Mulai sesi & tampilkan QR"
-                            className="p-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg inline-flex items-center justify-center cursor-pointer"
+                            className="px-3 py-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white rounded-lg inline-flex items-center gap-1.5 cursor-pointer text-[11px] font-bold"
                         >
                             <QrCode className={`w-4 h-4 ${isLoadingWaSession ? 'animate-pulse' : ''}`} />
+                            Scan QR
                         </button>
                         <button
                             type="button"
                             onClick={handleResetWaSession}
                             disabled={isLoadingWaSession || isPollingWaSession}
                             title="Reset sesi & ganti nomor WhatsApp"
-                            className={`p-2 border rounded-lg inline-flex items-center justify-center cursor-pointer disabled:opacity-50 ${isDarkMode ? 'border-rose-500/40 text-rose-300 hover:bg-rose-500/10' : 'border-rose-200 text-rose-700 hover:bg-rose-50'}`}
+                            className={`px-3 py-2 border rounded-lg inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 text-[11px] font-bold ${isDarkMode ? 'border-rose-500/40 text-rose-300 hover:bg-rose-500/10' : 'border-rose-200 text-rose-700 hover:bg-rose-50'}`}
                         >
                             <LogOut className="w-4 h-4" />
+                            Reset sesi
                         </button>
                         <button
                             type="button"

@@ -56,4 +56,12 @@ class MikrotikPackageFormOptionsServiceTest extends TestCase
 
         $this->assertSame(['Premium 1: RiverFlow'], $list['all_profiles']);
     }
+
+    public function test_build_hotspot_queue_type_returns_single_name(): void
+    {
+        $this->assertSame('my-cake', MikrotikPackageFormOptionsService::buildHotspotQueueType('my-cake', null));
+        $this->assertSame('my-cake', MikrotikPackageFormOptionsService::buildHotspotQueueType('my-cake', 'my-cake'));
+        $this->assertSame('fq-codel/pfq-codel', MikrotikPackageFormOptionsService::buildHotspotQueueType('fq-codel', 'pfq-codel'));
+        $this->assertNull(MikrotikPackageFormOptionsService::buildHotspotQueueType(null, null));
+    }
 }

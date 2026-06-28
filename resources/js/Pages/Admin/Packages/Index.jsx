@@ -99,6 +99,7 @@ const emptyPackageForm = {
     remote_address: '',
     dns_server: '',
     parent_queue: '',
+    insert_queue_before: '',
     queue_type_rx: '',
     queue_type_tx: '',
     only_one: true,
@@ -347,6 +348,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                 remote_address: editingPackage.remote_address || '',
                 dns_server: editingPackage.dns_server || '',
                 parent_queue: editingPackage.parent_queue || '',
+                insert_queue_before: editingPackage.insert_queue_before || '',
                 queue_type_rx: editingPackage.queue_type_rx || '',
                 queue_type_tx: editingPackage.queue_type_tx || '',
                 only_one: editingPackage.only_one !== false && editingPackage.only_one !== 0,
@@ -877,30 +879,56 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                         </>
                     )}
                     {selectedPackageType === 'hotspot' && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <RouterOsField
-                                label="Address Pool"
-                                name="remote_address"
-                                value={packageForm.remote_address}
-                                onChange={(value) => updatePackageForm('remote_address', value)}
-                                options={modalFormOptions?.ip_pool_names || []}
-                                placeholder="e.g. pool_hotspot"
-                                themeInput={themeInput}
-                                themeLabel={themeLabel}
-                                disabled={isLoadingRouterProfiles}
-                            />
-                            <RouterOsField
-                                label="Parent Queue"
-                                name="parent_queue"
-                                value={packageForm.parent_queue}
-                                onChange={(value) => updatePackageForm('parent_queue', value)}
-                                options={modalFormOptions?.parent_queues || []}
-                                placeholder="e.g. GLOBAL CONN"
-                                themeInput={themeInput}
-                                themeLabel={themeLabel}
-                                disabled={isLoadingRouterProfiles}
-                            />
-                        </div>
+                        <>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <RouterOsField
+                                    label="Address Pool"
+                                    name="remote_address"
+                                    value={packageForm.remote_address}
+                                    onChange={(value) => updatePackageForm('remote_address', value)}
+                                    options={modalFormOptions?.ip_pool_names || []}
+                                    placeholder="e.g. pool_hotspot"
+                                    themeInput={themeInput}
+                                    themeLabel={themeLabel}
+                                    disabled={isLoadingRouterProfiles || isLoadingFormOptions}
+                                />
+                                <RouterOsField
+                                    label="Insert Queue Before"
+                                    name="insert_queue_before"
+                                    value={packageForm.insert_queue_before}
+                                    onChange={(value) => updatePackageForm('insert_queue_before', value)}
+                                    options={modalFormOptions?.parent_queues || []}
+                                    placeholder="e.g. queue-name"
+                                    themeInput={themeInput}
+                                    themeLabel={themeLabel}
+                                    disabled={isLoadingRouterProfiles || isLoadingFormOptions}
+                                />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <RouterOsField
+                                    label="Parent Queue"
+                                    name="parent_queue"
+                                    value={packageForm.parent_queue}
+                                    onChange={(value) => updatePackageForm('parent_queue', value)}
+                                    options={modalFormOptions?.parent_queues || []}
+                                    placeholder="e.g. GLOBAL CONN"
+                                    themeInput={themeInput}
+                                    themeLabel={themeLabel}
+                                    disabled={isLoadingRouterProfiles || isLoadingFormOptions}
+                                />
+                                <RouterOsField
+                                    label="Queue Type"
+                                    name="queue_type_rx"
+                                    value={packageForm.queue_type_rx || packageForm.queue_type_tx}
+                                    onChange={(value) => updatePackageForm('queue_type_rx', value)}
+                                    options={modalFormOptions?.queue_types || []}
+                                    placeholder="e.g. my-cake"
+                                    themeInput={themeInput}
+                                    themeLabel={themeLabel}
+                                    disabled={isLoadingRouterProfiles || isLoadingFormOptions}
+                                />
+                            </div>
+                        </>
                     )}
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Deskripsi Paket</label>

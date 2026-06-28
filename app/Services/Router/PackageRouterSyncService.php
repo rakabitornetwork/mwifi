@@ -128,6 +128,7 @@ class PackageRouterSyncService
             'mikrotik_profile' => $name,
             'bandwidth_limit' => self::field($profile, ['rate-limit', 'rate_limit']) ?: '5M/5M',
             'remote_address' => self::field($profile, ['address-pool', 'address_pool']),
+            'insert_queue_before' => self::field($profile, ['insert-queue-before', 'insert_queue_before']),
             'parent_queue' => self::field($profile, ['parent-queue', 'parent_queue']),
             'queue_type_rx' => $queueRx,
             'queue_type_tx' => $queueTx,
@@ -280,8 +281,12 @@ class PackageRouterSyncService
     private static function parseQueueType(?string $queueType): array
     {
         $queueType = trim((string) ($queueType ?? ''));
-        if ($queueType === '' || !str_contains($queueType, '/')) {
+        if ($queueType === '') {
             return [null, null];
+        }
+
+        if (!str_contains($queueType, '/')) {
+            return [$queueType, null];
         }
 
         [$rx, $tx] = array_pad(explode('/', $queueType, 2), 2, '');

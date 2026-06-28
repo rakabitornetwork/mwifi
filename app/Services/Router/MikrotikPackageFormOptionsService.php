@@ -114,9 +114,11 @@ class MikrotikPackageFormOptionsService
             if ($scope === self::SCOPE_FORM) {
                 $parentQueue = self::field($profile, ['parent-queue', 'parent_queue']);
                 $addressPool = self::field($profile, ['address-pool', 'address_pool']);
+                $insertQueueBefore = self::field($profile, ['insert-queue-before', 'insert_queue_before']);
 
                 self::pushUnique($remoteAddresses, $addressPool);
                 self::pushUnique($parentQueues, $parentQueue);
+                self::pushUnique($parentQueues, $insertQueueBefore);
             }
         }
 
@@ -195,6 +197,25 @@ class MikrotikPackageFormOptionsService
         sort($values, SORT_NATURAL | SORT_FLAG_CASE);
 
         return $values;
+    }
+
+    /**
+     * Build RouterOS queue-type value for Hotspot user profiles (single queue type name).
+     */
+    public static function buildHotspotQueueType(?string $rx, ?string $tx): ?string
+    {
+        $rx = trim((string) ($rx ?? ''));
+        $tx = trim((string) ($tx ?? ''));
+
+        if ($rx === '' && $tx === '') {
+            return null;
+        }
+
+        if ($rx !== '' && ($tx === '' || $rx === $tx)) {
+            return $rx;
+        }
+
+        return self::buildRouterOsQueueType($rx, $tx);
     }
 
     /**

@@ -868,6 +868,7 @@ class AdminActionController extends Controller
             'remote_address' => 'nullable|string|max:50',
             'dns_server' => 'nullable|string|max:100',
             'parent_queue' => 'nullable|string|max:100',
+            'insert_queue_before' => 'nullable|string|max:100',
             'queue_type_rx' => 'nullable|string|max:100',
             'queue_type_tx' => 'nullable|string|max:100',
             'only_one' => 'nullable|boolean',
@@ -921,8 +922,9 @@ class AdminActionController extends Controller
                 $mkData = [
                     'name' => $data['mikrotik_profile'],
                     'rate-limit' => $data['bandwidth_limit'] ?? null,
+                    'insert-queue-before' => $data['insert_queue_before'] ?? null,
                     'parent-queue' => $data['parent_queue'] ?? null,
-                    'queue-type' => \App\Services\Router\MikrotikPackageFormOptionsService::buildRouterOsQueueType(
+                    'queue-type' => \App\Services\Router\MikrotikPackageFormOptionsService::buildHotspotQueueType(
                         $data['queue_type_rx'] ?? null,
                         $data['queue_type_tx'] ?? null
                     ),
