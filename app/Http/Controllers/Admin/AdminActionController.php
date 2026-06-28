@@ -2904,22 +2904,24 @@ class AdminActionController extends Controller
 
                 $added = $connector->addHotspotUser($mkData);
 
-                if ($added) {
-                    HotspotVoucher::create([
-                        'router_id' => $router->id,
-                        'username' => $username,
-                        'password' => $password,
-                        'mikrotik_profile' => $package->mikrotik_profile,
-                        'server' => $data['server'],
-                        'wifi_name' => $data['wifi_name'] ?? null,
-                        'price' => $data['price'],
-                        'agent_commission_amount' => $data['agent_commission_amount'] ?? null,
-                        'validity' => $package->validity,
-                        'status' => 'unused',
-                        'comment' => $data['comment'] ?? null,
-                    ]);
-                    $successCount++;
+                if (!$added) {
+                    throw new \Exception("Gagal menambahkan user hotspot ke MikroTik. Silakan periksa apakah profil '{$package->mikrotik_profile}' sudah ada di MikroTik, hotspot server '{$data['server']}' benar, atau periksa koneksi router.");
                 }
+
+                HotspotVoucher::create([
+                    'router_id' => $router->id,
+                    'username' => $username,
+                    'password' => $password,
+                    'mikrotik_profile' => $package->mikrotik_profile,
+                    'server' => $data['server'],
+                    'wifi_name' => $data['wifi_name'] ?? null,
+                    'price' => $data['price'],
+                    'agent_commission_amount' => $data['agent_commission_amount'] ?? null,
+                    'validity' => $package->validity,
+                    'status' => 'unused',
+                    'comment' => $data['comment'] ?? null,
+                ]);
+                $successCount++;
             }
 
             return redirect()->back()->with('success', "Berhasil men-generate {$successCount} voucher hotspot baru.");
