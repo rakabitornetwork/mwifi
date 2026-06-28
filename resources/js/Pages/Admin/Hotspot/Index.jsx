@@ -210,7 +210,7 @@ function HotspotPageContent({
         }
 
         fetchActiveSessions();
-        const interval = setInterval(() => fetchActiveSessions({ silent: true }), 15000);
+        const interval = setInterval(() => fetchActiveSessions({ silent: true }), 3000);
 
         return () => clearInterval(interval);
     }, [hotspotSubTab, sessionRouterFilter]);
@@ -834,7 +834,7 @@ function HotspotPageContent({
                             <div className="space-y-2 flex-1">
                                 <p className={`text-[11px] leading-relaxed ${themeTextSub}`}>
                                     Daftar pengguna hotspot yang sedang online di RouterOS (<span className="font-mono">IP → Hotspot → Active</span>).
-                                    Data diperbarui otomatis setiap 15 detik.
+                                    Data diperbarui otomatis setiap 3 detik.
                                 </p>
                                 <select
                                     value={sessionRouterFilter}
