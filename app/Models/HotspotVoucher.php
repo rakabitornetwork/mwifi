@@ -8,6 +8,7 @@ class HotspotVoucher extends Model
 {
     protected $fillable = [
         'router_id',
+        'user_id',
         'username',
         'password',
         'mikrotik_profile',
@@ -26,10 +27,16 @@ class HotspotVoucher extends Model
         'sold_at' => 'datetime',
         'price' => 'float',
         'agent_commission_amount' => 'float',
+        'user_id' => 'integer',
     ];
 
     public function router()
     {
         return $this->belongsTo(Router::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

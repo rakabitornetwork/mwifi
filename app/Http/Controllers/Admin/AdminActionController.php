@@ -2835,10 +2835,18 @@ class AdminActionController extends Controller
             'wifi_name' => 'nullable|string|max:50',
             'price' => 'required|numeric|min:0',
             'agent_commission_amount' => 'nullable|numeric|min:0',
+            'user_id' => 'nullable|exists:users,id',
         ]);
 
         $router = Router::findOrFail($data['router_id']);
         $package = Package::findOrFail($data['package_id']);
+
+        $targetUserId = null;
+        if ($request->user() && $request->user()->role === 'operator') {
+            $targetUserId = $request->user()->id;
+        } else {
+            $targetUserId = $data['user_id'] ?? null;
+        }
 
         try {
             $connector = \App\Services\Router\RouterService::getConnector($router);
@@ -2910,6 +2918,7 @@ class AdminActionController extends Controller
 
                 HotspotVoucher::create([
                     'router_id' => $router->id,
+                    'user_id' => $targetUserId,
                     'username' => $username,
                     'password' => $password,
                     'mikrotik_profile' => $package->mikrotik_profile,

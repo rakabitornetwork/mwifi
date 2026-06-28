@@ -93,4 +93,41 @@ class HotspotAgentCommissionServiceTest extends TestCase
         $this->assertEquals(1500.0, $sale->owner_amount);
         $this->assertEquals(25.0, $sale->commission_percent);
     }
+
+    public function test_ensure_sale_recorded_uses_voucher_user_id_if_no_seller_provided(): void
+    {
+        $router = \App\Models\Router::create([
+            'name' => 'Test Router 2',
+            'host' => '127.0.0.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'admin',
+            'protocol_type' => 'legacy_socket',
+        ]);
+
+        $seller = User::factory()->create([
+            'role' => User::ROLE_OPERATOR,
+            'hotspot_commission_percent' => 10.0,
+        ]);
+
+        $voucher = \App\Models\HotspotVoucher::create([
+            'router_id' => $router->id,
+            'user_id' => $seller->id,
+            'username' => 'test-user-2',
+            'password' => 'test-pass-2',
+            'mikrotik_profile' => 'default',
+            'price' => 2000.0,
+            'agent_commission_amount' => 500.0,
+            'status' => 'sold',
+        ]);
+
+        \App\Services\HotspotVoucherService::ensureSaleRecorded($voucher, 'Otomatis (MAC Terdeteksi)');
+
+        $sale = \App\Models\HotspotSale::where('username', 'test-user-2')->first();
+
+        $this->assertNotNull($sale);
+        $this->assertEquals($seller->id, $sale->sold_by_user_id);
+        $this->assertEquals(500.0, $sale->agent_amount);
+        $this->assertEquals(1500.0, $sale->owner_amount);
+    }
 }

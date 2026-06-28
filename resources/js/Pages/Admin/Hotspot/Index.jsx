@@ -1799,6 +1799,18 @@ function HotspotPageContent({
                         </div>
                     </div>
 
+                    {!isOperatorView && (
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Penerima Voucher / Agen</label>
+                            <select name="user_id" className={`p-2 border rounded-lg ${themeInput}`}>
+                                <option value="">— Tanpa Agen (Penjualan Otomatis) —</option>
+                                {hotspotAgents.map((agent) => (
+                                    <option key={agent.id} value={agent.id}>{agent.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-3 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Jumlah Voucher</label>

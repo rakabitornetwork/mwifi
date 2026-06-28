@@ -86,6 +86,10 @@ class HotspotVoucherService
             return;
         }
 
+        if (!$seller && $voucher->user_id) {
+            $seller = \App\Models\User::find($voucher->user_id);
+        }
+
         HotspotAgentCommissionService::recordSale($voucher, $paymentMethod, $seller);
     }
 
