@@ -141,8 +141,8 @@ function HotspotPageContent({
     const [generateComment, setGenerateComment] = useState('');
     const [generateServerDnsName, setGenerateServerDnsName] = useState('');
     const [generatePackageId, setGeneratePackageId] = useState('');
-    const [generateBasePrice, setGenerateBasePrice] = useState(0);
-    const [generateAgentProfit, setGenerateAgentProfit] = useState(0);
+    const [generateBasePrice, setGenerateBasePrice] = useState('');
+    const [generateAgentProfit, setGenerateAgentProfit] = useState('');
 
     const [hotspotMemberPage, setHotspotMemberPage] = useState(1);
     const [showMemberModal, setShowMemberModal] = useState(false);
@@ -521,8 +521,8 @@ function HotspotPageContent({
     const closeGenerateVoucherModal = () => {
         setShowGenerateVoucherModal(false);
         setGeneratePackageId('');
-        setGenerateBasePrice(0);
-        setGenerateAgentProfit(0);
+        setGenerateBasePrice('');
+        setGenerateAgentProfit('');
     };
 
     const closePrintVouchersModal = () => {
@@ -1861,7 +1861,7 @@ function HotspotPageContent({
                                     setGeneratePackageId(pId);
                                     const pkg = packages.find((p) => String(p.id) === String(pId));
                                     if (pkg) {
-                                        setGenerateBasePrice(Number(pkg.price));
+                                        setGenerateBasePrice(String(pkg.price));
                                     }
                                 }}
                                 className={`p-2 border rounded-lg ${themeInput}`}
@@ -1893,30 +1893,30 @@ function HotspotPageContent({
                                 required
                                 type="number"
                                 value={generateBasePrice}
-                                onChange={(e) => setGenerateBasePrice(Math.max(0, Number(e.target.value)))}
+                                onChange={(e) => setGenerateBasePrice(e.target.value)}
                                 className={`p-2 border rounded-lg font-mono ${themeInput}`}
                                 min="0"
                             />
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Keuntungan Agen (Rp)</label>
+                            <label className={`font-bold ${themeLabel}`}>Komisi (Rp)</label>
                             <input
                                 required
                                 name="agent_commission_amount"
                                 type="number"
                                 value={generateAgentProfit}
-                                onChange={(e) => setGenerateAgentProfit(Math.max(0, Number(e.target.value)))}
+                                onChange={(e) => setGenerateAgentProfit(e.target.value)}
                                 className={`p-2 border rounded-lg font-mono ${themeInput}`}
                                 min="0"
                             />
                         </div>
                         <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Harga Voucher (Total)</label>
+                            <label className={`font-bold ${themeLabel}`}>Total (Rp)</label>
                             <input
                                 readOnly
                                 name="price"
                                 type="number"
-                                value={generateBasePrice + generateAgentProfit}
+                                value={Number(generateBasePrice || 0) + Number(generateAgentProfit || 0)}
                                 className={`p-2 border rounded-lg font-mono font-bold bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-550 dark:text-zinc-400`}
                             />
                         </div>
