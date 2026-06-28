@@ -1724,7 +1724,7 @@ function HotspotPageContent({
                                     setGeneratePackageId(pId);
                                     const pkg = packages.find((p) => String(p.id) === String(pId));
                                     if (pkg) {
-                                        setGenerateBasePrice(String(pkg.price));
+                                        setGenerateBasePrice(String(Math.round(parseFloat(pkg.price || 0))));
                                     }
                                 }}
                                 className={`p-2 border rounded-lg ${themeInput}`}
