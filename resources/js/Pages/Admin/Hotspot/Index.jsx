@@ -210,7 +210,7 @@ function HotspotPageContent({
     };
 
     useEffect(() => {
-        if (hotspotSubTab !== 'agents') {
+        if (hotspotSubTab !== 'sales') {
             return undefined;
         }
 
@@ -698,13 +698,6 @@ function HotspotPageContent({
                         >
                             Laporan Penjualan
                         </button>
-                        <button
-                            type="button"
-                            onClick={() => setHotspotSubTab('agents')}
-                            className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'agents' ? 'bg-violet-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
-                        >
-                            Bagi Hasil Agen
-                        </button>
                     </div>
                 )}
             >
@@ -1082,181 +1075,6 @@ function HotspotPageContent({
                         )}
                     </div>
                 ) : hotspotSubTab === 'sales' ? (
-                    <div className="space-y-6">
-                        {(() => {
-                            const totalSalesRevenue = hotspotSales.reduce((acc, sale) => acc + parseFloat(sale.price || 0), 0);
-                            const totalSalesCount = hotspotSales.length;
-                            const averageSalePrice = totalSalesCount > 0 ? (totalSalesRevenue / totalSalesCount) : 0;
-                            return (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className={`border rounded-2xl p-4 flex flex-col justify-between ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-emerald-50/50 border-emerald-100'}`}>
-                                        <div className="flex justify-between items-start">
-                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-emerald-700'}`}>Total Pendapatan Hotspot</span>
-                                            <CreditCard className={`w-4 h-4 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`} />
-                                        </div>
-                                        <div className="mt-3">
-                                            <p className={`text-2xl font-extrabold tracking-tight leading-none ${themeTextTitle}`}>{formatRupiah(totalSalesRevenue)}</p>
-                                            <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Akumulasi semua transaksi hotspot</span>
-                                        </div>
-                                    </div>
-
-                                    <div className={`border rounded-2xl p-4 flex flex-col justify-between ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-blue-50/50 border-blue-100'}`}>
-                                        <div className="flex justify-between items-start">
-                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-blue-700'}`}>Voucher Terjual</span>
-                                            <Users className={`w-4 h-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-                                        </div>
-                                        <div className="mt-3">
-                                            <p className={`text-2xl font-extrabold tracking-tight leading-none ${themeTextTitle}`}>{totalSalesCount} Voucher</p>
-                                            <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Jumlah voucher tercatat di database</span>
-                                        </div>
-                                    </div>
-
-                                    <div className={`border rounded-2xl p-4 flex flex-col justify-between ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-amber-50/50 border-amber-100'}`}>
-                                        <div className="flex justify-between items-start">
-                                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-400' : 'text-amber-700'}`}>Rata-rata Transaksi</span>
-                                            <Activity className={`w-4 h-4 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`} />
-                                        </div>
-                                        <div className="mt-3">
-                                            <p className={`text-2xl font-extrabold tracking-tight leading-none ${themeTextTitle}`}>{formatRupiah(averageSalePrice)}</p>
-                                            <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Nilai rata-rata per penjualan</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        {(() => {
-                            const finalChartData = buildHotspotDailyRevenueChartData(hotspotSales);
-
-                            return (
-                                <div className={`border rounded-2xl p-5 ${themeInnerWidget} space-y-3`}>
-                                    <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Grafik Tren Pendapatan Harian (10 Hari Terakhir)</h3>
-                                    <div className="h-64 w-full">
-                                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                                            <AreaChart data={finalChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                                <defs>
-                                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                                                    </linearGradient>
-                                                </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} />
-                                                <XAxis dataKey="date" stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={10} tickLine={false} />
-                                                <YAxis stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => formatRupiah(v)} />
-                                                <Tooltip
-                                                    contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '12px' }}
-                                                    labelStyle={{ color: isDarkMode ? '#ffffff' : '#18181b', fontWeight: 'bold', fontSize: '12px' }}
-                                                    itemStyle={{ color: '#10b981', fontSize: '12px' }}
-                                                    formatter={(value) => [formatRupiah(value), 'Pendapatan']}
-                                                />
-                                                <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
-                            );
-                        })()}
-
-                        <div className="space-y-3">
-                            <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Riwayat Transaksi Penjualan</h3>
-                            <div className="admin-table-scroll">
-                                <table>
-                                    <thead>
-                                        <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
-                                            <th className="py-3 px-2">Router</th>
-                                            <th className="py-3 px-2">Voucher / Username</th>
-                                            <th className="py-3 px-2">Paket</th>
-                                            <th className="py-3 px-2">Harga</th>
-                                            <th className="py-3 px-2">Agen</th>
-                                            <th className="py-3 px-2">Bagi Hasil</th>
-                                            <th className="py-3 px-2">Metode Pembayaran</th>
-                                            <th className="py-3 px-2">Waktu Penjualan</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-zinc-800/20 text-xs">
-                                        {(() => {
-                                            const totalSalesPages = Math.ceil(hotspotSales.length / salesPageSize) || 1;
-                                            const paginatedSales = hotspotSales.slice(
-                                                (salesPage - 1) * salesPageSize,
-                                                salesPage * salesPageSize,
-                                            );
-
-                                            if (paginatedSales.length === 0) {
-                                                return (
-                                                    <tr>
-                                                        <td colSpan="8" className={`py-8 text-center font-medium ${themeTextDesc}`}>Belum ada data penjualan tercatat.</td>
-                                                    </tr>
-                                                );
-                                            }
-
-                                            return paginatedSales.map((sale) => (
-                                                <tr key={sale.id} className={`${themeTextSub} hover:bg-zinc-900/10`}>
-                                                    <td className="py-3 px-2 font-semibold">{sale.router ? sale.router.name : '-'}</td>
-                                                    <td className={`py-3 px-2 font-mono font-bold ${themeTextTitle}`}>{sale.username}</td>
-                                                    <td className="py-3 px-2">{sale.package_name || '-'}</td>
-                                                    <td className="py-3 px-2 font-bold text-emerald-500">{formatRupiah(sale.price)}</td>
-                                                    <td className="py-3 px-2">
-                                                        {sale.sold_by?.name || (
-                                                            <span className={`text-[10px] ${themeTextDesc}`}>Otomatis</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="py-3 px-2 font-mono text-[10px]">
-                                                        {Number(sale.agent_amount || 0) > 0 ? (
-                                                            <span className="text-violet-500 font-bold">
-                                                                {formatRupiah(sale.agent_amount)}
-                                                                <span className={`block ${themeTextDesc}`}>{sale.commission_percent || 0}%</span>
-                                                            </span>
-                                                        ) : (
-                                                            <span className={themeTextDesc}>—</span>
-                                                        )}
-                                                    </td>
-                                                    <td className="py-3 px-2">
-                                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                                            sale.payment_method === 'Cash' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
-                                                        }`}>
-                                                            {sale.payment_method}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-3 px-2 font-mono">{sale.created_at ? new Date(sale.created_at).toLocaleString('id-ID') : '-'}</td>
-                                                </tr>
-                                            ));
-                                        })()}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {(() => {
-                                const totalSalesPages = Math.ceil(hotspotSales.length / salesPageSize) || 1;
-                                if (totalSalesPages > 1) {
-                                    return (
-                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-zinc-800/10 text-xs">
-                                            <span className={`text-center sm:text-left ${themeTextSub}`}>Halaman {salesPage} dari {totalSalesPages} ({hotspotSales.length} transaksi)</span>
-                                            <div className="flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setSalesPage((p) => Math.max(1, p - 1))}
-                                                    disabled={salesPage === 1}
-                                                    className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
-                                                >
-                                                    Sebelumnya
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setSalesPage((p) => Math.min(totalSalesPages, p + 1))}
-                                                    disabled={salesPage === totalSalesPages}
-                                                    className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
-                                                >
-                                                    Berikutnya
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            })()}
-                        </div>
-                    </div>
-                ) : hotspotSubTab === 'agents' ? (
                     <div className="space-y-4">
                         <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-3">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 flex-1">
@@ -1375,6 +1193,41 @@ function HotspotPageContent({
                                         <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Penjualan otomatis / tanpa pencatat</span>
                                     </div>
                                 </div>
+
+                                {/* Daily Trend Chart */}
+                                {(() => {
+                                    const sales = agentReport.sales || [];
+                                    const finalChartData = buildHotspotDailyRevenueChartData(sales);
+                                    if (finalChartData.length === 0) return null;
+
+                                    return (
+                                        <div className={`border rounded-2xl p-5 ${themeInnerWidget} space-y-3`}>
+                                            <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Grafik Tren Pendapatan Harian</h3>
+                                            <div className="h-64 w-full">
+                                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                                    <AreaChart data={finalChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                                        <defs>
+                                                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                                                            </linearGradient>
+                                                        </defs>
+                                                        <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} />
+                                                        <XAxis dataKey="date" stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={10} tickLine={false} />
+                                                        <YAxis stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => formatRupiah(v)} />
+                                                        <Tooltip
+                                                            contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '12px' }}
+                                                            labelStyle={{ color: isDarkMode ? '#ffffff' : '#18181b', fontWeight: 'bold', fontSize: '12px' }}
+                                                            itemStyle={{ color: '#10b981', fontSize: '12px' }}
+                                                            formatter={(value) => [formatRupiah(value), 'Pendapatan']}
+                                                        />
+                                                        <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
+                                                    </AreaChart>
+                                                </ResponsiveContainer>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
 
                                 {!isOperatorView && (agentReport.agents?.length || 0) > 0 && (
                                     <div className="space-y-3">
