@@ -184,4 +184,22 @@ class BillingNextInvoiceTest extends TestCase
         $payload = BillingService::appendNextBillingToInvoices(collect([$invoice->fresh()]));
         $this->assertNull($payload[0]['next_billing'] ?? null);
     }
+
+    public function test_paid_invoice_whatsapp_includes_next_billing_after_payment_time(): void
+    {
+        $invoice = $this->makePaidInvoice();
+
+        $block = BillingService::buildPaidInvoiceNextBillingBlock($invoice);
+        $this->assertStringContainsString('Tagihan Berikutnya', $block);
+        $this->assertStringContainsString('Juli 2026', $block);
+        $this->assertStringContainsString('Rp 120.000', $block);
+
+        $message = BillingService::buildPaidInvoiceWhatsAppMessage($invoice);
+        $this->assertNotNull($message);
+        $this->assertStringContainsString('Waktu Bayar', $message);
+        $this->assertLessThan(
+            strpos($message, 'Tagihan Berikutnya'),
+            strpos($message, 'Waktu Bayar')
+        );
+    }
 }

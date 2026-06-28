@@ -98,7 +98,7 @@ class MessageTemplateService
                 'description' => 'Bukti pembayaran lunas (kirim ulang manual atau notifikasi tanpa reaktivasi).',
                 'placeholders' => [
                     'brand_name', 'invoice_number', 'customer_name', 'username', 'period',
-                    'payment_method', 'amount_paid', 'paid_at', 'footer_note',
+                    'payment_method', 'amount_paid', 'paid_at', 'next_billing_block', 'footer_note',
                 ],
             ],
             'whatsapp.template.payment_reactivated' => [
@@ -106,7 +106,7 @@ class MessageTemplateService
                 'description' => 'Dikirim otomatis setelah pelanggan membayar dan layanan diaktifkan kembali.',
                 'placeholders' => [
                     'brand_name', 'invoice_number', 'customer_name', 'username', 'period',
-                    'payment_method', 'amount_paid', 'paid_at', 'footer_note',
+                    'payment_method', 'amount_paid', 'paid_at', 'next_billing_block', 'footer_note',
                 ],
             ],
             'whatsapp.template.isolation' => [
@@ -306,7 +306,7 @@ Terima kasih — pembayaran Anda telah kami terima dengan baik.
 • Username      : {username}
 • Metode Bayar  : {payment_method}
 • Jumlah Bayar  : *{amount_paid}*
-• Waktu Bayar   : {paid_at}{footer_note}
+• Waktu Bayar   : {paid_at}{next_billing_block}{footer_note}
 
 Hormat kami,
 *{brand_name}*
@@ -325,7 +325,7 @@ Terima kasih — pembayaran Anda telah kami terima dengan baik.
 • Username      : {username}
 • Metode Bayar  : {payment_method}
 • Jumlah Bayar  : *{amount_paid}*
-• Waktu Bayar   : {paid_at}{footer_note}
+• Waktu Bayar   : {paid_at}{next_billing_block}{footer_note}
 
 Hormat kami,
 *{brand_name}*
@@ -531,6 +531,7 @@ TEMPLATE,
                 'payment_method' => 'Cash / Tunai',
                 'amount_paid' => 'Rp 150.000',
                 'paid_at' => '22-06-2026 14:30',
+                'next_billing_block' => "\n\n*Tagihan Berikutnya*\n• Periode       : *Juli 2026*\n• Jatuh Tempo   : *20 Juli 2026*\n• Total         : *Rp 150.000*",
                 'footer_note' => $key === 'whatsapp.template.payment_reactivated'
                     ? "\n\nLayanan internet Anda telah aktif kembali secara otomatis. Terima kasih atas kepercayaan dan kerja samanya."
                     : "\n\nTerima kasih atas kepercayaan dan kerja samanya.",

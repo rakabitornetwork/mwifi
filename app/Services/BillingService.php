@@ -3487,10 +3487,42 @@ class BillingService
             'payment_method' => $method,
             'amount_paid' => self::formatWhatsAppMoney($amountPaid),
             'paid_at' => $paidAt,
+            'next_billing_block' => self::buildPaidInvoiceNextBillingBlock($invoice),
             'footer_note' => $includeReactivationNote
                 ? "\n\nLayanan internet Anda telah aktif kembali secara otomatis. Terima kasih atas kepercayaan dan kerja samanya."
                 : "\n\nTerima kasih atas kepercayaan dan kerja samanya.",
         ]);
+    }
+
+    public static function buildPaidInvoiceNextBillingBlock(Invoice $invoice): string
+    {
+        $preview = self::resolveNextBillingPreview($invoice);
+
+        if ($preview === null) {
+            return '';
+        }
+
+        $period = self::formatWhatsAppBillingPeriod((string) $preview['period']);
+        $dueDate = self::formatWhatsAppDueDate($preview['due_date'] ?? null);
+        $total = self::formatWhatsAppMoney((float) ($preview['total_amount'] ?? 0));
+
+        $lines = [
+            '',
+            '*Tagihan Berikutnya*',
+            '• Periode       : *' . $period . '*',
+            '• Jatuh Tempo   : *' . $dueDate . '*',
+            '• Total         : *' . $total . '*',
+        ];
+
+        if (!empty($preview['is_prorated'])) {
+            $lines[] = '• Prorata       : *' . (int) ($preview['days_billed'] ?? 0) . ' hari* / 30 hari';
+        }
+
+        if (!empty($preview['already_generated']) && !empty($preview['invoice_number'])) {
+            $lines[] = '• No. Invoice   : *' . $preview['invoice_number'] . '*';
+        }
+
+        return implode("\n", $lines);
     }
 
     public static function formatWhatsAppMoney(float $amount): string
