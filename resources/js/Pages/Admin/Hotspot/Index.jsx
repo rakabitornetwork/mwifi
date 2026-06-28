@@ -4,7 +4,6 @@ import {
     Activity,
     CreditCard,
     Edit,
-    Layers,
     Plus,
     Printer,
     Radio,
@@ -34,16 +33,41 @@ import { useAdminToast } from '../../../hooks/useAdminToast';
 import { formatRupiah } from '../../../utils/formatRupiah';
 import getVisiblePages from '../../../utils/getVisiblePages';
 
-const HOTSPOT_VALIDITY_PRESETS = ['1h', '2h', '6h', '12h', '1d', '7d', '30d'];
+function buildHotspotDailyRevenueChartData(sales, days = 10) {
+    const groups = new Map();
 
-const emptyHotspotProfileForm = {
-    name: '',
-    price: '',
-    bandwidth_limit: '',
-    validity: '1d',
-    description: '',
-    router_id: '',
-};
+    sales.forEach((sale) => {
+        if (!sale.created_at) {
+            return;
+        }
+
+        const date = new Date(sale.created_at);
+        const sortKey = [
+            date.getFullYear(),
+            String(date.getMonth() + 1).padStart(2, '0'),
+            String(date.getDate()).padStart(2, '0'),
+        ].join('-');
+        const label = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+        const revenue = parseFloat(sale.price || 0);
+        const existing = groups.get(sortKey);
+
+        if (existing) {
+            existing.revenue += revenue;
+        } else {
+            groups.set(sortKey, { date: label, revenue });
+        }
+    });
+
+    const sorted = [...groups.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([, value]) => value);
+
+    if (sorted.length === 0) {
+        return [{ date: 'Tidak ada data', revenue: 0 }];
+    }
+
+    return sorted.slice(-days);
+}
 
 function HotspotPageContent({
     routers = [],
@@ -111,14 +135,6 @@ function HotspotPageContent({
     const [memberToDelete, setMemberToDelete] = useState(null);
     const [deleteMode, setDeleteMode] = useState('local_only');
 
-    const [profileRouterFilter, setProfileRouterFilter] = useState('');
-    const [profilePage, setProfilePage] = useState(1);
-    const profilePageSize = 10;
-    const [showProfileModal, setShowProfileModal] = useState(false);
-    const [editingProfile, setEditingProfile] = useState(null);
-    const [profileForm, setProfileForm] = useState(emptyHotspotProfileForm);
-    const [isSavingProfile, setIsSavingProfile] = useState(false);
-
     useEffect(() => {
         setVoucherPage(1);
     }, [searchTerm, voucherRouterFilter, voucherStatusFilter, voucherCommentFilter]);
@@ -130,29 +146,6 @@ function HotspotPageContent({
     useEffect(() => {
         setHotspotMemberPage(1);
     }, [searchTerm]);
-
-    useEffect(() => {
-        setProfilePage(1);
-    }, [searchTerm, profileRouterFilter]);
-
-    useEffect(() => {
-        if (!showProfileModal) {
-            return;
-        }
-
-        if (editingProfile) {
-            setProfileForm({
-                name: editingProfile.name || '',
-                price: editingProfile.price ?? '',
-                bandwidth_limit: editingProfile.bandwidth_limit || '',
-                validity: editingProfile.validity || '1d',
-                description: editingProfile.description || '',
-                router_id: editingProfile.router_id ? String(editingProfile.router_id) : '',
-            });
-        } else {
-            setProfileForm(emptyHotspotProfileForm);
-        }
-    }, [showProfileModal, editingProfile]);
 
     const fetchHotspotVoucherMacAddresses = async () => {
         try {
@@ -189,74 +182,6 @@ function HotspotPageContent({
         router.post('/admin/hotspot/sync-profiles', { router_id: routerId }, {
             onSuccess: () => setIsSyncingHotspot(false),
             onError: () => setIsSyncingHotspot(false),
-        });
-    };
-
-    const openEditProfile = (profile) => {
-        setEditingProfile(profile);
-        setShowProfileModal(true);
-    };
-
-    const closeProfileModal = () => {
-        setShowProfileModal(false);
-        setEditingProfile(null);
-        setProfileForm(emptyHotspotProfileForm);
-    };
-
-    const updateProfileForm = (field, value) => {
-        setProfileForm((prev) => ({ ...prev, [field]: value }));
-    };
-
-    const handleSaveProfile = (e) => {
-        e.preventDefault();
-
-        const routerId = profileForm.router_id || editingProfile?.router_id;
-        if (!routerId) {
-            showToast('Pilih router Mikrotik untuk menyimpan profil hotspot.', 'warning');
-            return;
-        }
-
-        setIsSavingProfile(true);
-        router.post('/admin/packages/save', {
-            id: editingProfile?.id || '',
-            type: 'hotspot',
-            router_id: routerId,
-            name: profileForm.name,
-            mikrotik_profile: editingProfile?.mikrotik_profile || profileForm.name,
-            price: profileForm.price,
-            bandwidth_limit: profileForm.bandwidth_limit,
-            validity: profileForm.validity,
-            description: profileForm.description,
-        }, {
-            onSuccess: () => {
-                setIsSavingProfile(false);
-                closeProfileModal();
-            },
-            onError: (errors) => {
-                setIsSavingProfile(false);
-                const messages = Object.values(errors).flat().filter(Boolean);
-                showToast(messages[0] || 'Gagal menyimpan profil hotspot.', 'error');
-            },
-        });
-    };
-
-    const handleDeleteProfile = (profile) => {
-        const routerId = profile.router_id || profileRouterFilter || routers[0]?.id;
-        if (!routerId) {
-            showToast('Profil ini belum terhubung ke router. Sync ulang profil hotspot terlebih dahulu.', 'warning');
-            return;
-        }
-
-        if (!confirm(`Hapus profil hotspot "${profile.mikrotik_profile}" dari aplikasi? Profil di MikroTik tidak dihapus.`)) {
-            return;
-        }
-
-        router.post('/admin/packages/delete', {
-            id: profile.id,
-            router_id: routerId,
-            db_only: 1,
-        }, {
-            onError: () => showToast('Gagal menghapus profil hotspot.', 'error'),
         });
     };
 
@@ -472,46 +397,11 @@ function HotspotPageContent({
         voucherPage * voucherPageSize,
     );
 
-    const filteredHotspotProfiles = useMemo(() => {
-        const term = searchTerm.trim().toLowerCase();
-
-        return packages
-            .filter((profile) => {
-                const matchRouter = profileRouterFilter === ''
-                    || String(profile.router_id || '') === String(profileRouterFilter);
-                if (!matchRouter) {
-                    return false;
-                }
-
-                if (!term) {
-                    return true;
-                }
-
-                return [
-                    profile.name,
-                    profile.mikrotik_profile,
-                    profile.description,
-                    profile.bandwidth_limit,
-                    profile.validity,
-                    profile.router?.name,
-                ].some((value) => String(value || '').toLowerCase().includes(term));
-            })
-            .sort((a, b) => String(a.mikrotik_profile || a.name).localeCompare(String(b.mikrotik_profile || b.name), 'id'));
-    }, [packages, profileRouterFilter, searchTerm]);
-
-    const totalProfilePages = Math.ceil(filteredHotspotProfiles.length / profilePageSize) || 1;
-    const paginatedHotspotProfiles = filteredHotspotProfiles.slice(
-        (profilePage - 1) * profilePageSize,
-        profilePage * profilePageSize,
-    );
-
     const searchPlaceholder = hotspotSubTab === 'vouchers'
         ? 'Cari kode voucher...'
-        : hotspotSubTab === 'profiles'
-            ? 'Cari profil hotspot...'
-            : hotspotSubTab === 'members'
-                ? 'Cari member hotspot...'
-                : 'Cari transaksi...';
+        : hotspotSubTab === 'members'
+            ? 'Cari member hotspot...'
+            : 'Cari transaksi...';
 
     const uniqueCommentsForPrintRouter = [...new Set(
         hotspotVouchers
@@ -546,13 +436,6 @@ function HotspotPageContent({
                         </button>
                         <button
                             type="button"
-                            onClick={() => setHotspotSubTab('profiles')}
-                            className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'profiles' ? 'bg-violet-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
-                        >
-                            Profil Hotspot
-                        </button>
-                        <button
-                            type="button"
                             onClick={() => setHotspotSubTab('members')}
                             className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'members' ? 'bg-emerald-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
                         >
@@ -568,7 +451,7 @@ function HotspotPageContent({
                     </div>
                 )}
             >
-                {(hotspotSubTab === 'vouchers' || hotspotSubTab === 'members' || hotspotSubTab === 'profiles') && (
+                {(hotspotSubTab === 'vouchers' || hotspotSubTab === 'members') && (
                     <div className="relative">
                         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
                         <input
@@ -794,143 +677,6 @@ function HotspotPageContent({
                             </div>
                         )}
                     </div>
-                ) : hotspotSubTab === 'profiles' ? (
-                    <div className="space-y-4">
-                        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
-                            <div className="space-y-2 flex-1">
-                                <p className={`text-[11px] leading-relaxed ${themeTextSub}`}>
-                                    Daftar profil hotspot hasil sync dari MikroTik (<span className="font-mono">IP → Hotspot → User Profiles</span>).
-                                    Profil ini dipakai saat generate voucher dan member hotspot.
-                                </p>
-                                <select
-                                    value={profileRouterFilter}
-                                    onChange={(e) => setProfileRouterFilter(e.target.value)}
-                                    className={`w-full max-w-xs px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-violet-500/30 ${themeInput}`}
-                                >
-                                    <option value="">Semua Router</option>
-                                    {routers.map((r) => (
-                                        <option key={r.id} value={r.id}>{r.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2 justify-end shrink-0">
-                                <div className="relative inline-flex items-center justify-center" title={isSyncingHotspot ? 'Sinkronisasi...' : 'Sync Profil Hotspot'}>
-                                    <select
-                                        defaultValue=""
-                                        onChange={(e) => {
-                                            if (e.target.value) {
-                                                handleSyncHotspot(e.target.value);
-                                                e.target.value = '';
-                                            }
-                                        }}
-                                        disabled={isSyncingHotspot}
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                                    >
-                                        <option value="" disabled>Sync Profil Hotspot</option>
-                                        {routers.map((r) => (
-                                            <option key={r.id} value={r.id}>{r.name}</option>
-                                        ))}
-                                    </select>
-                                    <div className={`w-9 h-9 flex items-center justify-center rounded-xl border ${
-                                        isDarkMode
-                                            ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                                            : 'bg-amber-50 border-amber-200 text-amber-600'
-                                    }`}>
-                                        <RefreshCw className={`w-4 h-4 ${isSyncingHotspot ? 'animate-spin' : ''}`} />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="admin-table-scroll">
-                            <table>
-                                <thead>
-                                    <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
-                                        <th className="py-3 px-2">Profil MikroTik</th>
-                                        <th className="py-3 px-2">Nama Paket</th>
-                                        <th className="py-3 px-2">Router</th>
-                                        <th className="py-3 px-2">Harga</th>
-                                        <th className="py-3 px-2">Masa Aktif</th>
-                                        <th className="py-3 px-2">Speed Limit</th>
-                                        <th className="py-3 px-2">Keterangan</th>
-                                        <th className="py-3 px-2 text-right">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-zinc-800/20 text-xs">
-                                    {paginatedHotspotProfiles.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={8} className={`py-10 text-center ${themeTextDesc}`}>
-                                                <Layers className={`w-8 h-8 mx-auto mb-2 ${isDarkMode ? 'text-violet-400/70' : 'text-violet-500/70'}`} />
-                                                <p className="font-semibold">Belum ada profil hotspot.</p>
-                                                <p className="text-[10px] mt-1 max-w-md mx-auto leading-relaxed">
-                                                    Pilih router lalu klik tombol sync (ikon refresh) untuk mengimpor profil dari MikroTik.
-                                                </p>
-                                            </td>
-                                        </tr>
-                                    ) : paginatedHotspotProfiles.map((profile) => (
-                                        <tr key={profile.id} className={`${themeTextSub} hover:bg-zinc-900/10`}>
-                                            <td className="py-3 px-2 font-mono font-bold text-violet-500">{profile.mikrotik_profile || '-'}</td>
-                                            <td className={`py-3 px-2 font-semibold ${themeTextTitle}`}>{profile.name}</td>
-                                            <td className="py-3 px-2">{profile.router?.name || '—'}</td>
-                                            <td className="py-3 px-2 font-bold text-emerald-500">{formatRupiah(profile.price)}</td>
-                                            <td className="py-3 px-2 font-mono">{profile.validity || '-'}</td>
-                                            <td className="py-3 px-2 font-mono text-[11px]">{profile.bandwidth_limit || '-'}</td>
-                                            <td className="py-3 px-2 text-[10px] max-w-[12rem] truncate" title={profile.description || ''}>
-                                                {profile.description || '-'}
-                                            </td>
-                                            <td className="py-3 px-2 text-right">
-                                                <div className="admin-table-actions">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => openEditProfile(profile)}
-                                                        title="Edit Profil"
-                                                        className="inline-block p-1 text-sky-500 hover:text-sky-400 cursor-pointer transition-colors"
-                                                    >
-                                                        <Edit className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleDeleteProfile(profile)}
-                                                        title="Hapus dari Aplikasi"
-                                                        className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {totalProfilePages > 1 && (
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-zinc-800/10 text-xs">
-                                <span className={`text-center sm:text-left ${themeTextSub}`}>
-                                    Halaman {profilePage} dari {totalProfilePages} ({filteredHotspotProfiles.length} profil)
-                                </span>
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setProfilePage((p) => Math.max(1, p - 1))}
-                                        disabled={profilePage === 1}
-                                        className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
-                                    >
-                                        Sebelumnya
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setProfilePage((p) => Math.min(totalProfilePages, p + 1))}
-                                        disabled={profilePage === totalProfilePages}
-                                        className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
-                                    >
-                                        Berikutnya
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
                 ) : hotspotSubTab === 'sales' ? (
                     <div className="space-y-6">
                         {(() => {
@@ -976,13 +722,7 @@ function HotspotPageContent({
                         })()}
 
                         {(() => {
-                            const groups = {};
-                            hotspotSales.forEach((sale) => {
-                                const dateStr = sale.created_at ? new Date(sale.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : 'N/A';
-                                groups[dateStr] = (groups[dateStr] || 0) + parseFloat(sale.price || 0);
-                            });
-                            const array = Object.keys(groups).map((date) => ({ date, revenue: groups[date] }));
-                            const finalChartData = array.length > 0 ? array.slice(-10) : [{ date: 'Tidak ada data', revenue: 0 }];
+                            const finalChartData = buildHotspotDailyRevenueChartData(hotspotSales);
 
                             return (
                                 <div className={`border rounded-2xl p-5 ${themeInnerWidget} space-y-3`}>
@@ -1509,119 +1249,6 @@ function HotspotPageContent({
                         <button type="button" onClick={() => setShowGenerateVoucherModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
                         <button type="submit" disabled={isGeneratingVouchers} title={isGeneratingVouchers ? 'Generating...' : 'Generate'} className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50">
                             <TicketPlus className={`w-4 h-4 ${isGeneratingVouchers ? 'animate-pulse' : ''}`} />
-                        </button>
-                    </div>
-                </form>
-            </TransitionModal>
-
-            <TransitionModal show={showProfileModal} onClose={closeProfileModal} themeCard={themeCard} maxWidth="md">
-                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
-                    <div>
-                        <h3 className={`text-sm font-bold ${themeTextTitle}`}>Edit Profil Hotspot</h3>
-                        {editingProfile?.mikrotik_profile && (
-                            <p className={`text-[10px] mt-0.5 font-mono ${themeTextSub}`}>
-                                Profil MikroTik: <span className="text-violet-500">{editingProfile.mikrotik_profile}</span>
-                            </p>
-                        )}
-                    </div>
-                    <button type="button" onClick={closeProfileModal} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
-                </div>
-                <form onSubmit={handleSaveProfile} className="space-y-3 text-xs mt-4">
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
-                        <select
-                            required
-                            value={profileForm.router_id}
-                            onChange={(e) => updateProfileForm('router_id', e.target.value)}
-                            className={`p-2 border rounded-lg ${themeInput}`}
-                        >
-                            <option value="" disabled>Pilih Router</option>
-                            {routers.map((r) => (
-                                <option key={r.id} value={r.id}>{r.name}</option>
-                            ))}
-                        </select>
-                        <p className={`text-[10px] ${themeTextDesc}`}>Diperlukan untuk sinkron perubahan ke RouterOS.</p>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Nama Paket (Tampilan)</label>
-                        <input
-                            required
-                            type="text"
-                            value={profileForm.name}
-                            onChange={(e) => updateProfileForm('name', e.target.value)}
-                            className={`p-2 border rounded-lg ${themeInput}`}
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Harga (Rp)</label>
-                            <input
-                                required
-                                type="number"
-                                min="0"
-                                value={profileForm.price}
-                                onChange={(e) => updateProfileForm('price', e.target.value)}
-                                className={`p-2 border rounded-lg font-mono ${themeInput}`}
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Masa Aktif</label>
-                            <input
-                                required
-                                list="hotspot-validity-presets"
-                                value={profileForm.validity}
-                                onChange={(e) => updateProfileForm('validity', e.target.value)}
-                                placeholder="e.g. 2h, 1d, 30d"
-                                className={`p-2 border rounded-lg font-mono ${themeInput}`}
-                            />
-                            <datalist id="hotspot-validity-presets">
-                                {HOTSPOT_VALIDITY_PRESETS.map((preset) => (
-                                    <option key={preset} value={preset} />
-                                ))}
-                            </datalist>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Batas Kecepatan (Speed Limit)</label>
-                        <input
-                            required
-                            type="text"
-                            value={profileForm.bandwidth_limit}
-                            onChange={(e) => updateProfileForm('bandwidth_limit', e.target.value)}
-                            placeholder="e.g. 5M/5M"
-                            className={`p-2 border rounded-lg font-mono ${themeInput}`}
-                        />
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Keterangan</label>
-                        <textarea
-                            rows={2}
-                            value={profileForm.description}
-                            onChange={(e) => updateProfileForm('description', e.target.value)}
-                            className={`p-2 border rounded-lg ${themeInput}`}
-                        />
-                    </div>
-
-                    <div className="flex justify-end pt-2 gap-2">
-                        <button
-                            type="button"
-                            onClick={closeProfileModal}
-                            title="Batal"
-                            className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isSavingProfile}
-                            title={isSavingProfile ? 'Menyimpan...' : 'Simpan Profil'}
-                            className="p-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50"
-                        >
-                            <Save className={`w-4 h-4 ${isSavingProfile ? 'animate-pulse' : ''}`} />
                         </button>
                     </div>
                 </form>
