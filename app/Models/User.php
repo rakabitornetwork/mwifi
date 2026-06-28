@@ -12,7 +12,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 
-#[Fillable(['name', 'email', 'phone_number', 'password', 'profile_title', 'avatar', 'role', 'is_active', 'assigned_router_id', 'can_manual_payment'])]
+#[Fillable(['name', 'email', 'phone_number', 'password', 'profile_title', 'avatar', 'role', 'is_active', 'assigned_router_id', 'can_manual_payment', 'hotspot_commission_percent'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -84,6 +84,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'can_manual_payment' => 'boolean',
+            'hotspot_commission_percent' => 'float',
         ];
     }
 

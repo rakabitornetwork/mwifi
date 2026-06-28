@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\HotspotSale;
 use App\Models\HotspotVoucher;
 use App\Models\Router;
+use App\Models\User;
 use App\Services\Router\RouterConnectorInterface;
 use Illuminate\Support\Facades\Log;
 
@@ -80,23 +80,13 @@ class HotspotVoucherService
         return $voucher->sold_at->copy()->addSeconds($validitySeconds)->isPast();
     }
 
-    public static function ensureSaleRecorded(HotspotVoucher $voucher, ?string $paymentMethod = null): void
+    public static function ensureSaleRecorded(HotspotVoucher $voucher, ?string $paymentMethod = null, ?User $seller = null): void
     {
         if (!in_array($voucher->status, ['sold', 'expired'], true)) {
             return;
         }
 
-        HotspotSale::firstOrCreate(
-            [
-                'router_id' => $voucher->router_id,
-                'username' => $voucher->username,
-            ],
-            [
-                'package_name' => 'Hotspot Profile: ' . ($voucher->mikrotik_profile ?? 'default'),
-                'price' => $voucher->price,
-                'payment_method' => $paymentMethod ?? 'Otomatis (Arsip Voucher)',
-            ]
-        );
+        HotspotAgentCommissionService::recordSale($voucher, $paymentMethod, $seller);
     }
 
     /**

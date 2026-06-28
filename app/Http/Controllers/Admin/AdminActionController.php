@@ -185,6 +185,7 @@ class AdminActionController extends Controller
                 'exists:routers,id',
             ],
             'can_manual_payment' => 'nullable|boolean',
+            'hotspot_commission_percent' => 'nullable|numeric|min:0|max:100',
         ];
 
         if ($id) {
@@ -211,6 +212,9 @@ class AdminActionController extends Controller
             'can_manual_payment' => $data['role'] === User::ROLE_TECHNICIAN
                 ? $request->boolean('can_manual_payment')
                 : false,
+            'hotspot_commission_percent' => in_array($data['role'], [User::ROLE_OPERATOR, User::ROLE_ADMIN], true)
+                ? (filled($data['hotspot_commission_percent'] ?? null) ? $data['hotspot_commission_percent'] : null)
+                : null,
         ];
 
         if (!empty($data['password'])) {
@@ -2622,6 +2626,54 @@ class AdminActionController extends Controller
     }
 
     /**
+     * Laporan bagi hasil penjualan voucher hotspot (pemilik vs agen).
+     */
+    public function getHotspotAgentReport(Request $request)
+    {
+        $data = $request->validate([
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date',
+            'agent_id' => 'nullable|integer|exists:users,id',
+        ]);
+
+        $report = \App\Services\HotspotAgentReportService::build(
+            $request->user(),
+            $data['date_from'] ?? null,
+            $data['date_to'] ?? null,
+            isset($data['agent_id']) ? (int) $data['agent_id'] : null,
+        );
+
+        return response()->json([
+            'success' => true,
+            ...$report,
+        ]);
+    }
+
+    /**
+     * Simpan persentase bagi hasil default untuk operator hotspot.
+     */
+    public function saveHotspotCommissionSettings(Request $request)
+    {
+        abort_unless($request->user()?->canWriteData(), 403);
+
+        $data = $request->validate([
+            'default_commission_percent' => 'required|numeric|min:0|max:100',
+        ]);
+
+        SettingService::set(
+            \App\Services\HotspotAgentCommissionService::SETTING_DEFAULT_PERCENT,
+            (string) $data['default_commission_percent'],
+            'hotspot',
+            false,
+        );
+
+        return response()->json([
+            'success' => true,
+            'default_commission_percent' => (float) $data['default_commission_percent'],
+        ]);
+    }
+
+    /**
      * Sync MAC addresses for hotspot vouchers from MikroTik user/active sessions.
      */
     public function syncHotspotMacAddresses()
@@ -2895,13 +2947,7 @@ class AdminActionController extends Controller
         ]);
 
         // Log sale
-        HotspotSale::create([
-            'router_id' => $voucher->router_id,
-            'username' => $voucher->username,
-            'package_name' => "Hotspot Profile: " . $voucher->mikrotik_profile,
-            'price' => $voucher->price,
-            'payment_method' => $data['payment_method'],
-        ]);
+        HotspotVoucherService::ensureSaleRecorded($voucher, $data['payment_method'], $request->user());
 
         return redirect()->back()->with('success', "Voucher {$voucher->username} berhasil dicatat sebagai TERJUAL.");
     }

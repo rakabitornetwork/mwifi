@@ -282,6 +282,7 @@ class AdminPageController extends Controller
                     'assigned_router_id' => $user->assigned_router_id,
                     'assigned_router_name' => $user->assignedRouter?->name,
                     'can_manual_payment' => (bool) $user->can_manual_payment,
+                    'hotspot_commission_percent' => $user->hotspot_commission_percent,
                     'initials' => $user->initials(),
                     'avatar_url' => $user->avatarUrl(),
                     'created_at' => $user->created_at?->format('d/m/Y H:i'),
@@ -359,12 +360,22 @@ class AdminPageController extends Controller
 
     public function hotspot(): Response
     {
+        $agents = User::query()
+            ->whereNotNull('role')
+            ->whereDoesntHave('customer')
+            ->where('is_active', true)
+            ->whereIn('role', [User::ROLE_OPERATOR, User::ROLE_ADMIN])
+            ->orderBy('name')
+            ->get(['id', 'name', 'role', 'hotspot_commission_percent']);
+
         return Inertia::render('Admin/Hotspot/Index', [
             'routers' => Router::all(),
             'packages' => Package::where('type', 'hotspot')->with('router')->orderBy('mikrotik_profile')->get(),
             'customers' => Customer::with(['package', 'router'])->where('service_type', 'hotspot')->get(),
             'hotspotVouchers' => HotspotVoucher::with('router')->orderByDesc('created_at')->get(),
-            'hotspotSales' => HotspotSale::with('router')->orderByDesc('created_at')->get(),
+            'hotspotSales' => HotspotSale::with(['router', 'soldBy:id,name'])->orderByDesc('created_at')->get(),
+            'hotspotAgents' => $agents,
+            'defaultHotspotCommissionPercent' => \App\Services\HotspotAgentCommissionService::defaultCommissionPercent(),
         ]);
     }
 

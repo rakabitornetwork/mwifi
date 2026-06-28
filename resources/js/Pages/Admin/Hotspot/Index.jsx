@@ -34,6 +34,7 @@ import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useAdminToast } from '../../../hooks/useAdminToast';
 import { formatRupiah } from '../../../utils/formatRupiah';
 import { formatBytes } from '../../../utils/formatBytes';
+import { formatDateInputValue, todayDateInputValue } from '../../../utils/formatDateInputValue';
 import getVisiblePages from '../../../utils/getVisiblePages';
 
 function buildHotspotDailyRevenueChartData(sales, days = 10) {
@@ -83,10 +84,14 @@ function HotspotPageContent({
     customers = [],
     hotspotVouchers = [],
     hotspotSales = [],
+    hotspotAgents = [],
+    defaultHotspotCommissionPercent = 0,
 }) {
     const theme = useAdminTheme();
     const { showToast } = useAdminToast();
-    const { branding = {} } = usePage().props;
+    const { branding = {}, auth } = usePage().props;
+    const canManageCommissionSettings = Boolean(auth?.user?.can_write) && auth?.user?.role !== 'operator';
+    const isOperatorView = auth?.user?.role === 'operator';
 
     const {
         isDarkMode,
@@ -151,6 +156,94 @@ function HotspotPageContent({
     const [sessionPage, setSessionPage] = useState(1);
     const [kickingSessionKey, setKickingSessionKey] = useState(null);
     const sessionPageSize = 10;
+
+    const [agentDateFrom, setAgentDateFrom] = useState(() => {
+        const now = new Date();
+        return formatDateInputValue(new Date(now.getFullYear(), now.getMonth(), 1));
+    });
+    const [agentDateTo, setAgentDateTo] = useState(todayDateInputValue);
+    const [agentFilterId, setAgentFilterId] = useState('');
+    const [agentReport, setAgentReport] = useState(null);
+    const [isLoadingAgentReport, setIsLoadingAgentReport] = useState(false);
+    const [agentReportError, setAgentReportError] = useState(null);
+    const [defaultCommissionInput, setDefaultCommissionInput] = useState(String(defaultHotspotCommissionPercent ?? 0));
+    const [isSavingCommissionSettings, setIsSavingCommissionSettings] = useState(false);
+    const [agentReportPage, setAgentReportPage] = useState(1);
+    const agentReportPageSize = 10;
+
+    useEffect(() => {
+        setDefaultCommissionInput(String(defaultHotspotCommissionPercent ?? 0));
+    }, [defaultHotspotCommissionPercent]);
+
+    const fetchAgentReport = async () => {
+        setIsLoadingAgentReport(true);
+        setAgentReportError(null);
+
+        try {
+            const params = new URLSearchParams();
+            if (agentDateFrom) params.set('date_from', agentDateFrom);
+            if (agentDateTo) params.set('date_to', agentDateTo);
+            if (!isOperatorView && agentFilterId) params.set('agent_id', agentFilterId);
+
+            const response = await fetch(`/admin/hotspot/agent-report?${params.toString()}`, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Gagal memuat laporan bagi hasil agen.');
+            }
+
+            setAgentReport(data);
+            setAgentReportPage(1);
+        } catch (error) {
+            setAgentReportError(error?.message || 'Gagal memuat laporan bagi hasil agen.');
+        } finally {
+            setIsLoadingAgentReport(false);
+        }
+    };
+
+    useEffect(() => {
+        if (hotspotSubTab !== 'agents') {
+            return undefined;
+        }
+
+        fetchAgentReport();
+    }, [hotspotSubTab, agentDateFrom, agentDateTo, agentFilterId, isOperatorView]);
+
+    const handleSaveDefaultCommission = async () => {
+        setIsSavingCommissionSettings(true);
+
+        try {
+            const response = await fetch('/admin/hotspot/commission-settings', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    default_commission_percent: Number(defaultCommissionInput),
+                }),
+            });
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Gagal menyimpan pengaturan bagi hasil.');
+            }
+
+            showToast('Persentase bagi hasil default berhasil disimpan.', 'success');
+            fetchAgentReport();
+        } catch (error) {
+            showToast(error?.message || 'Gagal menyimpan pengaturan bagi hasil.', 'error');
+        } finally {
+            setIsSavingCommissionSettings(false);
+        }
+    };
 
     useEffect(() => {
         setVoucherPage(1);
@@ -598,6 +691,13 @@ function HotspotPageContent({
                             className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'sales' ? 'bg-emerald-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
                         >
                             Laporan Penjualan
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setHotspotSubTab('agents')}
+                            className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'agents' ? 'bg-violet-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
+                        >
+                            Bagi Hasil Agen
                         </button>
                     </div>
                 )}
@@ -1061,6 +1161,8 @@ function HotspotPageContent({
                                             <th className="py-3 px-2">Voucher / Username</th>
                                             <th className="py-3 px-2">Paket</th>
                                             <th className="py-3 px-2">Harga</th>
+                                            <th className="py-3 px-2">Agen</th>
+                                            <th className="py-3 px-2">Bagi Hasil</th>
                                             <th className="py-3 px-2">Metode Pembayaran</th>
                                             <th className="py-3 px-2">Waktu Penjualan</th>
                                         </tr>
@@ -1076,7 +1178,7 @@ function HotspotPageContent({
                                             if (paginatedSales.length === 0) {
                                                 return (
                                                     <tr>
-                                                        <td colSpan="6" className={`py-8 text-center font-medium ${themeTextDesc}`}>Belum ada data penjualan tercatat.</td>
+                                                        <td colSpan="8" className={`py-8 text-center font-medium ${themeTextDesc}`}>Belum ada data penjualan tercatat.</td>
                                                     </tr>
                                                 );
                                             }
@@ -1087,6 +1189,21 @@ function HotspotPageContent({
                                                     <td className={`py-3 px-2 font-mono font-bold ${themeTextTitle}`}>{sale.username}</td>
                                                     <td className="py-3 px-2">{sale.package_name || '-'}</td>
                                                     <td className="py-3 px-2 font-bold text-emerald-500">{formatRupiah(sale.price)}</td>
+                                                    <td className="py-3 px-2">
+                                                        {sale.sold_by?.name || (
+                                                            <span className={`text-[10px] ${themeTextDesc}`}>Otomatis</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-3 px-2 font-mono text-[10px]">
+                                                        {Number(sale.agent_amount || 0) > 0 ? (
+                                                            <span className="text-violet-500 font-bold">
+                                                                {formatRupiah(sale.agent_amount)}
+                                                                <span className={`block ${themeTextDesc}`}>{sale.commission_percent || 0}%</span>
+                                                            </span>
+                                                        ) : (
+                                                            <span className={themeTextDesc}>—</span>
+                                                        )}
+                                                    </td>
                                                     <td className="py-3 px-2">
                                                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                                                             sale.payment_method === 'Cash' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
@@ -1132,6 +1249,255 @@ function HotspotPageContent({
                                 return null;
                             })()}
                         </div>
+                    </div>
+                ) : hotspotSubTab === 'agents' ? (
+                    <div className="space-y-4">
+                        <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 flex-1">
+                                <div className="flex flex-col gap-1">
+                                    <label className={`text-[10px] font-bold uppercase ${themeLabel}`}>Dari Tanggal</label>
+                                    <input
+                                        type="date"
+                                        value={agentDateFrom}
+                                        onChange={(e) => setAgentDateFrom(e.target.value)}
+                                        className={`px-3 py-2 border rounded-xl text-xs ${themeInput}`}
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className={`text-[10px] font-bold uppercase ${themeLabel}`}>Sampai Tanggal</label>
+                                    <input
+                                        type="date"
+                                        value={agentDateTo}
+                                        onChange={(e) => setAgentDateTo(e.target.value)}
+                                        className={`px-3 py-2 border rounded-xl text-xs ${themeInput}`}
+                                    />
+                                </div>
+                                {!isOperatorView && (
+                                    <div className="flex flex-col gap-1 sm:col-span-2">
+                                        <label className={`text-[10px] font-bold uppercase ${themeLabel}`}>Filter Agen</label>
+                                        <select
+                                            value={agentFilterId}
+                                            onChange={(e) => setAgentFilterId(e.target.value)}
+                                            className={`px-3 py-2 border rounded-xl text-xs ${themeInput}`}
+                                        >
+                                            <option value="">Semua Agen</option>
+                                            {hotspotAgents.map((agent) => (
+                                                <option key={agent.id} value={agent.id}>
+                                                    {agent.name}
+                                                    {agent.hotspot_commission_percent != null ? ` (${agent.hotspot_commission_percent}%)` : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={fetchAgentReport}
+                                disabled={isLoadingAgentReport}
+                                title="Muat ulang laporan"
+                                className={`p-2 border rounded-xl cursor-pointer inline-flex items-center justify-center disabled:opacity-50 shrink-0 ${isDarkMode ? 'border-zinc-800 text-violet-400 hover:bg-zinc-900' : 'border-zinc-200 text-violet-600 hover:bg-violet-50'}`}
+                            >
+                                <RefreshCw className={`w-4 h-4 ${isLoadingAgentReport ? 'animate-spin' : ''}`} />
+                            </button>
+                        </div>
+
+                        {canManageCommissionSettings && (
+                            <div className={`border rounded-2xl p-4 ${themeInnerWidget} flex flex-col sm:flex-row sm:items-end gap-3`}>
+                                <div className="flex-1 space-y-1">
+                                    <p className={`text-xs font-bold ${themeTextTitle}`}>Persentase Bagi Hasil Default (Operator Hotspot)</p>
+                                    <p className={`text-[10px] ${themeTextSub}`}>
+                                        Dipakai saat agen tidak punya persentase khusus di menu User. Penjualan otomatis tidak mendapat komisi agen.
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        max="100"
+                                        step="0.01"
+                                        value={defaultCommissionInput}
+                                        onChange={(e) => setDefaultCommissionInput(e.target.value)}
+                                        className={`w-24 px-3 py-2 border rounded-lg text-xs font-mono ${themeInput}`}
+                                    />
+                                    <span className={`text-xs font-bold ${themeTextSub}`}>%</span>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveDefaultCommission}
+                                        disabled={isSavingCommissionSettings}
+                                        title="Simpan persentase default"
+                                        className="p-2 bg-violet-500 hover:bg-violet-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50"
+                                    >
+                                        <Save className={`w-4 h-4 ${isSavingCommissionSettings ? 'animate-pulse' : ''}`} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {agentReportError && (
+                            <div className={`text-[11px] font-semibold rounded-xl border px-3 py-2 ${isDarkMode ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+                                {agentReportError}
+                            </div>
+                        )}
+
+                        {isLoadingAgentReport && !agentReport ? (
+                            <div className={`py-12 text-center text-xs ${themeTextDesc}`}>
+                                <RefreshCw className="w-5 h-5 mx-auto mb-2 animate-spin" />
+                                Memuat laporan bagi hasil...
+                            </div>
+                        ) : agentReport && (
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                                    <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-emerald-50/50 border-emerald-100'}`}>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Total Penjualan</span>
+                                        <p className={`text-2xl font-extrabold mt-2 ${themeTextTitle}`}>{formatRupiah(agentReport.summary?.gross_revenue || 0)}</p>
+                                        <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>{agentReport.summary?.sale_count || 0} transaksi</span>
+                                    </div>
+                                    <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-violet-50/50 border-violet-100'}`}>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Bagian Agen</span>
+                                        <p className="text-2xl font-extrabold mt-2 text-violet-500">{formatRupiah(agentReport.summary?.agent_total || 0)}</p>
+                                        <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Total komisi agen</span>
+                                    </div>
+                                    <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-sky-50/50 border-sky-100'}`}>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Bagian Pemilik</span>
+                                        <p className="text-2xl font-extrabold mt-2 text-sky-500">{formatRupiah(agentReport.summary?.owner_total || 0)}</p>
+                                        <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Setelah bagi hasil agen</span>
+                                    </div>
+                                    <div className={`border rounded-2xl p-4 ${isDarkMode ? 'bg-zinc-900/40 border-zinc-800/80' : 'bg-amber-50/50 border-amber-100'}`}>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${themeTextSub}`}>Tanpa Agen</span>
+                                        <p className="text-2xl font-extrabold mt-2 text-amber-500">{formatRupiah(agentReport.summary?.unattributed_revenue || 0)}</p>
+                                        <span className={`text-[10px] font-bold block mt-1 ${themeTextSub}`}>Penjualan otomatis / tanpa pencatat</span>
+                                    </div>
+                                </div>
+
+                                {!isOperatorView && (agentReport.agents?.length || 0) > 0 && (
+                                    <div className="space-y-3">
+                                        <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Ringkasan per Agen</h3>
+                                        <div className="admin-table-scroll">
+                                            <table>
+                                                <thead>
+                                                    <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
+                                                        <th className="py-3 px-2">Agen</th>
+                                                        <th className="py-3 px-2">Transaksi</th>
+                                                        <th className="py-3 px-2">Omzet</th>
+                                                        <th className="py-3 px-2">Komisi Agen</th>
+                                                        <th className="py-3 px-2">Bagian Pemilik</th>
+                                                        <th className="py-3 px-2">Rata-rata %</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-zinc-800/20 text-xs">
+                                                    {agentReport.agents.map((agent) => (
+                                                        <tr key={agent.agent_id} className={`${themeTextSub} hover:bg-zinc-900/10`}>
+                                                            <td className={`py-3 px-2 font-bold ${themeTextTitle}`}>{agent.agent_name}</td>
+                                                            <td className="py-3 px-2 font-mono">{agent.sale_count}</td>
+                                                            <td className="py-3 px-2 font-bold text-emerald-500">{formatRupiah(agent.gross_revenue)}</td>
+                                                            <td className="py-3 px-2 font-bold text-violet-500">{formatRupiah(agent.agent_amount)}</td>
+                                                            <td className="py-3 px-2 font-bold text-sky-500">{formatRupiah(agent.owner_amount)}</td>
+                                                            <td className="py-3 px-2 font-mono">{agent.average_commission_percent}%</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="space-y-3">
+                                    <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>
+                                        {isOperatorView ? 'Riwayat Penjualan Saya' : 'Detail Transaksi Bagi Hasil'}
+                                    </h3>
+                                    <div className="admin-table-scroll">
+                                        <table>
+                                            <thead>
+                                                <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
+                                                    <th className="py-3 px-2">Waktu</th>
+                                                    <th className="py-3 px-2">Voucher</th>
+                                                    <th className="py-3 px-2">Paket</th>
+                                                    <th className="py-3 px-2">Harga</th>
+                                                    {!isOperatorView && <th className="py-3 px-2">Agen</th>}
+                                                    <th className="py-3 px-2">Komisi</th>
+                                                    <th className="py-3 px-2">Bagian Pemilik</th>
+                                                    <th className="py-3 px-2">Metode</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-zinc-800/20 text-xs">
+                                                {(() => {
+                                                    const sales = agentReport.sales || [];
+                                                    const totalPages = Math.ceil(sales.length / agentReportPageSize) || 1;
+                                                    const paginated = sales.slice(
+                                                        (agentReportPage - 1) * agentReportPageSize,
+                                                        agentReportPage * agentReportPageSize,
+                                                    );
+
+                                                    if (paginated.length === 0) {
+                                                        return (
+                                                            <tr>
+                                                                <td colSpan={isOperatorView ? 7 : 8} className={`py-8 text-center ${themeTextDesc}`}>
+                                                                    Tidak ada penjualan pada periode ini.
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    }
+
+                                                    return paginated.map((sale) => (
+                                                        <tr key={sale.id} className={`${themeTextSub} hover:bg-zinc-900/10`}>
+                                                            <td className="py-3 px-2 font-mono text-[10px]">
+                                                                {sale.created_at ? new Date(sale.created_at).toLocaleString('id-ID') : '-'}
+                                                            </td>
+                                                            <td className={`py-3 px-2 font-mono font-bold ${themeTextTitle}`}>{sale.username}</td>
+                                                            <td className="py-3 px-2">{sale.package_name || '-'}</td>
+                                                            <td className="py-3 px-2 font-bold text-emerald-500">{formatRupiah(sale.price)}</td>
+                                                            {!isOperatorView && (
+                                                                <td className="py-3 px-2">{sale.agent_name || 'Otomatis'}</td>
+                                                            )}
+                                                            <td className="py-3 px-2 font-bold text-violet-500">
+                                                                {formatRupiah(sale.agent_amount)}
+                                                                {Number(sale.commission_percent) > 0 && (
+                                                                    <span className={`block text-[10px] font-mono ${themeTextDesc}`}>{sale.commission_percent}%</span>
+                                                                )}
+                                                            </td>
+                                                            <td className="py-3 px-2 font-bold text-sky-500">{formatRupiah(sale.owner_amount)}</td>
+                                                            <td className="py-3 px-2 text-[10px]">{sale.payment_method || '-'}</td>
+                                                        </tr>
+                                                    ));
+                                                })()}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {(() => {
+                                        const totalPages = Math.ceil((agentReport.sales?.length || 0) / agentReportPageSize) || 1;
+                                        if (totalPages <= 1) return null;
+
+                                        return (
+                                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-zinc-800/10 text-xs">
+                                                <span className={`text-center sm:text-left ${themeTextSub}`}>
+                                                    Halaman {agentReportPage} dari {totalPages} ({agentReport.sales.length} transaksi)
+                                                </span>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAgentReportPage((p) => Math.max(1, p - 1))}
+                                                        disabled={agentReportPage === 1}
+                                                        className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
+                                                    >
+                                                        Sebelumnya
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAgentReportPage((p) => Math.min(totalPages, p + 1))}
+                                                        disabled={agentReportPage === totalPages}
+                                                        className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
+                                                    >
+                                                        Berikutnya
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -1759,6 +2125,8 @@ export default function HotspotIndex({
     customers,
     hotspotVouchers,
     hotspotSales,
+    hotspotAgents,
+    defaultHotspotCommissionPercent,
 }) {
     return (
         <AdminLayout title="Manajemen Hotspot">
@@ -1768,6 +2136,8 @@ export default function HotspotIndex({
                 customers={customers}
                 hotspotVouchers={hotspotVouchers}
                 hotspotSales={hotspotSales}
+                hotspotAgents={hotspotAgents}
+                defaultHotspotCommissionPercent={defaultHotspotCommissionPercent}
             />
         </AdminLayout>
     );

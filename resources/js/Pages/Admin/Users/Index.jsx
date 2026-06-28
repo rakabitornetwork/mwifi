@@ -460,6 +460,24 @@ function UsersPageContent({
                                 </p>
                             </div>
                         )}
+                        {(formRole === 'operator' || formRole === 'admin') && (
+                            <div className="flex flex-col gap-1 sm:col-span-2">
+                                <label className={`font-bold ${themeLabel}`}>Bagi Hasil Voucher Hotspot (%)</label>
+                                <input
+                                    name="hotspot_commission_percent"
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="0.01"
+                                    defaultValue={editingUser?.hotspot_commission_percent ?? ''}
+                                    placeholder="Kosongkan = pakai default global"
+                                    className={`p-2 border rounded-lg font-mono max-w-[160px] ${themeInput}`}
+                                />
+                                <p className={`text-[10px] ${themeTextDesc}`}>
+                                    Persentase komisi agen dari setiap penjualan voucher manual. Kosongkan untuk memakai persentase default di menu Hotspot → Bagi Hasil Agen.
+                                </p>
+                            </div>
+                        )}
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Jabatan (opsional)</label>
                             <input name="profile_title" type="text" defaultValue={editingUser?.profile_title || ''} placeholder="Contoh: NOC Engineer" className={`p-2 border rounded-lg ${themeInput}`} />
