@@ -14,6 +14,7 @@ class HotspotVoucher extends Model
         'server',
         'wifi_name',
         'price',
+        'agent_commission_amount',
         'validity',
         'status',
         'comment',
@@ -24,6 +25,7 @@ class HotspotVoucher extends Model
     protected $casts = [
         'sold_at' => 'datetime',
         'price' => 'float',
+        'agent_commission_amount' => 'float',
     ];
 
     public function router()

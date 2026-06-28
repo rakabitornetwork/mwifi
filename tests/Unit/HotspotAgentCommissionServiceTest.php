@@ -59,4 +59,38 @@ class HotspotAgentCommissionServiceTest extends TestCase
     {
         $this->assertSame(0.0, HotspotAgentCommissionService::resolveCommissionPercent(null));
     }
+
+    public function test_record_sale_uses_agent_commission_amount_stored_on_voucher(): void
+    {
+        $router = \App\Models\Router::create([
+            'name' => 'Test Router',
+            'host' => '127.0.0.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'admin',
+            'protocol_type' => 'legacy_socket',
+        ]);
+
+        $voucher = \App\Models\HotspotVoucher::create([
+            'router_id' => $router->id,
+            'username' => 'test-user',
+            'password' => 'test-pass',
+            'mikrotik_profile' => 'default',
+            'price' => 2000.0,
+            'agent_commission_amount' => 500.0,
+            'status' => 'sold',
+        ]);
+
+        $seller = User::factory()->create([
+            'role' => User::ROLE_OPERATOR,
+            'hotspot_commission_percent' => 10.0,
+        ]);
+
+        $sale = HotspotAgentCommissionService::recordSale($voucher, 'Cash', $seller);
+
+        $this->assertEquals(2000.0, $sale->price);
+        $this->assertEquals(500.0, $sale->agent_amount);
+        $this->assertEquals(1500.0, $sale->owner_amount);
+        $this->assertEquals(25.0, $sale->commission_percent);
+    }
 }

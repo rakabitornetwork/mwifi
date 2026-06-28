@@ -140,6 +140,9 @@ function HotspotPageContent({
     const [isLoadingServers, setIsLoadingServers] = useState(false);
     const [generateComment, setGenerateComment] = useState('');
     const [generateServerDnsName, setGenerateServerDnsName] = useState('');
+    const [generatePackageId, setGeneratePackageId] = useState('');
+    const [generateBasePrice, setGenerateBasePrice] = useState(0);
+    const [generateAgentProfit, setGenerateAgentProfit] = useState(0);
 
     const [hotspotMemberPage, setHotspotMemberPage] = useState(1);
     const [showMemberModal, setShowMemberModal] = useState(false);
@@ -517,6 +520,9 @@ function HotspotPageContent({
 
     const closeGenerateVoucherModal = () => {
         setShowGenerateVoucherModal(false);
+        setGeneratePackageId('');
+        setGenerateBasePrice(0);
+        setGenerateAgentProfit(0);
     };
 
     const closePrintVouchersModal = () => {
@@ -1846,7 +1852,20 @@ function HotspotPageContent({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Paket Hotspot (Profile)</label>
-                            <select required name="package_id" className={`p-2 border rounded-lg ${themeInput}`}>
+                            <select
+                                required
+                                name="package_id"
+                                value={generatePackageId}
+                                onChange={(e) => {
+                                    const pId = e.target.value;
+                                    setGeneratePackageId(pId);
+                                    const pkg = packages.find((p) => String(p.id) === String(pId));
+                                    if (pkg) {
+                                        setGenerateBasePrice(Number(pkg.price));
+                                    }
+                                }}
+                                className={`p-2 border rounded-lg ${themeInput}`}
+                            >
                                 <option value="" disabled>Pilih Paket Hotspot</option>
                                 {packages.map((p) => (
                                     <option key={p.id} value={p.id}>{p.name} ({formatRupiah(p.price)})</option>
@@ -1864,6 +1883,42 @@ function HotspotPageContent({
                                 <option value="1A2B3C">1A2B3C (Kombinasi Angka & Kapital Selang-seling)</option>
                                 <option value="1a2b3c">1a2b3c (Kombinasi Angka & Huruf Kecil Selang-seling)</option>
                             </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3 border-t border-b py-2 my-1 border-zinc-200 dark:border-zinc-800/40">
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Harga Dasar (Rp)</label>
+                            <input
+                                required
+                                type="number"
+                                value={generateBasePrice}
+                                onChange={(e) => setGenerateBasePrice(Math.max(0, Number(e.target.value)))}
+                                className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                                min="0"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Keuntungan Agen (Rp)</label>
+                            <input
+                                required
+                                name="agent_commission_amount"
+                                type="number"
+                                value={generateAgentProfit}
+                                onChange={(e) => setGenerateAgentProfit(Math.max(0, Number(e.target.value)))}
+                                className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                                min="0"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Harga Voucher (Total)</label>
+                            <input
+                                readOnly
+                                name="price"
+                                type="number"
+                                value={generateBasePrice + generateAgentProfit}
+                                className={`p-2 border rounded-lg font-mono font-bold bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-550 dark:text-zinc-400`}
+                            />
                         </div>
                     </div>
 

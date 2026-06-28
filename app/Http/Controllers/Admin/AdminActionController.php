@@ -2833,6 +2833,8 @@ class AdminActionController extends Controller
             'server' => 'required|string|max:50',
             'login_type' => 'required|in:same,different',
             'wifi_name' => 'nullable|string|max:50',
+            'price' => 'required|numeric|min:0',
+            'agent_commission_amount' => 'nullable|numeric|min:0',
         ]);
 
         $router = Router::findOrFail($data['router_id']);
@@ -2910,7 +2912,8 @@ class AdminActionController extends Controller
                         'mikrotik_profile' => $package->mikrotik_profile,
                         'server' => $data['server'],
                         'wifi_name' => $data['wifi_name'] ?? null,
-                        'price' => $package->price,
+                        'price' => $data['price'],
+                        'agent_commission_amount' => $data['agent_commission_amount'] ?? null,
                         'validity' => $package->validity,
                         'status' => 'unused',
                         'comment' => $data['comment'] ?? null,

@@ -60,7 +60,18 @@ class HotspotAgentCommissionService
         }
 
         $price = (float) $voucher->price;
-        $split = self::splitAmount($price, self::resolveCommissionPercent($seller));
+        if ($seller && $voucher->agent_commission_amount !== null) {
+            $agentAmount = round((float) $voucher->agent_commission_amount, 2);
+            $ownerAmount = round(max(0, $price - $agentAmount), 2);
+            $commissionPercent = $price > 0 ? round(($agentAmount / $price) * 100, 2) : 0.0;
+            $split = [
+                'commission_percent' => $commissionPercent,
+                'agent_amount' => $agentAmount,
+                'owner_amount' => $ownerAmount,
+            ];
+        } else {
+            $split = self::splitAmount($price, self::resolveCommissionPercent($seller));
+        }
 
         $existing = HotspotSale::query()
             ->where('router_id', $voucher->router_id)
