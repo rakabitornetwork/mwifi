@@ -260,6 +260,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
             type: selectedPackageType,
             router_id: routerFilter,
             ...packageForm,
+            price: selectedPackageType === 'hotspot' ? 0 : packageForm.price,
         };
 
         router.post('/admin/packages/save', payload, {
@@ -641,7 +642,7 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                         </span>
                                     </td>
                                     <td className="py-3 px-2 font-mono">{pkg.validity || '-'}</td>
-                                    <td className="py-3 px-2 font-bold text-emerald-500">{formatRupiah(pkg.price)}</td>
+                                    <td className="py-3 px-2 font-bold text-emerald-500">{pkg.type === 'hotspot' ? '-' : formatRupiah(pkg.price)}</td>
                                     <td className="py-3 px-2 font-mono">{pkg.bandwidth_limit}</td>
                                     <td className="py-3 px-2 font-mono">{pkg.local_address || '-'}</td>
                                     <td className="py-3 px-2 font-mono">{pkg.remote_address || '-'}</td>
@@ -764,17 +765,19 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                             className={`p-2 border rounded-lg ${themeInput}`}
                         />
                     </div>
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Harga (Rp)</label>
-                        <input
-                            required
-                            name="price"
-                            type="number"
-                            value={packageForm.price}
-                            onChange={(e) => updatePackageForm('price', e.target.value)}
-                            className={`p-2 border rounded-lg font-mono ${themeInput}`}
-                        />
-                    </div>
+                    {selectedPackageType === 'pppoe' && (
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Harga (Rp)</label>
+                            <input
+                                required
+                                name="price"
+                                type="number"
+                                value={packageForm.price}
+                                onChange={(e) => updatePackageForm('price', e.target.value)}
+                                className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                            />
+                        </div>
+                    )}
                     <div className="flex flex-col gap-1">
                         <label className={`font-bold ${themeLabel}`}>Batas Kecepatan (Speed Limit)</label>
                         <input
