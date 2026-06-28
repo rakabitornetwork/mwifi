@@ -122,28 +122,59 @@ function RouterOsField({
 }) {
     const normalizedOptions = [...new Set(options.filter(Boolean))];
     const hasOptions = normalizedOptions.length > 0;
-    const isCustomValue = value && !normalizedOptions.includes(value);
+    
+    const [isCustomMode, setIsCustomMode] = useState(
+        value !== undefined && value !== '' && !normalizedOptions.includes(value)
+    );
+
+    useEffect(() => {
+        if (value !== undefined && value !== '' && !normalizedOptions.includes(value)) {
+            setIsCustomMode(true);
+        }
+    }, [value, normalizedOptions]);
+
+    const handleSelectChange = (e) => {
+        const val = e.target.value;
+        if (val === '__custom__') {
+            setIsCustomMode(true);
+            onChange('');
+        } else {
+            setIsCustomMode(false);
+            onChange(val);
+        }
+    };
 
     return (
         <div className="flex flex-col gap-1">
             <label className={`font-bold ${themeLabel}`}>{label}</label>
             {hasOptions ? (
-                <select
-                    name={name}
-                    value={value}
-                    onChange={(e) => onChange(e.target.value)}
-                    required={required}
-                    disabled={disabled}
-                    className={`p-2 border rounded-lg font-mono ${themeInput} disabled:opacity-50`}
-                >
-                    {allowEmpty && <option value="">— Pilih —</option>}
-                    {normalizedOptions.map((option) => (
-                        <option key={option} value={option}>{option}</option>
-                    ))}
-                    {isCustomValue && (
-                        <option value={value}>{value} (kustom)</option>
+                <div className="space-y-1.5">
+                    <select
+                        value={isCustomMode ? '__custom__' : value}
+                        onChange={handleSelectChange}
+                        required={required && !isCustomMode}
+                        disabled={disabled}
+                        className={`w-full p-2 border rounded-lg font-mono ${themeInput} disabled:opacity-50`}
+                    >
+                        {allowEmpty && <option value="">— Pilih —</option>}
+                        {normalizedOptions.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                        ))}
+                        <option value="__custom__">Input Manual / Kustom...</option>
+                    </select>
+                    {isCustomMode && (
+                        <input
+                            name={name}
+                            type="text"
+                            value={value}
+                            onChange={(e) => onChange(e.target.value)}
+                            required={required}
+                            disabled={disabled}
+                            placeholder={placeholder || "Ketik nilai kustom (misal: 3h, 15d)"}
+                            className={`w-full p-2 border rounded-lg font-mono ${themeInput} disabled:opacity-50`}
+                        />
                     )}
-                </select>
+                </div>
             ) : (
                 <input
                     name={name}
