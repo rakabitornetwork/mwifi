@@ -75,6 +75,28 @@ class WhatsAppSessionTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_reset_whatsapp_session(): void
+    {
+        Http::fake([
+            'http://127.0.0.1:3003/health' => Http::response(['success' => true], 200),
+            'http://127.0.0.1:3003/session/mwifi_session/reset' => Http::response([
+                'success' => true,
+                'session' => 'mwifi_session',
+                'status' => 'idle',
+                'message' => 'Sesi dihapus.',
+            ], 200),
+        ]);
+
+        $response = $this->actingAs($this->adminUser())
+            ->postJson('/admin/settings/whatsapp-session/reset');
+
+        $response->assertOk();
+        $response->assertJson([
+            'ok' => true,
+            'status' => 'idle',
+        ]);
+    }
+
     public function test_admin_can_proxy_whatsapp_session_avatar(): void
     {
         Http::fake([

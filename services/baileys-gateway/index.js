@@ -420,6 +420,15 @@ async function connectSession(sessionId) {
         return meta;
     }
 
+    if (meta.sock && !['open', 'connecting'].includes(meta.status)) {
+        try {
+            meta.sock.end(undefined);
+        } catch (error) {
+            console.warn(`[${id}] Failed to close stale socket: ${error.message}`);
+        }
+        meta.sock = null;
+    }
+
     meta.status = 'connecting';
     meta.lastError = null;
 
@@ -506,6 +515,41 @@ async function connectSession(sessionId) {
     return meta;
 }
 
+async function resetSession(sessionId) {
+    const { id, meta } = getSessionMeta(sessionId);
+
+    if (meta.sock) {
+        try {
+            meta.sock.end(undefined);
+        } catch (error) {
+            console.warn(`[${id}] Failed to close socket during reset: ${error.message}`);
+        }
+    }
+
+    const authDir = path.join(SESSIONS_DIR, id);
+    if (fs.existsSync(authDir)) {
+        await fsPromises.rm(authDir, { recursive: true, force: true });
+    }
+
+    sessions.set(id, {
+        sock: null,
+        status: 'idle',
+        qr: null,
+        lastError: null,
+        profile: null,
+        profileFetchedAt: 0,
+        profilePictureFetchedAt: 0,
+        profileFetchInFlight: false,
+        initReadyAt: 0,
+        credsState: null,
+        profileAvatarPath: null,
+    });
+
+    console.log(`[${id}] Session reset. Scan QR again to link a WhatsApp number.`);
+
+    return sessions.get(id);
+}
+
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
@@ -564,6 +608,20 @@ app.post('/session/:sessionId/start', authMiddleware, async (req, res) => {
             message: meta.status === 'open'
                 ? 'Already connected'
                 : 'Session starting. Scan QR in the admin panel (Pengaturan → WhatsApp).',
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+app.post('/session/:sessionId/reset', authMiddleware, async (req, res) => {
+    try {
+        const meta = await resetSession(req.params.sessionId);
+        res.json({
+            success: true,
+            session: sanitizeSessionId(req.params.sessionId),
+            status: meta.status,
+            message: 'Sesi dihapus. Mulai ulang dan scan QR untuk nomor WhatsApp baru.',
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });

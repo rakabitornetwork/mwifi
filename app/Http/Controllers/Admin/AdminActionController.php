@@ -2117,6 +2117,26 @@ class AdminActionController extends Controller
         ]));
     }
 
+    public function resetWhatsAppSession(Request $request)
+    {
+        if ($request->user()?->customer) {
+            abort(403, 'Hanya administrator yang dapat mengelola sesi WhatsApp.');
+        }
+
+        $health = \App\Services\WhatsAppService::checkGatewayHealth();
+        if (!$health['ok']) {
+            return response()->json($health, 503);
+        }
+
+        $result = \App\Services\WhatsAppService::resetSession();
+
+        if (!$result['ok']) {
+            return response()->json($result, 503);
+        }
+
+        return response()->json($result);
+    }
+
     public function saveAdminProfile(Request $request)
     {
         $user = $request->user();

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { router } from '@inertiajs/react';
-import { Clock, MessageSquare, QrCode, RefreshCw, Server } from 'lucide-react';
+import { Clock, LogOut, MessageSquare, QrCode, RefreshCw, Server } from 'lucide-react';
 import SettingsSectionCard from '../SettingsSectionCard';
 
 export default function WhatsAppGatewayPanel({
@@ -203,9 +203,68 @@ export default function WhatsAppGatewayPanel({
             } else {
                 showToast('Sesi dimulai. Scan QR di bawah dengan aplikasi WhatsApp.', 'info');
                 startWaSessionPolling();
+
+                if (!data.has_qr) {
+                    for (let attempt = 0; attempt < 6; attempt += 1) {
+                        await new Promise((resolve) => setTimeout(resolve, 1500));
+                        const refreshed = await fetchWaSessionStatus(true);
+                        if (refreshed) {
+                            break;
+                        }
+                    }
+                }
             }
         } catch (error) {
             showToast(error?.message || 'Gagal memulai sesi WhatsApp.', 'error');
+        } finally {
+            setIsLoadingWaSession(false);
+        }
+    };
+
+    const handleResetWaSession = async () => {
+        if (!confirm(
+            'Reset sesi WhatsApp?\n\n'
+            + 'Kredensial nomor lama akan dihapus dari gateway. '
+            + 'Anda perlu scan QR lagi (bisa dengan nomor pengganti sementara).'
+        )) {
+            return;
+        }
+
+        stopWaSessionPolling();
+        setIsLoadingWaSession(true);
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+        try {
+            const response = await fetch('/admin/settings/whatsapp-session/reset', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.ok) {
+                showToast(data.message || 'Gagal mereset sesi WhatsApp.', 'error');
+                return;
+            }
+
+            setWaSession({
+                status: 'idle',
+                has_qr: false,
+                qr_data_url: null,
+                last_error: null,
+                session: data.session || waSession.session,
+                profile: null,
+            });
+            setWaAvatarBroken(false);
+            showToast('Sesi direset. Klik tombol QR untuk scan nomor baru.', 'success');
+        } catch (error) {
+            showToast(error?.message || 'Gagal mereset sesi WhatsApp.', 'error');
         } finally {
             setIsLoadingWaSession(false);
         }
@@ -304,6 +363,15 @@ export default function WhatsAppGatewayPanel({
                         </button>
                         <button
                             type="button"
+                            onClick={handleResetWaSession}
+                            disabled={isLoadingWaSession || isPollingWaSession}
+                            title="Reset sesi & ganti nomor WhatsApp"
+                            className={`p-2 border rounded-lg inline-flex items-center justify-center cursor-pointer disabled:opacity-50 ${isDarkMode ? 'border-rose-500/40 text-rose-300 hover:bg-rose-500/10' : 'border-rose-200 text-rose-700 hover:bg-rose-50'}`}
+                        >
+                            <LogOut className="w-4 h-4" />
+                        </button>
+                        <button
+                            type="button"
                             onClick={handleRefreshWaSession}
                             disabled={isLoadingWaSession}
                             title="Cek status WhatsApp"
@@ -312,6 +380,10 @@ export default function WhatsAppGatewayPanel({
                             <RefreshCw className={`w-4 h-4 ${isLoadingWaSession ? 'animate-spin' : ''}`} />
                         </button>
                     </div>
+                    <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
+                        Nomor terblokir atau QR tidak muncul? Klik tombol reset (ikon keluar), lalu tombol QR untuk scan nomor pengganti.
+                        Alternatif: ubah <span className="font-mono">Session ID</span> (mis. <span className="font-mono">mwifi_backup</span>), simpan pengaturan, lalu scan QR.
+                    </p>
                     {isPollingWaSession && waSession.status !== 'open' && (
                         <p className={`text-[10px] ${isDarkMode ? 'text-violet-300' : 'text-violet-700'}`}>
                             Menunggu scan QR... halaman akan otomatis mendeteksi saat terhubung.

@@ -268,6 +268,59 @@ class WhatsAppService
         }
     }
 
+    /**
+     * Hapus kredensial sesi lama di gateway (untuk ganti nomor / scan QR baru).
+     *
+     * @return array{ok: bool, message: string, session?: string, status?: string}
+     */
+    public static function resetSession(): array
+    {
+        $config = self::configuration();
+
+        if (empty($config['api_url'])) {
+            return ['ok' => false, 'message' => 'Gateway URL belum diisi di menu Pengaturan.'];
+        }
+
+        $sessionId = rawurlencode($config['session_id']);
+
+        try {
+            $response = self::gatewayClient()->post("{$config['api_url']}/session/{$sessionId}/reset");
+
+            if ($response->status() === 401) {
+                return ['ok' => false, 'message' => 'API Key gateway tidak valid.'];
+            }
+
+            if ($response->status() === 404) {
+                return [
+                    'ok' => false,
+                    'message' => 'Gateway belum mendukung reset sesi. Restart layanan Baileys gateway ke versi terbaru.',
+                ];
+            }
+
+            if (!$response->successful()) {
+                $message = $response->json('message') ?: "Gateway merespons HTTP {$response->status()}.";
+
+                return ['ok' => false, 'message' => $message];
+            }
+
+            $data = $response->json();
+            SettingService::set('whatsapp.linked_phone', '', 'whatsapp', false);
+            Cache::forget('whatsapp.linked_phone.live');
+
+            return [
+                'ok' => true,
+                'message' => $data['message'] ?? 'Sesi WhatsApp direset.',
+                'session' => $data['session'] ?? $config['session_id'],
+                'status' => $data['status'] ?? 'idle',
+            ];
+        } catch (\Exception $e) {
+            return [
+                'ok' => false,
+                'message' => 'Gagal mereset sesi WhatsApp: ' . $e->getMessage(),
+            ];
+        }
+    }
+
     public static function refreshSessionProfile(): array
     {
         $config = self::configuration();
