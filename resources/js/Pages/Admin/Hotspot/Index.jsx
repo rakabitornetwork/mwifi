@@ -4,6 +4,7 @@ import {
     Activity,
     CreditCard,
     Edit,
+    LogOut,
     Plus,
     Printer,
     Radio,
@@ -14,6 +15,7 @@ import {
     TicketPlus,
     Trash2,
     Users,
+    Wifi,
     X,
 } from 'lucide-react';
 import {
@@ -31,6 +33,7 @@ import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useAdminToast } from '../../../hooks/useAdminToast';
 import { formatRupiah } from '../../../utils/formatRupiah';
+import { formatBytes } from '../../../utils/formatBytes';
 import getVisiblePages from '../../../utils/getVisiblePages';
 
 function buildHotspotDailyRevenueChartData(sales, days = 10) {
@@ -67,6 +70,11 @@ function buildHotspotDailyRevenueChartData(sales, days = 10) {
     }
 
     return sorted.slice(-days);
+}
+
+function displayRouterOsDuration(value) {
+    const text = String(value ?? '').trim();
+    return text !== '' ? text : '-';
 }
 
 function HotspotPageContent({
@@ -135,6 +143,15 @@ function HotspotPageContent({
     const [memberToDelete, setMemberToDelete] = useState(null);
     const [deleteMode, setDeleteMode] = useState('local_only');
 
+    const [sessionRouterFilter, setSessionRouterFilter] = useState('');
+    const [activeSessions, setActiveSessions] = useState([]);
+    const [sessionErrors, setSessionErrors] = useState([]);
+    const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+    const [sessionLoadError, setSessionLoadError] = useState(null);
+    const [sessionPage, setSessionPage] = useState(1);
+    const [kickingSessionKey, setKickingSessionKey] = useState(null);
+    const sessionPageSize = 10;
+
     useEffect(() => {
         setVoucherPage(1);
     }, [searchTerm, voucherRouterFilter, voucherStatusFilter, voucherCommentFilter]);
@@ -146,6 +163,100 @@ function HotspotPageContent({
     useEffect(() => {
         setHotspotMemberPage(1);
     }, [searchTerm]);
+
+    useEffect(() => {
+        setSessionPage(1);
+    }, [searchTerm, sessionRouterFilter]);
+
+    const fetchActiveSessions = async ({ silent = false } = {}) => {
+        if (!silent) {
+            setIsLoadingSessions(true);
+        }
+        setSessionLoadError(null);
+
+        try {
+            const params = new URLSearchParams();
+            if (sessionRouterFilter) {
+                params.set('router_id', sessionRouterFilter);
+            }
+
+            const query = params.toString();
+            const response = await fetch(`/admin/hotspot/active-sessions${query ? `?${query}` : ''}`, {
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Gagal memuat sesi aktif hotspot.');
+            }
+
+            setActiveSessions(data.sessions || []);
+            setSessionErrors(data.errors || []);
+        } catch (error) {
+            setSessionLoadError(error?.message || 'Gagal memuat sesi aktif hotspot.');
+        } finally {
+            if (!silent) {
+                setIsLoadingSessions(false);
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (hotspotSubTab !== 'sessions') {
+            return undefined;
+        }
+
+        fetchActiveSessions();
+        const interval = setInterval(() => fetchActiveSessions({ silent: true }), 15000);
+
+        return () => clearInterval(interval);
+    }, [hotspotSubTab, sessionRouterFilter]);
+
+    const handleKickActiveSession = async (session) => {
+        const username = session?.username;
+        const routerId = session?.router_id;
+        if (!username || !routerId) {
+            return;
+        }
+
+        if (!confirm(`Putuskan sesi hotspot "${username}"?`)) {
+            return;
+        }
+
+        const sessionKey = `${routerId}:${username}:${session.address || ''}`;
+        setKickingSessionKey(sessionKey);
+
+        try {
+            const response = await fetch('/admin/hotspot/kick-active', {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    router_id: routerId,
+                    username,
+                }),
+            });
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Gagal memutus sesi hotspot.');
+            }
+
+            showToast(data.message || 'Sesi hotspot berhasil diputus.', 'success');
+            await fetchActiveSessions({ silent: true });
+        } catch (error) {
+            showToast(error?.message || 'Gagal memutus sesi hotspot.', 'error');
+        } finally {
+            setKickingSessionKey(null);
+        }
+    };
 
     const fetchHotspotVoucherMacAddresses = async () => {
         try {
@@ -397,11 +508,44 @@ function HotspotPageContent({
         voucherPage * voucherPageSize,
     );
 
+    const filteredActiveSessions = useMemo(() => {
+        const term = searchTerm.trim().toLowerCase();
+
+        return activeSessions.filter((session) => {
+            const matchRouter = sessionRouterFilter === ''
+                || String(session.router_id || '') === String(sessionRouterFilter);
+            if (!matchRouter) {
+                return false;
+            }
+
+            if (!term) {
+                return true;
+            }
+
+            return [
+                session.username,
+                session.address,
+                session.mac_address,
+                session.server,
+                session.router_name,
+                session.login_by,
+            ].some((value) => String(value || '').toLowerCase().includes(term));
+        });
+    }, [activeSessions, searchTerm, sessionRouterFilter]);
+
+    const totalSessionPages = Math.ceil(filteredActiveSessions.length / sessionPageSize) || 1;
+    const paginatedActiveSessions = filteredActiveSessions.slice(
+        (sessionPage - 1) * sessionPageSize,
+        sessionPage * sessionPageSize,
+    );
+
     const searchPlaceholder = hotspotSubTab === 'vouchers'
         ? 'Cari kode voucher...'
-        : hotspotSubTab === 'members'
-            ? 'Cari member hotspot...'
-            : 'Cari transaksi...';
+        : hotspotSubTab === 'sessions'
+            ? 'Cari username, IP, atau MAC...'
+            : hotspotSubTab === 'members'
+                ? 'Cari member hotspot...'
+                : 'Cari transaksi...';
 
     const uniqueCommentsForPrintRouter = [...new Set(
         hotspotVouchers
@@ -436,6 +580,13 @@ function HotspotPageContent({
                         </button>
                         <button
                             type="button"
+                            onClick={() => setHotspotSubTab('sessions')}
+                            className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'sessions' ? 'bg-sky-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
+                        >
+                            Sesi Aktif
+                        </button>
+                        <button
+                            type="button"
                             onClick={() => setHotspotSubTab('members')}
                             className={`flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${hotspotSubTab === 'members' ? 'bg-emerald-500 text-white shadow-xs' : `${isDarkMode ? 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800' : 'bg-zinc-100 text-zinc-650 hover:bg-zinc-200 border border-zinc-200'}`}`}
                         >
@@ -451,7 +602,7 @@ function HotspotPageContent({
                     </div>
                 )}
             >
-                {(hotspotSubTab === 'vouchers' || hotspotSubTab === 'members') && (
+                {(hotspotSubTab === 'vouchers' || hotspotSubTab === 'sessions' || hotspotSubTab === 'members') && (
                     <div className="relative">
                         <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
                         <input
@@ -669,6 +820,153 @@ function HotspotPageContent({
                                         type="button"
                                         onClick={() => setVoucherPage((p) => Math.min(totalVoucherPages, p + 1))}
                                         disabled={voucherPage === totalVoucherPages}
+                                        className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
+                                    >
+                                        Berikutnya
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : hotspotSubTab === 'sessions' ? (
+                    <div className="space-y-4">
+                        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
+                            <div className="space-y-2 flex-1">
+                                <p className={`text-[11px] leading-relaxed ${themeTextSub}`}>
+                                    Daftar pengguna hotspot yang sedang online di RouterOS (<span className="font-mono">IP → Hotspot → Active</span>).
+                                    Data diperbarui otomatis setiap 15 detik.
+                                </p>
+                                <select
+                                    value={sessionRouterFilter}
+                                    onChange={(e) => setSessionRouterFilter(e.target.value)}
+                                    className={`w-full max-w-xs px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/30 ${themeInput}`}
+                                >
+                                    <option value="">Semua Router</option>
+                                    {routers.map((r) => (
+                                        <option key={r.id} value={r.id}>{r.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 justify-end shrink-0">
+                                <span className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border ${isDarkMode ? 'border-sky-500/20 bg-sky-500/10 text-sky-300' : 'border-sky-200 bg-sky-50 text-sky-700'}`}>
+                                    {filteredActiveSessions.length} sesi aktif
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => fetchActiveSessions()}
+                                    disabled={isLoadingSessions}
+                                    title="Muat ulang sesi aktif"
+                                    className={`p-2 border rounded-xl cursor-pointer inline-flex items-center justify-center disabled:opacity-50 ${isDarkMode ? 'border-zinc-800 text-sky-400 hover:bg-zinc-900' : 'border-zinc-200 text-sky-600 hover:bg-sky-50'}`}
+                                >
+                                    <RefreshCw className={`w-4 h-4 ${isLoadingSessions ? 'animate-spin' : ''}`} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {sessionLoadError && (
+                            <div className={`text-[11px] font-semibold rounded-xl border px-3 py-2 ${isDarkMode ? 'border-rose-500/30 bg-rose-500/10 text-rose-300' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+                                {sessionLoadError}
+                            </div>
+                        )}
+
+                        {sessionErrors.length > 0 && (
+                            <div className={`text-[11px] rounded-xl border px-3 py-2 space-y-1 ${isDarkMode ? 'border-amber-500/30 bg-amber-500/10 text-amber-300' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                                {sessionErrors.map((error) => (
+                                    <p key={`${error.router_id}-${error.message}`}>
+                                        Gagal memuat router <span className="font-semibold">{error.router_name}</span>: {error.message}
+                                    </p>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="admin-table-scroll">
+                            <table>
+                                <thead>
+                                    <tr className={`border-b border-zinc-800/30 text-[10px] uppercase font-bold tracking-wider ${themeTextSub}`}>
+                                        <th className="py-3 px-2">Router</th>
+                                        <th className="py-3 px-2">Username</th>
+                                        <th className="py-3 px-2">Hotspot Server</th>
+                                        <th className="py-3 px-2">IP Address</th>
+                                        <th className="py-3 px-2">MAC Address</th>
+                                        <th className="py-3 px-2">Uptime</th>
+                                        <th className="py-3 px-2">Sisa Waktu</th>
+                                        <th className="py-3 px-2">Idle</th>
+                                        <th className="py-3 px-2">Download</th>
+                                        <th className="py-3 px-2">Upload</th>
+                                        <th className="py-3 px-2">Login By</th>
+                                        <th className="py-3 px-2 text-right">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-zinc-800/20 text-xs">
+                                    {isLoadingSessions && paginatedActiveSessions.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={12} className={`py-10 text-center ${themeTextDesc}`}>
+                                                <RefreshCw className="w-5 h-5 mx-auto mb-2 animate-spin" />
+                                                Memuat sesi aktif hotspot...
+                                            </td>
+                                        </tr>
+                                    ) : paginatedActiveSessions.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={12} className={`py-10 text-center ${themeTextDesc}`}>
+                                                <Wifi className={`w-8 h-8 mx-auto mb-2 ${isDarkMode ? 'text-sky-400/70' : 'text-sky-500/70'}`} />
+                                                <p className="font-semibold">Tidak ada sesi hotspot aktif.</p>
+                                                <p className="text-[10px] mt-1">Pengguna akan muncul di sini setelah login ke hotspot.</p>
+                                            </td>
+                                        </tr>
+                                    ) : paginatedActiveSessions.map((session) => {
+                                        const sessionKey = `${session.router_id}:${session.username}:${session.address || ''}`;
+                                        const isKicking = kickingSessionKey === sessionKey;
+
+                                        return (
+                                            <tr key={sessionKey} className={`${themeTextSub} hover:bg-zinc-900/10`}>
+                                                <td className="py-3 px-2 font-semibold">{session.router_name || '-'}</td>
+                                                <td className={`py-3 px-2 font-mono font-bold ${themeTextTitle}`}>{session.username || '-'}</td>
+                                                <td className="py-3 px-2 font-mono">{session.server || 'all'}</td>
+                                                <td className="py-3 px-2 font-mono">{session.address || '-'}</td>
+                                                <td className="py-3 px-2 font-mono text-[11px]">{session.mac_address || '-'}</td>
+                                                <td className="py-3 px-2 font-mono">{displayRouterOsDuration(session.uptime)}</td>
+                                                <td className="py-3 px-2 font-mono">{displayRouterOsDuration(session.session_time_left)}</td>
+                                                <td className="py-3 px-2 font-mono">{displayRouterOsDuration(session.idle_time)}</td>
+                                                <td className="py-3 px-2 font-mono text-sky-500">{formatBytes(session.bytes_out)}</td>
+                                                <td className="py-3 px-2 font-mono text-emerald-500">{formatBytes(session.bytes_in)}</td>
+                                                <td className="py-3 px-2 font-mono text-[10px]">{session.login_by || '-'}</td>
+                                                <td className="py-3 px-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleKickActiveSession(session)}
+                                                        disabled={isKicking}
+                                                        title="Putuskan Sesi"
+                                                        className="inline-block p-1 text-rose-500 hover:text-rose-400 cursor-pointer transition-colors disabled:opacity-50"
+                                                    >
+                                                        <LogOut className={`w-4 h-4 ${isKicking ? 'animate-pulse' : ''}`} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {totalSessionPages > 1 && (
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-zinc-800/10 text-xs">
+                                <span className={`text-center sm:text-left ${themeTextSub}`}>
+                                    Halaman {sessionPage} dari {totalSessionPages} ({filteredActiveSessions.length} sesi)
+                                </span>
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSessionPage((p) => Math.max(1, p - 1))}
+                                        disabled={sessionPage === 1}
+                                        className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
+                                    >
+                                        Sebelumnya
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSessionPage((p) => Math.min(totalSessionPages, p + 1))}
+                                        disabled={sessionPage === totalSessionPages}
                                         className={`px-3 py-1 rounded-lg border cursor-pointer ${isDarkMode ? 'border-zinc-800 text-zinc-400 disabled:opacity-30 hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 disabled:opacity-30 hover:bg-zinc-100'}`}
                                     >
                                         Berikutnya

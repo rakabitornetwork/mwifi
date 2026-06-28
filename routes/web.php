@@ -215,6 +215,8 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::post('admin/hotspot/bulk-delete-vouchers', [\App\Http\Controllers\Admin\AdminActionController::class, 'bulkDeleteVouchersByComment']);
     Route::get('admin/hotspot/get-servers', [\App\Http\Controllers\Admin\AdminActionController::class, 'getRouterHotspotServers']);
     Route::get('admin/hotspot/voucher-mac-addresses', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncHotspotMacAddresses']);
+    Route::get('admin/hotspot/active-sessions', [\App\Http\Controllers\Admin\AdminActionController::class, 'getHotspotActiveSessions']);
+    Route::post('admin/hotspot/kick-active', [\App\Http\Controllers\Admin\AdminActionController::class, 'kickHotspotActiveSession']);
     Route::get('admin/hotspot/print-vouchers', [\App\Http\Controllers\Admin\AdminActionController::class, 'printVouchers']);
 });
 

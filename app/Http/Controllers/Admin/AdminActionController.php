@@ -2529,6 +2529,99 @@ class AdminActionController extends Controller
     }
 
     /**
+     * List active hotspot sessions from MikroTik router(s).
+     */
+    public function getHotspotActiveSessions(Request $request)
+    {
+        $data = $request->validate([
+            'router_id' => 'nullable|integer|exists:routers,id',
+        ]);
+
+        $scope = StaffRouterScope::for($request->user());
+        $routerId = $data['router_id'] ?? null;
+
+        if ($scope->isScoped()) {
+            $routerId = $scope->routerId();
+        } elseif ($routerId) {
+            $scope->ensureCanAccessRouter((int) $routerId);
+        }
+
+        $routersQuery = Router::query()->orderBy('name');
+        if ($routerId) {
+            $routersQuery->where('id', $routerId);
+        } elseif ($scope->isScoped()) {
+            $routersQuery->where('id', $scope->routerId());
+        }
+
+        $sessions = [];
+        $errors = [];
+
+        foreach ($routersQuery->get() as $router) {
+            try {
+                $connector = \App\Services\Router\RouterService::getConnector($router);
+                foreach ($connector->getHotspotActive() as $active) {
+                    if (!is_array($active)) {
+                        continue;
+                    }
+
+                    $sessions[] = $this->mapHotspotActiveSession($router, $active);
+                }
+            } catch (\Throwable $e) {
+                $errors[] = [
+                    'router_id' => $router->id,
+                    'router_name' => $router->name,
+                    'message' => $e->getMessage(),
+                ];
+            }
+        }
+
+        usort($sessions, fn (array $a, array $b) => strcmp($a['username'] ?? '', $b['username'] ?? ''));
+
+        return response()->json([
+            'success' => true,
+            'sessions' => $sessions,
+            'errors' => $errors,
+        ]);
+    }
+
+    /**
+     * Forcefully disconnect an active hotspot session.
+     */
+    public function kickHotspotActiveSession(Request $request)
+    {
+        $data = $request->validate([
+            'router_id' => 'required|integer|exists:routers,id',
+            'username' => 'required|string|max:100',
+        ]);
+
+        StaffRouterScope::for($request->user())->ensureCanAccessRouter((int) $data['router_id']);
+
+        $router = Router::findOrFail($data['router_id']);
+
+        try {
+            $connector = \App\Services\Router\RouterService::getConnector($router);
+            $kicked = $connector->kickHotspotActive($data['username']);
+
+            if (!$kicked) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal memutus sesi hotspot.',
+                ], 422);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sesi hotspot berhasil diputus.',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memutus sesi: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Sync MAC addresses for hotspot vouchers from MikroTik user/active sessions.
      */
     public function syncHotspotMacAddresses()
@@ -2648,6 +2741,28 @@ class AdminActionController extends Controller
 
         $mac = strtoupper(trim($mac));
         return $mac !== '' ? $mac : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mapHotspotActiveSession(Router $router, array $active): array
+    {
+        return [
+            'session_id' => $active['.id'] ?? null,
+            'router_id' => $router->id,
+            'router_name' => $router->name,
+            'username' => trim((string) ($active['user'] ?? $active['name'] ?? '')),
+            'server' => $active['server'] ?? null,
+            'address' => $active['address'] ?? null,
+            'mac_address' => $this->extractMacAddress($active),
+            'uptime' => $active['uptime'] ?? null,
+            'session_time_left' => $active['session-time-left'] ?? $active['session_time_left'] ?? null,
+            'idle_time' => $active['idle-time'] ?? $active['idle_time'] ?? null,
+            'bytes_in' => (int) ($active['bytes-in'] ?? $active['bytes_in'] ?? 0),
+            'bytes_out' => (int) ($active['bytes-out'] ?? $active['bytes_out'] ?? 0),
+            'login_by' => $active['login-by'] ?? $active['login_by'] ?? null,
+        ];
     }
 
     /**
