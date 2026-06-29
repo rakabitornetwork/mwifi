@@ -397,16 +397,11 @@ export default function CustomerDetailPanel({
     );
 
     return (
-        <div className={`customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} min-w-0 max-w-full overflow-hidden`}>
-            {/* Solid gradient header banner */}
-            <div className={`px-4 py-4 sm:px-5 sm:py-5 border-b ${divider} flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
-                isDarkMode 
-                    ? 'bg-gradient-to-r from-emerald-950/40 via-zinc-900/40 to-zinc-950/40' 
-                    : 'bg-gradient-to-r from-emerald-50/40 via-zinc-100/30 to-zinc-50/20'
-            }`}>
+        <div className={`customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-3 py-4 sm:px-4 min-w-0 max-w-full overflow-hidden`}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div className="min-w-0">
-                    <p className="text-[9px] font-extrabold uppercase tracking-[0.2em] text-emerald-500">Detail Lengkap Pelanggan</p>
-                    <p className={`text-base font-extrabold mt-1 truncate ${themeTextTitle}`}>{customer.name}</p>
+                    <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${themeTextSub}`}>Detail Lengkap Pelanggan</p>
+                    <p className={`text-sm font-bold mt-1 truncate ${themeTextTitle}`}>{customer.name}</p>
                     <p className={`text-[11px] font-mono mt-0.5 ${themeTextDesc}`}>{customer.username}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -421,7 +416,7 @@ export default function CustomerDetailPanel({
                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
                                 isDarkMode
                                     ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white'
-                                    : 'border-zinc-300 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'
+                                    : 'border-zinc-300 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
                             }`}
                         >
                             <Edit className="w-3.5 h-3.5" />
@@ -431,9 +426,7 @@ export default function CustomerDetailPanel({
                 </div>
             </div>
 
-            {/* Content Body */}
-            <div className="px-4 py-5 sm:px-5 sm:py-6">
-                <div className={`${themeCard} rounded-2xl border overflow-hidden`}>
+            <div className={`${themeCard} rounded-2xl border overflow-hidden`}>
                 <div className={`grid grid-cols-1 lg:grid-cols-2 border-b ${divider}`}>
                     <div className={`p-4 sm:p-5 lg:border-r ${divider}`}>
                         <SectionBlock icon={User} title="Identitas & Kontak" themeTextSub={themeTextSub}>
@@ -712,7 +705,6 @@ export default function CustomerDetailPanel({
                         </SectionBlock>
                     </div>
                 </div>
-            </div>
             </div>
         </div>
     );
