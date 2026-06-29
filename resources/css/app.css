@@ -802,8 +802,6 @@
 .admin-table-scroll td.admin-table-detail-cell {
     white-space: normal;
     vertical-align: top;
-    position: sticky;
-    left: 0;
     width: 100%;
     min-width: 0;
     max-width: 0;

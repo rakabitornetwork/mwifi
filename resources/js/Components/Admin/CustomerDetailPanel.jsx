@@ -397,7 +397,8 @@ export default function CustomerDetailPanel({
     );
 
     return (
-        <div className={`customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-3 py-4 sm:px-4 min-w-0 max-w-full overflow-hidden`}>
+        <div className={`customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} min-w-0 w-full overflow-hidden`}>
+            <div className="sticky left-0 w-full max-w-[calc(100vw-2.5rem)] sm:max-w-[calc(100vw-3.5rem)] md:max-w-full px-3 py-4 sm:px-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div className="min-w-0">
                     <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${themeTextSub}`}>Detail Lengkap Pelanggan</p>
@@ -706,6 +707,7 @@ export default function CustomerDetailPanel({
                     </div>
                 </div>
             </div>
+        </div>
         </div>
     );
 }
