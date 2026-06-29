@@ -960,10 +960,10 @@ function CustomersPageContent({
                                     </tr>
                                     {expandedCustomerId === cust.id && (
                                         <tr>
-                                            <td colSpan={canWrite ? 11 : 10} className="p-0 border-none">
+                                            <td colSpan={canWrite ? 11 : 10} className="p-0 border-none admin-table-detail-cell">
                                                 <div
                                                     ref={customerDetailPanelRef}
-                                                    className={`w-full min-w-0 max-w-full overflow-hidden border-t border-b ${
+                                                    className={`w-[calc(100vw-2rem)] sm:w-[calc(100vw-3rem)] md:w-full max-w-full overflow-hidden border-t border-b ${
                                                         isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'
                                                     }`}
                                                 >
