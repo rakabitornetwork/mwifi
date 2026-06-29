@@ -979,7 +979,7 @@ function HotspotPageContent({
                                 <select
                                     value={sessionRouterFilter}
                                     onChange={(e) => setSessionRouterFilter(e.target.value)}
-                                    className={`w-full max-w-xs px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/30 ${themeInput}`}
+                                    className={`w-full lg:max-w-xs px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/30 ${themeInput}`}
                                 >
                                     <option value="">Semua Router</option>
                                     {routers.map((r) => (
