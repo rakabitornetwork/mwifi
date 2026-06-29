@@ -308,6 +308,27 @@
     border-color: #99f6e4;
 }
 
+.customer-detail-panel {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.collapsible-grid {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 250ms cubic-bezier(0.4, 0, 0.2, 1), opacity 200ms ease-in-out, margin 250ms ease-in-out, transform 250ms ease-in-out;
+    opacity: 0;
+    transform: translateY(-8px);
+}
+
+.collapsible-grid.is-expanded {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .map-popup-badge--online .map-popup-badge-dot {
     background: #14b8a6;
     box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2);

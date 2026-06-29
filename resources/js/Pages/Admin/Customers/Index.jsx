@@ -81,25 +81,25 @@ function CollapsibleDetail({
     return (
         <div
             ref={panelRef}
-            className={`w-full min-w-0 max-w-full overflow-hidden rounded-2xl border transition-all duration-300 ease-in-out ${
+            className={`collapsible-grid w-full min-w-0 max-w-full rounded-2xl border ${
                 isDarkMode ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-zinc-50/20'
             } ${
-                isExpanded
-                    ? 'max-h-[2500px] opacity-100 mt-4 translate-y-0'
-                    : 'max-h-0 opacity-0 mt-0 -translate-y-2'
+                isExpanded ? 'is-expanded mt-4' : 'mt-0'
             }`}
         >
-            {customer && (
-                <CustomerDetailPanel
-                    customer={customer}
-                    theme={theme}
-                    onEdit={onEdit}
-                    canWrite={canWrite}
-                    activeSession={activeSession}
-                    onKickActive={onKickActive}
-                    onClose={onClose}
-                />
-            )}
+            <div className="overflow-hidden">
+                {customer && (
+                    <CustomerDetailPanel
+                        customer={customer}
+                        theme={theme}
+                        onEdit={onEdit}
+                        canWrite={canWrite}
+                        activeSession={activeSession}
+                        onKickActive={onKickActive}
+                        onClose={onClose}
+                    />
+                )}
+            </div>
         </div>
     );
 }
@@ -576,7 +576,11 @@ function CustomersPageContent({
             return;
         }
 
-        customerDetailPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        const timer = setTimeout(() => {
+            customerDetailPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 150);
+
+        return () => clearTimeout(timer);
     }, [expandedCustomerId, expandedCustomer]);
 
     const handleSaveCustomer = (e) => {
