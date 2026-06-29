@@ -208,6 +208,25 @@ class GenieAcsService
             }
         }
 
+        if ($probeIfOffline && (self::isDeviceOnline($rawDev) || $reachable)) {
+            $previewList = self::extractConnectedDeviceList($rawDev);
+            $previewCount = count($previewList) > 0
+                ? count($previewList)
+                : self::sumWlanAssociations($rawDev);
+
+            $missingClientDetails = ($previewCount ?? 0) > 0 && (
+                count($previewList) === 0
+                || !array_filter($previewList, static fn (array $item): bool => !empty($item['mac']))
+            );
+
+            if ($missingClientDetails) {
+                $clientRefresh = self::refreshWifiClientTables($apiUrl, $deviceId);
+                if (is_array($clientRefresh)) {
+                    $rawDev = $clientRefresh;
+                }
+            }
+        }
+
         $parsed = self::parseRawDevice($rawDev, ['reachable' => $reachable]);
         if ($parsed === null) {
             return null;
@@ -402,6 +421,17 @@ class GenieAcsService
             ];
         }
 
+        self::kickPppoeSessionForDevice($rawDevice);
+
+        $refreshedRaw = self::refreshWifiClientTables(
+            $apiUrl,
+            $deviceId,
+            self::resolveWlanBaseFromAssociationPath($associationPath)
+        );
+        if (is_array($refreshedRaw)) {
+            $rawDevice = $refreshedRaw;
+        }
+
         $parameterValues = self::buildKickParameterValues($rawDevice, $mac, $associationPath);
         if ($parameterValues === []) {
             return [
@@ -585,8 +615,7 @@ class GenieAcsService
         $connectedDeviceList = self::extractConnectedDeviceList($rawDev);
         $connectedDevices = count($connectedDeviceList) > 0
             ? count($connectedDeviceList)
-            : self::parseConnectedDevices(self::getNestedValue($rawDev, [
-                'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations',
+            : self::parseConnectedDevices(self::sumWlanAssociations($rawDev) ?? self::getNestedValue($rawDev, [
                 'InternetGatewayDevice.LANDevice.1.Hosts.HostNumberOfEntries',
                 'Device.WiFi.AccessPoint.1.AssociatedDeviceNumberOfEntries',
             ]));
@@ -1211,6 +1240,33 @@ class GenieAcsService
         return $count >= 0 ? $count : null;
     }
 
+    private static function sumWlanAssociations(array $rawDev): ?int
+    {
+        $flat = self::flattenDeviceParameters($rawDev);
+        if ($flat === []) {
+            return null;
+        }
+
+        $total = 0;
+        $found = false;
+
+        foreach (array_keys($flat) as $path) {
+            if (!preg_match('/\.WLANConfiguration\.(\d+)\.TotalAssociations$/', $path)) {
+                continue;
+            }
+
+            $count = self::parseConnectedDevices(self::flatParameterValue($flat, $path));
+            if ($count === null) {
+                continue;
+            }
+
+            $found = true;
+            $total += $count;
+        }
+
+        return $found ? $total : null;
+    }
+
     /**
      * @return list<array{name: string, mac: ?string, ip: ?string}>
      */
@@ -1272,7 +1328,7 @@ class GenieAcsService
             ]);
 
             $name = trim((string) ($name ?? ''));
-            $mac = trim((string) ($mac ?? ''));
+            $mac = self::normalizeMacAddress(trim((string) ($mac ?? '')));
             $ip = trim((string) ($ip ?? ''));
 
             if ($name === '' && $mac === '' && $ip === '') {
@@ -1283,11 +1339,14 @@ class GenieAcsService
                 $name = $mac !== '' ? $mac : ($ip !== '' ? $ip : 'Perangkat');
             }
 
+            $wlanIndex = self::resolveWlanIndexFromAssociationPath($groupKey);
+
             $results[] = [
                 'name' => $name,
                 'mac' => $mac !== '' ? $mac : null,
                 'ip' => $ip !== '' ? $ip : null,
                 'path' => $groupKey,
+                'wlan_index' => $wlanIndex,
             ];
         }
 
@@ -1403,24 +1462,35 @@ class GenieAcsService
             return [];
         }
 
+        $deviceId = is_string($rawDev['_id'] ?? null) ? $rawDev['_id'] : '';
+        $productClass = self::extractProductClass($rawDev, $deviceId) ?? '';
+
         $associationPath = $associationPath !== null ? trim($associationPath) : '';
+        $wlanIndex = $associationPath !== ''
+            ? (self::resolveWlanIndexFromAssociationPath($associationPath) ?? self::resolveActiveWlanIndex($flat))
+            : self::resolveActiveWlanIndex($flat);
+
         if ($associationPath !== '') {
             foreach (self::kickFieldNames() as $field) {
                 $path = "{$associationPath}.{$field}";
-                if (self::flatParameterWritable($flat, $path) || isset($flat[$path])) {
+                if (self::flatParameterWritable($flat, $path)) {
                     return [[$path, self::kickValueForField($field, $mac), self::kickTypeForField($field)]];
                 }
             }
         }
 
-        $candidates = self::wlanKickParameterCandidates($flat);
+        $candidates = self::wlanKickParameterCandidates($flat, $wlanIndex);
         foreach ($candidates as $path) {
-            if (self::flatParameterWritable($flat, $path) || isset($flat[$path])) {
+            if (self::flatParameterWritable($flat, $path)) {
                 return [[$path, self::kickValueForPath($path, $mac), self::kickTypeForPath($path)]];
             }
         }
 
+        $wlanBase = "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}";
         foreach (array_keys($flat) as $path) {
+            if (!str_starts_with($path, $wlanBase) && !str_starts_with($path, 'Device.WiFi.AccessPoint.')) {
+                continue;
+            }
             if (!preg_match('/(?:WLANConfiguration|WiFi\.AccessPoint)/i', $path)) {
                 continue;
             }
@@ -1436,17 +1506,12 @@ class GenieAcsService
 
         // Vendor defaults when kick parameter is not yet discovered in GenieACS cache.
         if (self::flatHasAnyKeyMatching($flat, '/WLANConfiguration|WiFi\.AccessPoint/')) {
-            $wlanIndex = self::resolveActiveWlanIndex($flat);
-            $defaults = [
-                "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}.X_ZTE-COM_KickOffDevice",
-                "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}.X_ZTE-COM_KickSta",
-                "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}.X_HW_WIFIStaKick",
-                "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}.X_FH_KickOffDevice",
-                'Device.WiFi.AccessPoint.1.X_HW_WIFIStaKick',
-            ];
+            foreach (self::vendorKickDefaultPaths($productClass, $wlanIndex) as $path) {
+                if (!self::flatParameterWritable($flat, $path) && isset($flat[$path])) {
+                    continue;
+                }
 
-            foreach ($defaults as $path) {
-                return [[$path, $mac, 'xsd:string']];
+                return [[$path, self::kickValueForPath($path, $mac), self::kickTypeForPath($path)]];
             }
         }
 
@@ -1465,8 +1530,46 @@ class GenieAcsService
             'KickSta',
             'X_ZTE-COM_Kick',
             'X_ZTE-COM_KickOffDevice',
+            'X_ZTE-COM_KickSta',
             'X_HW_WIFIStaKick',
+            'X_HW_AssociateDeviceKick',
             'X_FH_KickOffDevice',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function vendorKickDefaultPaths(string $productClass, int $wlanIndex): array
+    {
+        $wlanBase = "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}";
+        $normalized = strtolower($productClass);
+
+        if (str_contains($normalized, 'huawei') || str_contains($normalized, 'hg8') || str_contains($normalized, 'eg8')) {
+            return [
+                "{$wlanBase}.X_HW_WIFIStaKick",
+                "{$wlanBase}.X_HW_AssociateDeviceKick",
+                'Device.WiFi.AccessPoint.1.X_HW_WIFIStaKick',
+            ];
+        }
+
+        if (str_contains($normalized, 'fiberhome') || str_contains($normalized, 'fh')) {
+            return ["{$wlanBase}.X_FH_KickOffDevice"];
+        }
+
+        if (str_contains($normalized, 'zte') || preg_match('/\bf[0-9]{3,4}\b/i', $productClass)) {
+            return [
+                "{$wlanBase}.X_ZTE-COM_KickOffDevice",
+                "{$wlanBase}.X_ZTE-COM_KickSta",
+            ];
+        }
+
+        return [
+            "{$wlanBase}.X_ZTE-COM_KickOffDevice",
+            "{$wlanBase}.X_ZTE-COM_KickSta",
+            "{$wlanBase}.X_HW_WIFIStaKick",
+            "{$wlanBase}.X_FH_KickOffDevice",
+            'Device.WiFi.AccessPoint.1.X_HW_WIFIStaKick',
         ];
     }
 
@@ -1474,9 +1577,9 @@ class GenieAcsService
      * @param  array<string, mixed>  $flat
      * @return list<string>
      */
-    private static function wlanKickParameterCandidates(array $flat): array
+    private static function wlanKickParameterCandidates(array $flat, ?int $wlanIndex = null): array
     {
-        $wlanIndex = self::resolveActiveWlanIndex($flat);
+        $wlanIndex ??= self::resolveActiveWlanIndex($flat);
         $wlanBase = "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}";
 
         return [
@@ -1520,6 +1623,10 @@ class GenieAcsService
     {
         if (preg_match('/\.Kick$/i', $path)) {
             return true;
+        }
+
+        if (preg_match('/KickSta|STA_KICK/i', $path)) {
+            return str_replace(':', '', $mac);
         }
 
         return $mac;
@@ -1624,6 +1731,90 @@ class GenieAcsService
         arsort($scores);
 
         return (int) array_key_first($scores);
+    }
+
+    private static function resolveWlanIndexFromAssociationPath(string $path): ?int
+    {
+        if (preg_match('/\.WLANConfiguration\.(\d+)\./', $path, $matches)) {
+            return (int) $matches[1];
+        }
+
+        if (preg_match('/\.AccessPoint\.(\d+)\./', $path, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return null;
+    }
+
+    private static function resolveWlanBaseFromAssociationPath(?string $associationPath): ?string
+    {
+        $associationPath = $associationPath !== null ? trim($associationPath) : '';
+        if ($associationPath === '') {
+            return null;
+        }
+
+        if (preg_match('/^(InternetGatewayDevice\.LANDevice\.1\.WLANConfiguration\.\d+)/', $associationPath, $matches)) {
+            return $matches[1];
+        }
+
+        if (preg_match('/^(Device\.WiFi\.AccessPoint\.\d+)/', $associationPath, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Ask the ONT to refresh WiFi client tables so MAC/path data is current.
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function refreshWifiClientTables(string $apiUrl, string $deviceId, ?string $wlanBase = null): ?array
+    {
+        $parameterNames = [];
+
+        if ($wlanBase !== null) {
+            $parameterNames[] = "{$wlanBase}.AssociatedDevice.";
+            $parameterNames[] = "{$wlanBase}.TotalAssociations";
+        } else {
+            for ($index = 1; $index <= 8; $index++) {
+                $base = "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$index}";
+                $parameterNames[] = "{$base}.AssociatedDevice.";
+                $parameterNames[] = "{$base}.TotalAssociations";
+            }
+
+            $parameterNames[] = 'InternetGatewayDevice.LANDevice.1.Hosts.Host.';
+            $parameterNames[] = 'Device.WiFi.AccessPoint.1.AssociatedDevice.';
+            $parameterNames[] = 'Device.WiFi.AccessPoint.1.AssociatedDeviceNumberOfEntries';
+        }
+
+        $encodedId = self::encodeDeviceIdForApi($deviceId);
+
+        try {
+            $response = Http::timeout(60)->post(
+                "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=45",
+                [
+                    'name' => 'getParameterValues',
+                    'parameterNames' => $parameterNames,
+                ]
+            );
+
+            if ($response->status() !== 200 && $response->status() !== 202) {
+                Log::debug('GenieACS WiFi client refresh failed', [
+                    'device_id' => $deviceId,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+
+                return null;
+            }
+        } catch (Exception $e) {
+            Log::debug('GenieACS WiFi client refresh error: ' . $e->getMessage());
+
+            return null;
+        }
+
+        return self::fetchRawDeviceById($apiUrl, $deviceId);
     }
 
     private static function resolveWpaBeaconType(array $flat): string

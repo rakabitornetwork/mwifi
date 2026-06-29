@@ -107,7 +107,7 @@ function ConnectedDevicesSection({
                 </ul>
             ) : (
                 <p className={`text-[10px] leading-relaxed ${themeTextDesc}`}>
-                    {count} perangkat terdeteksi. Nama perangkat belum dilaporkan oleh ONT.
+                    {count} perangkat terdeteksi. Detail perangkat belum dilaporkan ONT — coba muat ulang panel WiFi.
                 </p>
             )}
         </div>
