@@ -137,6 +137,7 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::post('admin/gpon/reboot', [\App\Http\Controllers\Admin\GenieAcsController::class, 'reboot']);
     Route::get('admin/network-map/metrics', [\App\Http\Controllers\Admin\NetworkMapController::class, 'metrics']);
     Route::post('admin/network-map/save-cable-path', [\App\Http\Controllers\Admin\NetworkMapController::class, 'saveCablePath']);
+    Route::post('admin/customers/update-gps', [\App\Http\Controllers\Admin\NetworkMapController::class, 'updateCustomerGps']);
 
     // Admin CRUD Actions
     Route::post('admin/routers/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveRouter']);

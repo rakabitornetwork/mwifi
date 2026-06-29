@@ -96,4 +96,25 @@ class NetworkMapController extends Controller
 
         return redirect()->back()->with('success', 'Jalur kabel pelanggan ' . $customer->name . ' berhasil disimpan.');
     }
+
+    /**
+     * Update customer GPS coordinates.
+     */
+    public function updateCustomerGps(\Illuminate\Http\Request $request)
+    {
+        $data = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+        ]);
+
+        $customer = \App\Models\Customer::findOrFail($data['customer_id']);
+
+        $customer->update([
+            'latitude' => $data['latitude'],
+            'longitude' => $data['longitude'],
+        ]);
+
+        return redirect()->back()->with('success', 'Lokasi GPS pelanggan ' . $customer->name . ' berhasil diperbarui.');
+    }
 }

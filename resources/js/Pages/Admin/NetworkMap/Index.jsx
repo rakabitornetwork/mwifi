@@ -140,6 +140,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
     const mapRef = useRef(null);
     const customerMarkersRef = useRef({});
+    const customerPolylinesRef = useRef({});
     const openCustomerPopupIdRef = useRef(null);
     const popupReactRootRef = useRef(null);
     const customersRef = useRef(customers);
@@ -519,6 +520,20 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                     </div>
                 `);
 
+            marker.on('drag', (e) => {
+                const newLatLng = e.target.getLatLng();
+                customers.forEach((c) => {
+                    if (c.odp_id === odp.id) {
+                        const polyline = customerPolylinesRef.current[c.id];
+                        if (polyline) {
+                            const currentPoints = polyline.getLatLngs();
+                            currentPoints[0] = newLatLng;
+                            polyline.setLatLngs(currentPoints);
+                        }
+                    }
+                });
+            });
+
             marker.on('dragend', (e) => {
                 const newLatLng = e.target.getLatLng();
                 const originalLatLng = L.latLng(lat, lng);
@@ -549,6 +564,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
         });
 
         customerMarkersRef.current = {};
+        customerPolylinesRef.current = {};
 
         customers.forEach((cust) => {
             if (!isPppoeCustomer(cust)) return;
@@ -557,8 +573,10 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
             const lat = parseFloat(cust.latitude);
             const lng = parseFloat(cust.longitude);
 
-            const marker = L.marker([lat, lng], { icon: customerIcon(cust.status) })
-                .addTo(map);
+            const marker = L.marker([lat, lng], {
+                icon: customerIcon(cust.status),
+                draggable: canWrite && !isEditingCables
+            }).addTo(map);
 
             if (isEditingCables) {
                 marker.on('click', (e) => {
@@ -592,6 +610,35 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                 });
             }
 
+            marker.on('drag', (e) => {
+                const newLatLng = e.target.getLatLng();
+                const polyline = customerPolylinesRef.current[cust.id];
+                if (polyline) {
+                    const currentPoints = polyline.getLatLngs();
+                    currentPoints[currentPoints.length - 1] = newLatLng;
+                    polyline.setLatLngs(currentPoints);
+                }
+            });
+
+            marker.on('dragend', (e) => {
+                const newLatLng = e.target.getLatLng();
+                const originalLatLng = L.latLng(lat, lng);
+
+                if (confirm(`Apakah Anda yakin ingin memindahkan lokasi pelanggan "${cust.name}" ke lokasi baru?\nLatitude: ${newLatLng.lat.toFixed(6)}\nLongitude: ${newLatLng.lng.toFixed(6)}`)) {
+                    router.post('/admin/customers/update-gps', {
+                        customer_id: cust.id,
+                        latitude: newLatLng.lat.toFixed(6),
+                        longitude: newLatLng.lng.toFixed(6)
+                    }, {
+                        onError: () => {
+                            marker.setLatLng(originalLatLng);
+                        }
+                    });
+                } else {
+                    marker.setLatLng(originalLatLng);
+                }
+            });
+
             customerMarkersRef.current[cust.id] = marker;
 
             if (cust.odp_id && odpCoordsMap[cust.odp_id]) {
@@ -601,13 +648,15 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                 const points = [odpCoords, ...cablePath, customerCoords];
                 const cableColor = cust.status === 'active' ? '#10b981' : '#f59e0b';
 
-                L.polyline(points, {
+                const polyline = L.polyline(points, {
                     color: cableColor,
                     weight: 2,
                     opacity: 0.75,
                     className: 'optical-cable-flow',
                     smoothFactor: 0,
                 }).addTo(map);
+
+                customerPolylinesRef.current[cust.id] = polyline;
 
                 // Draw 100m markers along the path
                 const intervalPoints = getIntervalPoints(points, 100);
@@ -670,6 +719,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
             mapContainerEl.removeEventListener('touchend', onMapTouchEnd);
             mapContainerEl.removeEventListener('touchcancel', onMapTouchEnd);
             editorGroupRef.current = null;
+            customerPolylinesRef.current = {};
             mapRef.current = null;
             map.remove();
         };
