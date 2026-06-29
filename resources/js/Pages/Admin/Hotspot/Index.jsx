@@ -1783,7 +1783,11 @@ function HotspotPageContent({
                                     name="price"
                                     type="number"
                                     value={Number(generateBasePrice || 0) + Number(generateAgentProfit || 0)}
-                                    className={`p-2 border rounded-lg font-mono font-bold bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-550 dark:text-zinc-400`}
+                                    className={`p-2 border rounded-lg font-mono font-bold ${
+                                        isDarkMode
+                                            ? 'bg-zinc-800 border-zinc-700 text-zinc-400'
+                                            : 'bg-zinc-100 border-zinc-200 text-zinc-700'
+                                    }`}
                                 />
                             </div>
                         </div>
