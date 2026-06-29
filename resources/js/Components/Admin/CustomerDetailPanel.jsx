@@ -9,6 +9,7 @@ import {
     FileText,
     History,
     MapPin,
+    Radio,
     Receipt,
     RefreshCw,
     User,
@@ -188,7 +189,14 @@ function QuotaStat({ icon: Icon, tone = 'indigo', label, usedBytes, limitBytes, 
 
 const QUOTA_POLL_MS = 30000;
 
-export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite = true }) {
+export default function CustomerDetailPanel({
+    customer,
+    theme,
+    onEdit,
+    canWrite = true,
+    activeSession = null,
+    onKickActive = null,
+}) {
     const {
         isDarkMode,
         themeCard,
@@ -376,7 +384,7 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
     const downloadBytes = quota?.download_bytes ?? 0;
     const uploadBytes = quota?.upload_bytes ?? 0;
     const totalBytes = quota?.total_bytes ?? (downloadBytes + uploadBytes);
-    const isOnline = !!quota?.online;
+    const isOnline = !!activeSession || !!quota?.online;
 
     const onlineBadge = (
         <span className={`inline-flex px-2 py-0.5 rounded-md text-[9px] font-bold border ${
@@ -600,58 +608,102 @@ export default function CustomerDetailPanel({ customer, theme, onEdit, canWrite 
                     </div>
                 </div>
 
-                <div className="p-4 sm:p-5">
-                    <SectionBlock
-                        icon={Activity}
-                        title="Quota Bandwidth"
-                        meta={quota?.period ? `Periode ${quota.period} · reset tiap tanggal 1` : undefined}
-                        trailing={(
-                            <div className="flex items-center gap-2">
-                                {isLoadingQuota && (
-                                    <RefreshCw className={`w-3 h-3 animate-spin ${themeTextSub}`} />
-                                )}
-                                {onlineBadge}
+                <div className={`grid grid-cols-1 lg:grid-cols-2 border-t ${divider}`}>
+                    <div className={`p-4 sm:p-5 lg:border-r ${divider}`}>
+                        <SectionBlock
+                            icon={Activity}
+                            title="Quota Bandwidth"
+                            meta={quota?.period ? `Periode ${quota.period} · reset tiap tanggal 1` : undefined}
+                            trailing={(
+                                <div className="flex items-center gap-2">
+                                    {isLoadingQuota && (
+                                        <RefreshCw className={`w-3 h-3 animate-spin ${themeTextSub}`} />
+                                    )}
+                                    {onlineBadge}
+                                </div>
+                            )}
+                            themeTextSub={themeTextSub}
+                            themeTextDesc={themeTextDesc}
+                        >
+                            {quotaError && (
+                                <p className="text-[10px] text-amber-500 mb-2">{quotaError}</p>
+                            )}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <QuotaStat
+                                    icon={Activity}
+                                    tone="indigo"
+                                    label="Total"
+                                    usedBytes={totalBytes}
+                                    limitBytes={null}
+                                    isDarkMode={isDarkMode}
+                                    themeTextSub={themeTextSub}
+                                    themeTextDesc={themeTextDesc}
+                                />
+                                <QuotaStat
+                                    icon={ArrowDown}
+                                    tone="sky"
+                                    label="Download"
+                                    usedBytes={downloadBytes}
+                                    limitBytes={quota?.download_limit_bytes}
+                                    isDarkMode={isDarkMode}
+                                    themeTextSub={themeTextSub}
+                                    themeTextDesc={themeTextDesc}
+                                />
+                                <QuotaStat
+                                    icon={ArrowUp}
+                                    tone="violet"
+                                    label="Upload"
+                                    usedBytes={uploadBytes}
+                                    limitBytes={quota?.upload_limit_bytes}
+                                    isDarkMode={isDarkMode}
+                                    themeTextSub={themeTextSub}
+                                    themeTextDesc={themeTextDesc}
+                                />
                             </div>
-                        )}
-                        themeTextSub={themeTextSub}
-                        themeTextDesc={themeTextDesc}
-                    >
-                        {quotaError && (
-                            <p className="text-[10px] text-amber-500 mb-2">{quotaError}</p>
-                        )}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <QuotaStat
-                                icon={Activity}
-                                tone="indigo"
-                                label="Total"
-                                usedBytes={totalBytes}
-                                limitBytes={null}
-                                isDarkMode={isDarkMode}
-                                themeTextSub={themeTextSub}
-                                themeTextDesc={themeTextDesc}
-                            />
-                            <QuotaStat
-                                icon={ArrowDown}
-                                tone="sky"
-                                label="Download"
-                                usedBytes={downloadBytes}
-                                limitBytes={quota?.download_limit_bytes}
-                                isDarkMode={isDarkMode}
-                                themeTextSub={themeTextSub}
-                                themeTextDesc={themeTextDesc}
-                            />
-                            <QuotaStat
-                                icon={ArrowUp}
-                                tone="violet"
-                                label="Upload"
-                                usedBytes={uploadBytes}
-                                limitBytes={quota?.upload_limit_bytes}
-                                isDarkMode={isDarkMode}
-                                themeTextSub={themeTextSub}
-                                themeTextDesc={themeTextDesc}
-                            />
-                        </div>
-                    </SectionBlock>
+                        </SectionBlock>
+                    </div>
+
+                    <div className="p-4 sm:p-5">
+                        <SectionBlock
+                            icon={Radio}
+                            title="Detail Sesi PPPoE Aktif"
+                            themeTextSub={themeTextSub}
+                            themeTextDesc={themeTextDesc}
+                        >
+                            {activeSession ? (
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-zinc-900/60' : 'bg-zinc-100/50'}`}>
+                                            <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextDesc}`}>Alamat IP</p>
+                                            <p className={`font-mono font-semibold mt-0.5 truncate ${themeTextTitle}`}>{activeSession.address || '—'}</p>
+                                        </div>
+                                        <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-zinc-900/60' : 'bg-zinc-100/50'}`}>
+                                            <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextDesc}`}>Uptime Sesi</p>
+                                            <p className={`font-mono font-semibold mt-0.5 truncate ${themeTextTitle}`}>{activeSession.uptime || '—'}</p>
+                                        </div>
+                                        <div className={`p-2 rounded-xl ${isDarkMode ? 'bg-zinc-900/60' : 'bg-zinc-100/50'} col-span-2`}>
+                                            <p className={`text-[10px] font-bold uppercase tracking-wider ${themeTextDesc}`}>Caller ID (MAC ONT)</p>
+                                            <p className={`font-mono font-semibold mt-0.5 truncate ${themeTextTitle}`}>{activeSession.caller_id || '—'}</p>
+                                        </div>
+                                    </div>
+                                    {canWrite && onKickActive && (
+                                        <button
+                                            type="button"
+                                            onClick={() => onKickActive(activeSession)}
+                                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition-colors cursor-pointer"
+                                        >
+                                            <Radio className="w-3.5 h-3.5 animate-pulse" />
+                                            Putuskan Sesi PPPoE (Kick)
+                                        </button>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className={`py-6 text-center text-xs ${themeTextDesc} border border-dashed rounded-xl ${isDarkMode ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                                    Pelanggan saat ini offline / tidak ada sesi aktif di Router.
+                                </div>
+                            )}
+                        </SectionBlock>
+                    </div>
                 </div>
             </div>
         </div>

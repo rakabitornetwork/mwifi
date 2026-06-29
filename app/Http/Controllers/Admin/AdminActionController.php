@@ -2625,6 +2625,99 @@ class AdminActionController extends Controller
         }
     }
 
+    public function getPppoeActiveSessions(Request $request)
+    {
+        $data = $request->validate([
+            'router_id' => 'nullable|integer|exists:routers,id',
+        ]);
+
+        $scope = StaffRouterScope::for($request->user());
+        $routerId = $data['router_id'] ?? null;
+
+        if ($scope->isScoped()) {
+            $routerId = $scope->routerId();
+        } elseif ($routerId) {
+            $scope->ensureCanAccessRouter((int) $routerId);
+        }
+
+        $routersQuery = Router::query()->orderBy('name');
+        if ($routerId) {
+            $routersQuery->where('id', $routerId);
+        } elseif ($scope->isScoped()) {
+            $routersQuery->where('id', $scope->routerId());
+        }
+
+        $sessions = [];
+        $errors = [];
+
+        foreach ($routersQuery->get() as $router) {
+            try {
+                $connector = \App\Services\Router\RouterService::getConnector($router);
+                foreach ($connector->getActiveConnections() as $active) {
+                    if (!is_array($active)) {
+                        continue;
+                    }
+
+                    $sessions[] = [
+                        'router_id' => $router->id,
+                        'router_name' => $router->name,
+                        'username' => $active['name'] ?? null,
+                        'service' => $active['service'] ?? 'pppoe',
+                        'caller_id' => $active['caller-id'] ?? $active['caller_id'] ?? null,
+                        'address' => $active['address'] ?? null,
+                        'uptime' => $active['uptime'] ?? null,
+                    ];
+                }
+            } catch (\Throwable $e) {
+                $errors[] = [
+                    'router_id' => $router->id,
+                    'router_name' => $router->name,
+                    'message' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'sessions' => $sessions,
+            'errors' => $errors,
+        ]);
+    }
+
+    public function kickPppoeActiveSession(Request $request)
+    {
+        $data = $request->validate([
+            'router_id' => 'required|integer|exists:routers,id',
+            'username' => 'required|string|max:100',
+        ]);
+
+        StaffRouterScope::for($request->user())->ensureCanAccessRouter((int) $data['router_id']);
+
+        $router = Router::findOrFail($data['router_id']);
+
+        try {
+            $connector = \App\Services\Router\RouterService::getConnector($router);
+            $kicked = $connector->kickActiveConnection($data['username']);
+
+            if (!$kicked) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal memutus sesi PPPoE.',
+                ], 422);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sesi PPPoE berhasil diputus.',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     /**
      * Laporan bagi hasil penjualan voucher hotspot (pemilik vs agen).
      */

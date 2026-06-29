@@ -116,6 +116,74 @@ function CustomersPageContent({
     const [routerProfilesMap, setRouterProfilesMap] = useState({});
     const [isLoadingProfiles, setIsLoadingProfiles] = useState(false);
 
+    const [activeSessions, setActiveSessions] = useState([]);
+    const [isLoadingActiveSessions, setIsLoadingActiveSessions] = useState(false);
+    const [activeSessionsError, setActiveSessionsError] = useState(null);
+
+    const fetchActiveSessions = async () => {
+        setIsLoadingActiveSessions(true);
+        setActiveSessionsError(null);
+        try {
+            const params = new URLSearchParams();
+            if (routerFilter) {
+                params.set('router_id', routerFilter);
+            }
+            const res = await fetch(`/admin/pppoe/active-sessions?${params.toString()}`);
+            const data = await res.json();
+            if (res.ok && data.success) {
+                setActiveSessions(data.sessions || []);
+            } else {
+                setActiveSessionsError(data.message || 'Gagal memuat sesi aktif.');
+            }
+        } catch (err) {
+            setActiveSessionsError(err.message || 'Gagal memuat sesi aktif.');
+        } finally {
+            setIsLoadingActiveSessions(false);
+        }
+    };
+
+    const handleKickActiveSession = async (session) => {
+        if (!session) return;
+        if (!confirm(`Putuskan sesi PPPoE aktif untuk user '${session.username}'? Pelanggan akan terputus sementara dan melakukan koneksi ulang.`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/admin/pppoe/kick-active', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    router_id: session.router_id,
+                    username: session.username,
+                }),
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(data.message || 'Sesi berhasil diputus.', 'success');
+                fetchActiveSessions();
+            } else {
+                showToast(data.message || 'Gagal memutus sesi.', 'error');
+            }
+        } catch (err) {
+            showToast(err.message || 'Gagal memutus sesi.', 'error');
+        }
+    };
+
+    const getActiveSessionForCustomer = (username) => {
+        if (!username) return null;
+        return activeSessions.find((s) => String(s.username).toLowerCase() === String(username).toLowerCase());
+    };
+
+    useEffect(() => {
+        fetchActiveSessions();
+        const interval = setInterval(fetchActiveSessions, 30000);
+        return () => clearInterval(interval);
+    }, [routerFilter]);
+
     const pppoePackages = packages.filter((p) => p.type === 'pppoe');
 
     const modalPackages = useMemo(() => {
@@ -691,22 +759,35 @@ function CustomersPageContent({
                 ) : undefined}
             >
                 <div className="flex flex-col lg:flex-row gap-2">
-                    <AssignedRouterFilter
-                        routers={routers}
-                        value={routerFilter}
-                        onChange={(e) => setRouterFilter(e.target.value)}
-                        className={`lg:w-56 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
-                        renderOption={(routerItem) => `${routerItem.name} (${routerCustomerCounts[routerItem.id] || 0})`}
-                    />
-                    <div className="relative flex-1">
-                        <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
-                        <input
-                            type="text"
-                            placeholder="Cari nama, username, telepon, email, paket, ODP, tanggal tagih..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                    <div className="flex w-full lg:w-auto gap-2 items-center flex-1 lg:flex-none">
+                        <AssignedRouterFilter
+                            routers={routers}
+                            value={routerFilter}
+                            onChange={(e) => setRouterFilter(e.target.value)}
+                            className={`w-full lg:w-56 shrink-0 px-3 py-2 border rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                            renderOption={(routerItem) => `${routerItem.name} (${routerCustomerCounts[routerItem.id] || 0})`}
                         />
+                    </div>
+                    <div className="relative flex-1 w-full flex gap-2">
+                        <div className="relative flex-1">
+                            <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${themeTextDesc}`} />
+                            <input
+                                type="text"
+                                placeholder="Cari nama, username, telepon, email, paket, ODP, tanggal tagih..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
+                            />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={fetchActiveSessions}
+                            disabled={isLoadingActiveSessions}
+                            title="Segarkan Sesi Aktif"
+                            className={`p-2 border rounded-xl cursor-pointer inline-flex items-center justify-center disabled:opacity-50 shrink-0 ${isDarkMode ? 'border-zinc-800 text-emerald-400 hover:bg-zinc-900' : 'border-zinc-200 text-emerald-600 hover:bg-emerald-50'}`}
+                        >
+                            <RefreshCw className={`w-4 h-4 ${isLoadingActiveSessions ? 'animate-spin' : ''}`} />
+                        </button>
                     </div>
                 </div>
 
@@ -808,7 +889,23 @@ function CustomersPageContent({
                                         </td>
                                         )}
                                         <td className={`py-3 px-2 font-bold ${themeTextTitle}`}>
-                                            {cust.name}
+                                            <div className="flex items-center gap-1.5">
+                                                {(() => {
+                                                    const session = getActiveSessionForCustomer(cust.username);
+                                                    if (session) {
+                                                        return (
+                                                            <span className="relative flex h-2 w-2 shrink-0 animate-pulse" title={`Online - IP: ${session.address || '-'}`}>
+                                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                                                                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.95)]" />
+                                                            </span>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <span className="h-2 w-2 rounded-full bg-zinc-400/60 shrink-0" title="Offline" />
+                                                    );
+                                                })()}
+                                                <span>{cust.name}</span>
+                                            </div>
                                         </td>
                                         <td className="py-3 px-2 font-mono">{cust.username}</td>
                                         <td className="py-3 px-2 font-mono text-[10px]">{cust.phone_number || '—'}</td>
@@ -877,6 +974,8 @@ function CustomersPageContent({
                             theme={theme}
                             onEdit={openCustomerModal}
                             canWrite={canWrite}
+                            activeSession={getActiveSessionForCustomer(expandedCustomer.username)}
+                            onKickActive={handleKickActiveSession}
                         />
                     </div>
                 )}

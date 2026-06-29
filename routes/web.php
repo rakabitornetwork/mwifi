@@ -151,6 +151,8 @@ Route::middleware(['auth', 'staff', 'admin.tab', 'staff.write'])->group(function
     Route::post('admin/packages/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'savePackage']);
     Route::post('admin/packages/delete', [\App\Http\Controllers\Admin\AdminActionController::class, 'deletePackage']);
     Route::post('admin/packages/sync-from-router', [\App\Http\Controllers\Admin\AdminActionController::class, 'syncPackagesFromRouter']);
+    Route::get('admin/pppoe/active-sessions', [\App\Http\Controllers\Admin\AdminActionController::class, 'getPppoeActiveSessions']);
+    Route::post('admin/pppoe/kick-active', [\App\Http\Controllers\Admin\AdminActionController::class, 'kickPppoeActiveSession']);
 
     // Admin ODP Actions
     Route::post('admin/odps/save', [\App\Http\Controllers\Admin\AdminActionController::class, 'saveOdp']);

@@ -8,8 +8,19 @@ use Exception;
 
 class RouterService
 {
+    protected static $resolver = null;
+
+    public static function setConnectorResolver(?callable $resolver): void
+    {
+        self::$resolver = $resolver;
+    }
+
     public static function getConnector($router): RouterConnectorInterface
     {
+        if (self::$resolver) {
+            return (self::$resolver)($router);
+        }
+
         if (!$router instanceof Router) {
             $router = Router::findOrFail($router);
         }
