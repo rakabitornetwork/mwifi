@@ -177,7 +177,7 @@ export default function NetworkMapCustomerPopup({
                             href={`https://wa.me/${formatWaNumber(customer.phone_number)}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 !text-white rounded-lg font-bold text-[9px] text-center flex items-center justify-center gap-1.5 transition-colors cursor-pointer select-none"
+                            className="flex-1 py-1.5 px-3 bg-white/10 hover:bg-white/20 border border-white/15 !text-white rounded-lg font-bold text-[9px] text-center flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none"
                         >
                             <svg className="w-3.5 h-3.5 fill-current !text-white" viewBox="0 0 24 24">
                                 <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.73-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.625 1.45 5.489 0 9.954-4.41 9.957-9.829.002-2.624-1.013-5.093-2.86-6.945-1.848-1.853-4.299-2.875-6.93-2.877-5.484 0-9.95 4.407-9.952 9.826-.001 1.748.497 3.4 1.44 4.9l-.994 3.63 3.714-.955zm11.367-7.854c-.29-.145-1.71-.844-1.97-.938-.26-.095-.45-.145-.64.145-.19.29-.73.938-.9 1.129-.17.19-.34.217-.63.072-.29-.145-1.223-.45-2.33-1.439-.86-.767-1.44-1.716-1.61-2.006-.17-.29-.018-.448.127-.592.13-.13.29-.34.435-.51.145-.17.193-.29.29-.48.096-.19.048-.36-.024-.51-.072-.145-.64-1.54-.877-2.11-.23-.56-.465-.482-.64-.492-.166-.01-.355-.01-.545-.01-.19 0-.5.07-.76.357-.26.29-1 .978-1 2.387 0 1.41 1.02 2.769 1.16 2.96.14.19 2.01 3.067 4.87 4.3 1.833.79 2.625.86 3.56.72.935-.14 1.71-.69 1.95-1.34.24-.65.24-1.2.17-1.34-.07-.14-.26-.22-.55-.365z"/>
@@ -190,7 +190,7 @@ export default function NetworkMapCustomerPopup({
                             href={`https://www.google.com/maps/dir/?api=1&destination=${customer.latitude},${customer.longitude}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex-1 py-1.5 px-3 bg-blue-600 hover:bg-blue-700 !text-white rounded-lg font-bold text-[9px] text-center flex items-center justify-center gap-1.5 transition-colors cursor-pointer select-none"
+                            className="flex-1 py-1.5 px-3 bg-white/10 hover:bg-white/20 border border-white/15 !text-white rounded-lg font-bold text-[9px] text-center flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none"
                         >
                             <svg className="w-3.5 h-3.5 fill-current !text-white" viewBox="0 0 24 24">
                                 <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
