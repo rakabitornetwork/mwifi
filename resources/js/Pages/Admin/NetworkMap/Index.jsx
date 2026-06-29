@@ -50,6 +50,11 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
     const editorGroupRef = useRef(null);
     const mapViewRef = useRef({ center: null, zoom: null });
 
+    const editingOdpRef = useRef(editingOdp);
+    editingOdpRef.current = editingOdp;
+    const showOdpModalRef = useRef(showOdpModal);
+    showOdpModalRef.current = showOdpModal;
+
     const handleResetCablePath = () => {
         if (!confirm('Apakah Anda yakin ingin me-reset jalur kabel pelanggan ini menjadi garis lurus default?')) return;
         setEditingCablePath([]);
@@ -418,8 +423,10 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
             const lng = parseFloat(odp.longitude);
             odpCoordsMap[odp.id] = [lat, lng];
 
-            L.marker([lat, lng], { icon: odpIcon })
-                .addTo(map)
+            const marker = L.marker([lat, lng], {
+                icon: odpIcon,
+                draggable: canWrite && !isEditingCables
+            }).addTo(map)
                 .bindPopup(`
                     <div class="text-[11px] font-sans text-zinc-900 leading-normal p-0.5">
                         <p class="font-extrabold text-blue-600 uppercase tracking-wider">${odp.name}</p>
@@ -430,6 +437,34 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                         </div>
                     </div>
                 `);
+
+            marker.on('dragend', (e) => {
+                const newLatLng = e.target.getLatLng();
+                const originalLatLng = L.latLng(lat, lng);
+
+                if (showOdpModalRef.current && editingOdpRef.current?.id === odp.id) {
+                    setOdpLat(newLatLng.lat.toFixed(6));
+                    setOdpLng(newLatLng.lng.toFixed(6));
+                    showToast(`Koordinat ODP "${odp.name}" disesuaikan di form modal.`, 'info');
+                } else {
+                    if (confirm(`Apakah Anda yakin ingin memindahkan ODP "${odp.name}" ke lokasi baru?\nLatitude: ${newLatLng.lat.toFixed(6)}\nLongitude: ${newLatLng.lng.toFixed(6)}`)) {
+                        router.post('/admin/odps/save', {
+                            id: odp.id,
+                            name: odp.name,
+                            total_ports: odp.total_ports,
+                            description: odp.description,
+                            latitude: newLatLng.lat.toFixed(6),
+                            longitude: newLatLng.lng.toFixed(6)
+                        }, {
+                            onError: () => {
+                                marker.setLatLng(originalLatLng);
+                            }
+                        });
+                    } else {
+                        marker.setLatLng(originalLatLng);
+                    }
+                }
+            });
         });
 
         customerMarkersRef.current = {};
