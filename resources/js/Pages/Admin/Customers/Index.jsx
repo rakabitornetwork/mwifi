@@ -964,7 +964,7 @@ function CustomersPageContent({
                 show={expandedCustomerId !== null}
                 onClose={() => setExpandedCustomerId(null)}
                 themeCard={themeCard}
-                maxWidth="3xl"
+                maxWidth="5xl"
                 className="!flex !flex-col !overflow-hidden !space-y-0 !p-0"
             >
                 {expandedCustomer && (
