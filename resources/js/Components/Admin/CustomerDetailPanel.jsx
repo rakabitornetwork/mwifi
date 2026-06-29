@@ -254,6 +254,7 @@ export default function CustomerDetailPanel({
     activeSession = null,
     onKickActive = null,
     onClose = null,
+    isModalMode = false,
 }) {
     const {
         isDarkMode,
@@ -455,13 +456,14 @@ export default function CustomerDetailPanel({
     );
 
     return (
-        <div className={`customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-3 py-4 sm:px-4 min-w-0 max-w-full overflow-hidden`}>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                <div className="min-w-0">
-                    <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 bg-clip-text text-transparent">Detail Lengkap Pelanggan</p>
-                    <p className={`text-sm font-bold mt-1 truncate ${themeTextTitle}`}>{customer.name}</p>
-                    <p className={`text-[11px] font-mono mt-0.5 ${themeTextDesc}`}>{customer.username}</p>
-                </div>
+        <div className={isModalMode ? 'w-full min-w-0 max-w-full' : `customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-3 py-4 sm:px-4 min-w-0 max-w-full overflow-hidden`}>
+            {!isModalMode && (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 bg-clip-text text-transparent">Detail Lengkap Pelanggan</p>
+                        <p className={`text-sm font-bold mt-1 truncate ${themeTextTitle}`}>{customer.name}</p>
+                        <p className={`text-[11px] font-mono mt-0.5 ${themeTextDesc}`}>{customer.username}</p>
+                    </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
                     <span className={`inline-flex px-2.5 py-1 rounded-lg text-[10px] font-bold border ${status.className}`}>
                         {status.label}
@@ -498,9 +500,10 @@ export default function CustomerDetailPanel({
                     )}
                 </div>
             </div>
+            )}
 
-            <div className={`${themeCard} rounded-2xl border overflow-hidden relative pt-1`}>
-                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-400 via-teal-500 to-sky-500" />
+            <div className={isModalMode ? 'w-full relative' : `${themeCard} rounded-2xl border overflow-hidden relative pt-1`}>
+                {!isModalMode && <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-400 via-teal-500 to-sky-500" />}
                 <div className={`grid grid-cols-1 lg:grid-cols-2 border-b ${divider}`}>
                     <div className={`p-4 sm:p-5 lg:border-r ${divider}`}>
                         <SectionBlock icon={User} title="Identitas & Kontak" themeTextSub={themeTextSub}>

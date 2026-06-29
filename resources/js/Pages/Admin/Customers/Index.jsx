@@ -50,59 +50,7 @@ function getModalEmailValue(customer) {
     return customer.portal_email || '';
 }
 
-function CollapsibleDetail({
-    customer,
-    theme,
-    onEdit,
-    canWrite,
-    activeSession,
-    onKickActive,
-    onClose,
-    isDarkMode,
-    panelRef,
-}) {
-    const [shouldRender, setShouldRender] = useState(!!customer);
-    const [isExpanded, setIsExpanded] = useState(!!customer);
 
-    useEffect(() => {
-        if (customer) {
-            setShouldRender(true);
-            const timer = setTimeout(() => setIsExpanded(true), 50);
-            return () => clearTimeout(timer);
-        } else {
-            setIsExpanded(false);
-            const timer = setTimeout(() => setShouldRender(false), 300);
-            return () => clearTimeout(timer);
-        }
-    }, [customer]);
-
-    if (!shouldRender) return null;
-
-    return (
-        <div
-            ref={panelRef}
-            className={`collapsible-grid w-full min-w-0 max-w-full rounded-2xl border ${
-                isDarkMode ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-zinc-50/20'
-            } ${
-                isExpanded ? 'is-expanded mt-4' : 'mt-0'
-            }`}
-        >
-            <div className="overflow-hidden">
-                {customer && (
-                    <CustomerDetailPanel
-                        customer={customer}
-                        theme={theme}
-                        onEdit={onEdit}
-                        canWrite={canWrite}
-                        activeSession={activeSession}
-                        onKickActive={onKickActive}
-                        onClose={onClose}
-                    />
-                )}
-            </div>
-        </div>
-    );
-}
 
 function CustomersPageContent({
     customers = [],
@@ -571,17 +519,7 @@ function CustomersPageContent({
         setCustomerPage((current) => (current === targetPage ? current : targetPage));
     }, [expandedCustomerId, sortedCustomers, pageSize]);
 
-    useEffect(() => {
-        if (!expandedCustomerId || !customerDetailPanelRef.current) {
-            return;
-        }
 
-        const timer = setTimeout(() => {
-            customerDetailPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 150);
-
-        return () => clearTimeout(timer);
-    }, [expandedCustomerId, expandedCustomer]);
 
     const handleSaveCustomer = (e) => {
         e.preventDefault();
@@ -1022,17 +960,73 @@ function CustomersPageContent({
                     </table>
                 </div>
 
-                <CollapsibleDetail
-                    customer={expandedCustomer}
-                    theme={theme}
-                    onEdit={openCustomerModal}
-                    canWrite={canWrite}
-                    activeSession={expandedCustomer ? getActiveSessionForCustomer(expandedCustomer.username) : null}
-                    onKickActive={handleKickActiveSession}
-                    onClose={() => setExpandedCustomerId(null)}
-                    isDarkMode={isDarkMode}
-                    panelRef={customerDetailPanelRef}
-                />
+            <TransitionModal
+                show={expandedCustomerId !== null}
+                onClose={() => setExpandedCustomerId(null)}
+                themeCard={themeCard}
+                maxWidth="3xl"
+                className="!flex !flex-col !overflow-hidden !space-y-0 !p-0"
+            >
+                {expandedCustomer && (
+                    <div className="flex flex-col h-full max-h-[85vh]">
+                        {/* Title bar with padding */}
+                        <div className={`flex items-center justify-between px-5 py-4 border-b shrink-0 ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} relative`}>
+                            {/* Top accent line */}
+                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-400 via-teal-500 to-sky-500" />
+                            <div className="min-w-0">
+                                <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 bg-clip-text text-transparent">Detail Lengkap Pelanggan</p>
+                                <p className={`text-sm font-bold mt-1 truncate ${themeTextTitle}`}>{expandedCustomer.name}</p>
+                                <p className={`text-[11px] font-mono mt-0.5 ${themeTextDesc}`}>{expandedCustomer.username}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {canWrite && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setExpandedCustomerId(null);
+                                            openCustomerModal(expandedCustomer);
+                                        }}
+                                        title="Edit Pelanggan"
+                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
+                                            isDarkMode
+                                                ? 'bg-sky-500/10 text-sky-400 border-sky-500/25 hover:bg-sky-500/20 hover:text-sky-300'
+                                                : 'bg-sky-50 text-sky-700 border-sky-200/80 hover:bg-sky-100/70 hover:text-sky-850'
+                                        }`}
+                                    >
+                                        <Edit className="w-3.5 h-3.5" />
+                                        Edit
+                                    </button>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setExpandedCustomerId(null)}
+                                    title="Tutup Detail"
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
+                                        isDarkMode
+                                            ? 'bg-rose-500/10 text-rose-400 border-rose-500/25 hover:bg-rose-500/20 hover:text-rose-300'
+                                            : 'bg-rose-50 text-rose-700 border-rose-200/80 hover:bg-rose-100/70 hover:text-rose-850'
+                                    }`}
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                    Tutup
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Scrollable content block */}
+                        <div className="flex-1 overflow-y-auto overscroll-contain p-5">
+                            <CustomerDetailPanel
+                                customer={expandedCustomer}
+                                theme={theme}
+                                canWrite={canWrite}
+                                activeSession={getActiveSessionForCustomer(expandedCustomer.username)}
+                                onKickActive={handleKickActiveSession}
+                                isModalMode={true}
+                            />
+                        </div>
+                    </div>
+                )}
+            </TransitionModal>
 
                 {sortedCustomers.length > 0 && (
                     <div className={`flex flex-col lg:flex-row lg:items-center lg:justify-between pt-4 mt-1 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-4`}>
