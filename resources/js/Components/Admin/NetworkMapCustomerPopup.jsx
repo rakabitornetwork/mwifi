@@ -69,6 +69,35 @@ const ICON_NETWORK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 const ICON_WIFI = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.5a14 14 0 0 1 14 0"/><path d="M8.5 15.5a9 9 0 0 1 7 0"/><path d="M12 19h.01"/><path d="M2 8.5a20 20 0 0 1 20 0"/></svg>';
 const ICON_TRAFFIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>';
 
+function calculateHaversineDistance(coords1, coords2) {
+    if (!coords1 || !coords2) return 0;
+    const [lat1, lon1] = coords1;
+    const [lat2, lon2] = coords2;
+    
+    const R = 6371e3; // Earth radius in meters
+    const phi1 = (lat1 * Math.PI) / 180;
+    const phi2 = (lat2 * Math.PI) / 180;
+    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+    const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+        Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+        Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // in meters
+}
+
+function calculatePathLength(odpCoords, customerCoords, cablePath = []) {
+    if (!odpCoords || !customerCoords) return 0;
+    const points = [odpCoords, ...cablePath, customerCoords];
+    let totalDistance = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+        totalDistance += calculateHaversineDistance(points[i], points[i+1]);
+    }
+    return totalDistance;
+}
+
 export default function NetworkMapCustomerPopup({
     customer,
     metrics = {},
@@ -88,6 +117,22 @@ export default function NetworkMapCustomerPopup({
     const rxStatus = ont.status || 'offline';
     const displayOrDash = (val) => (val === null || val === undefined || val === '' ? '—' : val);
     const initial = String(customer?.name || '?').charAt(0).toUpperCase();
+
+    const odp = customer?.odp;
+    const odpCoords = odp?.latitude && odp?.longitude 
+        ? [parseFloat(odp.latitude), parseFloat(odp.longitude)] 
+        : null;
+    const customerCoords = customer?.latitude && customer?.longitude 
+        ? [parseFloat(customer.latitude), parseFloat(customer.longitude)] 
+        : null;
+
+    const hasCustomPath = Array.isArray(customer?.cable_path) && customer.cable_path.length > 0;
+    const straightDistance = odpCoords && customerCoords 
+        ? calculateHaversineDistance(odpCoords, customerCoords) 
+        : 0;
+    const cableDistance = odpCoords && customerCoords 
+        ? calculatePathLength(odpCoords, customerCoords, customer.cable_path) 
+        : 0;
 
     const mapPopupTheme = {
         isDarkMode: false,
@@ -128,6 +173,21 @@ export default function NetworkMapCustomerPopup({
                         />
                         <MapPopupStat label="Bandwidth" value={displayOrDash(pkg.bandwidth_limit)} />
                         <MapPopupStat label="Titik ODP" value={odpName} />
+                        {odpCoords && customerCoords && (
+                            <>
+                                <MapPopupStat 
+                                    label="Jarak Kabel" 
+                                    value={`${cableDistance.toFixed(1)} m`} 
+                                    valueClass="map-popup-stat-value--accent font-bold" 
+                                />
+                                {hasCustomPath && (
+                                    <MapPopupStat 
+                                        label="Jarak Udara" 
+                                        value={`${straightDistance.toFixed(1)} m`} 
+                                    />
+                                )}
+                            </>
+                        )}
                     </div>
                 </MapPopupSection>
 
