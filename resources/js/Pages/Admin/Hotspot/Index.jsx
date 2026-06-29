@@ -1118,7 +1118,7 @@ function HotspotPageContent({
                 ) : hotspotSubTab === 'sales' ? (
                     <div className="space-y-4">
                         <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 flex-1">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 flex-1">
                                 <div className="flex flex-col gap-1">
                                     <label className={`text-[10px] font-bold uppercase ${themeLabel}`}>Dari Tanggal</label>
                                     <input
@@ -1137,7 +1137,7 @@ function HotspotPageContent({
                                         className={`px-3 py-2 border rounded-xl text-xs ${themeInput}`}
                                     />
                                 </div>
-                                <div className="flex flex-col gap-1 sm:col-span-2">
+                                <div className="flex flex-col gap-1 col-span-2">
                                     <label className={`text-[10px] font-bold uppercase ${themeLabel}`}>Filter Agen</label>
                                     <select
                                         value={filterAgentName}
