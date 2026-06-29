@@ -473,8 +473,8 @@ export default function CustomerDetailPanel({
                             title="Edit Pelanggan"
                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
                                 isDarkMode
-                                    ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white'
-                                    : 'border-zinc-300 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900'
+                                    ? 'bg-sky-500/10 text-sky-400 border-sky-500/25 hover:bg-sky-500/20 hover:text-sky-300'
+                                    : 'bg-sky-50 text-sky-700 border-sky-200/80 hover:bg-sky-100/70 hover:text-sky-850'
                             }`}
                         >
                             <Edit className="w-3.5 h-3.5" />
@@ -488,8 +488,8 @@ export default function CustomerDetailPanel({
                             title="Tutup Detail"
                             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
                                 isDarkMode
-                                    ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white'
-                                    : 'border-zinc-300 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-950'
+                                    ? 'bg-rose-500/10 text-rose-400 border-rose-500/25 hover:bg-rose-500/20 hover:text-rose-300'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200/80 hover:bg-rose-100/70 hover:text-rose-850'
                             }`}
                         >
                             <X className="w-3.5 h-3.5" />
