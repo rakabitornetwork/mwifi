@@ -383,7 +383,7 @@ function HotspotPageContent({
 
     const handleSyncHotspot = (routerId) => {
         if (!routerId) {
-            showToast('Pilih router terlebih dahulu untuk sinkronisasi profil hotspot.', 'warning');
+            showToast('Pilih router terlebih dahulu untuk sinkronisasi voucher.', 'warning');
             return;
         }
         setIsSyncingHotspot(true);
@@ -821,7 +821,7 @@ function HotspotPageContent({
                                     <Printer className="w-4 h-4" />
                                 </button>
 
-                                <div className="relative inline-flex items-center justify-center" title={isSyncingHotspot ? 'Sinkronisasi...' : 'Sync Profil Hotspot'}>
+                                <div className="relative inline-flex items-center justify-center" title={isSyncingHotspot ? 'Sinkronisasi...' : 'Sync Voucher'}>
                                     <select
                                         id="sync-router-select"
                                         defaultValue=""
@@ -834,7 +834,7 @@ function HotspotPageContent({
                                         disabled={isSyncingHotspot}
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
                                     >
-                                        <option value="" disabled>Sync Profil Hotspot</option>
+                                        <option value="" disabled>Sync Voucher</option>
                                         {routers.map((r) => (
                                             <option key={r.id} value={r.id}>{r.name}</option>
                                         ))}
