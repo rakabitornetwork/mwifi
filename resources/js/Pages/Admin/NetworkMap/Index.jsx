@@ -609,32 +609,27 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                     smoothFactor: 0,
                 }).addTo(map);
 
-                // Only draw distance labels if this customer is selected/open OR being edited!
-                const isSelected = openCustomerPopupId === cust.id || editingCustomerId === cust.id;
-
-                if (isSelected) {
-                    // Draw 100m markers along the path (always dark style for high contrast)
-                    const intervalPoints = getIntervalPoints(points, 100);
-                    intervalPoints.forEach((ip) => {
-                        const badgeIcon = L.divIcon({
-                            className: 'custom-distance-badge',
-                            html: `<div class="px-1.5 py-0.5 rounded bg-zinc-950 border border-zinc-700/80 text-[8px] font-mono text-zinc-100 font-extrabold shadow-md select-none pointer-events-none">${ip.distance}m</div>`,
-                            iconSize: [30, 14],
-                            iconAnchor: [15, 7],
-                        });
-                        L.marker(ip.coords, { icon: badgeIcon, interactive: false }).addTo(map);
+                // Draw 100m markers along the path
+                const intervalPoints = getIntervalPoints(points, 100);
+                intervalPoints.forEach((ip) => {
+                    const badgeIcon = L.divIcon({
+                        className: 'custom-distance-badge',
+                        html: `<div class="px-1 py-0.5 rounded bg-zinc-950/70 border border-zinc-700/50 text-[7.5px] font-mono text-zinc-350 font-black shadow-xs select-none pointer-events-none">${ip.distance}m</div>`,
+                        iconSize: [26, 12],
+                        iconAnchor: [13, 6],
                     });
+                    L.marker(ip.coords, { icon: badgeIcon, interactive: false }).addTo(map);
+                });
 
-                    // Draw total distance badge offset below customer marker
-                    const totalDist = calculatePathLength(odpCoords, customerCoords, cablePath);
-                    const totalBadgeIcon = L.divIcon({
-                        className: 'custom-total-distance-badge',
-                        html: `<div class="px-1.5 py-0.5 rounded bg-emerald-600/95 dark:bg-emerald-500/95 border border-white dark:border-zinc-950 text-[8px] font-mono text-white font-extrabold shadow-md whitespace-nowrap select-none pointer-events-none">${totalDist.toFixed(0)}m</div>`,
-                        iconSize: [36, 14],
-                        iconAnchor: [18, -8], // Offset below the customer marker
-                    });
-                    L.marker(customerCoords, { icon: totalBadgeIcon, interactive: false }).addTo(map);
-                }
+                // Draw total distance badge offset below customer marker
+                const totalDist = calculatePathLength(odpCoords, customerCoords, cablePath);
+                const totalBadgeIcon = L.divIcon({
+                    className: 'custom-total-distance-badge',
+                    html: `<div class="px-1 py-0.5 rounded bg-emerald-600/90 dark:bg-emerald-500/90 border border-white dark:border-zinc-950 text-[7.5px] font-mono text-white font-extrabold shadow-sm whitespace-nowrap select-none pointer-events-none">${totalDist.toFixed(0)}m</div>`,
+                    iconSize: [32, 12],
+                    iconAnchor: [16, -8], // Offset below the customer marker
+                });
+                L.marker(customerCoords, { icon: totalBadgeIcon, interactive: false }).addTo(map);
             }
         });
 
@@ -675,7 +670,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
             mapRef.current = null;
             map.remove();
         };
-    }, [odps, customers, isDarkMode, showToast, isEditingCables, openCustomerPopupId, editingCustomerId]);
+    }, [odps, customers, isDarkMode, showToast, isEditingCables]);
 
     useEffect(() => {
         const map = mapRef.current;
