@@ -167,7 +167,13 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
     const renderOpenCustomerPopup = (customerId, metrics = networkMapMetricsRef.current) => {
         const cust = customersRef.current.find((c) => c.id === customerId);
-        const rootEl = popupReactRootRef.current;
+        let rootEl = popupReactRootRef.current;
+        if (!rootEl && customerId) {
+            rootEl = document.querySelector(`.map-popup-customer[data-customer-id="${customerId}"] .map-popup-react-root`);
+            if (rootEl) {
+                popupReactRootRef.current = rootEl;
+            }
+        }
         if (!cust || !rootEl) {
             return;
         }
@@ -593,8 +599,19 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                     marker.setPopupContent(buildMapPopupShellHtml(cust.id));
 
                     const popupEl = marker.getPopup()?.getElement();
-                    popupReactRootRef.current = popupEl?.querySelector('.map-popup-react-root') ?? null;
-                    renderOpenCustomerPopupRef.current(cust.id, networkMapMetricsRef.current);
+                    const immediateRoot = popupEl?.querySelector('.map-popup-react-root');
+                    if (immediateRoot) {
+                        popupReactRootRef.current = immediateRoot;
+                        renderOpenCustomerPopupRef.current(cust.id, networkMapMetricsRef.current);
+                    } else {
+                        requestAnimationFrame(() => {
+                            const retryEl = marker.getPopup()?.getElement()?.querySelector('.map-popup-react-root');
+                            if (retryEl) {
+                                popupReactRootRef.current = retryEl;
+                                renderOpenCustomerPopupRef.current(cust.id, networkMapMetricsRef.current);
+                            }
+                        });
+                    }
                     fetchNetworkMapMetricsRef.current();
                 });
 
