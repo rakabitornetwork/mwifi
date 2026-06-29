@@ -71,7 +71,7 @@ const ICON_TRAFFIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 
 function formatWaNumber(phone) {
     if (!phone) return '';
-    let clean = phone.replace(/\D/g, ''); // keep digits only
+    let clean = String(phone).replace(/\D/g, ''); // keep digits only
     if (clean.startsWith('0')) {
         clean = '62' + clean.slice(1);
     }
@@ -97,9 +97,10 @@ function calculateHaversineDistance(coords1, coords2) {
     return R * c; // in meters
 }
 
-function calculatePathLength(odpCoords, customerCoords, cablePath = []) {
+function calculatePathLength(odpCoords, customerCoords, cablePath) {
     if (!odpCoords || !customerCoords) return 0;
-    const points = [odpCoords, ...cablePath, customerCoords];
+    const cleanPath = Array.isArray(cablePath) ? cablePath : [];
+    const points = [odpCoords, ...cleanPath, customerCoords];
     let totalDistance = 0;
     for (let i = 0; i < points.length - 1; i++) {
         totalDistance += calculateHaversineDistance(points[i], points[i+1]);

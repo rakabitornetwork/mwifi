@@ -42,9 +42,10 @@ function calculateHaversineDistance(coords1, coords2) {
     return R * c; // in meters
 }
 
-function calculatePathLength(odpCoords, customerCoords, cablePath = []) {
+function calculatePathLength(odpCoords, customerCoords, cablePath) {
     if (!odpCoords || !customerCoords) return 0;
-    const points = [odpCoords, ...cablePath, customerCoords];
+    const cleanPath = Array.isArray(cablePath) ? cablePath : [];
+    const points = [odpCoords, ...cleanPath, customerCoords];
     let totalDistance = 0;
     for (let i = 0; i < points.length - 1; i++) {
         totalDistance += calculateHaversineDistance(points[i], points[i+1]);
