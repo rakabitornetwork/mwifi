@@ -396,10 +396,30 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
         const lightTiles = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
         const tilesUrl = isDarkMode ? darkTiles : lightTiles;
 
-        L.tileLayer(tilesUrl, {
+        const vectorTiles = L.tileLayer(tilesUrl, {
             attribution: '© OpenStreetMap',
             maxZoom: 22,
             maxNativeZoom: 20,
+        });
+
+        const satelliteTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, and the GIS User Community',
+            maxZoom: 22,
+            maxNativeZoom: 19,
+        });
+
+        // Add the default vector tiles initially
+        vectorTiles.addTo(map);
+
+        // Add Layer Control (expanded for high visibility)
+        const baseMaps = {
+            "Peta Vektor": vectorTiles,
+            "Satelit": satelliteTiles,
+        };
+        
+        L.control.layers(baseMaps, null, {
+            position: 'topleft',
+            collapsed: false,
         }).addTo(map);
 
         const odpIcon = L.divIcon({
