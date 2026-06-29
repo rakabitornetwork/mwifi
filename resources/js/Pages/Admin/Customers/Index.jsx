@@ -50,6 +50,60 @@ function getModalEmailValue(customer) {
     return customer.portal_email || '';
 }
 
+function CollapsibleDetail({
+    customer,
+    theme,
+    onEdit,
+    canWrite,
+    activeSession,
+    onKickActive,
+    onClose,
+    isDarkMode,
+    panelRef,
+}) {
+    const [shouldRender, setShouldRender] = useState(!!customer);
+    const [isExpanded, setIsExpanded] = useState(!!customer);
+
+    useEffect(() => {
+        if (customer) {
+            setShouldRender(true);
+            const timer = setTimeout(() => setIsExpanded(true), 50);
+            return () => clearTimeout(timer);
+        } else {
+            setIsExpanded(false);
+            const timer = setTimeout(() => setShouldRender(false), 300);
+            return () => clearTimeout(timer);
+        }
+    }, [customer]);
+
+    if (!shouldRender) return null;
+
+    return (
+        <div
+            ref={panelRef}
+            className={`w-full min-w-0 max-w-full overflow-hidden rounded-2xl border transition-all duration-300 ease-in-out ${
+                isDarkMode ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-zinc-50/20'
+            } ${
+                isExpanded
+                    ? 'max-h-[2500px] opacity-100 mt-4 translate-y-0'
+                    : 'max-h-0 opacity-0 mt-0 -translate-y-2'
+            }`}
+        >
+            {customer && (
+                <CustomerDetailPanel
+                    customer={customer}
+                    theme={theme}
+                    onEdit={onEdit}
+                    canWrite={canWrite}
+                    activeSession={activeSession}
+                    onKickActive={onKickActive}
+                    onClose={onClose}
+                />
+            )}
+        </div>
+    );
+}
+
 function CustomersPageContent({
     customers = [],
     routers = [],
@@ -964,24 +1018,17 @@ function CustomersPageContent({
                     </table>
                 </div>
 
-                {expandedCustomer && (
-                    <div
-                        ref={customerDetailPanelRef}
-                        className={`w-full min-w-0 max-w-full overflow-hidden mt-4 rounded-2xl border ${
-                            isDarkMode ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-zinc-50/20'
-                        }`}
-                    >
-                        <CustomerDetailPanel
-                            customer={expandedCustomer}
-                            theme={theme}
-                            onEdit={openCustomerModal}
-                            canWrite={canWrite}
-                            activeSession={getActiveSessionForCustomer(expandedCustomer.username)}
-                            onKickActive={handleKickActiveSession}
-                            onClose={() => setExpandedCustomerId(null)}
-                        />
-                    </div>
-                )}
+                <CollapsibleDetail
+                    customer={expandedCustomer}
+                    theme={theme}
+                    onEdit={openCustomerModal}
+                    canWrite={canWrite}
+                    activeSession={expandedCustomer ? getActiveSessionForCustomer(expandedCustomer.username) : null}
+                    onKickActive={handleKickActiveSession}
+                    onClose={() => setExpandedCustomerId(null)}
+                    isDarkMode={isDarkMode}
+                    panelRef={customerDetailPanelRef}
+                />
 
                 {sortedCustomers.length > 0 && (
                     <div className={`flex flex-col lg:flex-row lg:items-center lg:justify-between pt-4 mt-1 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-4`}>
