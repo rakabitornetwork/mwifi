@@ -72,7 +72,7 @@ export default function AdminSidebar({
         <div className="flex flex-col h-full min-h-0 w-full">
             <div className="flex-1 min-h-0 overflow-y-auto">
                 <div
-                    className={`min-h-14 py-2.5 px-4 flex items-center shrink-0 ${themeBrandBar} ${showCloseButton ? 'justify-between gap-2' : 'gap-2.5'}`}
+                    className={`h-16 px-4 flex items-center shrink-0 ${themeBrandBar} ${showCloseButton ? 'justify-between gap-2' : 'gap-2.5'}`}
                     key={`sidebar-brand-${branding.version}`}
                 >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
