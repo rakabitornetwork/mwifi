@@ -89,13 +89,48 @@ class GenieAcsKickDeviceTest extends TestCase
         $this->assertSame('AABBCCDDEEFF', $values[0][1]);
     }
 
-    public function test_device_supports_client_kick_when_wlan_exists(): void
+    public function test_f650_without_kick_parameter_uses_delete_object_task(): void
     {
         $rawDev = [
+            '_id' => 'A4F33B-F650-ZICG296F4E7D',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID' => ['_value' => 'WiFi-Test'],
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.AssociatedDevice.1.AssociatedDeviceMACAddress' => [
+                '_value' => 'C2:61:8F:26:3D:89',
+            ],
+        ];
+
+        $method = new ReflectionMethod(GenieAcsService::class, 'resolveKickDeviceTask');
+        $method->setAccessible(true);
+
+        $task = $method->invoke(
+            null,
+            $rawDev,
+            'C2:61:8F:26:3D:89',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.AssociatedDevice.1'
+        );
+
+        $this->assertSame('deleteObject', $task['name']);
+        $this->assertSame(
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.AssociatedDevice.1',
+            $task['objectName']
+        );
+        $this->assertTrue(GenieAcsService::deviceSupportsClientKick($rawDev));
+    }
+
+    public function test_device_supports_client_kick_only_when_associated_device_exists(): void
+    {
+        $withAssociatedDevice = [
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.AssociatedDevice.1.AssociatedDeviceMACAddress' => [
+                '_value' => 'AA:BB:CC:DD:EE:FF',
+            ],
+        ];
+
+        $wlanOnly = [
             'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID' => ['_value' => 'WiFi-Test'],
         ];
 
-        $this->assertTrue(GenieAcsService::deviceSupportsClientKick($rawDev));
+        $this->assertTrue(GenieAcsService::deviceSupportsClientKick($withAssociatedDevice));
+        $this->assertFalse(GenieAcsService::deviceSupportsClientKick($wlanOnly));
     }
 
     public function test_resolve_wifi_client_refresh_objects_avoids_trailing_dot_paths(): void

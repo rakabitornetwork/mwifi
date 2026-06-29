@@ -423,11 +423,11 @@ class GenieAcsService
 
         self::kickPppoeSessionForDevice($rawDevice);
 
-        $parameterValues = self::buildKickParameterValues($rawDevice, $mac, $associationPath);
-        if ($parameterValues === []) {
+        $kickTask = self::resolveKickDeviceTask($rawDevice, $mac, $associationPath);
+        if ($kickTask === null) {
             return [
                 'success' => false,
-                'message' => 'ONT ini belum mendukung kick perangkat WiFi via TR-069.',
+                'message' => 'ONT ini belum mendukung putuskan perangkat WiFi via TR-069.',
                 'http_status' => 422,
             ];
         }
@@ -439,14 +439,11 @@ class GenieAcsService
             'device_id' => $deviceId,
             'mac' => $mac,
             'association_path' => $associationPath,
-            'parameter_values' => $parameterValues,
+            'task' => $kickTask,
         ]);
 
         try {
-            $response = Http::timeout(100)->post($taskUrl, [
-                'name' => 'setParameterValues',
-                'parameterValues' => $parameterValues,
-            ]);
+            $response = Http::timeout(100)->post($taskUrl, $kickTask);
 
             $status = $response->status();
 
@@ -464,11 +461,15 @@ class GenieAcsService
                     $refreshed = self::stripRawDevicePayload($parsed);
                 }
 
+                $kickMethod = $kickTask['name'] ?? 'setParameterValues';
+
                 return [
                     'success' => true,
-                    'message' => 'Perintah putuskan perangkat berhasil dikirim ke ONT.',
+                    'message' => $kickMethod === 'deleteObject'
+                        ? 'Perintah putuskan perangkat dikirim ke ONT (hapus sesi WiFi).'
+                        : 'Perintah putuskan perangkat berhasil dikirim ke ONT.',
                     'http_status' => $status,
-                    'device' => $refreshed !== null ? self::stripRawDevicePayload($refreshed) : null,
+                    'device' => $refreshed,
                 ];
             }
 
@@ -666,7 +667,72 @@ class GenieAcsService
             return true;
         }
 
-        return self::flatHasAnyKeyMatching($flat, '/WLANConfiguration|WiFi\.AccessPoint/');
+        return self::flatHasAnyKeyMatching($flat, '/\.AssociatedDevice\.\d+\./');
+    }
+
+    /**
+     * @return array{name: string, parameterValues?: list<array{0: string, 1: string|bool|int, 2?: string}>, objectName?: string}|null
+     */
+    private static function resolveKickDeviceTask(array $rawDev, string $mac, ?string $associationPath): ?array
+    {
+        $associationPath = self::normalizeAssociatedDevicePath($associationPath, $rawDev, $mac);
+
+        $parameterValues = self::buildKickParameterValues($rawDev, $mac, $associationPath);
+        if ($parameterValues !== []) {
+            return [
+                'name' => 'setParameterValues',
+                'parameterValues' => $parameterValues,
+            ];
+        }
+
+        if ($associationPath !== null && self::isAssociatedDeviceInstancePath($associationPath)) {
+            return [
+                'name' => 'deleteObject',
+                'objectName' => $associationPath,
+            ];
+        }
+
+        return null;
+    }
+
+    private static function normalizeAssociatedDevicePath(?string $associationPath, array $rawDev, string $mac): ?string
+    {
+        $associationPath = $associationPath !== null ? trim($associationPath) : '';
+        if ($associationPath !== '' && self::isAssociatedDeviceInstancePath($associationPath)) {
+            return $associationPath;
+        }
+
+        return self::findAssociatedDevicePathForMac($rawDev, $mac);
+    }
+
+    private static function isAssociatedDeviceInstancePath(string $path): bool
+    {
+        return (bool) preg_match('/\.AssociatedDevice\.\d+$/', $path);
+    }
+
+    private static function findAssociatedDevicePathForMac(array $rawDev, string $mac): ?string
+    {
+        $flat = self::flattenDeviceParameters($rawDev);
+        if ($flat === []) {
+            return null;
+        }
+
+        foreach (array_keys($flat) as $path) {
+            if (!preg_match('/\.AssociatedDevice\.\d+\.(?:AssociatedDeviceMACAddress|MACAddress)$/', $path)) {
+                continue;
+            }
+
+            $value = self::flatParameterValue($flat, $path);
+            if (self::normalizeMacAddress((string) $value) !== $mac) {
+                continue;
+            }
+
+            $instancePath = preg_replace('/\.(?:AssociatedDeviceMACAddress|MACAddress)$/', '', $path);
+
+            return is_string($instancePath) && $instancePath !== '' ? $instancePath : null;
+        }
+
+        return null;
     }
 
     /**
@@ -1459,9 +1525,6 @@ class GenieAcsService
             return [];
         }
 
-        $deviceId = is_string($rawDev['_id'] ?? null) ? $rawDev['_id'] : '';
-        $productClass = self::extractProductClass($rawDev, $deviceId) ?? '';
-
         $associationPath = $associationPath !== null ? trim($associationPath) : '';
         $wlanIndex = $associationPath !== ''
             ? (self::resolveWlanIndexFromAssociationPath($associationPath) ?? self::resolveActiveWlanIndex($flat))
@@ -1501,17 +1564,6 @@ class GenieAcsService
             return [[$path, self::kickValueForPath($path, $mac), self::kickTypeForPath($path)]];
         }
 
-        // Vendor defaults when kick parameter is not yet discovered in GenieACS cache.
-        if (self::flatHasAnyKeyMatching($flat, '/WLANConfiguration|WiFi\.AccessPoint/')) {
-            foreach (self::vendorKickDefaultPaths($productClass, $wlanIndex) as $path) {
-                if (!self::flatParameterWritable($flat, $path) && isset($flat[$path])) {
-                    continue;
-                }
-
-                return [[$path, self::kickValueForPath($path, $mac), self::kickTypeForPath($path)]];
-            }
-        }
-
         return [];
     }
 
@@ -1531,42 +1583,6 @@ class GenieAcsService
             'X_HW_WIFIStaKick',
             'X_HW_AssociateDeviceKick',
             'X_FH_KickOffDevice',
-        ];
-    }
-
-    /**
-     * @return list<string>
-     */
-    private static function vendorKickDefaultPaths(string $productClass, int $wlanIndex): array
-    {
-        $wlanBase = "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}";
-        $normalized = strtolower($productClass);
-
-        if (str_contains($normalized, 'huawei') || str_contains($normalized, 'hg8') || str_contains($normalized, 'eg8')) {
-            return [
-                "{$wlanBase}.X_HW_WIFIStaKick",
-                "{$wlanBase}.X_HW_AssociateDeviceKick",
-                'Device.WiFi.AccessPoint.1.X_HW_WIFIStaKick',
-            ];
-        }
-
-        if (str_contains($normalized, 'fiberhome') || str_contains($normalized, 'fh')) {
-            return ["{$wlanBase}.X_FH_KickOffDevice"];
-        }
-
-        if (str_contains($normalized, 'zte') || preg_match('/\bf[0-9]{3,4}\b/i', $productClass)) {
-            return [
-                "{$wlanBase}.X_ZTE-COM_KickOffDevice",
-                "{$wlanBase}.X_ZTE-COM_KickSta",
-            ];
-        }
-
-        return [
-            "{$wlanBase}.X_ZTE-COM_KickOffDevice",
-            "{$wlanBase}.X_ZTE-COM_KickSta",
-            "{$wlanBase}.X_HW_WIFIStaKick",
-            "{$wlanBase}.X_FH_KickOffDevice",
-            'Device.WiFi.AccessPoint.1.X_HW_WIFIStaKick',
         ];
     }
 
