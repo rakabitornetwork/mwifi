@@ -77,4 +77,23 @@ class NetworkMapController extends Controller
             'by_router' => $byRouter,
         ];
     }
+
+    /**
+     * Save custom network cable path coordinates for a customer.
+     */
+    public function saveCablePath(\Illuminate\Http\Request $request)
+    {
+        $data = $request->validate([
+            'customer_id' => 'required|exists:customers,id',
+            'cable_path' => 'nullable|array',
+        ]);
+
+        $customer = \App\Models\Customer::findOrFail($data['customer_id']);
+
+        $customer->update([
+            'cable_path' => $data['cable_path'],
+        ]);
+
+        return redirect()->back()->with('success', 'Jalur kabel pelanggan ' . $customer->name . ' berhasil disimpan.');
+    }
 }

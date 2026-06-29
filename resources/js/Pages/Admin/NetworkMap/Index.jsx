@@ -43,6 +43,35 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
     const [networkMapMetrics, setNetworkMapMetrics] = useState({ ont: {}, traffic: {} });
     const [openCustomerPopupId, setOpenCustomerPopupId] = useState(null);
 
+    const [isEditingCables, setIsEditingCables] = useState(false);
+    const [editingCustomerId, setEditingCustomerId] = useState(null);
+    const [editingCablePath, setEditingCablePath] = useState([]);
+
+    const editorGroupRef = useRef(null);
+    const mapViewRef = useRef({ center: null, zoom: null });
+
+    const handleResetCablePath = () => {
+        if (!confirm('Apakah Anda yakin ingin me-reset jalur kabel pelanggan ini menjadi garis lurus default?')) return;
+        setEditingCablePath([]);
+    };
+
+    const handleSaveCablePath = () => {
+        if (!editingCustomerId) return;
+        router.post('/admin/network-map/save-cable-path', {
+            customer_id: editingCustomerId,
+            cable_path: editingCablePath,
+        }, {
+            onSuccess: () => {
+                showToast('Jalur kabel jaringan berhasil disimpan.', 'success');
+                setEditingCustomerId(null);
+                setEditingCablePath([]);
+            },
+            onError: (err) => {
+                showToast(Object.values(err)[0] || 'Gagal menyimpan jalur kabel.', 'error');
+            }
+        });
+    };
+
     const mapRef = useRef(null);
     const customerMarkersRef = useRef({});
     const openCustomerPopupIdRef = useRef(null);
@@ -152,18 +181,22 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
         if (!mapContainer) return;
 
         const defaultCenter = [-6.3263, 108.3201];
-        const center = odps.length > 0
+        const center = mapViewRef.current.center || (odps.length > 0
             ? [parseFloat(odps[0].latitude), parseFloat(odps[0].longitude)]
-            : defaultCenter;
+            : defaultCenter);
+        const zoom = mapViewRef.current.zoom || 15;
 
         const map = L.map('map-container', {
             center,
-            zoom: 15,
+            zoom,
             zoomControl: false,
             layers: [],
         });
 
         mapRef.current = map;
+
+        const editorGroup = L.layerGroup().addTo(map);
+        editorGroupRef.current = editorGroup;
 
         L.control.zoom({ position: 'topright' }).addTo(map);
 
@@ -213,7 +246,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                 `;
 
         const openMiniOdpPopup = (latlng) => {
-            if (!canWriteRef.current) return;
+            if (!canWriteRef.current || isEditingCables) return;
 
             const { lat, lng } = latlng;
             setOdpLat(lat.toFixed(6));
@@ -406,39 +439,50 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
             const lng = parseFloat(cust.longitude);
 
             const marker = L.marker([lat, lng], { icon: customerIcon(cust.status) })
-                .addTo(map)
-                .bindPopup(() => buildMapPopupShellHtml(cust.id), getCustomerPopupOptions());
+                .addTo(map);
 
-            marker.on('popupopen', () => {
-                openCustomerPopupIdRef.current = cust.id;
-                setOpenCustomerPopupId(cust.id);
-                marker.setPopupContent(buildMapPopupShellHtml(cust.id));
+            if (isEditingCables) {
+                marker.on('click', (e) => {
+                    L.DomEvent.stopPropagation(e);
+                    setEditingCustomerId(cust.id);
+                    setEditingCablePath(cust.cable_path || []);
+                });
+            } else {
+                marker.bindPopup(() => buildMapPopupShellHtml(cust.id), getCustomerPopupOptions());
 
-                const popupEl = marker.getPopup()?.getElement();
-                popupReactRootRef.current = popupEl?.querySelector('.map-popup-react-root') ?? null;
-                renderOpenCustomerPopupRef.current(cust.id, networkMapMetricsRef.current);
-                fetchNetworkMapMetricsRef.current();
-            });
+                marker.on('popupopen', () => {
+                    openCustomerPopupIdRef.current = cust.id;
+                    setOpenCustomerPopupId(cust.id);
+                    marker.setPopupContent(buildMapPopupShellHtml(cust.id));
 
-            marker.on('popupclose', () => {
-                if (popupReactRootRef.current) {
-                    unmountNetworkMapCustomerPopup(popupReactRootRef.current);
-                    popupReactRootRef.current = null;
-                }
-                if (openCustomerPopupIdRef.current === cust.id) {
-                    openCustomerPopupIdRef.current = null;
-                    setOpenCustomerPopupId(null);
-                }
-            });
+                    const popupEl = marker.getPopup()?.getElement();
+                    popupReactRootRef.current = popupEl?.querySelector('.map-popup-react-root') ?? null;
+                    renderOpenCustomerPopupRef.current(cust.id, networkMapMetricsRef.current);
+                    fetchNetworkMapMetricsRef.current();
+                });
+
+                marker.on('popupclose', () => {
+                    if (popupReactRootRef.current) {
+                        unmountNetworkMapCustomerPopup(popupReactRootRef.current);
+                        popupReactRootRef.current = null;
+                    }
+                    if (openCustomerPopupIdRef.current === cust.id) {
+                        openCustomerPopupIdRef.current = null;
+                        setOpenCustomerPopupId(null);
+                    }
+                });
+            }
 
             customerMarkersRef.current[cust.id] = marker;
 
             if (cust.odp_id && odpCoordsMap[cust.odp_id]) {
                 const odpCoords = odpCoordsMap[cust.odp_id];
                 const customerCoords = [lat, lng];
+                const cablePath = cust.cable_path || [];
+                const points = [odpCoords, ...cablePath, customerCoords];
                 const cableColor = cust.status === 'active' ? '#10b981' : '#f59e0b';
 
-                L.polyline([odpCoords, customerCoords], {
+                L.polyline(points, {
                     color: cableColor,
                     weight: 2,
                     opacity: 0.75,
@@ -470,15 +514,117 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
             if (cableFlowFrameId !== null) {
                 cancelAnimationFrame(cableFlowFrameId);
             }
+            if (mapRef.current) {
+                mapViewRef.current = {
+                    center: mapRef.current.getCenter(),
+                    zoom: mapRef.current.getZoom(),
+                };
+            }
             cancelLongPress();
             mapContainerEl.removeEventListener('touchstart', onMapTouchStart);
             mapContainerEl.removeEventListener('touchmove', onMapTouchMove);
             mapContainerEl.removeEventListener('touchend', onMapTouchEnd);
             mapContainerEl.removeEventListener('touchcancel', onMapTouchEnd);
+            editorGroupRef.current = null;
             mapRef.current = null;
             map.remove();
         };
-    }, [odps, customers, isDarkMode, showToast]);
+    }, [odps, customers, isDarkMode, showToast, isEditingCables]);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map || !editorGroupRef.current) return;
+
+        editorGroupRef.current.clearLayers();
+
+        if (!isEditingCables || !editingCustomerId) {
+            return;
+        }
+
+        const cust = customers.find((c) => c.id === editingCustomerId);
+        if (!cust) return;
+
+        const odp = odps.find((o) => o.id === cust.odp_id);
+        if (!odp) return;
+
+        const odpCoords = [parseFloat(odp.latitude), parseFloat(odp.longitude)];
+        const customerCoords = [parseFloat(cust.latitude), parseFloat(cust.longitude)];
+        const points = [odpCoords, ...editingCablePath, customerCoords];
+
+        // Draw dashed edit line
+        const editPolyline = L.polyline(points, {
+            color: '#f59e0b',
+            weight: 3,
+            dashArray: '6, 6',
+            opacity: 0.95,
+        }).addTo(editorGroupRef.current);
+
+        // Draw handles for editingCablePath
+        editingCablePath.forEach((coord, idx) => {
+            const handleIcon = L.divIcon({
+                className: 'cable-handle-icon',
+                html: `<div class="w-5 h-5 rounded-full bg-emerald-500 border-2 border-white dark:border-zinc-950 shadow-md cursor-move flex items-center justify-center text-[9px] font-bold text-white select-none">${idx + 1}</div>`,
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+            });
+
+            const marker = L.marker(coord, {
+                icon: handleIcon,
+                draggable: true,
+            }).addTo(editorGroupRef.current);
+
+            marker.on('drag', (e) => {
+                const newLatLng = e.target.getLatLng();
+                const updatedPoints = [...points];
+                updatedPoints[idx + 1] = [newLatLng.lat, newLatLng.lng];
+                editPolyline.setLatLngs(updatedPoints);
+            });
+
+            marker.on('dragend', (e) => {
+                const newLatLng = e.target.getLatLng();
+                const newPath = [...editingCablePath];
+                newPath[idx] = [newLatLng.lat, newLatLng.lng];
+                setEditingCablePath(newPath);
+            });
+
+            marker.on('dblclick', (e) => {
+                L.DomEvent.stopPropagation(e);
+                L.DomEvent.preventDefault(e);
+                const newPath = editingCablePath.filter((_, i) => i !== idx);
+                setEditingCablePath(newPath);
+            });
+        });
+
+        // Draw midpoints
+        for (let i = 0; i < points.length - 1; i++) {
+            const p1 = points[i];
+            const p2 = points[i+1];
+            const midLatLng = [
+                (p1[0] + p2[0]) / 2,
+                (p1[1] + p2[1]) / 2
+            ];
+
+            const midIcon = L.divIcon({
+                className: 'cable-mid-icon',
+                html: '<div class="w-4 h-4 rounded-full bg-emerald-500/50 hover:bg-emerald-500 border border-white dark:border-zinc-950 shadow-xs cursor-pointer scale-90 hover:scale-110 transition-all flex items-center justify-center text-[10px] text-white font-black">+</div>',
+                iconSize: [16, 16],
+                iconAnchor: [8, 8],
+            });
+
+            const midMarker = L.marker(midLatLng, {
+                icon: midIcon,
+                draggable: true,
+            }).addTo(editorGroupRef.current);
+
+            midMarker.on('dragstart', (e) => {
+                const startLatLng = e.target.getLatLng();
+                const newPath = [...editingCablePath];
+                newPath.splice(i, 0, [startLatLng.lat, startLatLng.lng]);
+                setEditingCablePath(newPath);
+            });
+        }
+
+    }, [isEditingCables, editingCustomerId, editingCablePath, customers, odps]);
 
     const closeOdpModal = () => {
         setShowOdpModal(false);
@@ -595,13 +741,90 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                         </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col space-y-2">
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            Peta di bawah menggambarkan jalur kabel fiber optik dari masing-masing kotak ODP (biru) ke titik rumah pelanggan (hijau: aktif, merah: nonaktif).
+                    <div className="flex-1 flex flex-col space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 flex-1 leading-relaxed">
+                                Peta di bawah menggambarkan jalur kabel fiber optik dari masing-masing kotak ODP (biru) ke titik rumah pelanggan (hijau: aktif, merah: nonaktif).
+                                {canWrite && (
+                                    <> <span className="hidden sm:inline">Klik kanan</span><span className="sm:hidden">Tahan</span> pada peta untuk menambah ODP baru.</>
+                                )}
+                            </p>
                             {canWrite && (
-                                <> <span className="hidden sm:inline">Klik kanan</span><span className="sm:hidden">Tahan</span> pada peta untuk menambah ODP baru.</>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (isEditingCables) {
+                                            setIsEditingCables(false);
+                                            setEditingCustomerId(null);
+                                            setEditingCablePath([]);
+                                        } else {
+                                            setIsEditingCables(true);
+                                        }
+                                    }}
+                                    className={`px-3.5 py-2 rounded-xl font-bold transition-all cursor-pointer inline-flex items-center gap-1.5 shadow-xs text-xs shrink-0 select-none ${
+                                        isEditingCables
+                                            ? 'bg-rose-500 hover:bg-rose-600 text-white'
+                                            : 'bg-amber-500 hover:bg-amber-600 text-white hover:shadow-md'
+                                    }`}
+                                >
+                                    <Edit className="w-3.5 h-3.5" />
+                                    <span>{isEditingCables ? 'Selesai Edit Kabel' : 'Edit Kabel Jaringan'}</span>
+                                </button>
                             )}
-                        </p>
+                        </div>
+
+                        {isEditingCables && (
+                            <div className={`p-4 rounded-2xl border flex flex-col md:flex-row md:items-center md:justify-between gap-3.5 text-xs animate-in fade-in duration-200 ${
+                                isDarkMode ? 'bg-amber-950/20 border-amber-900/40' : 'bg-amber-50/60 border-amber-200/60'
+                            }`}>
+                                <div className="space-y-1">
+                                    <p className={`font-bold text-xs ${isDarkMode ? 'text-amber-400' : 'text-amber-800'}`}>
+                                        {!editingCustomerId
+                                            ? 'Mode Edit Kabel Jaringan Aktif'
+                                            : `Mengedit kabel untuk: ${customers.find(c => c.id === editingCustomerId)?.name || 'Pelanggan'}`}
+                                    </p>
+                                    <p className="text-[10px] text-zinc-550 dark:text-zinc-400 font-medium">
+                                        {!editingCustomerId
+                                            ? 'Silakan klik pada marker/ikon pelanggan di peta untuk mulai mengedit jalur kabelnya.'
+                                            : 'Seret titik nomor untuk menggeser jalur, seret titik "+" di tengah garis untuk membuat lekukan baru, klik 2x titik nomor untuk menghapusnya.'}
+                                    </p>
+                                </div>
+                                {editingCustomerId && (
+                                    <div className="flex flex-wrap gap-2 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={handleResetCablePath}
+                                            className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold cursor-pointer transition-colors select-none ${
+                                                isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'
+                                            }`}
+                                        >
+                                            Reset Jalur
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setEditingCustomerId(null);
+                                                setEditingCablePath([]);
+                                            }}
+                                            className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold cursor-pointer transition-colors select-none ${
+                                                isDarkMode ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white' : 'border-zinc-200 text-zinc-655 hover:bg-zinc-100 hover:text-zinc-900'
+                                            }`}
+                                        >
+                                            Batal
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleSaveCablePath}
+                                            className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-[11px] font-bold cursor-pointer flex items-center gap-1 shadow-sm hover:shadow-md transition-all select-none"
+                                        >
+                                            <Save className="w-3.5 h-3.5" />
+                                            <span>Simpan Jalur</span>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div className={`border rounded-2xl overflow-hidden shadow-xs relative ${isDarkMode ? 'border-zinc-800/80' : 'border-zinc-200'}`}>
                             <div id="map-container" className="h-[550px] w-full z-0" />
                             <div className="absolute bottom-2.5 right-2.5 z-[400] bg-zinc-950/85 border border-zinc-800/60 backdrop-blur-xs px-2.5 py-1.5 rounded-lg flex gap-3 text-[9px] font-bold text-zinc-400 shadow-md">
