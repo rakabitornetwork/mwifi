@@ -14,6 +14,7 @@ import {
     RefreshCw,
     User,
     Wifi,
+    X,
 } from 'lucide-react';
 import { formatRupiah } from '../../utils/formatRupiah';
 import { formatBytes, quotaUsagePercent } from '../../utils/formatBytes';
@@ -252,6 +253,7 @@ export default function CustomerDetailPanel({
     canWrite = true,
     activeSession = null,
     onKickActive = null,
+    onClose = null,
 }) {
     const {
         isDarkMode,
@@ -477,6 +479,21 @@ export default function CustomerDetailPanel({
                         >
                             <Edit className="w-3.5 h-3.5" />
                             Edit
+                        </button>
+                    )}
+                    {onClose && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            title="Tutup Detail"
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
+                                isDarkMode
+                                    ? 'border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                                    : 'border-zinc-300 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-950'
+                            }`}
+                        >
+                            <X className="w-3.5 h-3.5" />
+                            Tutup
                         </button>
                     )}
                 </div>

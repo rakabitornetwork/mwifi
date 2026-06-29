@@ -978,6 +978,7 @@ function CustomersPageContent({
                             canWrite={canWrite}
                             activeSession={getActiveSessionForCustomer(expandedCustomer.username)}
                             onKickActive={handleKickActiveSession}
+                            onClose={() => setExpandedCustomerId(null)}
                         />
                     </div>
                 )}
