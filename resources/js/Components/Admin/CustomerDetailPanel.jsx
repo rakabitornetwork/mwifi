@@ -47,13 +47,69 @@ function panelDivider(isDarkMode) {
 }
 
 function SectionBlock({ icon: Icon, title, meta, trailing, children, themeTextSub, themeTextDesc }) {
+    const getGradientScheme = (sectionTitle) => {
+        const t = String(sectionTitle).toLowerCase();
+        if (t.includes('identitas')) {
+            return {
+                bar: 'from-emerald-500 to-teal-500',
+                text: 'from-emerald-500 to-teal-500',
+                icon: 'text-emerald-500',
+            };
+        }
+        if (t.includes('lokasi')) {
+            return {
+                bar: 'from-sky-500 to-indigo-500',
+                text: 'from-sky-500 to-indigo-500',
+                icon: 'text-sky-500',
+            };
+        }
+        if (t.includes('wifi')) {
+            return {
+                bar: 'from-amber-500 to-orange-500',
+                text: 'from-amber-500 to-orange-500',
+                icon: 'text-amber-500',
+            };
+        }
+        if (t.includes('status')) {
+            return {
+                bar: 'from-violet-500 to-purple-500',
+                text: 'from-violet-500 to-purple-500',
+                icon: 'text-violet-500',
+            };
+        }
+        if (t.includes('quota')) {
+            return {
+                bar: 'from-fuchsia-500 to-pink-500',
+                text: 'from-fuchsia-500 to-pink-500',
+                icon: 'text-fuchsia-500',
+            };
+        }
+        if (t.includes('sesi') || t.includes('aktif')) {
+            return {
+                bar: 'from-cyan-500 to-blue-500',
+                text: 'from-cyan-500 to-blue-500',
+                icon: 'text-cyan-500',
+            };
+        }
+        return {
+            bar: 'from-emerald-500 to-teal-500',
+            text: 'from-emerald-500 to-teal-500',
+            icon: 'text-emerald-500',
+        };
+    };
+
+    const scheme = getGradientScheme(title);
+
     return (
         <section className="space-y-3 min-w-0 h-full">
             <div className="flex items-start justify-between gap-2">
-                <div className="flex items-start gap-2 min-w-0">
-                    <Icon className={`w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-500/70`} />
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className={`w-1 h-3.5 rounded-full bg-gradient-to-b ${scheme.bar} shrink-0`} />
+                    <Icon className={`w-3.5 h-3.5 shrink-0 ${scheme.icon}`} />
                     <div className="min-w-0">
-                        <h4 className={`text-[10px] font-bold uppercase tracking-[0.14em] ${themeTextSub}`}>{title}</h4>
+                        <h4 className={`text-[10.5px] font-extrabold uppercase tracking-[0.14em] bg-gradient-to-r ${scheme.text} bg-clip-text text-transparent`}>
+                            {title}
+                        </h4>
                         {meta ? (
                             <p className={`text-[10px] mt-0.5 leading-snug ${themeTextDesc}`}>{meta}</p>
                         ) : null}
@@ -400,7 +456,7 @@ export default function CustomerDetailPanel({
         <div className={`customer-detail-panel border-t ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} px-3 py-4 sm:px-4 min-w-0 max-w-full overflow-hidden`}>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                 <div className="min-w-0">
-                    <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${themeTextSub}`}>Detail Lengkap Pelanggan</p>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 bg-clip-text text-transparent">Detail Lengkap Pelanggan</p>
                     <p className={`text-sm font-bold mt-1 truncate ${themeTextTitle}`}>{customer.name}</p>
                     <p className={`text-[11px] font-mono mt-0.5 ${themeTextDesc}`}>{customer.username}</p>
                 </div>
@@ -426,7 +482,8 @@ export default function CustomerDetailPanel({
                 </div>
             </div>
 
-            <div className={`${themeCard} rounded-2xl border overflow-hidden`}>
+            <div className={`${themeCard} rounded-2xl border overflow-hidden relative pt-1`}>
+                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-400 via-teal-500 to-sky-500" />
                 <div className={`grid grid-cols-1 lg:grid-cols-2 border-b ${divider}`}>
                     <div className={`p-4 sm:p-5 lg:border-r ${divider}`}>
                         <SectionBlock icon={User} title="Identitas & Kontak" themeTextSub={themeTextSub}>
