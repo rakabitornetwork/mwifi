@@ -1,1 +1,0 @@
-function e(e){let t=Number(e)||0;return t>=1024**3?`${(t/1024**3).toFixed(2)} GB`:t>=1024**2?`${(t/1024**2).toFixed(2)} MB`:t>=1024?`${(t/1024).toFixed(2)} KB`:`${Math.round(t)} B`}function t(e,t){let n=Number(e)||0,r=Number(t)||0;return r<=0?null:Math.min(100,n/r*100)}export{t as n,e as t};

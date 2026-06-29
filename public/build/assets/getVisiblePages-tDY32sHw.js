@@ -1,1 +1,0 @@
-function e(e,t){if(t<=7)return Array.from({length:t},(e,t)=>t+1);let n=new Set([1,t,e]);for(let r=e-1;r<=e+1;r+=1)r>1&&r<t&&n.add(r);let r=[...n].sort((e,t)=>e-t),i=[];return r.forEach((e,t)=>{t>0&&e-r[t-1]>1&&i.push(`ellipsis`),i.push(e)}),i}export{e as t};
