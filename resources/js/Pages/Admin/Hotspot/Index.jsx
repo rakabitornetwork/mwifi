@@ -1658,194 +1658,196 @@ function HotspotPageContent({
                 </div>
             </TransitionModal>
 
-            <TransitionModal show={showGenerateVoucherModal} onClose={closeGenerateVoucherModal} themeCard={themeCard} maxWidth="md">
-                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+            <TransitionModal show={showGenerateVoucherModal} onClose={closeGenerateVoucherModal} themeCard={themeCard} maxWidth="md" className="!flex !flex-col !overflow-hidden !space-y-0">
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b shrink-0 ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Generate Voucher Hotspot (Bulk)</h3>
                     <button type="button" onClick={() => setShowGenerateVoucherModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form onSubmit={handleGenerateVouchersSubmit} className="space-y-3 text-xs">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
-                            <select
-                                required
-                                name="router_id"
-                                value={generateRouterId}
-                                onChange={(e) => {
-                                    const rId = e.target.value;
-                                    setGenerateRouterId(rId);
-                                    fetchHotspotServers(rId);
-                                    setGenerateComment(generateDefaultComment(rId));
-                                }}
-                                className={`p-2 border rounded-lg ${themeInput}`}
-                            >
-                                <option value="" disabled>Pilih Router</option>
-                                {routers.map((r) => (
-                                    <option key={r.id} value={r.id}>{r.name}</option>
-                                ))}
-                            </select>
+                <form onSubmit={handleGenerateVouchersSubmit} className="flex flex-col flex-1 min-h-0 mt-3">
+                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 text-xs pr-0.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
+                                <select
+                                    required
+                                    name="router_id"
+                                    value={generateRouterId}
+                                    onChange={(e) => {
+                                        const rId = e.target.value;
+                                        setGenerateRouterId(rId);
+                                        fetchHotspotServers(rId);
+                                        setGenerateComment(generateDefaultComment(rId));
+                                    }}
+                                    className={`p-2 border rounded-lg ${themeInput}`}
+                                >
+                                    <option value="" disabled>Pilih Router</option>
+                                    {routers.map((r) => (
+                                        <option key={r.id} value={r.id}>{r.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Hotspot Server</label>
+                                <select
+                                    required
+                                    name="server"
+                                    onChange={(e) => {
+                                        const sVal = e.target.value;
+                                        const found = hotspotServers.find((s) => s.name === sVal);
+                                        setGenerateServerDnsName(found?.dns_name || '');
+                                    }}
+                                    className={`p-2 border rounded-lg ${themeInput}`}
+                                    disabled={isLoadingServers}
+                                >
+                                    <option value="" disabled>
+                                        {isLoadingServers ? 'Mengambil server...' : (hotspotServers.length === 0 ? 'Pilih router terlebih dahulu' : 'Pilih Server')}
+                                    </option>
+                                    <option value="all">all (Semua Server)</option>
+                                    {hotspotServers.map((srv) => (
+                                        <option key={srv.name} value={srv.name}>{srv.name}</option>
+                                    ))}
+                                </select>
+                                {generateServerDnsName && (
+                                    <p className="text-[10px] text-amber-500 font-bold mt-1">
+                                        DNS Name: <span className="font-mono bg-amber-500/10 px-1 py-0.5 rounded">{generateServerDnsName}</span>
+                                    </p>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Hotspot Server</label>
-                            <select
-                                required
-                                name="server"
-                                onChange={(e) => {
-                                    const sVal = e.target.value;
-                                    const found = hotspotServers.find((s) => s.name === sVal);
-                                    setGenerateServerDnsName(found?.dns_name || '');
-                                }}
-                                className={`p-2 border rounded-lg ${themeInput}`}
-                                disabled={isLoadingServers}
-                            >
-                                <option value="" disabled>
-                                    {isLoadingServers ? 'Mengambil server...' : (hotspotServers.length === 0 ? 'Pilih router terlebih dahulu' : 'Pilih Server')}
-                                </option>
-                                <option value="all">all (Semua Server)</option>
-                                {hotspotServers.map((srv) => (
-                                    <option key={srv.name} value={srv.name}>{srv.name}</option>
-                                ))}
-                            </select>
-                            {generateServerDnsName && (
-                                <p className="text-[10px] text-amber-500 font-bold mt-1">
-                                    DNS Name: <span className="font-mono bg-amber-500/10 px-1 py-0.5 rounded">{generateServerDnsName}</span>
-                                </p>
-                            )}
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Paket Hotspot (Profile)</label>
-                            <select
-                                required
-                                name="package_id"
-                                value={generatePackageId}
-                                onChange={(e) => {
-                                    const pId = e.target.value;
-                                    setGeneratePackageId(pId);
-                                    const pkg = packages.find((p) => String(p.id) === String(pId));
-                                    if (pkg) {
-                                        setGenerateBasePrice(String(Math.round(parseFloat(pkg.price || 0))));
-                                    }
-                                }}
-                                className={`p-2 border rounded-lg ${themeInput}`}
-                            >
-                                <option value="" disabled>Pilih Paket Hotspot</option>
-                                {packages.map((p) => (
-                                    <option key={p.id} value={p.id}>{p.name} ({formatRupiah(p.price)})</option>
-                                ))}
-                            </select>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Paket Hotspot (Profile)</label>
+                                <select
+                                    required
+                                    name="package_id"
+                                    value={generatePackageId}
+                                    onChange={(e) => {
+                                        const pId = e.target.value;
+                                        setGeneratePackageId(pId);
+                                        const pkg = packages.find((p) => String(p.id) === String(pId));
+                                        if (pkg) {
+                                            setGenerateBasePrice(String(Math.round(parseFloat(pkg.price || 0))));
+                                        }
+                                    }}
+                                    className={`p-2 border rounded-lg ${themeInput}`}
+                                >
+                                    <option value="" disabled>Pilih Paket Hotspot</option>
+                                    {packages.map((p) => (
+                                        <option key={p.id} value={p.id}>{p.name} ({formatRupiah(p.price)})</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Format Kode Voucher</label>
+                                <select required name="code_format" className={`p-2 border rounded-lg ${themeInput}`}>
+                                    <option value="12345">12345 (Hanya Angka)</option>
+                                    <option value="ABCDE">ABCDE (Huruf Kapital)</option>
+                                    <option value="abcde">abcde (Huruf Kecil)</option>
+                                    <option value="123ABC">123ABC (Angka & Kapital)</option>
+                                    <option value="123abc">123abc (Angka & Huruf Kecil)</option>
+                                    <option value="1A2B3C">1A2B3C (Kombinasi Angka & Kapital Selang-seling)</option>
+                                    <option value="1a2b3c">1a2b3c (Kombinasi Angka & Huruf Kecil Selang-seling)</option>
+                                </select>
+                            </div>
                         </div>
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Format Kode Voucher</label>
-                            <select required name="code_format" className={`p-2 border rounded-lg ${themeInput}`}>
-                                <option value="12345">12345 (Hanya Angka)</option>
-                                <option value="ABCDE">ABCDE (Huruf Kapital)</option>
-                                <option value="abcde">abcde (Huruf Kecil)</option>
-                                <option value="123ABC">123ABC (Angka & Kapital)</option>
-                                <option value="123abc">123abc (Angka & Huruf Kecil)</option>
-                                <option value="1A2B3C">1A2B3C (Kombinasi Angka & Kapital Selang-seling)</option>
-                                <option value="1a2b3c">1a2b3c (Kombinasi Angka & Huruf Kecil Selang-seling)</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-3 gap-3 border-t border-b py-2 my-1 border-zinc-200 dark:border-zinc-800/40">
+                        <div className="grid grid-cols-3 gap-3 border-t border-b py-2 my-1 border-zinc-200 dark:border-zinc-800/40">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Harga Dasar (Rp)</label>
+                                <input
+                                    required
+                                    type="number"
+                                    value={generateBasePrice}
+                                    onChange={(e) => setGenerateBasePrice(e.target.value)}
+                                    className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                                    min="0"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Komisi (Rp)</label>
+                                <input
+                                    required
+                                    name="agent_commission_amount"
+                                    type="number"
+                                    value={generateAgentProfit}
+                                    onChange={(e) => setGenerateAgentProfit(e.target.value)}
+                                    className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                                    min="0"
+                                />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Total (Rp)</label>
+                                <input
+                                    readOnly
+                                    name="price"
+                                    type="number"
+                                    value={Number(generateBasePrice || 0) + Number(generateAgentProfit || 0)}
+                                    className={`p-2 border rounded-lg font-mono font-bold bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-550 dark:text-zinc-400`}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Nama WiFi (Judul Voucher)</label>
+                                <input required name="wifi_name" type="text" placeholder="Contoh: hotspot-wifi" className={`p-2 border rounded-lg ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Tipe Login Voucher</label>
+                                <select required name="login_type" className={`p-2 border rounded-lg ${themeInput}`}>
+                                    <option value="same">Username = Password (Sama)</option>
+                                    <option value="different">Username & Password (Berbeda)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {!isOperatorView && (
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Penerima Voucher / Agen</label>
+                                <select name="user_id" className={`p-2 border rounded-lg ${themeInput}`}>
+                                    <option value="">— Tanpa Agen (Penjualan Otomatis) —</option>
+                                    {hotspotAgents.map((agent) => (
+                                        <option key={agent.id} value={agent.id}>{agent.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Jumlah Voucher</label>
+                                <input required name="qty" type="number" defaultValue="10" min="1" max="500" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Panjang Kode</label>
+                                <input required name="code_length" type="number" defaultValue="6" min="4" max="12" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <label className={`font-bold ${themeLabel}`}>Prefix-</label>
+                                <input name="prefix" type="text" defaultValue="WIFI-" placeholder="Optional" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
+                            </div>
+                        </div>
+
                         <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Harga Dasar (Rp)</label>
+                            <label className={`font-bold ${themeLabel}`}>Informasi Tambahan (Comment / Batch)</label>
                             <input
                                 required
-                                type="number"
-                                value={generateBasePrice}
-                                onChange={(e) => setGenerateBasePrice(e.target.value)}
+                                name="comment"
+                                type="text"
+                                value={generateComment}
+                                onChange={(e) => setGenerateComment(e.target.value)}
+                                placeholder="Auto-generated"
                                 className={`p-2 border rounded-lg font-mono ${themeInput}`}
-                                min="0"
                             />
                         </div>
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Komisi (Rp)</label>
-                            <input
-                                required
-                                name="agent_commission_amount"
-                                type="number"
-                                value={generateAgentProfit}
-                                onChange={(e) => setGenerateAgentProfit(e.target.value)}
-                                className={`p-2 border rounded-lg font-mono ${themeInput}`}
-                                min="0"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Total (Rp)</label>
-                            <input
-                                readOnly
-                                name="price"
-                                type="number"
-                                value={Number(generateBasePrice || 0) + Number(generateAgentProfit || 0)}
-                                className={`p-2 border rounded-lg font-mono font-bold bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-550 dark:text-zinc-400`}
-                            />
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Nama WiFi (Judul Voucher)</label>
-                            <input required name="wifi_name" type="text" placeholder="Contoh: hotspot-wifi" className={`p-2 border rounded-lg ${themeInput}`} />
+                        <div className="flex justify-end pt-3 gap-2">
+                            <button type="button" onClick={() => setShowGenerateVoucherModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
+                            <button type="submit" disabled={isGeneratingVouchers} title={isGeneratingVouchers ? 'Generating...' : 'Generate'} className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50">
+                                <TicketPlus className={`w-4 h-4 ${isGeneratingVouchers ? 'animate-pulse' : ''}`} />
+                            </button>
                         </div>
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Tipe Login Voucher</label>
-                            <select required name="login_type" className={`p-2 border rounded-lg ${themeInput}`}>
-                                <option value="same">Username = Password (Sama)</option>
-                                <option value="different">Username & Password (Berbeda)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    {!isOperatorView && (
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Penerima Voucher / Agen</label>
-                            <select name="user_id" className={`p-2 border rounded-lg ${themeInput}`}>
-                                <option value="">— Tanpa Agen (Penjualan Otomatis) —</option>
-                                {hotspotAgents.map((agent) => (
-                                    <option key={agent.id} value={agent.id}>{agent.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Jumlah Voucher</label>
-                            <input required name="qty" type="number" defaultValue="10" min="1" max="500" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Panjang Kode</label>
-                            <input required name="code_length" type="number" defaultValue="6" min="4" max="12" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className={`font-bold ${themeLabel}`}>Prefix-</label>
-                            <input name="prefix" type="text" defaultValue="WIFI-" placeholder="Optional" className={`p-2 border rounded-lg font-mono ${themeInput}`} />
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Informasi Tambahan (Comment / Batch)</label>
-                        <input
-                            required
-                            name="comment"
-                            type="text"
-                            value={generateComment}
-                            onChange={(e) => setGenerateComment(e.target.value)}
-                            placeholder="Auto-generated"
-                            className={`p-2 border rounded-lg font-mono ${themeInput}`}
-                        />
-                    </div>
-
-                    <div className="flex justify-end pt-3 gap-2">
-                        <button type="button" onClick={() => setShowGenerateVoucherModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
-                        <button type="submit" disabled={isGeneratingVouchers} title={isGeneratingVouchers ? 'Generating...' : 'Generate'} className="p-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center disabled:opacity-50">
-                            <TicketPlus className={`w-4 h-4 ${isGeneratingVouchers ? 'animate-pulse' : ''}`} />
-                        </button>
                     </div>
                 </form>
             </TransitionModal>
@@ -1896,100 +1898,102 @@ function HotspotPageContent({
                 )}
             </TransitionModal>
 
-            <TransitionModal show={showPrintVouchersModal} onClose={closePrintVouchersModal} themeCard={themeCard} maxWidth="md">
-                <div className={`flex items-start justify-between gap-3 pb-2 border-b ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
+            <TransitionModal show={showPrintVouchersModal} onClose={closePrintVouchersModal} themeCard={themeCard} maxWidth="md" className="!flex !flex-col !overflow-hidden !space-y-0">
+                <div className={`flex items-start justify-between gap-3 pb-2 border-b shrink-0 ${isDarkMode ? 'border-zinc-800/40' : 'border-zinc-200/80'}`}>
                     <h3 className={`text-sm font-bold ${themeTextTitle}`}>Cetak Voucher Hotspot (Bulk)</h3>
                     <button type="button" onClick={() => setShowPrintVouchersModal(false)} className="text-zinc-500 hover:text-white"><X className="w-4 h-4" /></button>
                 </div>
-                <form onSubmit={handlePrintVouchersSubmit} className="space-y-3 text-xs">
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
-                        <select
-                            required
-                            value={printRouterId}
-                            onChange={(e) => {
-                                const rId = e.target.value;
-                                setPrintRouterId(rId);
-                                setPrintComment('');
-                                fetchHotspotServers(rId);
-                            }}
-                            className={`p-2 border rounded-lg ${themeInput}`}
-                        >
-                            <option value="" disabled>Pilih Router</option>
-                            {routers.map((r) => (
-                                <option key={r.id} value={r.id}>{r.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Informasi Tambahan (Comment / Batch)</label>
-                        <select
-                            required
-                            value={printComment}
-                            onChange={(e) => {
-                                const commentVal = e.target.value;
-                                setPrintComment(commentVal);
+                <form onSubmit={handlePrintVouchersSubmit} className="flex flex-col flex-1 min-h-0 mt-3">
+                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-3 text-xs pr-0.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Router Mikrotik</label>
+                            <select
+                                required
+                                value={printRouterId}
+                                onChange={(e) => {
+                                    const rId = e.target.value;
+                                    setPrintRouterId(rId);
+                                    setPrintComment('');
+                                    fetchHotspotServers(rId);
+                                }}
+                                className={`p-2 border rounded-lg ${themeInput}`}
+                            >
+                                <option value="" disabled>Pilih Router</option>
+                                {routers.map((r) => (
+                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Informasi Tambahan (Comment / Batch)</label>
+                            <select
+                                required
+                                value={printComment}
+                                onChange={(e) => {
+                                    const commentVal = e.target.value;
+                                    setPrintComment(commentVal);
 
-                                const batchVouchers = hotspotVouchers.filter((v) =>
-                                    String(v.router_id) === String(printRouterId) &&
-                                    v.comment === commentVal,
-                                );
-                                const serverName = batchVouchers[0]?.server;
-                                if (serverName) {
-                                    const serverObj = hotspotServers.find((s) => s.name === serverName);
-                                    if (serverObj?.dns_name) {
-                                        const dns = serverObj.dns_name;
-                                        setPrintLoginUrl(dns.startsWith('http://') || dns.startsWith('https://') ? dns : `http://${dns}`);
+                                    const batchVouchers = hotspotVouchers.filter((v) =>
+                                        String(v.router_id) === String(printRouterId) &&
+                                        v.comment === commentVal,
+                                    );
+                                    const serverName = batchVouchers[0]?.server;
+                                    if (serverName) {
+                                        const serverObj = hotspotServers.find((s) => s.name === serverName);
+                                        if (serverObj?.dns_name) {
+                                            const dns = serverObj.dns_name;
+                                            setPrintLoginUrl(dns.startsWith('http://') || dns.startsWith('https://') ? dns : `http://${dns}`);
+                                        } else {
+                                            setPrintLoginUrl('http://10.0.0.1');
+                                        }
                                     } else {
                                         setPrintLoginUrl('http://10.0.0.1');
                                     }
-                                } else {
-                                    setPrintLoginUrl('http://10.0.0.1');
-                                }
-                            }}
-                            className={`p-2 border rounded-lg ${themeInput}`}
-                            disabled={!printRouterId}
-                        >
-                            <option value="" disabled>
-                                {!printRouterId ? 'Pilih router terlebih dahulu' : (uniqueCommentsForPrintRouter.length === 0 ? 'Tidak ada batch voucher untuk router ini' : 'Pilih Batch / Comment')}
-                            </option>
-                            {uniqueCommentsForPrintRouter.map((comment) => (
-                                <option key={comment} value={comment}>{comment}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Hotspot Login URL (DNS Name)</label>
-                        <input
-                            required
-                            type="text"
-                            value={printLoginUrl}
-                            onChange={(e) => setPrintLoginUrl(e.target.value)}
-                            className={`p-2 border rounded-lg font-mono ${themeInput}`}
-                        />
-                        <p className="text-[10px] text-zinc-500">Contoh: http://10.0.0.1 atau nama DNS hotspot router Anda.</p>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                        <label className={`font-bold ${themeLabel}`}>Skema Warna Voucher (Color Palette)</label>
-                        <select
-                            value={printColorPalette}
-                            onChange={(e) => setPrintColorPalette(e.target.value)}
-                            className={`p-2 border rounded-lg ${themeInput}`}
-                        >
-                            <option value="price_based">Otomatis (Sesuaikan Harga Jual)</option>
-                            <option value="amber">Amber / Orange (Ekonomis)</option>
-                            <option value="teal">Teal / Cyan (Segar)</option>
-                            <option value="emerald">Emerald / Green (Harian)</option>
-                            <option value="blue">Blue / Indigo (Mingguan)</option>
-                            <option value="violet">Purple / Violet (Premium)</option>
-                            <option value="rose">Pink / Rose (Super Premium)</option>
-                            <option value="gold">Gold / Bronze (Bulanan)</option>
-                            <option value="slate">Slate / Gray (Monokrom / Cetak Hemat)</option>
-                        </select>
-                    </div>
-                    <div className="flex justify-end pt-3 gap-2">
-                        <button type="button" onClick={() => setShowPrintVouchersModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
-                        <button type="submit" title="Cetak" className="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"><Printer className="w-4 h-4" /></button>
+                                }}
+                                className={`p-2 border rounded-lg ${themeInput}`}
+                                disabled={!printRouterId}
+                            >
+                                <option value="" disabled>
+                                    {!printRouterId ? 'Pilih router terlebih dahulu' : (uniqueCommentsForPrintRouter.length === 0 ? 'Tidak ada batch voucher untuk router ini' : 'Pilih Batch / Comment')}
+                                </option>
+                                {uniqueCommentsForPrintRouter.map((comment) => (
+                                    <option key={comment} value={comment}>{comment}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Hotspot Login URL (DNS Name)</label>
+                            <input
+                                required
+                                type="text"
+                                value={printLoginUrl}
+                                onChange={(e) => setPrintLoginUrl(e.target.value)}
+                                className={`p-2 border rounded-lg font-mono ${themeInput}`}
+                            />
+                            <p className="text-[10px] text-zinc-500">Contoh: http://10.0.0.1 atau nama DNS hotspot router Anda.</p>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className={`font-bold ${themeLabel}`}>Skema Warna Voucher (Color Palette)</label>
+                            <select
+                                value={printColorPalette}
+                                onChange={(e) => setPrintColorPalette(e.target.value)}
+                                className={`p-2 border rounded-lg ${themeInput}`}
+                            >
+                                <option value="price_based">Otomatis (Sesuaikan Harga Jual)</option>
+                                <option value="amber">Amber / Orange (Ekonomis)</option>
+                                <option value="teal">Teal / Cyan (Segar)</option>
+                                <option value="emerald">Emerald / Green (Harian)</option>
+                                <option value="blue">Blue / Indigo (Mingguan)</option>
+                                <option value="violet">Purple / Violet (Premium)</option>
+                                <option value="rose">Pink / Rose (Super Premium)</option>
+                                <option value="gold">Gold / Bronze (Bulanan)</option>
+                                <option value="slate">Slate / Gray (Monokrom / Cetak Hemat)</option>
+                            </select>
+                        </div>
+                        <div className="flex justify-end pt-3 gap-2">
+                            <button type="button" onClick={() => setShowPrintVouchersModal(false)} title="Batal" className={`p-2 border rounded-lg cursor-pointer inline-flex items-center justify-center ${isDarkMode ? 'border-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-900' : 'border-zinc-200 text-zinc-650 hover:bg-zinc-100 hover:text-zinc-900'}`}><X className="w-4 h-4" /></button>
+                            <button type="submit" title="Cetak" className="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg cursor-pointer inline-flex items-center justify-center"><Printer className="w-4 h-4" /></button>
+                        </div>
                     </div>
                 </form>
             </TransitionModal>
