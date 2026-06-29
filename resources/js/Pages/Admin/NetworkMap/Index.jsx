@@ -189,6 +189,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
         const map = L.map('map-container', {
             center,
             zoom,
+            maxZoom: 22,
             zoomControl: false,
             layers: [],
         });
@@ -392,6 +393,8 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
         L.tileLayer(tilesUrl, {
             attribution: '© OpenStreetMap',
+            maxZoom: 22,
+            maxNativeZoom: 20,
         }).addTo(map);
 
         const odpIcon = L.divIcon({
