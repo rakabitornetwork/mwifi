@@ -958,27 +958,32 @@ function CustomersPageContent({
                                             </div>
                                         </td>
                                     </tr>
+                                    {expandedCustomerId === cust.id && (
+                                        <tr>
+                                            <td colSpan={canWrite ? 11 : 10} className="p-0 border-none">
+                                                <div
+                                                    ref={customerDetailPanelRef}
+                                                    className={`w-full min-w-0 max-w-full overflow-hidden border-t border-b ${
+                                                        isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'
+                                                    }`}
+                                                >
+                                                    <CustomerDetailPanel
+                                                        customer={cust}
+                                                        theme={theme}
+                                                        onEdit={openCustomerModal}
+                                                        canWrite={canWrite}
+                                                        activeSession={getActiveSessionForCustomer(cust.username)}
+                                                        onKickActive={handleKickActiveSession}
+                                                    />
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
                                     </Fragment>
                             ))}
                         </tbody>
                     </table>
                 </div>
-
-                {expandedCustomer && (
-                    <div
-                        ref={customerDetailPanelRef}
-                        className={`w-full min-w-0 max-w-full overflow-hidden border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'}`}
-                    >
-                        <CustomerDetailPanel
-                            customer={expandedCustomer}
-                            theme={theme}
-                            onEdit={openCustomerModal}
-                            canWrite={canWrite}
-                            activeSession={getActiveSessionForCustomer(expandedCustomer.username)}
-                            onKickActive={handleKickActiveSession}
-                        />
-                    </div>
-                )}
 
                 {sortedCustomers.length > 0 && (
                     <div className={`flex flex-col lg:flex-row lg:items-center lg:justify-between pt-4 mt-1 border-t ${isDarkMode ? 'border-zinc-800/60' : 'border-zinc-200'} gap-4`}>
