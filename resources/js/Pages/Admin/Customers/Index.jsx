@@ -960,10 +960,11 @@ function CustomersPageContent({
                                     </tr>
                                     {expandedCustomerId === cust.id && (
                                         <tr>
-                                            <td colSpan={canWrite ? 11 : 10} className="p-0 border-none admin-table-detail-cell">
+                                            <td colSpan={canWrite ? 11 : 10} className="p-0 border-none admin-table-detail-cell" style={{ maxWidth: 'none' }}>
                                                 <div
                                                     ref={customerDetailPanelRef}
                                                     className="w-full overflow-hidden"
+                                                    style={{ minWidth: '100%' }}
                                                 >
                                                     <CustomerDetailPanel
                                                         customer={cust}
