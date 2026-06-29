@@ -23,6 +23,67 @@ const LIVE_TRAFFIC_POLL_MS = 3000;
 
 const isPppoeCustomer = (cust) => cust?.service_type !== 'hotspot';
 
+function calculateHaversineDistance(coords1, coords2) {
+    if (!coords1 || !coords2) return 0;
+    const [lat1, lon1] = coords1;
+    const [lat2, lon2] = coords2;
+    
+    const R = 6371e3; // Earth radius in meters
+    const phi1 = (lat1 * Math.PI) / 180;
+    const phi2 = (lat2 * Math.PI) / 180;
+    const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+    const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+        Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+        Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // in meters
+}
+
+function calculatePathLength(odpCoords, customerCoords, cablePath = []) {
+    if (!odpCoords || !customerCoords) return 0;
+    const points = [odpCoords, ...cablePath, customerCoords];
+    let totalDistance = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+        totalDistance += calculateHaversineDistance(points[i], points[i+1]);
+    }
+    return totalDistance;
+}
+
+function getIntervalPoints(points, interval = 100) {
+    if (points.length < 2) return [];
+    
+    const result = [];
+    let accumDistance = 0;
+    let nextMark = interval;
+    
+    for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i+1];
+        const segDist = calculateHaversineDistance(p1, p2);
+        
+        while (accumDistance + segDist >= nextMark) {
+            const needed = nextMark - accumDistance;
+            const fraction = needed / segDist;
+            
+            const lat = p1[0] + (p2[0] - p1[0]) * fraction;
+            const lng = p1[1] + (p2[1] - p1[1]) * fraction;
+            
+            result.push({
+                coords: [lat, lng],
+                distance: nextMark
+            });
+            
+            nextMark += interval;
+        }
+        accumDistance += segDist;
+    }
+    
+    return result;
+}
+
 function NetworkMapPageContent({ odps = [], customers = [] }) {
     const theme = useAdminTheme();
     const { showToast } = useAdminToast();
@@ -547,6 +608,28 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                     className: 'optical-cable-flow',
                     smoothFactor: 0,
                 }).addTo(map);
+
+                // Draw 100m markers along the path
+                const intervalPoints = getIntervalPoints(points, 100);
+                intervalPoints.forEach((ip) => {
+                    const badgeIcon = L.divIcon({
+                        className: 'custom-distance-badge',
+                        html: `<div class="px-1 py-0.5 rounded bg-zinc-950/70 border border-zinc-700/50 text-[7.5px] font-mono text-zinc-350 font-black shadow-xs select-none pointer-events-none">${ip.distance}m</div>`,
+                        iconSize: [26, 12],
+                        iconAnchor: [13, 6],
+                    });
+                    L.marker(ip.coords, { icon: badgeIcon, interactive: false }).addTo(map);
+                });
+
+                // Draw total distance badge offset below customer marker
+                const totalDist = calculatePathLength(odpCoords, customerCoords, cablePath);
+                const totalBadgeIcon = L.divIcon({
+                    className: 'custom-total-distance-badge',
+                    html: `<div class="px-1 py-0.5 rounded bg-emerald-600/90 dark:bg-emerald-500/90 border border-white dark:border-zinc-950 text-[7.5px] font-mono text-white font-extrabold shadow-sm whitespace-nowrap select-none pointer-events-none">${totalDist.toFixed(0)}m</div>`,
+                    iconSize: [32, 12],
+                    iconAnchor: [16, -8], // Offset below the customer marker
+                });
+                L.marker(customerCoords, { icon: totalBadgeIcon, interactive: false }).addTo(map);
             }
         });
 
