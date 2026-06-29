@@ -300,7 +300,7 @@
     "isEntry": true
   },
   "resources/js/Components/Admin/DashboardCharts.jsx": {
-    "file": "assets/DashboardCharts-DCcSsZKY.js",
+    "file": "assets/DashboardCharts-D0g3vObg.js",
     "name": "DashboardCharts",
     "src": "resources/js/Components/Admin/DashboardCharts.jsx",
     "isDynamicEntry": true,
@@ -337,7 +337,7 @@
     ]
   },
   "resources/js/Pages/Admin/Dashboard/Index.jsx": {
-    "file": "assets/Index-BVBnS5y6.js",
+    "file": "assets/Index-orvm_mKz.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Dashboard/Index.jsx",
     "isDynamicEntry": true,
@@ -368,7 +368,7 @@
     ]
   },
   "resources/js/Pages/Admin/Finance/Index.jsx": {
-    "file": "assets/Index-0Y5d1nxa.js",
+    "file": "assets/Index-CXVJyQYc.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Finance/Index.jsx",
     "isDynamicEntry": true,
@@ -440,7 +440,7 @@
     ]
   },
   "resources/js/Pages/Admin/Invoices/Index.jsx": {
-    "file": "assets/Index-QxvUR7zK.js",
+    "file": "assets/Index-BuLHsIeX.js",
     "name": "Index",
     "src": "resources/js/Pages/Admin/Invoices/Index.jsx",
     "isDynamicEntry": true,
@@ -693,7 +693,7 @@
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-xz4H4Fe6.js",
+    "file": "assets/app-CgBqgAX1.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

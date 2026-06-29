@@ -395,11 +395,16 @@ function ResourceSpeedometerGauge({ label, value, isDarkMode, type, gaugeId }) {
         ? ['#10b981', '#059669', '#34d399'] 
         : ['#6366f1', '#4f46e5', '#818cf8']; 
     const glow = isCpu ? 'rgba(16, 185, 129, 0.22)' : 'rgba(99, 102, 241, 0.22)';
-    const textClass = isCpu ? 'text-emerald-500 dark:text-emerald-400' : 'text-indigo-500 dark:text-indigo-400';
+    
+    const textClass = isDarkMode
+        ? (isCpu ? 'text-emerald-400' : 'text-indigo-400')
+        : (isCpu ? 'text-emerald-600 font-extrabold' : 'text-indigo-600 font-extrabold');
+        
     const hubStroke = isCpu ? '#10b981' : '#6366f1';
-    const badgeBg = isCpu 
-        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25' 
-        : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/25';
+    
+    const badgeBg = isDarkMode
+        ? (isCpu ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/25')
+        : (isCpu ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-indigo-50 text-indigo-700 border-indigo-200');
 
     const cx = 60;
     const cy = 56;
@@ -414,10 +419,24 @@ function ResourceSpeedometerGauge({ label, value, isDarkMode, type, gaugeId }) {
     const tickColor = isDarkMode ? '#3f3f46' : '#cbd5e1';
     const labelColor = isDarkMode ? '#71717a' : '#94a3b8';
     
+    const cardBg = isDarkMode
+        ? 'linear-gradient(165deg, rgba(24,24,27,0.95) 0%, rgba(9,9,11,0.98) 100%)'
+        : 'linear-gradient(165deg, #ffffff 0%, #f8fafc 100%)';
+    const cardBorder = isDarkMode ? 'rgba(63,63,70,0.8)' : 'rgba(226,232,240,0.95)';
+    
     const ticks = [0, 25, 50, 75, 100];
 
     return (
-        <div className="flex-1 flex flex-col items-center max-w-[155px] p-2 rounded-2xl border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/30 shadow-xs relative">
+        <div 
+            className="flex-1 flex flex-col items-center max-w-[155px] p-2 rounded-2xl border shadow-xs relative"
+            style={{
+                background: cardBg,
+                borderColor: cardBorder,
+                boxShadow: isDarkMode
+                    ? 'inset 0 1px 0 rgba(255,255,255,0.04), 0 4px 12px rgba(0,0,0,0.15)'
+                    : 'inset 0 1px 0 rgba(255,255,255,0.9), 0 4px 10px rgba(15,23,42,0.04)',
+            }}
+        >
             <div
                 className="pointer-events-none absolute inset-x-0 top-0 h-12 opacity-60"
                 style={{
