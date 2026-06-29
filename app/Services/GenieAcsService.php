@@ -220,7 +220,7 @@ class GenieAcsService
             );
 
             if ($missingClientDetails) {
-                $clientRefresh = self::refreshWifiClientTables($apiUrl, $deviceId);
+                $clientRefresh = self::refreshWifiClientTables($apiUrl, $deviceId, null, $rawDev);
                 if (is_array($clientRefresh)) {
                     $rawDev = $clientRefresh;
                 }
@@ -423,15 +423,6 @@ class GenieAcsService
 
         self::kickPppoeSessionForDevice($rawDevice);
 
-        $refreshedRaw = self::refreshWifiClientTables(
-            $apiUrl,
-            $deviceId,
-            self::resolveWlanBaseFromAssociationPath($associationPath)
-        );
-        if (is_array($refreshedRaw)) {
-            $rawDevice = $refreshedRaw;
-        }
-
         $parameterValues = self::buildKickParameterValues($rawDevice, $mac, $associationPath);
         if ($parameterValues === []) {
             return [
@@ -461,11 +452,17 @@ class GenieAcsService
 
             if ($status === 200 || $status === 202) {
                 $username = self::extractUsername($rawDevice);
-                $refreshed = self::refreshWifiDeviceState(
-                    $deviceId,
-                    $username !== 'unknown_ont' ? $username : '',
-                    true
-                );
+                $afterKickRaw = self::fetchRawDeviceById($apiUrl, $deviceId) ?? $rawDevice;
+                $parsed = self::parseRawDevice($afterKickRaw, ['reachable' => true]);
+                $refreshed = null;
+
+                if ($parsed !== null) {
+                    $extractedUsername = trim(self::extractUsername($afterKickRaw));
+                    $parsed['username'] = $extractedUsername !== '' && $extractedUsername !== 'unknown_ont'
+                        ? $extractedUsername
+                        : ($username !== 'unknown_ont' ? $username : '');
+                    $refreshed = self::stripRawDevicePayload($parsed);
+                }
 
                 return [
                     'success' => true,
@@ -1769,52 +1766,126 @@ class GenieAcsService
      *
      * @return array<string, mixed>|null
      */
-    private static function refreshWifiClientTables(string $apiUrl, string $deviceId, ?string $wlanBase = null): ?array
-    {
-        $parameterNames = [];
+    private static function refreshWifiClientTables(
+        string $apiUrl,
+        string $deviceId,
+        ?string $wlanBase = null,
+        ?array $rawDevice = null
+    ): ?array {
+        if ($rawDevice === null) {
+            $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
+        }
 
-        if ($wlanBase !== null) {
-            $parameterNames[] = "{$wlanBase}.AssociatedDevice.";
-            $parameterNames[] = "{$wlanBase}.TotalAssociations";
-        } else {
-            for ($index = 1; $index <= 8; $index++) {
-                $base = "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$index}";
-                $parameterNames[] = "{$base}.AssociatedDevice.";
-                $parameterNames[] = "{$base}.TotalAssociations";
-            }
+        if ($rawDevice === null) {
+            return null;
+        }
 
-            $parameterNames[] = 'InternetGatewayDevice.LANDevice.1.Hosts.Host.';
-            $parameterNames[] = 'Device.WiFi.AccessPoint.1.AssociatedDevice.';
-            $parameterNames[] = 'Device.WiFi.AccessPoint.1.AssociatedDeviceNumberOfEntries';
+        $objectNames = self::resolveWifiClientRefreshObjects($rawDevice, $wlanBase);
+        if ($objectNames === []) {
+            return null;
         }
 
         $encodedId = self::encodeDeviceIdForApi($deviceId);
+        $refreshed = false;
 
-        try {
-            $response = Http::timeout(60)->post(
-                "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=45",
-                [
-                    'name' => 'getParameterValues',
-                    'parameterNames' => $parameterNames,
-                ]
-            );
+        foreach ($objectNames as $objectName) {
+            try {
+                $response = Http::timeout(60)->post(
+                    "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=45",
+                    [
+                        'name' => 'refreshObject',
+                        'objectName' => $objectName,
+                    ]
+                );
 
-            if ($response->status() !== 200 && $response->status() !== 202) {
-                Log::debug('GenieACS WiFi client refresh failed', [
+                if ($response->status() === 200 || $response->status() === 202) {
+                    $refreshed = true;
+                    break;
+                }
+
+                Log::debug('GenieACS WiFi client refreshObject failed', [
                     'device_id' => $deviceId,
+                    'object_name' => $objectName,
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
-
-                return null;
+            } catch (Exception $e) {
+                Log::debug('GenieACS WiFi client refreshObject error: ' . $e->getMessage(), [
+                    'device_id' => $deviceId,
+                    'object_name' => $objectName,
+                ]);
             }
-        } catch (Exception $e) {
-            Log::debug('GenieACS WiFi client refresh error: ' . $e->getMessage());
+        }
 
+        if (!$refreshed) {
             return null;
         }
 
         return self::fetchRawDeviceById($apiUrl, $deviceId);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function resolveWifiClientRefreshObjects(array $rawDevice, ?string $wlanBase): array
+    {
+        $flat = self::flattenDeviceParameters($rawDevice);
+        if ($flat === []) {
+            return [];
+        }
+
+        if ($wlanBase !== null) {
+            $associatedDeviceObject = "{$wlanBase}.AssociatedDevice";
+            if (self::flatHasPathPrefix($flat, $associatedDeviceObject)) {
+                return [$associatedDeviceObject];
+            }
+
+            if (self::flatHasPathPrefix($flat, $wlanBase)) {
+                return [$wlanBase];
+            }
+
+            return [];
+        }
+
+        $objects = [];
+        $usesTr098 = self::flatHasAnyKeyMatching($flat, '/WLANConfiguration/');
+
+        if ($usesTr098) {
+            foreach (array_keys($flat) as $path) {
+                if (!preg_match('/^(InternetGatewayDevice\.LANDevice\.1\.WLANConfiguration\.\d+)\.AssociatedDevice\./', $path, $matches)) {
+                    continue;
+                }
+
+                $objects[$matches[1] . '.AssociatedDevice'] = true;
+            }
+
+            if (self::flatHasPathPrefix($flat, 'InternetGatewayDevice.LANDevice.1.Hosts.Host')) {
+                $objects['InternetGatewayDevice.LANDevice.1.Hosts.Host'] = true;
+            }
+
+            if ($objects === []) {
+                $wlanIndex = self::resolveActiveWlanIndex($flat);
+                $fallback = "InternetGatewayDevice.LANDevice.1.WLANConfiguration.{$wlanIndex}";
+                if (self::flatHasPathPrefix($flat, $fallback)) {
+                    $objects[$fallback] = true;
+                }
+            }
+        } elseif (self::flatHasPathPrefix($flat, 'Device.WiFi.AccessPoint.1.AssociatedDevice')) {
+            $objects['Device.WiFi.AccessPoint.1.AssociatedDevice'] = true;
+        }
+
+        return array_values(array_keys($objects));
+    }
+
+    private static function flatHasPathPrefix(array $flat, string $prefix): bool
+    {
+        foreach (array_keys($flat) as $path) {
+            if ($path === $prefix || str_starts_with($path, $prefix . '.')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function resolveWpaBeaconType(array $flat): string

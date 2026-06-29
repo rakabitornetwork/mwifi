@@ -97,4 +97,28 @@ class GenieAcsKickDeviceTest extends TestCase
 
         $this->assertTrue(GenieAcsService::deviceSupportsClientKick($rawDev));
     }
+
+    public function test_resolve_wifi_client_refresh_objects_avoids_trailing_dot_paths(): void
+    {
+        $rawDev = [
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID' => ['_value' => 'WiFi-Test'],
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.AssociatedDevice.1.MACAddress' => [
+                '_value' => 'AA:BB:CC:DD:EE:FF',
+            ],
+        ];
+
+        $method = new ReflectionMethod(GenieAcsService::class, 'resolveWifiClientRefreshObjects');
+        $method->setAccessible(true);
+
+        $objects = $method->invoke(null, $rawDev, null);
+
+        $this->assertContains(
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.AssociatedDevice',
+            $objects
+        );
+        foreach ($objects as $objectName) {
+            $this->assertFalse(str_ends_with($objectName, '.'));
+            $this->assertStringNotContainsString('Device.WiFi', $objectName);
+        }
+    }
 }
