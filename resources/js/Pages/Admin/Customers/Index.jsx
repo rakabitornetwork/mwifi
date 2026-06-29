@@ -102,6 +102,7 @@ function CustomersPageContent({
     const [customerToDelete, setCustomerToDelete] = useState(null);
     const [deleteMode, setDeleteMode] = useState('local_only');
     const [expandedCustomerId, setExpandedCustomerId] = useState(savedFilters.expandedCustomerId);
+    const [activeDetailCustomer, setActiveDetailCustomer] = useState(null);
     const customerDetailPanelRef = useRef(null);
     const [showImportModal, setShowImportModal] = useState(false);
     const [importCsvFile, setImportCsvFile] = useState(null);
@@ -471,6 +472,12 @@ function CustomersPageContent({
         () => sortedCustomers.find((cust) => cust.id === expandedCustomerId) ?? null,
         [sortedCustomers, expandedCustomerId]
     );
+
+    useEffect(() => {
+        if (expandedCustomer) {
+            setActiveDetailCustomer(expandedCustomer);
+        }
+    }, [expandedCustomer]);
     const paginationNavButton = isDarkMode
         ? 'border-zinc-800 text-zinc-400 hover:bg-zinc-900 hover:text-white disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-400'
         : 'border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-35 disabled:hover:bg-transparent disabled:hover:text-zinc-600';
@@ -967,7 +974,7 @@ function CustomersPageContent({
                 maxWidth="5xl"
                 className="!flex !flex-col !overflow-hidden !space-y-0 !p-0"
             >
-                {expandedCustomer && (
+                {activeDetailCustomer && (
                     <div className="flex flex-col h-full max-h-[85vh]">
                         {/* Title bar with padding */}
                         <div className={`flex items-center justify-between px-5 py-4 border-b shrink-0 ${isDarkMode ? 'border-zinc-800/60 bg-zinc-950/20' : 'border-zinc-200 bg-zinc-50/50'} relative`}>
@@ -975,8 +982,8 @@ function CustomersPageContent({
                             <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-400 via-teal-500 to-sky-500" />
                             <div className="min-w-0">
                                 <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 bg-clip-text text-transparent">Detail Lengkap Pelanggan</p>
-                                <p className={`text-sm font-bold mt-1 truncate ${themeTextTitle}`}>{expandedCustomer.name}</p>
-                                <p className={`text-[11px] font-mono mt-0.5 ${themeTextDesc}`}>{expandedCustomer.username}</p>
+                                <p className={`text-sm font-bold mt-1 truncate ${themeTextTitle}`}>{activeDetailCustomer.name}</p>
+                                <p className={`text-[11px] font-mono mt-0.5 ${themeTextDesc}`}>{activeDetailCustomer.username}</p>
                             </div>
                             <div className="flex items-center gap-2">
                                 {canWrite && (
@@ -984,7 +991,7 @@ function CustomersPageContent({
                                         type="button"
                                         onClick={() => {
                                             setExpandedCustomerId(null);
-                                            openCustomerModal(expandedCustomer);
+                                            openCustomerModal(activeDetailCustomer);
                                         }}
                                         title="Edit Pelanggan"
                                         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
@@ -1016,10 +1023,10 @@ function CustomersPageContent({
                         {/* Scrollable content block */}
                         <div className="flex-1 overflow-y-auto overscroll-contain p-5">
                             <CustomerDetailPanel
-                                customer={expandedCustomer}
+                                customer={activeDetailCustomer}
                                 theme={theme}
                                 canWrite={canWrite}
-                                activeSession={getActiveSessionForCustomer(expandedCustomer.username)}
+                                activeSession={getActiveSessionForCustomer(activeDetailCustomer.username)}
                                 onKickActive={handleKickActiveSession}
                                 isModalMode={true}
                             />
