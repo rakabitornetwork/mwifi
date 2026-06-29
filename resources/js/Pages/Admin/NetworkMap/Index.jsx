@@ -612,9 +612,12 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
                 // Draw 100m markers along the path
                 const intervalPoints = getIntervalPoints(points, 100);
                 intervalPoints.forEach((ip) => {
+                    const badgeClass = isDarkMode
+                        ? 'bg-zinc-900/80 border-zinc-700/50 text-zinc-300'
+                        : 'bg-white/90 border-zinc-200 text-zinc-700 shadow-xs';
                     const badgeIcon = L.divIcon({
                         className: 'custom-distance-badge',
-                        html: `<div class="px-1 py-0.5 rounded bg-zinc-950/70 border border-zinc-700/50 text-[7.5px] font-mono text-zinc-350 font-black shadow-xs select-none pointer-events-none">${ip.distance}m</div>`,
+                        html: `<div class="px-1 py-0.5 rounded border text-[7.5px] font-mono font-black select-none pointer-events-none ${badgeClass}">${ip.distance}m</div>`,
                         iconSize: [26, 12],
                         iconAnchor: [13, 6],
                     });
