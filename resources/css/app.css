@@ -804,7 +804,7 @@
     vertical-align: top;
     width: 100%;
     min-width: 0;
-    max-width: 0;
+    max-width: none;
     padding: 0;
 }
 
