@@ -66,6 +66,26 @@ class BrandingAssetTest extends TestCase
         $this->get('/branding/logo')->assertOk();
     }
 
+    public function test_favicon_route_falls_back_to_logo_wide(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('branding/wide-only.png', 'wide-icon');
+
+        SettingService::set('system.logo_wide', 'branding/wide-only.png');
+        BrandingService::clearBrandingCache();
+
+        $this->get('/favicon.ico')->assertOk();
+        $this->assertNotNull(BrandingService::browserIconHref());
+    }
+
+    public function test_favicon_route_returns_404_when_no_brand_icon(): void
+    {
+        Storage::fake('public');
+        BrandingService::clearBrandingCache();
+
+        $this->get('/favicon.ico')->assertNotFound();
+    }
+
     public function test_branding_repair_command_syncs_database_path(): void
     {
         Storage::fake('public');

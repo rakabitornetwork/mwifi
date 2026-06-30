@@ -24,8 +24,8 @@ $branding = BrandingService::get();
         @if (!empty($branding['logo_url']))
             <meta property="og:image" content="{{ $branding['logo_url'] }}">
         @endif
-        @if (!empty($branding['favicon_url']) || !empty($branding['logo_url']))
-            <link rel="icon" href="{{ route('favicon') }}?v={{ $branding['version'] ?? '1' }}">
+        @if (BrandingService::hasBrowserIcon())
+            <link rel="icon" href="{{ BrandingService::browserIconHref() }}" type="{{ BrandingService::browserIconMime() ?? 'image/png' }}">
         @endif
         <meta name="csrf-token" content="{{ csrf_token() }}">
 

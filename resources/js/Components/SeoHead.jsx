@@ -12,14 +12,22 @@ export default function SeoHead({ title, branding = {}, description: description
     const robots = seo.robots || 'index,follow';
     const ogTitle = title ? `${title} — ${siteName}` : siteName;
 
-    const faviconHref = branding.favicon_url || branding.logo_url
+    const faviconHref = branding.has_browser_icon
         ? `/favicon.ico?v=${branding.version || '1'}`
-        : null;
+        : (branding.favicon_url || branding.logo_url || branding.logo_wide_url)
+            ? `/favicon.ico?v=${branding.version || '1'}`
+            : null;
+    const faviconType = branding.browser_icon_mime || 'image/png';
 
     return (
         <Head title={pageTitle}>
             {faviconHref ? (
-                <link rel="icon" href={faviconHref} head-key={`favicon-${branding.version || '1'}`} />
+                <link
+                    rel="icon"
+                    type={faviconType}
+                    href={faviconHref}
+                    head-key={`favicon-${branding.version || '1'}`}
+                />
             ) : null}
             {description && (
                 <meta head-key="description" name="description" content={description} />

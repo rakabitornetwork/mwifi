@@ -40,8 +40,7 @@ Route::middleware(['auth', 'customer'])->group(function () {
 });
 
 Route::get('favicon.ico', function () {
-    $path = \App\Services\BrandingService::resolveAssetPath('favicon')
-        ?: \App\Services\BrandingService::resolveAssetPath('logo');
+    $path = \App\Services\BrandingService::resolveBrowserIconPath();
 
     if (!$path) {
         abort(404);
@@ -49,14 +48,7 @@ Route::get('favicon.ico', function () {
 
     $absolute = Storage::disk('public')->path($path);
     $extension = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-    $mime = match ($extension) {
-        'svg' => 'image/svg+xml',
-        'png' => 'image/png',
-        'jpg', 'jpeg' => 'image/jpeg',
-        'webp' => 'image/webp',
-        'ico' => 'image/x-icon',
-        default => @mime_content_type($absolute) ?: 'application/octet-stream',
-    };
+    $mime = \App\Services\BrandingService::mimeForExtension($extension);
 
     return response()->file($absolute, [
         'Content-Type' => $mime,

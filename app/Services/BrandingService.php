@@ -12,6 +12,8 @@ class BrandingService
         $appName = SettingService::get('system.app_name', 'mWiFi');
         $seoTitle = SettingService::get('system.seo_title', '');
 
+        $browserIconPath = self::resolveBrowserIconPath();
+
         return [
             'app_name' => $appName,
             'company_name' => $companyName,
@@ -23,6 +25,8 @@ class BrandingService
             'logo_url' => self::brandingAssetUrl('logo'),
             'logo_wide_url' => self::brandingAssetUrl('logo-wide'),
             'favicon_url' => self::brandingAssetUrl('favicon'),
+            'has_browser_icon' => $browserIconPath !== null,
+            'browser_icon_mime' => $browserIconPath ? self::mimeForExtension(pathinfo($browserIconPath, PATHINFO_EXTENSION)) : null,
             'display_name' => $companyName ?: $appName,
             'footer_copyright' => self::renderCopyright(),
             'terms_url' => LegalService::termsUrl(),
@@ -116,6 +120,56 @@ class BrandingService
         $version = SettingService::get('system.branding_version', '1');
 
         return route('branding.asset', ['type' => $type]) . '?v=' . urlencode($version);
+    }
+
+    /**
+     * Path file terbaik untuk ikon tab browser: favicon → logo ikon → logo panjang.
+     */
+    public static function resolveBrowserIconPath(): ?string
+    {
+        foreach (['favicon', 'logo', 'logo-wide'] as $type) {
+            $path = self::resolveAssetPath($type);
+            if ($path) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+
+    public static function hasBrowserIcon(): bool
+    {
+        return self::resolveBrowserIconPath() !== null;
+    }
+
+    public static function browserIconHref(): ?string
+    {
+        if (!self::hasBrowserIcon()) {
+            return null;
+        }
+
+        $version = SettingService::get('system.branding_version', '1');
+
+        return route('favicon') . '?v=' . urlencode($version);
+    }
+
+    public static function browserIconMime(): ?string
+    {
+        $path = self::resolveBrowserIconPath();
+
+        return $path ? self::mimeForExtension(pathinfo($path, PATHINFO_EXTENSION)) : null;
+    }
+
+    public static function mimeForExtension(string $extension): string
+    {
+        return match (strtolower($extension)) {
+            'svg' => 'image/svg+xml',
+            'png' => 'image/png',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'webp' => 'image/webp',
+            'ico' => 'image/x-icon',
+            default => 'application/octet-stream',
+        };
     }
 
     /**
