@@ -86,6 +86,22 @@ class BrandingAssetTest extends TestCase
         $this->get('/favicon.ico')->assertNotFound();
     }
 
+    public function test_empty_branding_file_is_ignored_for_favicon(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('branding/empty-favicon.png', '');
+        Storage::disk('public')->put('branding/real-logo.png', 'logo-bytes');
+
+        SettingService::set('system.favicon', 'branding/empty-favicon.png');
+        SettingService::set('system.logo', 'branding/real-logo.png');
+        BrandingService::clearBrandingCache();
+
+        $response = $this->get('/favicon.ico');
+
+        $response->assertOk();
+        $this->assertSame('branding/real-logo.png', BrandingService::resolveBrowserIconPath());
+    }
+
     public function test_branding_repair_command_syncs_database_path(): void
     {
         Storage::fake('public');

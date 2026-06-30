@@ -248,7 +248,13 @@ class BrandingService
             return false;
         }
 
-        return Storage::disk('public')->exists($path);
+        if (!Storage::disk('public')->exists($path)) {
+            return false;
+        }
+
+        $size = Storage::disk('public')->size($path);
+
+        return $size !== false && $size > 0;
     }
 
     /**

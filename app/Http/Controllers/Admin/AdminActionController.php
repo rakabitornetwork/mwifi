@@ -2233,6 +2233,13 @@ class AdminActionController extends Controller
         }
 
         $path = $file->store('branding', 'public');
+
+        if (!Storage::disk('public')->exists($path) || Storage::disk('public')->size($path) <= 0) {
+            Storage::disk('public')->delete($path);
+
+            return false;
+        }
+
         SettingService::set($settingKey, $path);
 
         return true;

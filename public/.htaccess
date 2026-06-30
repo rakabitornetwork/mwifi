@@ -5,6 +5,9 @@
 
     RewriteEngine On
 
+    # Favicon dinamis via Laravel (abaikan file kosong bawaan hosting)
+    RewriteRule ^favicon\.ico$ index.php [L]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
