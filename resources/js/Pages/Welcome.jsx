@@ -230,24 +230,15 @@ export default function Welcome({
                 className={t.page}
             >
                 <header className={t.header}>
-                    <div className={`max-w-6xl mx-auto px-4 sm:px-6 ${hasWideLogo(branding) ? 'h-20 md:h-[5.5rem]' : 'h-16'} flex items-center justify-between relative`}>
-                        {/* Logo & Brand */}
-                        {hasWideLogo(branding) ? (
-                            <Link
-                                href="/"
-                                onClick={handleBerandaNav}
-                                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10"
-                            >
-                                <BrandingLogo branding={branding} variant="header" alt="" />
-                            </Link>
-                        ) : (
-                        <Link href="/" onClick={handleBerandaNav} className="flex items-center gap-3 group min-w-0">
+                    <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+                        <Link href="/" onClick={handleBerandaNav} className="flex items-center gap-3 group min-w-0 shrink-0">
                             <BrandingLogo branding={branding} variant="header" alt="" />
+                            {!hasWideLogo(branding) && (
                             <span className={t.brand}>
                                 {companyName}
                             </span>
+                            )}
                         </Link>
-                        )}
 
                         {/* Desktop Navigation */}
                         <nav className="hidden md:flex items-center gap-8">

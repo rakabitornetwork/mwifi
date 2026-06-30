@@ -6,11 +6,11 @@ const VARIANTS = {
         square: 'h-9 w-9 object-contain shrink-0',
     },
     sidebar: {
-        wide: 'h-12 max-h-12 max-w-[12.75rem] w-auto object-contain shrink-0 mx-auto',
+        wide: 'h-12 max-h-12 max-w-[12.75rem] w-auto object-contain shrink-0 object-left',
         square: 'h-9 w-9 object-contain shrink-0',
     },
     header: {
-        wide: 'h-11 sm:h-12 max-w-[min(320px,78vw)] w-auto object-contain shrink-0 mx-auto',
+        wide: 'h-11 sm:h-12 max-w-[min(320px,78vw)] w-auto object-contain shrink-0 object-left',
         square: 'h-9 w-9 object-contain shrink-0',
     },
     hero: {

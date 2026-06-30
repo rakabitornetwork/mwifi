@@ -73,12 +73,12 @@ export default function AdminSidebar({
         <div className="flex flex-col h-full min-h-0 w-full">
             <div
                 className={`admin-topbar relative flex items-center shrink-0 px-2.5 ${themeBrandBar} ${
-                    !hasWideLogo(branding) && showCloseButton ? 'justify-between gap-2' : !hasWideLogo(branding) ? 'gap-2.5 px-4' : 'justify-center'
+                    !hasWideLogo(branding) && showCloseButton ? 'justify-between gap-2' : !hasWideLogo(branding) ? 'gap-2.5 px-4' : 'justify-start'
                 }`}
                 key={`sidebar-brand-${branding.version}`}
             >
                 {hasWideLogo(branding) ? (
-                    <div className="flex h-full w-full items-center justify-center min-w-0">
+                    <div className="flex h-full w-full items-center justify-start min-w-0 px-1">
                         <BrandingLogo
                             branding={branding}
                             variant="sidebar"

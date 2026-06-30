@@ -56,7 +56,7 @@ export default function PublicSiteFooter({
             <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-8">
                 <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr] gap-10 md:gap-8">
                     <div>
-                        <Link href="/" className={`inline-flex items-center gap-2.5 mb-4 group min-w-0 ${hasWideLogo(branding) ? 'w-full justify-center' : ''}`}>
+                        <Link href="/" className="inline-flex items-center gap-2.5 mb-4 group min-w-0">
                             <BrandMark branding={branding} isDark={isDark} />
                             {!hasWideLogo(branding) && (
                             <span className={`text-sm font-extrabold tracking-[0.12em] transition-colors ${isDark ? 'text-slate-200 group-hover:text-indigo-400' : 'text-slate-800 group-hover:text-sky-700'}`}>

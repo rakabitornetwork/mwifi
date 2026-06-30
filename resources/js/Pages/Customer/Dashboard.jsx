@@ -179,7 +179,7 @@ export default function CustomerDashboard({
                 <nav className={`sticky top-0 z-40 backdrop-blur-md border-b transition-colors duration-250 ${themeNav}`}>
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className={`flex justify-between items-center ${hasWideLogo(branding) ? 'h-16' : 'h-14'}`}>
-                            <div className={`flex items-center min-w-0 flex-1 ${hasWideLogo(branding) ? 'justify-center' : 'space-x-2'}`}>
+                            <div className="flex items-center min-w-0 flex-1 space-x-2 justify-start">
                                 <BrandingLogo
                                     branding={branding}
                                     variant="header"
