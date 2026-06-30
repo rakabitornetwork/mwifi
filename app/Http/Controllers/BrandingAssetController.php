@@ -11,7 +11,7 @@ class BrandingAssetController extends Controller
 {
     public function show(Request $request, string $type): Response
     {
-        if (!in_array($type, ['logo', 'favicon'], true)) {
+        if (!in_array($type, ['logo', 'favicon', 'logo-wide'], true)) {
             abort(404);
         }
 

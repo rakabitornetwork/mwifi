@@ -65,7 +65,7 @@ Route::get('favicon.ico', function () {
 })->name('favicon');
 
 Route::get('branding/{type}', [\App\Http\Controllers\BrandingAssetController::class, 'show'])
-    ->whereIn('type', ['logo', 'favicon'])
+    ->whereIn('type', ['logo', 'logo-wide', 'favicon'])
     ->name('branding.asset');
 
 Route::get('admin', function () {

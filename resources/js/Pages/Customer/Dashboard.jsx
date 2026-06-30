@@ -8,6 +8,7 @@ import CustomerManualPaymentInfo from '../../Components/CustomerManualPaymentInf
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline, { BrandingCompanyName } from '../../Components/BrandingTagline';
+import BrandingLogo, { hasWideLogo } from '../../Components/BrandingLogo';
 import { formatRupiah } from '../../utils/formatRupiah';
 import { formatDisplayDate, resolveCustomerDueDate } from '../../utils/formatDateInputValue';
 import { formatBandwidthLimitLabel } from '../../utils/customerMetrics';
@@ -179,13 +180,14 @@ export default function CustomerDashboard({
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                         <div className="flex justify-between items-center h-14">
                             <div className="flex items-center space-x-2 min-w-0 flex-1">
-                                {branding.logo_url ? (
-                                    <img src={branding.logo_url} alt={branding.company_name} className="w-8 h-8 object-contain shrink-0" />
-                                ) : (
-                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-lg shrink-0 ${isVpsPortal ? 'bg-violet-600 shadow-violet-500/20' : 'bg-emerald-500 shadow-emerald-500/20'}`}>
-                                        {isVpsPortal ? <Server className="w-4 h-4 text-white" /> : <Wifi className="w-4 h-4 text-white" />}
-                                    </div>
-                                )}
+                                <BrandingLogo
+                                    branding={branding}
+                                    variant="header"
+                                    alt={branding.company_name}
+                                    fallbackIcon={isVpsPortal ? Server : Wifi}
+                                    fallbackClassName="w-4 h-4 text-white"
+                                />
+                                {!hasWideLogo(branding) && (
                                 <div className="min-w-0 overflow-hidden">
                                     <BrandingCompanyName className={`text-sm font-bold tracking-wide ${themeTextTitle}`}>
                                         {isVpsPortal ? (branding.company_name || 'Cloud VPS') : (branding.company_name || 'Portal Pelanggan')}
@@ -194,6 +196,7 @@ export default function CustomerDashboard({
                                         {isVpsPortal ? 'Layanan Sewa Virtual Private Server' : branding.company_tagline}
                                     </BrandingTagline>
                                 </div>
+                                )}
                             </div>
 
                             <div className="flex items-center space-x-3">

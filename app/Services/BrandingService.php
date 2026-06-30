@@ -21,6 +21,7 @@ class BrandingService
             'company_address' => SettingService::get('system.company_address', ''),
             'company_website' => SettingService::get('system.company_website', ''),
             'logo_url' => self::brandingAssetUrl('logo'),
+            'logo_wide_url' => self::brandingAssetUrl('logo-wide'),
             'favicon_url' => self::brandingAssetUrl('favicon'),
             'display_name' => $companyName ?: $appName,
             'footer_copyright' => self::renderCopyright(),
@@ -104,7 +105,7 @@ class BrandingService
      */
     public static function brandingAssetUrl(string $type): ?string
     {
-        if (!in_array($type, ['logo', 'favicon'], true)) {
+        if (!in_array($type, ['logo', 'favicon', 'logo-wide'], true)) {
             return null;
         }
 
@@ -122,19 +123,25 @@ class BrandingService
      */
     public static function resolveAssetPath(string $type): ?string
     {
-        if (!in_array($type, ['logo', 'favicon'], true)) {
+        if (!in_array($type, ['logo', 'favicon', 'logo-wide'], true)) {
             return null;
         }
 
-        $candidateKeys = $type === 'logo'
-            ? ['system.logo', 'system_logo']
-            : ['system.favicon', 'system_favicon', 'system.logo', 'system_logo'];
+        $candidateKeys = match ($type) {
+            'logo' => ['system.logo', 'system_logo'],
+            'logo-wide' => ['system.logo_wide', 'system_logo_wide'],
+            default => ['system.favicon', 'system_favicon', 'system.logo', 'system_logo'],
+        };
 
         foreach ($candidateKeys as $key) {
             $path = SettingService::get($key);
             if (self::isValidStoredAssetPath($path)) {
                 return $path;
             }
+        }
+
+        if ($type === 'logo-wide') {
+            return null;
         }
 
         return self::latestBrandingFile(
@@ -147,7 +154,7 @@ class BrandingService
     /**
      * Sinkronkan path logo/favicon di database dengan file terbaru di folder branding/.
      *
-     * @return array{logo: ?string, favicon: ?string}
+     * @return array{logo: ?string, favicon: ?string, logo_wide: ?string}
      */
     public static function repairStoredPaths(): array
     {
@@ -156,17 +163,23 @@ class BrandingService
             SettingService::set('system.logo', $logoPath);
         }
 
+        $logoWidePath = self::resolveAssetPath('logo-wide');
+        if ($logoWidePath) {
+            SettingService::set('system.logo_wide', $logoWidePath);
+        }
+
         $faviconPath = self::resolveAssetPath('favicon');
         if ($faviconPath) {
             SettingService::set('system.favicon', $faviconPath);
         }
 
-        if ($logoPath || $faviconPath) {
+        if ($logoPath || $logoWidePath || $faviconPath) {
             self::bumpVersion();
         }
 
         return [
             'logo' => $logoPath,
+            'logo_wide' => $logoWidePath,
             'favicon' => $faviconPath,
         ];
     }
@@ -231,7 +244,9 @@ class BrandingService
             'system.company_address',
             'system.company_website',
             'system.logo',
+            'system.logo_wide',
             'system.favicon',
+            'system_logo_wide',
             'system_logo',
             'system_favicon',
             'system.footer_copyright',

@@ -5,6 +5,7 @@ import PullToRefresh from '../../Components/PullToRefresh';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline from '../../Components/BrandingTagline';
+import BrandingLogo, { hasWideLogo } from '../../Components/BrandingLogo';
 
 export default function Login() {
     const { branding = {} } = usePage().props;
@@ -31,17 +32,21 @@ export default function Login() {
                 <div className="flex-1 flex items-center justify-center p-6">
                 <div className="w-full max-w-md bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-8 shadow-2xl space-y-6">
                     <div className="text-center space-y-2">
-                        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-2 overflow-hidden">
-                            {branding.logo_url ? (
-                                <img src={branding.logo_url} alt={branding.company_name} className="w-full h-full object-contain p-2" />
-                            ) : (
-                                <Wifi className="w-7 h-7" />
-                            )}
-                        </div>
+                        {hasWideLogo(branding) ? (
+                            <div className="flex justify-center mb-3">
+                                <BrandingLogo branding={branding} variant="hero" alt={branding.company_name} />
+                            </div>
+                        ) : (
+                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-2 overflow-hidden">
+                                <BrandingLogo branding={branding} variant="hero" alt={branding.company_name} fallbackClassName="w-7 h-7" />
+                            </div>
+                        )}
                         <h2 className="text-2xl font-bold tracking-tight text-white">Selamat Datang</h2>
+                        {!hasWideLogo(branding) && (
                         <p className="text-slate-400 text-sm">
                             Masuk ke Panel Kontrol {branding.company_name || branding.app_name || 'mWiFi'}
                         </p>
+                        )}
                         <BrandingTagline lines={3} className="text-slate-500 text-[11px] leading-relaxed">
                             {branding.company_tagline}
                         </BrandingTagline>

@@ -30,6 +30,22 @@ class BrandingAssetTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_branding_logo_wide_is_served_via_laravel_route(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('branding/test-logo-wide.png', 'fake-wide-png');
+
+        SettingService::set('system.logo_wide', 'branding/test-logo-wide.png');
+        BrandingService::clearBrandingCache();
+
+        $branding = BrandingService::get();
+
+        $this->assertNotNull($branding['logo_wide_url']);
+        $this->assertStringContainsString('/branding/logo-wide', $branding['logo_wide_url']);
+
+        $this->get('/branding/logo-wide')->assertOk();
+    }
+
     public function test_branding_logo_returns_404_when_missing(): void
     {
         Storage::fake('public');

@@ -27,6 +27,7 @@ import PullToRefresh from '../Components/PullToRefresh';
 import SeoHead from '../Components/SeoHead';
 import PublicSiteFooter from '../Components/PublicSiteFooter';
 import BrandingTagline from '../Components/BrandingTagline';
+import BrandingLogo, { hasWideLogo } from '../Components/BrandingLogo';
 import { useScheduledTheme } from '../hooks/useScheduledTheme';
 import { getLandingTheme } from '../utils/landingTheme';
 
@@ -231,21 +232,13 @@ export default function Welcome({
                 <header className={t.header}>
                     <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
                         {/* Logo & Brand */}
-                        <Link href="/" onClick={handleBerandaNav} className="flex items-center gap-3 group">
-                            {branding.logo_url ? (
-                                <img
-                                    src={branding.logo_url}
-                                    alt=""
-                                    className="w-9 h-9 object-contain"
-                                />
-                            ) : (
-                                <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-sky-500 text-white font-extrabold shadow-md shadow-indigo-600/10 overflow-hidden">
-                                    <Server className="w-4 h-4" />
-                                </div>
-                            )}
+                        <Link href="/" onClick={handleBerandaNav} className="flex items-center gap-3 group min-w-0">
+                            <BrandingLogo branding={branding} variant="header" alt="" />
+                            {!hasWideLogo(branding) && (
                             <span className={t.brand}>
                                 {companyName}
                             </span>
+                            )}
                         </Link>
 
                         {/* Desktop Navigation */}

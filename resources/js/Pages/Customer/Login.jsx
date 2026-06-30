@@ -5,6 +5,7 @@ import PullToRefresh from '../../Components/PullToRefresh';
 import SeoHead from '../../Components/SeoHead';
 import AppFooter from '../../Components/AppFooter';
 import BrandingTagline from '../../Components/BrandingTagline';
+import BrandingLogo, { hasWideLogo } from '../../Components/BrandingLogo';
 
 export default function CustomerLogin({ phone: initialPhone = '', otp_sent: otpSent = false, masked_phone: maskedPhone = null }) {
     const { branding = {}, flash = {} } = usePage().props;
@@ -49,13 +50,15 @@ export default function CustomerLogin({ phone: initialPhone = '', otp_sent: otpS
                 <div className="flex-1 flex items-center justify-center p-6">
                     <div className="w-full max-w-md bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-8 shadow-2xl space-y-6">
                         <div className="text-center space-y-2">
-                            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20 mb-2 overflow-hidden">
-                                {branding.logo_url ? (
-                                    <img src={branding.logo_url} alt={branding.company_name} className="w-full h-full object-contain p-2" />
-                                ) : (
-                                    <Wifi className="w-7 h-7" />
-                                )}
-                            </div>
+                            {hasWideLogo(branding) ? (
+                                <div className="flex justify-center mb-3">
+                                    <BrandingLogo branding={branding} variant="hero" alt={branding.company_name} />
+                                </div>
+                            ) : (
+                                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20 mb-2 overflow-hidden">
+                                    <BrandingLogo branding={branding} variant="hero" alt={branding.company_name} fallbackClassName="w-7 h-7" />
+                                </div>
+                            )}
                             <h2 className="text-2xl font-bold tracking-tight text-white">Portal Pelanggan</h2>
                             <p className="text-slate-400 text-sm">
                                 Masuk dengan OTP WhatsApp ke nomor yang terdaftar

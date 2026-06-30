@@ -20,6 +20,7 @@ import {
     X,
 } from 'lucide-react';
 import BrandingTagline, { BrandingCompanyName } from '../BrandingTagline';
+import BrandingLogo, { hasWideLogo } from '../BrandingLogo';
 import SidebarMountain from './SidebarMountain';
 
 export const adminNavItems = [
@@ -76,17 +77,14 @@ export default function AdminSidebar({
                     key={`sidebar-brand-${branding.version}`}
                 >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
-                        {branding.logo_url ? (
-                            <img
-                                src={branding.logo_url}
-                                alt={branding.company_name || branding.app_name || 'Logo'}
-                                className="w-9 h-9 object-contain shrink-0"
-                            />
-                        ) : (
-                            <div className="w-7 h-7 rounded-lg noc-sidebar-logo flex items-center justify-center shrink-0">
-                                <Wifi className="w-4 h-4 text-white" />
-                            </div>
-                        )}
+                        <BrandingLogo
+                            branding={branding}
+                            variant="sidebar"
+                            alt={branding.company_name || branding.app_name || 'Logo'}
+                            fallbackIcon={Wifi}
+                            fallbackClassName="w-4 h-4 text-white"
+                        />
+                        {!hasWideLogo(branding) && (
                         <div className="min-w-0 flex-1 overflow-hidden">
                             <BrandingCompanyName className={`text-xs font-black tracking-wide ${sidebarTextTitle}`}>
                                 {branding.company_name || branding.app_name || ''}
@@ -98,6 +96,7 @@ export default function AdminSidebar({
                                 {branding.company_tagline}
                             </BrandingTagline>
                         </div>
+                        )}
                     </div>
                     {showCloseButton && (
                         <button

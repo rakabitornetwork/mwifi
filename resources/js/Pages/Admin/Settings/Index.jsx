@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import BrandingFileUpload from '../../../Components/Admin/BrandingFileUpload';
+import BrandingLogo from '../../../Components/BrandingLogo';
 import SettingsSectionCard from '../../../Components/Admin/SettingsSectionCard';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 
@@ -233,21 +234,43 @@ function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl =
                         <div className={`border rounded-xl p-4 space-y-3 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
                             <div className="flex items-center gap-2">
                                 <ImageIcon className="w-4 h-4 text-emerald-500" />
-                                <span className={`font-bold ${themeTextTitle}`}>Logo Perusahaan</span>
+                                <span className={`font-bold ${themeTextTitle}`}>Logo Panjang</span>
+                            </div>
+                            <div className={`min-h-24 rounded-lg flex items-center justify-center overflow-hidden px-3 py-2 ${isDarkMode ? 'bg-zinc-900/40' : 'bg-zinc-50/80'}`}>
+                                {branding.logo_wide_url ? (
+                                    <img src={branding.logo_wide_url} alt="Logo panjang" className="max-h-24 max-w-full object-contain" />
+                                ) : (
+                                    <span className={`text-[10px] ${themeTextDesc}`}>Belum ada logo panjang</span>
+                                )}
+                            </div>
+                            <BrandingFileUpload
+                                key={`logo-wide-upload-${branding.version}`}
+                                name="system[logo_wide]"
+                                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                                buttonLabel="Pilih & Upload Logo Panjang"
+                                hint="Format: PNG, JPG, WEBP, SVG · Maks. 3MB · Rasio horizontal (mis. logo TESLATECH) untuk header, login, dan sidebar."
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+
+                        <div className={`border rounded-xl p-4 space-y-3 ${isDarkMode ? 'border-zinc-800 bg-zinc-950/30' : 'border-zinc-200 bg-zinc-50/80'}`}>
+                            <div className="flex items-center gap-2">
+                                <ImageIcon className="w-4 h-4 text-sky-500" />
+                                <span className={`font-bold ${themeTextTitle}`}>Logo Ikon (opsional)</span>
                             </div>
                             <div className={`h-24 rounded-lg flex items-center justify-center overflow-hidden ${isDarkMode ? 'bg-zinc-900/40' : 'bg-zinc-50/80'}`}>
                                 {branding.logo_url ? (
-                                    <img src={branding.logo_url} alt="Logo" className="max-h-20 max-w-full object-contain p-2" />
+                                    <BrandingLogo branding={branding} variant="preview" alt="Logo ikon" />
                                 ) : (
-                                    <span className={`text-[10px] ${themeTextDesc}`}>Belum ada logo</span>
+                                    <span className={`text-[10px] ${themeTextDesc}`}>Belum ada logo ikon</span>
                                 )}
                             </div>
                             <BrandingFileUpload
                                 key={`logo-upload-${branding.version}`}
                                 name="system[logo]"
                                 accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                                buttonLabel="Pilih & Upload Logo"
-                                hint="Format: PNG, JPG, WEBP, SVG · Maks. 2MB · Tampil di sidebar admin & portal pelanggan."
+                                buttonLabel="Pilih & Upload Logo Ikon"
+                                hint="Format: PNG, JPG, WEBP, SVG · Maks. 2MB · Versi persegi/kecil; dipakai jika logo panjang belum diunggah."
                                 isDarkMode={isDarkMode}
                             />
                         </div>

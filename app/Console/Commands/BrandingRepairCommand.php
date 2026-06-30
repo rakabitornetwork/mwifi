@@ -19,7 +19,7 @@ class BrandingRepairCommand extends Command
         $this->line('  system.logo DB   : ' . ($this->formatSetting('system.logo')));
         $this->line('  system.favicon DB: ' . ($this->formatSetting('system.favicon')));
         $this->line('  system_logo DB   : ' . ($this->formatSetting('system_logo')));
-        $this->line('  system_favicon DB: ' . ($this->formatSetting('system_favicon')));
+        $this->line('  system.logo_wide DB: ' . ($this->formatSetting('system.logo_wide')));
 
         $files = Storage::disk('public')->exists('branding')
             ? Storage::disk('public')->files('branding')
@@ -29,17 +29,20 @@ class BrandingRepairCommand extends Command
 
         if ($this->option('check')) {
             $logo = BrandingService::resolveAssetPath('logo');
+            $logoWide = BrandingService::resolveAssetPath('logo-wide');
             $favicon = BrandingService::resolveAssetPath('favicon');
-            $this->line('  Resolve logo   : ' . ($logo ?: '(tidak ditemukan)'));
-            $this->line('  Resolve favicon: ' . ($favicon ?: '(tidak ditemukan)'));
+            $this->line('  Resolve logo      : ' . ($logo ?: '(tidak ditemukan)'));
+            $this->line('  Resolve logo-wide : ' . ($logoWide ?: '(tidak ditemukan)'));
+            $this->line('  Resolve favicon   : ' . ($favicon ?: '(tidak ditemukan)'));
 
             return Command::SUCCESS;
         }
 
         $result = BrandingService::repairStoredPaths();
 
-        $this->info('Logo   : ' . ($result['logo'] ?: 'tidak ditemukan'));
-        $this->info('Favicon: ' . ($result['favicon'] ?: 'tidak ditemukan'));
+        $this->info('Logo      : ' . ($result['logo'] ?: 'tidak ditemukan'));
+        $this->info('Logo wide : ' . ($result['logo_wide'] ?: 'tidak ditemukan'));
+        $this->info('Favicon   : ' . ($result['favicon'] ?: 'tidak ditemukan'));
         $this->line('Cache branding dibersihkan. Uji: /branding/logo');
 
         return Command::SUCCESS;

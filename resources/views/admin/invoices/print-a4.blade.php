@@ -35,6 +35,7 @@
         }
         .brand-block { display: flex; align-items: center; gap: 12px; flex: 1; }
         .brand-logo { height: 18mm; max-width: 36mm; object-fit: contain; }
+        .brand-logo--wide { max-width: 72mm; height: 16mm; }
         .brand-name { font-size: 20px; font-weight: 800; color: #065f46; }
         .brand-meta { font-size: 11px; color: #6b7280; margin-top: 4px; line-height: 1.5; }
         .doc-title { text-align: right; }

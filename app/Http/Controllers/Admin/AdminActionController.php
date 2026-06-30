@@ -1772,11 +1772,13 @@ class AdminActionController extends Controller
             'whatsapp.bulk_window_seconds' => 'nullable|integer|min:6|max:7200',
             'mikrotik.isolir_profile' => 'nullable|string|max:64',
             'mikrotik.isolir_source_router_id' => 'nullable|exists:routers,id',
-            'system.logo' => ['nullable', 'file', 'max:2048', $this->brandingImageRule('Logo', ['jpg', 'jpeg', 'png', 'webp', 'svg'])],
+            'system.logo' => ['nullable', 'file', 'max:2048', $this->brandingImageRule('Logo ikon', ['jpg', 'jpeg', 'png', 'webp', 'svg'])],
+            'system.logo_wide' => ['nullable', 'file', 'max:3072', $this->brandingImageRule('Logo panjang', ['jpg', 'jpeg', 'png', 'webp', 'svg'])],
             'system.favicon' => ['nullable', 'file', 'max:512', $this->brandingImageRule('Favicon', ['jpg', 'jpeg', 'png', 'webp', 'ico'])],
         ]);
 
         $logoUploaded = $this->storeBrandingUpload($request, 'system.logo');
+        $logoWideUploaded = $this->storeBrandingUpload($request, 'system.logo_wide');
         $faviconUploaded = $this->storeBrandingUpload($request, 'system.favicon');
 
         $taxEnabled = in_array($request->input('system.tax_enabled'), ['1', 1, true], true);
@@ -1798,7 +1800,7 @@ class AdminActionController extends Controller
         ];
 
         $flatSettings = Arr::dot($request->except(['_token']));
-        $skipKeys = ['system.logo', 'system.favicon', 'system.tax_enabled', 'system.tax_rate_percent'];
+        $skipKeys = ['system.logo', 'system.logo_wide', 'system.favicon', 'system.tax_enabled', 'system.tax_rate_percent'];
 
         foreach ($flatSettings as $key => $value) {
             if (in_array($key, $skipKeys, true)) {
@@ -1830,7 +1832,10 @@ class AdminActionController extends Controller
 
         $message = 'Pengaturan berhasil diperbarui.';
         if ($logoUploaded) {
-            $message .= ' Logo berhasil diunggah.';
+            $message .= ' Logo ikon berhasil diunggah.';
+        }
+        if ($logoWideUploaded) {
+            $message .= ' Logo panjang berhasil diunggah.';
         }
         if ($faviconUploaded) {
             $message .= ' Favicon berhasil diunggah.';

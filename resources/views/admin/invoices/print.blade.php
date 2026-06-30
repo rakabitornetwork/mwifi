@@ -139,6 +139,11 @@
             flex-shrink: 0;
         }
 
+        .brand-logo--wide {
+            max-width: 56mm;
+            height: 12mm;
+        }
+
         .brand-text {
             min-width: 0;
         }
@@ -356,8 +361,12 @@
         <div class="invoice-slip invoice-slip--{{ $position }}">
             <div class="slip-header">
                 <div class="brand-block">
-                    @if(!empty($branding['logo_url']))
-                        <img src="{{ $branding['logo_url'] }}" alt="{{ $companyName }}" class="brand-logo">
+                    @if(!empty($branding['logo_wide_url']) || !empty($branding['logo_url']))
+                        <img
+                            src="{{ $branding['logo_wide_url'] ?? $branding['logo_url'] }}"
+                            alt="{{ $companyName }}"
+                            class="brand-logo{{ !empty($branding['logo_wide_url']) ? ' brand-logo--wide' : '' }}"
+                        >
                     @endif
                     <div class="brand-text">
                         <div class="brand-name">{{ $companyName }}</div>

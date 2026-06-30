@@ -18,8 +18,12 @@
 
 <div class="slip-header">
     <div class="brand-block">
-        @if(empty($hideLogo) && !empty($branding['logo_url']))
-            <img src="{{ $branding['logo_url'] }}" alt="{{ $companyName }}" class="brand-logo">
+        @if(empty($hideLogo) && (!empty($branding['logo_wide_url']) || !empty($branding['logo_url'])))
+            <img
+                src="{{ $branding['logo_wide_url'] ?? $branding['logo_url'] }}"
+                alt="{{ $companyName }}"
+                class="brand-logo{{ !empty($branding['logo_wide_url']) ? ' brand-logo--wide' : '' }}"
+            >
         @endif
         <div class="brand-text">
             <div class="brand-name">{{ $companyName }}</div>

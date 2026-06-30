@@ -1,16 +1,17 @@
 import { Link } from '@inertiajs/react';
+import BrandingLogo, { hasWideLogo } from './BrandingLogo';
 
 const DEFAULT_TAGLINE =
     'Penyedia jasa teknologi informasi: pembuatan website & aplikasi, cloud VPS & web hosting, '
     + 'serta konsultasi IT dan instalasi jaringan kantor di Indonesia.';
 
 function BrandMark({ branding, isDark }) {
-    if (branding.logo_url) {
+    if (branding.logo_wide_url || branding.logo_url) {
         return (
-            <img
-                src={branding.logo_url}
+            <BrandingLogo
+                branding={branding}
+                variant="footer"
                 alt=""
-                className="w-9 h-9 rounded-lg object-contain bg-transparent"
             />
         );
     }
@@ -55,11 +56,13 @@ export default function PublicSiteFooter({
             <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-8">
                 <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr] gap-10 md:gap-8">
                     <div>
-                        <Link href="/" className="inline-flex items-center gap-2.5 mb-4 group">
+                        <Link href="/" className="inline-flex items-center gap-2.5 mb-4 group min-w-0">
                             <BrandMark branding={branding} isDark={isDark} />
+                            {!hasWideLogo(branding) && (
                             <span className={`text-sm font-extrabold tracking-[0.12em] transition-colors ${isDark ? 'text-slate-200 group-hover:text-indigo-400' : 'text-slate-800 group-hover:text-sky-700'}`}>
                                 {brandLabel}
                             </span>
+                            )}
                         </Link>
                         <p className={`text-sm leading-relaxed max-w-md ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
                             {tagline}
