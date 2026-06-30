@@ -71,59 +71,59 @@ export default function AdminSidebar({
 }) {
     return (
         <div className="flex flex-col h-full min-h-0 w-full">
-            <div className="flex-1 min-h-0 overflow-y-auto">
-                <div
-                    className={`relative ${hasWideLogo(branding) ? 'h-20' : 'h-16'} px-4 flex items-center shrink-0 ${themeBrandBar} ${
-                        !hasWideLogo(branding) && showCloseButton ? 'justify-between gap-2' : !hasWideLogo(branding) ? 'gap-2.5' : 'justify-center'
-                    }`}
-                    key={`sidebar-brand-${branding.version}`}
-                >
-                    {hasWideLogo(branding) ? (
-                        <div className="flex w-full justify-center px-6">
-                            <BrandingLogo
-                                branding={branding}
-                                variant="sidebar"
-                                alt={branding.company_name || branding.app_name || 'Logo'}
-                                fallbackIcon={Wifi}
-                                fallbackClassName="w-4 h-4 text-white"
-                            />
+            <div
+                className={`admin-topbar relative flex items-center shrink-0 px-2.5 ${themeBrandBar} ${
+                    !hasWideLogo(branding) && showCloseButton ? 'justify-between gap-2' : !hasWideLogo(branding) ? 'gap-2.5 px-4' : 'justify-center'
+                }`}
+                key={`sidebar-brand-${branding.version}`}
+            >
+                {hasWideLogo(branding) ? (
+                    <div className="flex h-full w-full items-center justify-center min-w-0">
+                        <BrandingLogo
+                            branding={branding}
+                            variant="sidebar"
+                            alt={branding.company_name || branding.app_name || 'Logo'}
+                            fallbackIcon={Wifi}
+                            fallbackClassName="w-4 h-4 text-white"
+                        />
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden h-full">
+                        <BrandingLogo
+                            branding={branding}
+                            variant="sidebar"
+                            alt={branding.company_name || branding.app_name || 'Logo'}
+                            fallbackIcon={Wifi}
+                            fallbackClassName="w-4 h-4 text-white"
+                        />
+                        <div className="min-w-0 flex-1 overflow-hidden">
+                            <BrandingCompanyName className={`text-xs font-black tracking-wide ${sidebarTextTitle}`}>
+                                {branding.company_name || branding.app_name || ''}
+                            </BrandingCompanyName>
+                            <BrandingTagline
+                                lines={2}
+                                className={`text-[8px] font-bold ${sidebarTextDesc} tracking-wide uppercase mt-0.5`}
+                            >
+                                {branding.company_tagline}
+                            </BrandingTagline>
                         </div>
-                    ) : (
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1 overflow-hidden">
-                            <BrandingLogo
-                                branding={branding}
-                                variant="sidebar"
-                                alt={branding.company_name || branding.app_name || 'Logo'}
-                                fallbackIcon={Wifi}
-                                fallbackClassName="w-4 h-4 text-white"
-                            />
-                            <div className="min-w-0 flex-1 overflow-hidden">
-                                <BrandingCompanyName className={`text-xs font-black tracking-wide ${sidebarTextTitle}`}>
-                                    {branding.company_name || branding.app_name || ''}
-                                </BrandingCompanyName>
-                                <BrandingTagline
-                                    lines={2}
-                                    className={`text-[8px] font-bold ${sidebarTextDesc} tracking-wide uppercase mt-0.5`}
-                                >
-                                    {branding.company_tagline}
-                                </BrandingTagline>
-                            </div>
-                        </div>
-                    )}
-                    {showCloseButton && (
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className={`p-1.5 rounded-lg border border-white/20 text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0 ${
-                                hasWideLogo(branding) ? 'absolute right-3 top-1/2 -translate-y-1/2' : ''
-                            }`}
-                            aria-label="Tutup menu"
-                        >
-                            <X className="w-4 h-4" />
-                        </button>
-                    )}
-                </div>
+                    </div>
+                )}
+                {showCloseButton && (
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className={`p-1.5 rounded-lg border border-white/20 text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0 ${
+                            hasWideLogo(branding) ? 'absolute right-2 top-1/2 -translate-y-1/2' : ''
+                        }`}
+                        aria-label="Tutup menu"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                )}
+            </div>
 
+            <div className="flex-1 min-h-0 overflow-y-auto">
                 <nav className="p-2.5 space-y-0.5">
                     {adminNavItems
                         .filter(({ tab }) => (auth?.user?.allowed_tabs || []).includes(tab))

@@ -17,7 +17,7 @@ export default function AdminNavbar({
     } = theme;
 
     return (
-        <header className={`h-16 ${themeHeader} flex items-center justify-between gap-3 px-4 sm:px-6 z-10 transition-colors duration-250`}>
+        <header className={`admin-topbar ${themeHeader} flex items-center justify-between gap-3 px-4 sm:px-6 z-10 transition-colors duration-250`}>
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                 <button
                     type="button"

@@ -6,7 +6,7 @@ const VARIANTS = {
         square: 'h-9 w-9 object-contain shrink-0',
     },
     sidebar: {
-        wide: 'h-11 max-w-[220px] w-auto object-contain shrink-0 mx-auto',
+        wide: 'h-12 max-h-12 max-w-[12.75rem] w-auto object-contain shrink-0 mx-auto',
         square: 'h-9 w-9 object-contain shrink-0',
     },
     header: {

@@ -47,6 +47,14 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+/* Tinggi bar atas admin: sidebar brand + navbar kanan harus sama */
+.admin-topbar {
+    height: 4rem;
+    min-height: 4rem;
+    max-height: 4rem;
+    flex-shrink: 0;
+}
+
 .noc-brand-bar-light {
     background-color: var(--noc-brand-solid-light);
     box-shadow: inset -1px 0 0 var(--noc-brand-navbar-separator-light);
