@@ -140,8 +140,8 @@
         }
 
         .brand-logo--wide {
-            max-width: 56mm;
-            height: 12mm;
+            max-width: 80mm;
+            height: 18mm;
         }
 
         .brand-text {

@@ -236,9 +236,9 @@ function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl =
                                 <ImageIcon className="w-4 h-4 text-emerald-500" />
                                 <span className={`font-bold ${themeTextTitle}`}>Logo Panjang</span>
                             </div>
-                            <div className={`min-h-24 rounded-lg flex items-center justify-center overflow-hidden px-3 py-2 ${isDarkMode ? 'bg-zinc-900/40' : 'bg-zinc-50/80'}`}>
+                            <div className={`min-h-28 rounded-lg flex items-center justify-center overflow-hidden px-4 py-3 ${isDarkMode ? 'bg-zinc-900/40' : 'bg-zinc-50/80'}`}>
                                 {branding.logo_wide_url ? (
-                                    <img src={branding.logo_wide_url} alt="Logo panjang" className="max-h-24 max-w-full object-contain" />
+                                    <img src={branding.logo_wide_url} alt="Logo panjang" className="max-h-28 max-w-full object-contain mx-auto" />
                                 ) : (
                                     <span className={`text-[10px] ${themeTextDesc}`}>Belum ada logo panjang</span>
                                 )}

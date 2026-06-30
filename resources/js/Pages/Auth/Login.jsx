@@ -33,7 +33,7 @@ export default function Login() {
                 <div className="w-full max-w-md bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 rounded-2xl p-8 shadow-2xl space-y-6">
                     <div className="text-center space-y-2">
                         {hasWideLogo(branding) ? (
-                            <div className="flex justify-center mb-3">
+                            <div className="flex justify-center w-full mb-4 px-2">
                                 <BrandingLogo branding={branding} variant="hero" alt={branding.company_name} />
                             </div>
                         ) : (
