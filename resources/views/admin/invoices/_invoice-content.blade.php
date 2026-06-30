@@ -16,23 +16,12 @@
         : '';
 @endphp
 
-<div class="slip-header">
-    <div class="brand-block">
-        @if(empty($hideLogo) && (!empty($branding['logo_wide_url']) || !empty($branding['logo_url'])))
-            <img
-                src="{{ $branding['logo_wide_url'] ?? $branding['logo_url'] }}"
-                alt="{{ $companyName }}"
-                class="brand-logo{{ !empty($branding['logo_wide_url']) ? ' brand-logo--wide' : '' }}"
-            >
-        @endif
-        <div class="brand-text">
-            <div class="brand-name">{{ $companyName }}</div>
-            <div class="brand-meta">
-                @if(!empty($branding['company_phone'])){{ $branding['company_phone'] }}@endif
-                @if(!empty($branding['company_address']))<br>{{ $branding['company_address'] }}@endif
-            </div>
-        </div>
-    </div>
+@php
+    $hasWideInvoiceLogo = !empty($branding['logo_wide_url']);
+@endphp
+
+<div class="slip-header{{ $hasWideInvoiceLogo ? ' slip-header--wide-brand' : '' }}">
+    @include('admin.invoices._invoice-brand-header')
     <div class="doc-title">
         <h1>{{ $isPaid ? 'BUKTI BAYAR' : 'INVOICE' }}</h1>
         <p>{{ $invoice->invoice_number }}</p>

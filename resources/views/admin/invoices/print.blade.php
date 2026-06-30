@@ -123,30 +123,7 @@
             margin-bottom: 8px;
         }
 
-        .brand-block {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            min-width: 0;
-            flex: 1;
-        }
-
-        .brand-logo {
-            width: auto;
-            height: 14mm;
-            max-width: 28mm;
-            object-fit: contain;
-            flex-shrink: 0;
-        }
-
-        .brand-logo--wide {
-            max-width: 80mm;
-            height: 18mm;
-        }
-
-        .brand-text {
-            min-width: 0;
-        }
+@include('admin.invoices._invoice-brand-styles')
 
         .brand-name {
             font-size: 15px;
@@ -313,9 +290,13 @@
                 print-color-adjust: exact;
             }
 
-            .brand-logo {
+            .brand-logo:not(.brand-logo--wide) {
                 height: 13mm;
                 max-width: 26mm;
+            }
+
+            .brand-logo--wide {
+                max-height: 15mm;
             }
 
             .toolbar,
@@ -359,24 +340,11 @@
         <div class="half-guide-label">Garis potong / sisa kertas A4</div>
 
         <div class="invoice-slip invoice-slip--{{ $position }}">
-            <div class="slip-header">
-                <div class="brand-block">
-                    @if(!empty($branding['logo_wide_url']) || !empty($branding['logo_url']))
-                        <img
-                            src="{{ $branding['logo_wide_url'] ?? $branding['logo_url'] }}"
-                            alt="{{ $companyName }}"
-                            class="brand-logo{{ !empty($branding['logo_wide_url']) ? ' brand-logo--wide' : '' }}"
-                        >
-                    @endif
-                    <div class="brand-text">
-                        <div class="brand-name">{{ $companyName }}</div>
-                        <div class="brand-meta">
-                            @if(!empty($branding['company_address'])){{ $branding['company_address'] }}<br>@endif
-                            @if(!empty($branding['company_phone']))Telp: {{ $branding['company_phone'] }}@endif
-                            @if(!empty($branding['company_email'])) · {{ $branding['company_email'] }}@endif
-                        </div>
-                    </div>
-                </div>
+            @php
+                $hasWideInvoiceLogo = !empty($branding['logo_wide_url']);
+            @endphp
+            <div class="slip-header{{ $hasWideInvoiceLogo ? ' slip-header--wide-brand' : '' }}">
+                @include('admin.invoices._invoice-brand-header')
                 <div class="doc-title">
                     <h1>{{ $isPaid ? 'BUKTI TAGIHAN' : 'INVOICE' }}</h1>
                     <p>{{ $invoice->invoice_number }}</p>
