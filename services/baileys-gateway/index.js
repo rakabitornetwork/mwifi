@@ -109,6 +109,7 @@ function waitForOutboundAck(sock, messageKey, timeoutMs = ACK_WAIT_MS) {
 
     return new Promise((resolve, reject) => {
         let settled = false;
+        let pollTimer = null;
 
         const finish = (fn, value) => {
             if (settled) {
@@ -116,6 +117,9 @@ function waitForOutboundAck(sock, messageKey, timeoutMs = ACK_WAIT_MS) {
             }
             settled = true;
             clearTimeout(timer);
+            if (pollTimer) {
+                clearInterval(pollTimer);
+            }
             sock.ev.off('messages.update', onUpdate);
             fn(value);
         };
@@ -124,14 +128,26 @@ function waitForOutboundAck(sock, messageKey, timeoutMs = ACK_WAIT_MS) {
             finish(reject, new Error(describeDeliveryFailure(code)));
         };
 
-        if (messageId && outboundAckErrors.has(messageId)) {
+        const checkAckError = () => {
+            if (!messageId || !outboundAckErrors.has(messageId)) {
+                return false;
+            }
+
             failWithCode(outboundAckErrors.get(messageId));
+            return true;
+        };
+
+        if (checkAckError()) {
             return;
         }
 
+        // Error 463 masuk lewat log Baileys, bukan messages.update — poll map ack errors.
+        pollTimer = setInterval(() => {
+            checkAckError();
+        }, 300);
+
         const timer = setTimeout(() => {
-            if (messageId && outboundAckErrors.has(messageId)) {
-                failWithCode(outboundAckErrors.get(messageId));
+            if (checkAckError()) {
                 return;
             }
 
@@ -144,8 +160,7 @@ function waitForOutboundAck(sock, messageKey, timeoutMs = ACK_WAIT_MS) {
                     continue;
                 }
 
-                if (messageId && outboundAckErrors.has(messageId)) {
-                    failWithCode(outboundAckErrors.get(messageId));
+                if (checkAckError()) {
                     return;
                 }
 

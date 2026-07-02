@@ -445,6 +445,15 @@ class AdminActionController extends Controller
 
         $savedCustomer = Customer::updateOrCreate(['id' => $id], $data);
 
+        if ($savedCustomer->service_type === 'pppoe'
+            && BillingService::customerHasPendingServicePause($savedCustomer->fresh())) {
+            $pauseInvoice = BillingService::findPausePeriodInvoice($savedCustomer->fresh());
+            if ($pauseInvoice && $pauseInvoice->status === 'paid') {
+                BillingService::completePendingServicePause($savedCustomer->fresh(), $pauseInvoice);
+                $savedCustomer = $savedCustomer->fresh();
+            }
+        }
+
         if (
             $savedCustomer->service_type === 'pppoe'
             && $previousBillingDate !== null

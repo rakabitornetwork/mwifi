@@ -416,4 +416,64 @@ class BillingPaymentReactivationTest extends TestCase
         $this->assertTrue($success);
         Http::assertNothingSent();
     }
+
+    public function test_payment_does_not_reactivate_inactive_customer(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-25'));
+
+        $user = User::factory()->create();
+        $router = Router::create([
+            'name' => 'Router Test',
+            'host' => '127.0.0.1',
+            'port' => 8728,
+            'username' => 'admin',
+            'password' => 'secret',
+            'protocol_type' => 'legacy_socket',
+            'status' => false,
+        ]);
+        $package = Package::create([
+            'name' => 'Paket 150K',
+            'type' => 'pppoe',
+            'price' => 150000,
+            'bandwidth_limit' => '20M/20M',
+            'mikrotik_profile' => '20M',
+        ]);
+        $customer = Customer::create([
+            'user_id' => $user->id,
+            'router_id' => $router->id,
+            'package_id' => $package->id,
+            'service_type' => 'pppoe',
+            'username' => 'cust_inactive_' . uniqid(),
+            'password' => 'pass',
+            'name' => 'Pelanggan Nonaktif',
+            'phone_number' => '6281234567890',
+            'address' => 'Alamat test',
+            'status' => 'inactive',
+            'billing_date' => 25,
+            'service_start_date' => '2026-01-01',
+        ]);
+
+        $invoice = Invoice::create([
+            'customer_id' => $customer->id,
+            'invoice_number' => 'INV-202606-INACTIVE-TEST',
+            'billing_period' => '2026-06',
+            'amount' => 150000,
+            'days_billed' => 30,
+            'is_prorated' => false,
+            'tax' => 0,
+            'total_amount' => 150000,
+            'due_date' => '2026-06-20',
+            'status' => 'unpaid',
+        ]);
+
+        $success = BillingService::processPaidInvoice(
+            $invoice,
+            'manual',
+            'ADMIN-CASH-INACTIVE',
+            150000
+        );
+
+        $this->assertTrue($success);
+        $this->assertSame('inactive', $customer->fresh()->status);
+    }
 }

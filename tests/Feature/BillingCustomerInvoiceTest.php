@@ -323,6 +323,28 @@ class BillingCustomerInvoiceTest extends TestCase
         $this->assertSame('active', $customer->fresh()->status);
     }
 
+    public function test_reactivate_customer_if_billing_clear_does_not_restore_inactive_customer(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(11);
+        $customer->update(['status' => 'inactive']);
+
+        $this->assertFalse(BillingService::reactivateCustomerIfBillingClear($customer));
+        $this->assertSame('inactive', $customer->fresh()->status);
+    }
+
+    public function test_reactivate_customer_if_billing_clear_does_not_restore_suspended_customer(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        $customer = $this->makeCustomer(11);
+        $customer->update(['status' => 'suspended']);
+
+        $this->assertFalse(BillingService::reactivateCustomerIfBillingClear($customer));
+        $this->assertSame('suspended', $customer->fresh()->status);
+    }
+
     private function seedWhatsAppSettings(): void
     {
         Setting::updateOrCreate(['key' => 'whatsapp.enabled'], [

@@ -50,6 +50,39 @@ function getModalEmailValue(customer) {
     return customer.portal_email || '';
 }
 
+function resolveCustomerStatusDisplay(customer) {
+    const pendingPause = customer?.pending_pause_status;
+    if (pendingPause && ['inactive', 'suspended'].includes(pendingPause) && customer?.status === 'active') {
+        return {
+            label: `ACTIVE → ${pendingPause.toUpperCase()}`,
+            className: 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
+            title: 'Menunggu pembayaran tagihan pause sebelum status berubah.',
+        };
+    }
+
+    const status = customer?.status || 'active';
+    if (status === 'active') {
+        return {
+            label: 'ACTIVE',
+            className: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20',
+            title: null,
+        };
+    }
+    if (status === 'isolated') {
+        return {
+            label: 'ISOLATED',
+            className: 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
+            title: null,
+        };
+    }
+
+    return {
+        label: status.toUpperCase(),
+        className: 'bg-rose-500/10 text-rose-500 border border-rose-500/20',
+        title: null,
+    };
+}
+
 
 
 function CustomersPageContent({
@@ -920,13 +953,17 @@ function CustomersPageContent({
                                         <td className="py-3 px-2 font-mono text-[10px]">{cust.odp ? cust.odp.name : '—'}</td>
                                         <td className="py-3 px-2">{formatDisplayDate(resolveCustomerDueDate(cust))}</td>
                                         <td className="py-3 px-2">
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                                cust.status === 'active' ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' :
-                                                cust.status === 'isolated' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
-                                                'bg-rose-500/10 text-rose-500 border border-rose-500/20'
-                                            }`}>
-                                                {cust.status.toUpperCase()}
-                                            </span>
+                                            {(() => {
+                                                const statusDisplay = resolveCustomerStatusDisplay(cust);
+                                                return (
+                                                    <span
+                                                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${statusDisplay.className}`}
+                                                        title={statusDisplay.title || undefined}
+                                                    >
+                                                        {statusDisplay.label}
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                         <td className="py-3 px-2 text-right">
                                             <div className="admin-table-actions">

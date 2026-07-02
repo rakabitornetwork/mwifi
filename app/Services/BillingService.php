@@ -2159,7 +2159,11 @@ class BillingService
      */
     public static function reactivateCustomerIfBillingClear(Customer $customer): bool
     {
-        if (!in_array($customer->status, ['isolated', 'inactive', 'suspended'], true)) {
+        if ($customer->status !== 'isolated') {
+            return false;
+        }
+
+        if (self::customerHasPendingServicePause($customer)) {
             return false;
         }
 
@@ -2455,10 +2459,12 @@ class BillingService
             }
 
             $isVpsOrder = \App\Services\VpsCatalogService::isVpsInvoice($invoice);
-            $wasRestricted = $customer && in_array($customer->status, ['isolated', 'inactive', 'suspended'], true);
+            $wasIsolated = $customer && $customer->status === 'isolated';
             $shouldRestoreService = $customer
                 && ! $isVpsOrder
                 && ! $pauseCompleted
+                && $wasIsolated
+                && ! self::customerHasPendingServicePause($customer)
                 && ! self::customerHasPastDueUnpaidInvoices($customer, $invoice->id);
 
             if ($shouldRestoreService) {
@@ -2469,7 +2475,7 @@ class BillingService
                 try {
                     $message = self::buildPaidInvoiceWhatsAppMessage(
                         $invoice,
-                        includeReactivationNote: $shouldRestoreService && $wasRestricted
+                        includeReactivationNote: $shouldRestoreService && $wasIsolated
                     );
                     if ($message && class_exists(\App\Services\WhatsAppService::class)) {
                         \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
@@ -2836,7 +2842,9 @@ class BillingService
             ]);
 
             $customer->refresh();
-            self::reactivateCustomerOnRouter($customer);
+            if ($customer->status === 'isolated') {
+                self::reactivateCustomerOnRouter($customer);
+            }
 
             return $deferral;
         });
