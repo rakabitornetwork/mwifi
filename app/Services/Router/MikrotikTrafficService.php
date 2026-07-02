@@ -38,6 +38,55 @@ class MikrotikTrafficService
         return $traffic;
     }
 
+    /**
+     * Lighter traffic map for network map polling (skips full interface list fetch).
+     */
+    public static function fetchLightForConnector(RouterConnectorInterface $connector): array
+    {
+        $queueStats = $connector->getSimpleQueueTrafficStats();
+        $traffic = [];
+
+        foreach ($connector->getActiveConnections() as $session) {
+            $username = trim((string) ($session['name'] ?? ''));
+            if ($username === '') {
+                continue;
+            }
+
+            $rates = self::resolveCustomerRatesLight($username, $session, $queueStats);
+            self::assignTraffic($traffic, $username, $rates, true);
+        }
+
+        foreach ($connector->getHotspotActive() as $session) {
+            $username = trim((string) ($session['user'] ?? $session['name'] ?? ''));
+            if ($username === '') {
+                continue;
+            }
+
+            $rates = self::resolveCustomerRatesLight($username, $session, $queueStats);
+            self::assignTraffic($traffic, $username, $rates, true);
+        }
+
+        return $traffic;
+    }
+
+    private static function resolveCustomerRatesLight(
+        string $username,
+        array $session,
+        array $queueStats
+    ): array {
+        $fromSession = self::parseSessionRates($session);
+        if ($fromSession !== null) {
+            return $fromSession;
+        }
+
+        $fromQueue = self::matchQueueRates($username, $queueStats);
+        if ($fromQueue !== null) {
+            return $fromQueue;
+        }
+
+        return ['download_bps' => 0, 'upload_bps' => 0];
+    }
+
     private static function assignTraffic(array &$traffic, string $username, array $rates, bool $online): void
     {
         $entry = [

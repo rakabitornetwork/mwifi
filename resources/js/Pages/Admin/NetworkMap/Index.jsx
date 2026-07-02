@@ -19,7 +19,7 @@ import {
 } from '../../../utils/networkMapPopupMount.jsx';
 
 const METRICS_POLL_MS = 15000;
-const LIVE_TRAFFIC_POLL_MS = 3000;
+const LIVE_TRAFFIC_POLL_MS = 10000;
 
 const isPppoeCustomer = (cust) => cust?.service_type !== 'hotspot';
 
@@ -151,14 +151,54 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
     const canWriteRef = useRef(canWrite);
     canWriteRef.current = canWrite;
     const fetchNetworkMapMetricsRef = useRef(async () => {});
+    const metricsFetchInFlightRef = useRef(false);
+    const metricsAbortRef = useRef(null);
 
-    const fetchNetworkMapMetrics = async () => {
+    const fetchNetworkMapMetrics = async (force = false) => {
+        if (metricsFetchInFlightRef.current && !force) {
+            return;
+        }
+
+        metricsAbortRef.current?.abort();
+        const controller = new AbortController();
+        metricsAbortRef.current = controller;
+        metricsFetchInFlightRef.current = true;
+
         try {
-            const res = await fetch('/admin/network-map/metrics');
+            const params = new URLSearchParams();
+            const popupId = openCustomerPopupIdRef.current;
+            const cust = popupId
+                ? customersRef.current.find((c) => c.id === popupId)
+                : null;
+
+            if (cust?.router_id) {
+                params.set('router_id', String(cust.router_id));
+            }
+            if (force) {
+                params.set('refresh', '1');
+            }
+
+            const qs = params.toString() ? `?${params.toString()}` : '';
+            const res = await fetch(`/admin/network-map/metrics${qs}`, {
+                signal: controller.signal,
+                headers: { Accept: 'application/json' },
+            });
+
+            if (!res.ok) {
+                console.error('Failed to load network map metrics', res.status, res.statusText);
+                return;
+            }
+
             const data = await res.json();
             setNetworkMapMetrics(data);
         } catch (err) {
-            console.error('Failed to load network map metrics', err);
+            if (err?.name !== 'AbortError') {
+                console.error('Failed to load network map metrics', err);
+            }
+        } finally {
+            if (metricsAbortRef.current === controller) {
+                metricsFetchInFlightRef.current = false;
+            }
         }
     };
 
@@ -184,7 +224,7 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
             metrics,
             canWrite: canWriteRef.current,
             onWifiUpdated: () => {
-                fetchNetworkMapMetricsRef.current();
+                fetchNetworkMapMetricsRef.current(true);
             },
         });
     };
@@ -192,10 +232,15 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
     renderOpenCustomerPopupRef.current = renderOpenCustomerPopup;
 
     useEffect(() => {
+        openCustomerPopupIdRef.current = openCustomerPopupId;
         fetchNetworkMapMetrics();
         const intervalMs = openCustomerPopupId ? LIVE_TRAFFIC_POLL_MS : METRICS_POLL_MS;
-        const interval = setInterval(fetchNetworkMapMetrics, intervalMs);
-        return () => clearInterval(interval);
+        const interval = setInterval(() => fetchNetworkMapMetrics(), intervalMs);
+
+        return () => {
+            clearInterval(interval);
+            metricsAbortRef.current?.abort();
+        };
     }, [openCustomerPopupId]);
 
     useEffect(() => {

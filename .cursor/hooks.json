@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": "node .cursor/hooks/mark-frontend-build.mjs"
+      }
+    ],
+    "afterTabFileEdit": [
+      {
+        "command": "node .cursor/hooks/mark-frontend-build.mjs"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "node .cursor/hooks/mark-frontend-build.mjs",
+        "matcher": "Write"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node .cursor/hooks/run-frontend-build.mjs",
+        "timeout": 300
+      }
+    ]
+  }
+}

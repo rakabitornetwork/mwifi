@@ -39,10 +39,54 @@ class GenieAcsService
 
             throw new Exception('GenieACS returned no parseable ONT devices.');
         } catch (Exception $e) {
-            // Log warning but return beautiful fallback mock data matching default seeded customers
             Log::warning("GenieACS API is offline. Returning simulated mock ONT data. Detail: " . $e->getMessage());
 
-            return [
+            return self::fallbackMockOntDevices();
+        }
+    }
+
+    /**
+     * Lightweight ONT list for network map metrics (projection only, no full-device fallback).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function getOntDevicesForMap(): array
+    {
+        $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
+
+        try {
+            $rawDevices = self::fetchRawDevicesForMap($apiUrl);
+            $devices = [];
+
+            foreach ($rawDevices as $rawDev) {
+                if (!is_array($rawDev)) {
+                    continue;
+                }
+
+                $parsed = self::parseRawDevice($rawDev);
+                if ($parsed !== null) {
+                    $devices[] = $parsed;
+                }
+            }
+
+            if ($devices !== []) {
+                return $devices;
+            }
+
+            throw new Exception('GenieACS returned no parseable ONT devices for network map.');
+        } catch (Exception $e) {
+            Log::warning('GenieACS map metrics fallback: ' . $e->getMessage());
+
+            return self::fallbackMockOntDevices();
+        }
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function fallbackMockOntDevices(): array
+    {
+        return [
                 [
                     'id' => 'ZTEGC7A19B32_budi',
                     'sn' => 'ZTEGC7A19B32',
@@ -112,9 +156,8 @@ class GenieAcsService
                     'wifi_ssid' => null,
                     'wifi_password' => null,
                     'connected_devices' => null,
-                ]
+                ],
             ];
-        }
     }
 
     /**
@@ -566,6 +609,39 @@ class GenieAcsService
         }
 
         throw new Exception('GenieACS NBI API unreachable or returned invalid data.');
+    }
+
+    /**
+     * Projection-only device fetch for network map (avoids loading full TR-069 payloads).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function fetchRawDevicesForMap(string $apiUrl): array
+    {
+        $projectionFields = [
+            '_id',
+            '_lastInform',
+            'InternetGatewayDevice.DeviceInfo',
+            'Device.DeviceInfo',
+            'VirtualParameters',
+            'InternetGatewayDevice.WANDevice',
+            'Device.PPP.Interface',
+            'InternetGatewayDevice.LANDevice',
+            'Device.WiFi',
+        ];
+
+        $response = Http::timeout(8)
+            ->get("{$apiUrl}/devices", [
+                'projection' => implode(',', $projectionFields),
+            ]);
+
+        if (!$response->successful()) {
+            throw new Exception('GenieACS NBI API unreachable (HTTP ' . $response->status() . ').');
+        }
+
+        $data = $response->json();
+
+        return is_array($data) ? $data : [];
     }
 
     /**

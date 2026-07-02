@@ -30,3 +30,5 @@ Homestead.json
 auth.json
 implementationplan.md
 
+.cursor/.build-frontend.pending
+

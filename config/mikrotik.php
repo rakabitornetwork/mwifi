@@ -29,4 +29,8 @@ return [
 
     'package_profiles_cache_ttl' => max(30, (int) env('MIKROTIK_PACKAGE_PROFILES_CACHE_TTL', 180)),
 
+    'network_map_ont_cache_ttl' => max(10, (int) env('NETWORK_MAP_ONT_CACHE_TTL', 30)),
+
+    'network_map_traffic_cache_ttl' => max(3, (int) env('NETWORK_MAP_TRAFFIC_CACHE_TTL', 8)),
+
 ];
