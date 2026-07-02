@@ -741,14 +741,36 @@ app.post('/send-message', authMiddleware, async (req, res) => {
             });
         }
 
-        const jid = `${to}@s.whatsapp.net`;
-        await meta.sock.sendMessage(jid, { text });
+        let jid = `${to}@s.whatsapp.net`;
+
+        // Verifikasi nomor benar-benar terdaftar di WhatsApp. Tanpa ini, sendMessage
+        // ke JID yang tidak ada tetap "berhasil" (resolve) tapi pesan tidak pernah sampai.
+        try {
+            const [result] = await meta.sock.onWhatsApp(to);
+            if (!result?.exists) {
+                return res.status(422).json({
+                    success: false,
+                    message: `Nomor ${to} tidak terdaftar di WhatsApp.`,
+                    session: sanitizeSessionId(sessionId),
+                    to,
+                });
+            }
+            if (result.jid) {
+                jid = result.jid;
+            }
+        } catch (checkError) {
+            console.warn(`[send-message] onWhatsApp check failed for ${to}: ${checkError.message}`);
+        }
+
+        const sendResult = await meta.sock.sendMessage(jid, { text });
 
         return res.json({
             success: true,
             message: 'Message sent successfully',
             session: sanitizeSessionId(sessionId),
             to,
+            jid,
+            message_id: sendResult?.key?.id || null,
         });
     } catch (error) {
         console.error('send-message error:', error);

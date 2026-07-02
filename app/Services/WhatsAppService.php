@@ -100,8 +100,11 @@ class WhatsAppService
                     'text' => $message,
                 ]);
 
-            if ($response->successful()) {
-                Log::info("WhatsApp message sent successfully to {$to}.");
+            if ($response->successful() && $response->json('success') === true) {
+                Log::info("WhatsApp message sent successfully to {$to}.", [
+                    'jid' => $response->json('jid'),
+                    'message_id' => $response->json('message_id'),
+                ]);
                 self::recordBulkSend($config);
 
                 return true;
