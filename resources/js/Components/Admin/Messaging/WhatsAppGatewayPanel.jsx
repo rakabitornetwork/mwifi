@@ -80,14 +80,18 @@ export default function WhatsAppGatewayPanel({
                 return false;
             }
 
-            setWaSession({
+            setWaSession((prev) => ({
                 status: data.status || 'unknown',
                 has_qr: Boolean(data.has_qr),
-                qr_data_url: data.qr_data_url || null,
+                qr_data_url: data.has_qr
+                    ? (data.qr_data_url && data.qr_data_url !== prev.qr_data_url
+                        ? data.qr_data_url
+                        : (prev.qr_data_url || data.qr_data_url || null))
+                    : null,
                 last_error: data.last_error || null,
                 session: data.session || settingsMap['whatsapp.session_id'] || 'mwifi_session',
                 profile: data.profile || null,
-            });
+            }));
             setWaAvatarBroken(false);
 
             return data.status === 'open';
@@ -126,7 +130,7 @@ export default function WhatsAppGatewayPanel({
         };
 
         poll();
-        waSessionPollRef.current = setInterval(poll, 2500);
+        waSessionPollRef.current = setInterval(poll, 5000);
     }, [fetchWaSessionStatus, showToast, stopWaSessionPolling]);
 
     useEffect(() => () => stopWaSessionPolling(), [stopWaSessionPolling]);

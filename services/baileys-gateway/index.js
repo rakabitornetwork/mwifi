@@ -26,7 +26,7 @@ const SESSIONS_DIR = path.resolve(process.env.SESSIONS_DIR || './sessions');
 
 fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
-/** @type {Map<string, { sock: import('@whiskeysockets/baileys').WASocket | null, status: string, qr: string | null, lastError: string | null, profile: { id: string | null, name: string | null, picture_data_url: string | null, has_picture: boolean, picture_updated_at: number | null } | null, profileFetchedAt: number, profilePictureFetchedAt: number, profileFetchInFlight: boolean, initReadyAt: number, credsState: import('@whiskeysockets/baileys').AuthenticationState | null, profileAvatarPath: string | null }>} */
+/** @type {Map<string, { sock: import('@whiskeysockets/baileys').WASocket | null, status: string, qr: string | null, qrDataUrl: string | null, lastError: string | null, profile: { id: string | null, name: string | null, picture_data_url: string | null, has_picture: boolean, picture_updated_at: number | null } | null, profileFetchedAt: number, profilePictureFetchedAt: number, profileFetchInFlight: boolean, initReadyAt: number, credsState: import('@whiskeysockets/baileys').AuthenticationState | null, profileAvatarPath: string | null, reconnectTimer: ReturnType<typeof setTimeout> | null, reconnectAttempts: number }>} */
 const sessions = new Map();
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
@@ -71,6 +71,7 @@ function getSessionMeta(sessionId) {
             sock: null,
             status: 'idle',
             qr: null,
+            qrDataUrl: null,
             lastError: null,
             profile: null,
             profileFetchedAt: 0,
@@ -79,6 +80,8 @@ function getSessionMeta(sessionId) {
             initReadyAt: 0,
             credsState: null,
             profileAvatarPath: null,
+            reconnectTimer: null,
+            reconnectAttempts: 0,
         });
     }
     return { id, meta: sessions.get(id) };
@@ -413,14 +416,40 @@ async function ensureLinkedProfile(meta, sock, sessionLabel, force = false) {
     await refreshLinkedProfilePicture(meta, sock, sessionLabel, { forceNetwork: true });
 }
 
+function clearReconnectTimer(meta) {
+    if (meta.reconnectTimer) {
+        clearTimeout(meta.reconnectTimer);
+        meta.reconnectTimer = null;
+    }
+}
+
+async function renderQrDataUrl(meta) {
+    if (!meta.qr) {
+        meta.qrDataUrl = null;
+        return null;
+    }
+
+    try {
+        meta.qrDataUrl = await QRCode.toDataURL(meta.qr, { margin: 1, width: 280 });
+    } catch (error) {
+        console.error('Failed to render QR image:', error.message);
+        meta.qrDataUrl = null;
+    }
+
+    return meta.qrDataUrl;
+}
+
 async function connectSession(sessionId) {
     const { id, meta } = getSessionMeta(sessionId);
 
-    if (meta.sock && (meta.status === 'open' || meta.status === 'connecting')) {
+    // Jangan buat socket baru saat sesi sudah aktif (termasuk menunggu scan QR).
+    if (meta.sock && ['open', 'connecting', 'qr'].includes(meta.status)) {
         return meta;
     }
 
-    if (meta.sock && !['open', 'connecting'].includes(meta.status)) {
+    clearReconnectTimer(meta);
+
+    if (meta.sock && !['open', 'connecting', 'qr'].includes(meta.status)) {
         try {
             meta.sock.end(undefined);
         } catch (error) {
@@ -431,6 +460,8 @@ async function connectSession(sessionId) {
 
     meta.status = 'connecting';
     meta.lastError = null;
+    meta.qr = null;
+    meta.qrDataUrl = null;
 
     const authDir = path.join(SESSIONS_DIR, id);
     fs.mkdirSync(authDir, { recursive: true });
@@ -474,6 +505,9 @@ async function connectSession(sessionId) {
         if (qr) {
             meta.qr = qr;
             meta.status = 'qr';
+            renderQrDataUrl(meta).catch((err) => {
+                console.error(`[${id}] Failed to cache QR image:`, err.message);
+            });
             console.log(`[${id}] Scan QR code below to link WhatsApp:`);
             qrcode.generate(qr, { small: true });
         }
@@ -481,6 +515,9 @@ async function connectSession(sessionId) {
         if (connection === 'open') {
             meta.status = 'open';
             meta.qr = null;
+            meta.qrDataUrl = null;
+            meta.reconnectAttempts = 0;
+            clearReconnectTimer(meta);
             meta.lastError = null;
             markInitGracePeriod(meta);
             console.log(`[${id}] WhatsApp connected. Waiting ${INIT_QUERY_GRACE_MS}ms before profile picture fetch.`);
@@ -491,24 +528,35 @@ async function connectSession(sessionId) {
         if (connection === 'close') {
             meta.sock = null;
             meta.profile = null;
+            meta.qr = null;
+            meta.qrDataUrl = null;
             const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
             const loggedOut = statusCode === DisconnectReason.loggedOut;
             meta.status = loggedOut ? 'logged_out' : 'closed';
             meta.lastError = lastDisconnect?.error?.message || 'Connection closed';
 
             if (loggedOut) {
+                clearReconnectTimer(meta);
+                meta.reconnectAttempts = 0;
                 console.log(`[${id}] Logged out. Delete folder ${authDir} and scan QR again.`);
                 return;
             }
 
-            console.log(`[${id}] Connection closed, reconnecting in 3s...`);
-            setTimeout(() => {
+            if (meta.reconnectTimer) {
+                return;
+            }
+
+            meta.reconnectAttempts += 1;
+            const delayMs = Math.min(30000, 3000 * meta.reconnectAttempts);
+            console.log(`[${id}] Connection closed, reconnecting in ${Math.round(delayMs / 1000)}s (attempt ${meta.reconnectAttempts})...`);
+            meta.reconnectTimer = setTimeout(() => {
+                meta.reconnectTimer = null;
                 connectSession(id).catch((err) => {
                     meta.status = 'error';
                     meta.lastError = err.message;
                     console.error(`[${id}] Reconnect failed:`, err.message);
                 });
-            }, 3000);
+            }, delayMs);
         }
     });
 
@@ -531,10 +579,13 @@ async function resetSession(sessionId) {
         await fsPromises.rm(authDir, { recursive: true, force: true });
     }
 
+    clearReconnectTimer(meta);
+
     sessions.set(id, {
         sock: null,
         status: 'idle',
         qr: null,
+        qrDataUrl: null,
         lastError: null,
         profile: null,
         profileFetchedAt: 0,
@@ -543,6 +594,8 @@ async function resetSession(sessionId) {
         initReadyAt: 0,
         credsState: null,
         profileAvatarPath: null,
+        reconnectTimer: null,
+        reconnectAttempts: 0,
     });
 
     console.log(`[${id}] Session reset. Scan QR again to link a WhatsApp number.`);
@@ -578,13 +631,8 @@ app.get('/session/:sessionId/status', authMiddleware, async (req, res) => {
         }
     }
 
-    let qrDataUrl = null;
-    if (meta.qr) {
-        try {
-            qrDataUrl = await QRCode.toDataURL(meta.qr, { margin: 1, width: 280 });
-        } catch (error) {
-            console.error(`[${id}] Failed to render QR image:`, error.message);
-        }
+    if (meta.qr && !meta.qrDataUrl) {
+        await renderQrDataUrl(meta);
     }
 
     res.json({
@@ -592,7 +640,7 @@ app.get('/session/:sessionId/status', authMiddleware, async (req, res) => {
         session: id,
         status: meta.status,
         has_qr: Boolean(meta.qr),
-        qr_data_url: qrDataUrl,
+        qr_data_url: meta.qrDataUrl,
         last_error: meta.lastError,
         profile: meta.profile,
     });
@@ -682,7 +730,7 @@ app.post('/send-message', authMiddleware, async (req, res) => {
     }
 
     try {
-        const meta = await connectSession(sessionId);
+        const { meta } = getSessionMeta(sessionId);
 
         if (meta.status !== 'open' || !meta.sock) {
             return res.status(503).json({

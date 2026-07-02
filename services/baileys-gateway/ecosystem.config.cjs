@@ -11,7 +11,7 @@ module.exports = {
             env: {
                 NODE_ENV: 'production',
                 PORT: 3003,
-                DEFAULT_SESSION: 'teslatech_session',
+                DEFAULT_SESSION: 'mwifi_session',
                 SESSIONS_DIR: './sessions',
             },
         },
