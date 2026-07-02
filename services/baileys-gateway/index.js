@@ -29,9 +29,25 @@ fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 /** @type {Map<string, { sock: import('@whiskeysockets/baileys').WASocket | null, status: string, qr: string | null, qrDataUrl: string | null, lastError: string | null, profile: { id: string | null, name: string | null, picture_data_url: string | null, has_picture: boolean, picture_updated_at: number | null } | null, profileFetchedAt: number, profilePictureFetchedAt: number, profileFetchInFlight: boolean, initReadyAt: number, credsState: import('@whiskeysockets/baileys').AuthenticationState | null, profileAvatarPath: string | null, reconnectTimer: ReturnType<typeof setTimeout> | null, reconnectAttempts: number }>} */
 const sessions = new Map();
 
-const logger = pino({ level: process.env.LOG_LEVEL || 'warn' });
-
 const INIT_QUERY_GRACE_MS = parseInt(process.env.INIT_QUERY_GRACE_MS || '12000', 10);
+const ACK_WAIT_MS = parseInt(process.env.SEND_ACK_WAIT_MS || '15000', 10);
+
+/** @type {Map<string, string>} messageId -> WhatsApp ack error code */
+const outboundAckErrors = new Map();
+
+const logger = pino({
+    level: process.env.LOG_LEVEL || 'warn',
+    hooks: {
+        logMethod(inputArgs, method) {
+            const payload = inputArgs.find((arg) => arg && typeof arg === 'object' && arg.attrs);
+            if (payload?.msg === 'received error in ack' && payload.attrs?.id && payload.attrs?.error) {
+                outboundAckErrors.set(String(payload.attrs.id), String(payload.attrs.error));
+            }
+
+            return method.apply(this, inputArgs);
+        },
+    },
+});
 
 function authMiddleware(req, res, next) {
     if (!API_KEY) {
@@ -62,6 +78,91 @@ function normalizePhone(to) {
         digits = `62${digits.slice(1)}`;
     }
     return digits;
+}
+
+function jidMatchesMessageKey(keyA, keyB) {
+    if (!keyA?.id || !keyB?.id || keyA.id !== keyB.id) {
+        return false;
+    }
+
+    const userA = (keyA.remoteJid || '').split('@')[0];
+    const userB = (keyB.remoteJid || '').split('@')[0];
+
+    return userA === userB || keyA.remoteJid === keyB.remoteJid;
+}
+
+function describeDeliveryFailure(errorCode) {
+    if (errorCode === '463') {
+        return 'WhatsApp menolak pengiriman (error 463). Nomor tujuan belum pernah berinteraksi dengan akun ini. '
+            + 'Minta penerima mengirim pesan dulu ke nomor Tesla Tech, lalu coba kirim ulang.';
+    }
+
+    if (errorCode) {
+        return `WhatsApp menolak pengiriman (error ${errorCode}).`;
+    }
+
+    return 'WhatsApp tidak mengonfirmasi pesan terkirim. Kemungkinan kontak baru (error 463) atau koneksi tidak stabil.';
+}
+
+function waitForOutboundAck(sock, messageKey, timeoutMs = ACK_WAIT_MS) {
+    const messageId = messageKey?.id;
+
+    return new Promise((resolve, reject) => {
+        let settled = false;
+
+        const finish = (fn, value) => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            clearTimeout(timer);
+            sock.ev.off('messages.update', onUpdate);
+            fn(value);
+        };
+
+        const failWithCode = (code) => {
+            finish(reject, new Error(describeDeliveryFailure(code)));
+        };
+
+        if (messageId && outboundAckErrors.has(messageId)) {
+            failWithCode(outboundAckErrors.get(messageId));
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            if (messageId && outboundAckErrors.has(messageId)) {
+                failWithCode(outboundAckErrors.get(messageId));
+                return;
+            }
+
+            failWithCode(null);
+        }, timeoutMs);
+
+        const onUpdate = (updates) => {
+            for (const { key, update } of updates) {
+                if (!jidMatchesMessageKey(key, messageKey)) {
+                    continue;
+                }
+
+                if (messageId && outboundAckErrors.has(messageId)) {
+                    failWithCode(outboundAckErrors.get(messageId));
+                    return;
+                }
+
+                const status = update?.status;
+                if (typeof status === 'number' && status >= 2) {
+                    finish(resolve, { status, messageId: key.id });
+                    return;
+                }
+
+                if (status === 0) {
+                    failWithCode('failed');
+                }
+            }
+        };
+
+        sock.ev.on('messages.update', onUpdate);
+    });
 }
 
 function getSessionMeta(sessionId) {
@@ -763,6 +864,30 @@ app.post('/send-message', authMiddleware, async (req, res) => {
         }
 
         const sendResult = await meta.sock.sendMessage(jid, { text });
+        const messageId = sendResult?.key?.id || null;
+
+        if (messageId) {
+            try {
+                await waitForOutboundAck(meta.sock, sendResult.key);
+            } catch (ackError) {
+                const whatsappError = messageId ? (outboundAckErrors.get(messageId) || '463') : '463';
+                if (messageId) {
+                    outboundAckErrors.delete(messageId);
+                }
+
+                return res.status(422).json({
+                    success: false,
+                    message: ackError.message || describeDeliveryFailure(whatsappError),
+                    session: sanitizeSessionId(sessionId),
+                    to,
+                    jid,
+                    message_id: messageId,
+                    whatsapp_error: whatsappError,
+                });
+            }
+
+            outboundAckErrors.delete(messageId);
+        }
 
         return res.json({
             success: true,

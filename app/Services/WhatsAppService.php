@@ -50,6 +50,67 @@ class WhatsAppService
     }
 
     /**
+     * @return array{ok: bool, message: string}
+     */
+    public static function sendTextDetailed(string $to, string $message, bool $skipBulkDelay = false): array
+    {
+        $config = self::configuration();
+
+        if (!$config['enabled']) {
+            return ['ok' => false, 'message' => 'Integrasi WhatsApp dinonaktifkan di Pengaturan.'];
+        }
+
+        if (empty($config['api_url'])) {
+            return ['ok' => false, 'message' => 'Gateway URL belum diisi di Pengaturan.'];
+        }
+
+        if (!$skipBulkDelay) {
+            self::waitForBulkDelay($config);
+        }
+
+        $apiUrl = $config['api_url'];
+        $sessionId = $config['session_id'];
+
+        $to = preg_replace('/^0/', '62', trim($to));
+        $to = preg_replace('/[^0-9]/', '', $to);
+
+        if (empty($to)) {
+            return ['ok' => false, 'message' => 'Nomor tujuan kosong.'];
+        }
+
+        try {
+            $response = self::gatewayClient()
+                ->timeout(25)
+                ->post("{$apiUrl}/send-message", [
+                    'session' => $sessionId,
+                    'to' => $to,
+                    'text' => $message,
+                ]);
+
+            if ($response->successful() && $response->json('success') === true) {
+                Log::info("WhatsApp message sent successfully to {$to}.", [
+                    'jid' => $response->json('jid'),
+                    'message_id' => $response->json('message_id'),
+                ]);
+                self::recordBulkSend($config);
+
+                return ['ok' => true, 'message' => 'Pesan berhasil dikirim dan dikonfirmasi WhatsApp.'];
+            }
+
+            $gatewayMessage = $response->json('message')
+                ?: "Gateway merespons HTTP {$response->status()}.";
+
+            Log::error("WhatsApp Gateway returned an error status ({$response->status()}): " . $response->body());
+
+            return ['ok' => false, 'message' => $gatewayMessage];
+        } catch (\Exception $e) {
+            Log::error('WhatsApp Gateway communication failure: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Gagal menghubungi gateway: ' . $e->getMessage()];
+        }
+    }
+
+    /**
      * Send a text message via the WhatsApp Baileys Gateway.
      *
      * @param string $to Recipient phone number (e.g. "0812345678" or "62812345678")
@@ -93,7 +154,7 @@ class WhatsAppService
 
         try {
             $response = self::gatewayClient()
-                ->timeout(10)
+                ->timeout(25)
                 ->post("{$apiUrl}/send-message", [
                     'session' => $sessionId,
                     'to' => $to,

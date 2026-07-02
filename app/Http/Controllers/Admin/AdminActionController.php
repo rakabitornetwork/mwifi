@@ -2032,13 +2032,13 @@ class AdminActionController extends Controller
         }
 
         $message = $request->input('message') ?: \App\Services\WhatsAppService::defaultTestMessage();
-        $sent = \App\Services\WhatsAppService::sendText($request->input('phone'), $message, skipBulkDelay: true);
+        $result = \App\Services\WhatsAppService::sendTextDetailed($request->input('phone'), $message, skipBulkDelay: true);
 
-        if (!$sent) {
-            return redirect()->back()->with('error', 'Gagal mengirim pesan uji. Pastikan sesi WhatsApp gateway sudah terhubung (scan QR) dan cek log aplikasi.');
+        if (!$result['ok']) {
+            return redirect()->back()->with('error', $result['message']);
         }
 
-        return redirect()->back()->with('success', 'Pesan uji WhatsApp berhasil dikirim.');
+        return redirect()->back()->with('success', $result['message']);
     }
 
     public function getWhatsAppSessionStatus(Request $request)
