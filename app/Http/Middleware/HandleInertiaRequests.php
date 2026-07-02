@@ -95,6 +95,12 @@ class HandleInertiaRequests extends Middleware
                 'warning' => $request->session()->get('warning'),
                 'info' => $request->session()->get('info'),
                 'print_invoice_id' => $request->session()->get('print_invoice_id'),
+                'id' => ($request->session()->has('success')
+                    || $request->session()->has('error')
+                    || $request->session()->has('warning')
+                    || $request->session()->has('info'))
+                    ? uniqid('flash_', true)
+                    : null,
             ],
             'branding' => BrandingService::get(),
         ];

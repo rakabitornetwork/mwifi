@@ -39,7 +39,7 @@ export function AdminToastProvider({ children }) {
         if (flash?.info) {
             showToast(flash.info, 'info');
         }
-    }, [flash?.success, flash?.error, flash?.warning, flash?.info, showToast]);
+    }, [flash?.id, flash?.success, flash?.error, flash?.warning, flash?.info, showToast]);
 
     return (
         <AdminToastContext.Provider value={{ toasts, setToasts, showToast }}>
