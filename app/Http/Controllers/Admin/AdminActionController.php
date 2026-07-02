@@ -411,6 +411,7 @@ class AdminActionController extends Controller
         $previousStatus = $customer?->status;
         $previousBillingDate = $customer?->billing_date?->format('Y-m-d');
         $pauseNotice = null;
+        $pauseInitiatedPending = false;
 
         if ($id && $customer && ($data['service_type'] ?? $customer->service_type) === 'pppoe') {
             if (in_array($data['status'], ['inactive', 'suspended'], true)
@@ -428,6 +429,7 @@ class AdminActionController extends Controller
 
                     if ($pauseResult['pending_payment']) {
                         $data['status'] = $previousStatus;
+                        $pauseInitiatedPending = true;
                         $pauseNotice = $pauseResult['message'];
                         if (!empty($pauseResult['invoice_number'])) {
                             $pauseNotice .= ' Tagihan: ' . $pauseResult['invoice_number']
@@ -441,6 +443,17 @@ class AdminActionController extends Controller
                         ->withErrors(['status' => $e->getMessage()]);
                 }
             }
+        }
+
+        // Reaktivasi manual: admin mengembalikan status ke aktif/isolir, sehingga
+        // sisa jadwal pause (pending_pause_status/billing_pause_date) harus dibatalkan
+        // agar status di aplikasi dan profil di RouterOS benar-benar aktif kembali.
+        if (!$pauseInitiatedPending
+            && $customer
+            && in_array($data['status'], ['active', 'isolated'], true)
+            && BillingService::customerHasPendingServicePause($customer)) {
+            $data['pending_pause_status'] = null;
+            $data['billing_pause_date'] = null;
         }
 
         $savedCustomer = Customer::updateOrCreate(['id' => $id], $data);
