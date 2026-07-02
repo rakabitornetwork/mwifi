@@ -54,9 +54,9 @@ function resolveCustomerStatusDisplay(customer) {
     const pendingPause = customer?.pending_pause_status;
     if (pendingPause && ['inactive', 'suspended'].includes(pendingPause) && customer?.status === 'active') {
         return {
-            label: `ACTIVE → ${pendingPause.toUpperCase()}`,
-            className: 'bg-amber-500/10 text-amber-500 border border-amber-500/20',
-            title: 'Menunggu pembayaran tagihan pause sebelum status berubah.',
+            label: pendingPause.toUpperCase(),
+            className: 'bg-rose-500/10 text-rose-500 border border-rose-500/20',
+            title: 'Menunggu pembayaran tagihan pause sebelum layanan benar-benar dinonaktifkan.',
         };
     }
 
@@ -81,6 +81,19 @@ function resolveCustomerStatusDisplay(customer) {
         className: 'bg-rose-500/10 text-rose-500 border border-rose-500/20',
         title: null,
     };
+}
+
+function resolveEditingStatusValue(customer) {
+    if (!customer) {
+        return 'active';
+    }
+
+    const pendingPause = customer.pending_pause_status;
+    if (pendingPause && ['inactive', 'suspended'].includes(pendingPause) && customer.status === 'active') {
+        return pendingPause;
+    }
+
+    return customer.status || 'active';
 }
 
 
@@ -1285,7 +1298,7 @@ function CustomersPageContent({
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className={`font-bold ${themeLabel}`}>Status Akun</label>
-                            <select name="status" defaultValue={editingCustomer ? editingCustomer.status : 'active'} className={`p-2 border rounded-lg ${themeInput}`}>
+                            <select name="status" defaultValue={resolveEditingStatusValue(editingCustomer)} className={`p-2 border rounded-lg ${themeInput}`}>
                                 <option value="active">Active</option>
                                 <option value="isolated">Isolated (Isolir)</option>
                                 <option value="inactive">Inactive</option>
