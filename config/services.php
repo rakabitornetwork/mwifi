@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'genieacs' => [
+        'api_url' => env('GENIEACS_API_URL', 'http://localhost:7557'),
+    ],
+
 ];

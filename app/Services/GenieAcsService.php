@@ -474,17 +474,26 @@ class GenieAcsService
                 // Do not kick/reboot PPPoE after WiFi-only changes — setParameterValues
                 // applies SSID/password on the ONT without interrupting the WAN session.
 
+                // Use existing rawDevice data to build the response immediately instead
+                // of re-fetching from GenieACS (saves ~10s and avoids 502 on slow links).
+                // The SSID/password shown will update on next panel reload.
                 $username = self::extractUsername($rawDevice);
-                $freshRaw = self::fetchRawDeviceById($apiUrl, $deviceId) ?? $rawDevice;
-                $parsed = self::parseRawDevice($freshRaw, [
-                    'reachable' => $status === 200 || self::isDeviceOnline($freshRaw),
+                $parsed = self::parseRawDevice($rawDevice, [
+                    'reachable' => $status === 200 || self::isDeviceOnline($rawDevice),
                 ]);
                 $refreshed = null;
                 if ($parsed !== null) {
-                    $extractedUsername = trim(self::extractUsername($freshRaw));
+                    $extractedUsername = trim(self::extractUsername($rawDevice));
                     $parsed['username'] = $extractedUsername !== '' && $extractedUsername !== 'unknown_ont'
                         ? $extractedUsername
                         : $username;
+                    // Reflect the new SSID/password in the response so the UI updates immediately.
+                    if ($ssid !== null && $ssid !== '') {
+                        $parsed['wifi_ssid'] = $ssid;
+                    }
+                    if ($password !== null && $password !== '') {
+                        $parsed['wifi_password'] = $password;
+                    }
                     $refreshed = $parsed;
                 }
 
@@ -956,26 +965,42 @@ class GenieAcsService
             ];
         }
 
-        $encodedId = self::encodeDeviceIdForApi($deviceId);
-
         try {
             $connTimeout = (int) config('genieacs.probe_connection_timeout', 8);
-            $response = Http::timeout((int) config('genieacs.probe_timeout', 12))->post(
-                "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout={$connTimeout}",
+
+            // Use postDeviceTask for consistent device ID encoding retry (double-encode,
+            // single rawurlencode, plain) instead of a single Http::post with one encoding.
+            $response = self::postDeviceTask(
+                $apiUrl,
+                $deviceId,
                 [
                     'name' => 'getParameterValues',
                     'parameterNames' => ['InternetGatewayDevice.DeviceInfo.UpTime'],
-                ]
+                ],
+                "connection_request&timeout={$connTimeout}",
+                (int) config('genieacs.probe_timeout', 12)
             );
 
             if ($response->successful()) {
-                // Skip the extra TR-069 probe — the connection_request above already reached the ONT.
-                $refreshed = self::refreshWifiDeviceState($deviceId, '', false);
+                // Lightweight re-fetch — avoid the heavy refreshWifiDeviceState() which
+                // chains fetchRawDeviceById + probeReachability + refreshWifiClientTables
+                // and can take 60s+ total, exceeding Nginx proxy_read_timeout (→ 502).
+                $freshRaw = self::fetchRawDeviceById($apiUrl, $deviceId) ?? $rawDevice;
+                $parsed = self::parseRawDevice($freshRaw, ['reachable' => true]);
+                $refreshed = null;
+
+                if ($parsed !== null) {
+                    $extractedUsername = trim(self::extractUsername($freshRaw));
+                    if ($extractedUsername !== '' && $extractedUsername !== 'unknown_ont') {
+                        $parsed['username'] = $extractedUsername;
+                    }
+                    $refreshed = self::stripRawDevicePayload($parsed);
+                }
 
                 return [
                     'success' => true,
                     'message' => 'Permintaan koneksi TR-069 dikirim. Status ONT diperbarui.',
-                    'device' => $refreshed !== null ? self::stripRawDevicePayload($refreshed) : null,
+                    'device' => $refreshed,
                 ];
             }
 
@@ -2096,8 +2121,10 @@ class GenieAcsService
 
         foreach ($objectNames as $objectName) {
             try {
-                $response = Http::timeout(60)->post(
-                    "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=45",
+                // Reduced from 60s/45s to avoid timeout cascade that causes 502 Bad Gateway
+                // when this is called as part of refreshWifiDeviceState.
+                $response = Http::timeout(20)->post(
+                    "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=15",
                     [
                         'name' => 'refreshObject',
                         'objectName' => $objectName,

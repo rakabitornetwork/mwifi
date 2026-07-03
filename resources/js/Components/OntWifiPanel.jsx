@@ -13,6 +13,25 @@ function csrfToken() {
     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 }
 
+/**
+ * Wrapper around fetch() that aborts if the request takes longer than `ms` milliseconds.
+ * Throws a user-friendly error on timeout instead of letting the browser wait indefinitely
+ * until Nginx returns a 502 Bad Gateway.
+ */
+function fetchWithTimeout(url, options = {}, ms = 30000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+
+    return fetch(url, { ...options, signal: controller.signal })
+        .catch((err) => {
+            if (err.name === 'AbortError') {
+                throw new Error('Permintaan ke server terlalu lama (timeout). Coba lagi nanti.');
+            }
+            throw err;
+        })
+        .finally(() => clearTimeout(timer));
+}
+
 function DeviceMetaLine({ device, compact, themeTextDesc, className = '' }) {
     if (compact || !device) {
         return null;
@@ -190,12 +209,12 @@ export default function OntWifiPanel({
             }
 
             const query = params.toString();
-            return fetch(`${apiBase}/wifi${query ? `?${query}` : ''}`, {
+            return fetchWithTimeout(`${apiBase}/wifi${query ? `?${query}` : ''}`, {
                 headers: {
                     Accept: 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                 },
-            });
+            }, 20000);
         };
 
         try {
@@ -261,7 +280,7 @@ export default function OntWifiPanel({
                 payload.device_id = device.id;
             }
 
-            const res = await fetch(`${apiBase}/wifi`, {
+            const res = await fetchWithTimeout(`${apiBase}/wifi`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -270,7 +289,7 @@ export default function OntWifiPanel({
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 body: JSON.stringify(payload),
-            });
+            }, 30000);
 
             const data = await res.json().catch(() => ({}));
 
@@ -312,7 +331,7 @@ export default function OntWifiPanel({
         const kickUrl = apiBase === '/customer' ? '/customer/wifi/kick' : `${apiBase}/kick-device`;
 
         try {
-            const res = await fetch(kickUrl, {
+            const res = await fetchWithTimeout(kickUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -327,7 +346,7 @@ export default function OntWifiPanel({
                     ...(customerId ? { customer_id: customerId } : {}),
                     ...(username ? { username } : {}),
                 }),
-            });
+            }, 30000);
 
             const data = await res.json().catch(() => ({}));
 
@@ -360,7 +379,7 @@ export default function OntWifiPanel({
         const wakeUrl = apiBase === '/customer' ? '/customer/wifi/wake' : `${apiBase}/wake`;
 
         try {
-            const res = await fetch(wakeUrl, {
+            const res = await fetchWithTimeout(wakeUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -369,7 +388,7 @@ export default function OntWifiPanel({
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 body: JSON.stringify({ device_id: device.id }),
-            });
+            }, 30000);
 
             const data = await res.json().catch(() => ({}));
 
@@ -404,7 +423,7 @@ export default function OntWifiPanel({
         setSaveError(null);
 
         try {
-            const res = await fetch(`${apiBase}/reboot`, {
+            const res = await fetchWithTimeout(`${apiBase}/reboot`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -413,7 +432,7 @@ export default function OntWifiPanel({
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 body: JSON.stringify({ device_id: device.id }),
-            });
+            }, 30000);
 
             const data = await res.json().catch(() => ({}));
 
