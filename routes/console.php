@@ -12,5 +12,9 @@ Artisan::command('inspire', function () {
 Schedule::command('billing:generate')
     ->everySixHours()
     ->withoutOverlapping();
-Schedule::command('billing:isolir-check')->hourly();
-Schedule::command('bandwidth:sample')->everyFiveMinutes();
+Schedule::command('billing:isolir-check')
+    ->hourly()
+    ->withoutOverlapping(15);
+Schedule::command('bandwidth:sample')
+    ->everyFiveMinutes()
+    ->withoutOverlapping(30);
