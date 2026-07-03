@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Services\NetworkMapMetricsService;
 use App\Services\StaffRouterScope;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class NetworkMapController extends Controller
 {
@@ -16,10 +18,33 @@ class NetworkMapController extends Controller
     {
         $scope = StaffRouterScope::for($request->user());
         $routerId = $request->filled('router_id') ? (int) $request->integer('router_id') : null;
+        $force = $request->boolean('refresh');
 
-        return response()->json(
-            NetworkMapMetricsService::getPayload($scope, $routerId, $request->boolean('refresh'))
-        );
+        try {
+            return response()->json(
+                NetworkMapMetricsService::getPayload($scope, $routerId, $force)
+            );
+        } catch (\Throwable $e) {
+            if ($e instanceof HttpExceptionInterface) {
+                throw $e;
+            }
+
+            Log::warning('Network map metrics failed: ' . $e->getMessage());
+
+            $stale = NetworkMapMetricsService::getStalePayload($scope, $routerId);
+            if ($stale !== null) {
+                return response()->json($stale);
+            }
+
+            return response()->json([
+                'ont' => [],
+                'ont_devices' => [],
+                'traffic' => [],
+                'traffic_by_router' => [],
+                'stale' => true,
+                'error' => 'Metrik sementara tidak tersedia. Coba lagi dalam beberapa detik.',
+            ]);
+        }
     }
 
     /**

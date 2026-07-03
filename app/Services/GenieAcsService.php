@@ -549,9 +549,10 @@ class GenieAcsService
         try {
             // Hapus connection_request agar langsung terantre instan tanpa timeout
             $encodedId = self::encodeDeviceIdForApi($deviceId);
-            $response = Http::timeout(130)
-                ->post("{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=120", [
-                    'name' => 'reboot'
+            // Queue reboot immediately — avoid blocking PHP-FPM up to 120s on connection_request.
+            $response = Http::timeout((int) config('genieacs.task_timeout', 15))
+                ->post("{$apiUrl}/devices/{$encodedId}/tasks", [
+                    'name' => 'reboot',
                 ]);
 
             if ($response->successful()) {
@@ -911,8 +912,9 @@ class GenieAcsService
         $encodedId = self::encodeDeviceIdForApi($deviceId);
 
         try {
-            $response = Http::timeout(30)->post(
-                "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=20",
+            $response = Http::timeout((int) config('genieacs.probe_timeout', 12))->post(
+                "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout="
+                . (int) config('genieacs.probe_connection_timeout', 8),
                 [
                     'name' => 'getParameterValues',
                     'parameterNames' => ['InternetGatewayDevice.DeviceInfo.UpTime'],

@@ -20,6 +20,8 @@ import {
 
 const METRICS_POLL_MS = 15000;
 const LIVE_TRAFFIC_POLL_MS = 10000;
+const METRICS_BACKOFF_MS = 15000;
+const METRICS_BACKOFF_MAX = 5;
 
 const isPppoeCustomer = (cust) => cust?.service_type !== 'hotspot';
 
@@ -153,8 +155,14 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
     const fetchNetworkMapMetricsRef = useRef(async () => {});
     const metricsFetchInFlightRef = useRef(false);
     const metricsAbortRef = useRef(null);
+    const metricsErrorBackoffRef = useRef(0);
+    const metricsPollTimerRef = useRef(null);
 
     const fetchNetworkMapMetrics = async (force = false) => {
+        if (document.hidden && !force) {
+            return;
+        }
+
         if (metricsFetchInFlightRef.current && !force) {
             return;
         }
@@ -185,11 +193,23 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
             });
 
             if (!res.ok) {
+                metricsErrorBackoffRef.current = Math.min(
+                    metricsErrorBackoffRef.current + 1,
+                    METRICS_BACKOFF_MAX,
+                );
                 console.error('Failed to load network map metrics', res.status, res.statusText);
                 return;
             }
 
             const data = await res.json();
+            if (data?.stale) {
+                metricsErrorBackoffRef.current = Math.min(
+                    metricsErrorBackoffRef.current + 1,
+                    METRICS_BACKOFF_MAX,
+                );
+            } else {
+                metricsErrorBackoffRef.current = 0;
+            }
             setNetworkMapMetrics(data);
         } catch (err) {
             if (err?.name !== 'AbortError') {
@@ -233,12 +253,37 @@ function NetworkMapPageContent({ odps = [], customers = [] }) {
 
     useEffect(() => {
         openCustomerPopupIdRef.current = openCustomerPopupId;
+
+        let cancelled = false;
+
+        const scheduleNextPoll = () => {
+            if (cancelled) {
+                return;
+            }
+
+            const backoff = metricsErrorBackoffRef.current;
+            const baseMs = openCustomerPopupIdRef.current ? LIVE_TRAFFIC_POLL_MS : METRICS_POLL_MS;
+            const delayMs = baseMs + (backoff * METRICS_BACKOFF_MS);
+
+            metricsPollTimerRef.current = window.setTimeout(async () => {
+                if (cancelled) {
+                    return;
+                }
+
+                if (!document.hidden) {
+                    await fetchNetworkMapMetrics();
+                }
+
+                scheduleNextPoll();
+            }, delayMs);
+        };
+
         fetchNetworkMapMetrics();
-        const intervalMs = openCustomerPopupId ? LIVE_TRAFFIC_POLL_MS : METRICS_POLL_MS;
-        const interval = setInterval(() => fetchNetworkMapMetrics(), intervalMs);
+        scheduleNextPoll();
 
         return () => {
-            clearInterval(interval);
+            cancelled = true;
+            window.clearTimeout(metricsPollTimerRef.current);
             metricsAbortRef.current?.abort();
         };
     }, [openCustomerPopupId]);

@@ -38,6 +38,32 @@ class NetworkMapMetricsService
     }
 
     /**
+     * Last cached metrics without hitting GenieACS / Mikrotik (for degraded responses).
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function getStalePayload(StaffRouterScope $scope, ?int $routerId = null): ?array
+    {
+        $ontDevices = Cache::get('network_map:ont_devices');
+        $trafficPayload = Cache::get(self::trafficCacheKey($scope, $routerId));
+
+        if (!is_array($ontDevices) && !is_array($trafficPayload)) {
+            return null;
+        }
+
+        $devices = is_array($ontDevices) ? $ontDevices : [];
+        $traffic = is_array($trafficPayload) ? $trafficPayload : ['merged' => [], 'by_router' => []];
+
+        return [
+            'ont' => self::indexOntByUsername($devices),
+            'ont_devices' => $devices,
+            'traffic' => $traffic['merged'] ?? [],
+            'traffic_by_router' => $traffic['by_router'] ?? [],
+            'stale' => true,
+        ];
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private static function cachedOntDevices(bool $force): array
@@ -51,10 +77,10 @@ class NetworkMapMetricsService
             }
         }
 
-        $lock = Cache::lock($key . ':lock', 60);
+        $lock = Cache::lock($key . ':lock', 30);
 
         try {
-            return $lock->block(30, function () use ($key, $force) {
+            return $lock->block(5, function () use ($key, $force) {
                 if (!$force) {
                     $cached = Cache::get($key);
                     if (is_array($cached)) {
@@ -88,10 +114,10 @@ class NetworkMapMetricsService
             }
         }
 
-        $lock = Cache::lock($key . ':lock', 60);
+        $lock = Cache::lock($key . ':lock', 30);
 
         try {
-            return $lock->block(30, function () use ($key, $scope, $routerId, $force) {
+            return $lock->block(5, function () use ($key, $scope, $routerId, $force) {
                 if (!$force) {
                     $cached = Cache::get($key);
                     if (is_array($cached)) {

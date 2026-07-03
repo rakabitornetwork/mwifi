@@ -32,6 +32,10 @@ class GenieAcsController extends Controller
             $probe = $request->boolean('probe', true);
             $device = GenieAcsService::findDeviceByUsernameForWifi($username, $probe);
 
+            if ($device === null && $probe) {
+                $device = GenieAcsService::findDeviceByUsernameForWifi($username, false);
+            }
+
             if ($device === null) {
                 return response()->json([
                     'success' => false,
@@ -159,14 +163,14 @@ class GenieAcsController extends Controller
         if ($success) {
             return response()->json([
                 'success' => true,
-                'message' => "Perintah reboot berhasil dikirim ke perangkat ONT."
+                'message' => "Perintah reboot berhasil dikirim ke antrian GenieACS. ONT akan reboot saat terhubung ke ACS.",
             ]);
         }
 
         return response()->json([
             'success' => false,
-            'message' => "Gagal mengirimkan perintah reboot ke perangkat ONT."
-        ], 500);
+            'message' => "Gagal mengirim perintah reboot. Pastikan GenieACS berjalan dan device_id valid.",
+        ], 502);
     }
 
     /**

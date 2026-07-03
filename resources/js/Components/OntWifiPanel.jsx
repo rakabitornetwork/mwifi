@@ -173,31 +173,39 @@ export default function OntWifiPanel({
         }, 5000);
     }, [hasAdminToast, showAdminToast]);
 
-    const statusQuery = useCallback(() => {
-        const params = new URLSearchParams();
-        params.set('probe', '1');
-        if (customerId) {
-            params.set('customer_id', String(customerId));
-        } else if (username) {
-            params.set('username', username);
-        }
-        return params.toString();
-    }, [customerId, username]);
-
     const loadWifiStatus = useCallback(async () => {
         setIsLoading(true);
         setLoadError(null);
         setSaveError(null);
 
-        try {
-            const query = statusQuery();
-            const res = await fetch(`${apiBase}/wifi${query ? `?${query}` : ''}`, {
+        const fetchStatus = async (probe) => {
+            const params = new URLSearchParams();
+            if (probe) {
+                params.set('probe', '1');
+            }
+            if (customerId) {
+                params.set('customer_id', String(customerId));
+            } else if (username) {
+                params.set('username', username);
+            }
+
+            const query = params.toString();
+            return fetch(`${apiBase}/wifi${query ? `?${query}` : ''}`, {
                 headers: {
                     Accept: 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                 },
             });
-            const data = await res.json().catch(() => ({}));
+        };
+
+        try {
+            let res = await fetchStatus(true);
+            let data = await res.json().catch(() => ({}));
+
+            if ((res.status === 503 || res.status === 502) && res.ok === false) {
+                res = await fetchStatus(false);
+                data = await res.json().catch(() => ({}));
+            }
 
             if (!res.ok || !data.found) {
                 throw new Error(data.message || 'ONT tidak ditemukan di GenieACS.');
@@ -212,7 +220,7 @@ export default function OntWifiPanel({
         } finally {
             setIsLoading(false);
         }
-    }, [apiBase, statusQuery]);
+    }, [apiBase, customerId, username]);
 
     useEffect(() => {
         loadWifiStatus();
@@ -396,7 +404,7 @@ export default function OntWifiPanel({
         setSaveError(null);
 
         try {
-            const res = await fetch('/admin/gpon/reboot', {
+            const res = await fetch(`${apiBase}/reboot`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
