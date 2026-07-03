@@ -455,20 +455,16 @@ class GenieAcsService
             ];
         }
 
-        $encodedId = self::encodeDeviceIdForApi($deviceId);
-        $taskUrl = "{$apiUrl}/devices/{$encodedId}/tasks";
-
         Log::info('GenieACS WiFi update task', [
             'device_id' => $deviceId,
             'parameter_values' => $parameterValues,
         ]);
 
         try {
-            $response = Http::timeout((int) config('genieacs.task_timeout', 15))
-                ->post($taskUrl, [
-                    'name' => 'setParameterValues',
-                    'parameterValues' => $parameterValues,
-                ]);
+            $response = self::postDeviceTask($apiUrl, $deviceId, [
+                'name' => 'setParameterValues',
+                'parameterValues' => $parameterValues,
+            ]);
 
             $status = $response->status();
 
@@ -644,12 +640,17 @@ class GenieAcsService
 
         $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
 
+        if (trim($deviceId) === '') {
+            return [
+                'success' => false,
+                'message' => 'device_id kosong — ONT belum ter-resolve dari GenieACS.',
+            ];
+        }
+
         try {
-            $encodedId = self::encodeDeviceIdForApi($deviceId);
-            $response = Http::timeout((int) config('genieacs.task_timeout', 15))
-                ->post("{$apiUrl}/devices/{$encodedId}/tasks", [
-                    'name' => 'reboot',
-                ]);
+            $response = self::postDeviceTask($apiUrl, $deviceId, [
+                'name' => 'reboot',
+            ]);
 
             $status = $response->status();
 
@@ -1693,12 +1694,61 @@ class GenieAcsService
 
     private static function doubleUrlEncodeDeviceId(string $deviceId): string
     {
-        return rawurlencode(rawurlencode(urldecode($deviceId)));
+        // GenieACS NBI expects encodeURIComponent(encodeURIComponent(id)) — do NOT urldecode first,
+        // because _id may contain literal %20 sequences (e.g. "XS%20tech" product class).
+        return rawurlencode(rawurlencode($deviceId));
     }
 
     private static function encodeDeviceIdForApi(string $deviceId): string
     {
         return self::doubleUrlEncodeDeviceId($deviceId);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function deviceIdPathEncodings(string $deviceId): array
+    {
+        $deviceId = trim($deviceId);
+
+        return array_values(array_unique(array_filter([
+            self::encodeDeviceIdForApi($deviceId),
+            rawurlencode($deviceId),
+            $deviceId,
+        ])));
+    }
+
+    /**
+     * POST a GenieACS device task, retrying alternate URL path encodings on 404.
+     */
+    private static function postDeviceTask(
+        string $apiUrl,
+        string $deviceId,
+        array $taskBody,
+        ?string $querySuffix = null,
+        ?int $timeout = null
+    ): \Illuminate\Http\Client\Response {
+        $timeout ??= (int) config('genieacs.task_timeout', 15);
+        $lastResponse = null;
+
+        foreach (self::deviceIdPathEncodings($deviceId) as $encodedId) {
+            $url = "{$apiUrl}/devices/{$encodedId}/tasks";
+            if ($querySuffix !== null && $querySuffix !== '') {
+                $url .= '?' . ltrim($querySuffix, '?');
+            }
+
+            $response = Http::timeout($timeout)->post($url, $taskBody);
+            if ($response->successful()) {
+                return $response;
+            }
+
+            $lastResponse = $response;
+            if ($response->status() !== 404) {
+                break;
+            }
+        }
+
+        return $lastResponse ?? Http::response('No such device', 404);
     }
 
     /**

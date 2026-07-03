@@ -89,4 +89,17 @@ class GenieAcsUsernameExtractionTest extends TestCase
         ]));
         $this->assertFalse(GenieAcsService::deviceIsOnline(null));
     }
+
+    public function test_device_id_double_encoding_preserves_literal_percent_sequences(): void
+    {
+        $encode = new ReflectionMethod(GenieAcsService::class, 'doubleUrlEncodeDeviceId');
+        $encode->setAccessible(true);
+
+        $deviceId = '2400FA-XS%20tech-CMHI2520F12D';
+        $this->assertSame(
+            rawurlencode(rawurlencode($deviceId)),
+            $encode->invoke(null, $deviceId)
+        );
+        $this->assertSame('2400FA-XS%252520tech-CMHI2520F12D', $encode->invoke(null, $deviceId));
+    }
 }
