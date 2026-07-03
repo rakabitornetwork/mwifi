@@ -141,6 +141,22 @@ class GenieAcsUsernameExtractionTest extends TestCase
         }
     }
 
+    public function test_password_always_includes_keypassphrase_even_when_only_presharedkey_writable(): void
+    {
+        $base = 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1';
+        $rawDev = [
+            "{$base}.Enable" => ['_value' => 'true', '_writable' => true],
+            "{$base}.SSID" => ['_value' => 'OLD', '_writable' => true],
+            "{$base}.PreSharedKey.1.KeyPassphrase" => ['_value' => '', '_writable' => true],
+        ];
+
+        $params = $this->buildWifiParameterValues($rawDev, null, '12345678');
+        $paths = array_map(static fn ($p) => $p[0], $params);
+
+        $this->assertContains("{$base}.KeyPassphrase", $paths);
+        $this->assertContains("{$base}.PreSharedKey.1.KeyPassphrase", $paths);
+    }
+
     public function test_password_falls_back_when_no_writable_paths_detected(): void
     {
         $base = 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1';

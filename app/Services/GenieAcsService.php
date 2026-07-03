@@ -1813,30 +1813,58 @@ class GenieAcsService
     }
 
     /**
-     * Write the passphrase to every writable password parameter the ONT exposes.
-     * Some vendors (notably ZTE) ignore PreSharedKey.1.KeyPassphrase and only honor
-     * the WLAN-level KeyPassphrase or PreSharedKey.1.PreSharedKey, so we set all of them.
+     * Write the passphrase to every password parameter the ONT may honor.
+     *
+     * ZTE/MJM firmware often reports PreSharedKey.1.KeyPassphrase as writable in GenieACS
+     * but only applies WLAN-level KeyPassphrase at runtime — so we always send both.
      *
      * @return list<array{0: string, 1: string, 2: string}>
      */
     private static function passwordAssignmentsForWlan(array $flat, string $wlanBase, string $password): array
     {
-        $assignments = [];
+        $paths = [];
+
+        // Always try the standard TR-098 pair (mandatory for ZTE/MJM even if only one
+        // appears in the GenieACS device snapshot).
+        foreach (self::mandatoryPasswordPaths($wlanBase) as $path) {
+            $paths[$path] = true;
+        }
 
         foreach (self::passwordPathCandidates($wlanBase) as $path) {
             if (self::flatParameterWritable($flat, $path)) {
-                $assignments[] = [$path, $password, 'xsd:string'];
+                $paths[$path] = true;
             }
         }
 
-        if ($assignments === []) {
-            // Device data model did not expose the password params (not yet fetched);
-            // fall back to the most widely supported paths.
-            $assignments[] = ["{$wlanBase}.PreSharedKey.1.KeyPassphrase", $password, 'xsd:string'];
-            $assignments[] = ["{$wlanBase}.KeyPassphrase", $password, 'xsd:string'];
+        foreach (array_keys($flat) as $path) {
+            if (!str_starts_with($path, $wlanBase . '.')) {
+                continue;
+            }
+
+            if (preg_match('/(?:KeyPassphrase|PreSharedKey|WLANPassphrase)$/i', $path)
+                && self::flatParameterWritable($flat, $path)) {
+                $paths[$path] = true;
+            }
+        }
+
+        $assignments = [];
+        foreach (array_keys($paths) as $path) {
+            $assignments[] = [$path, $password, 'xsd:string'];
         }
 
         return $assignments;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function mandatoryPasswordPaths(string $wlanBase): array
+    {
+        return [
+            "{$wlanBase}.KeyPassphrase",
+            "{$wlanBase}.PreSharedKey.1.KeyPassphrase",
+            "{$wlanBase}.PreSharedKey.1.PreSharedKey",
+        ];
     }
 
     /**
@@ -1850,20 +1878,53 @@ class GenieAcsService
         $modePaths = [
             "{$wlanBase}.IEEE11iAuthenticationMode",
             "{$wlanBase}.WPAAuthenticationMode",
+            "{$wlanBase}.BasicAuthenticationMode",
         ];
 
         foreach ($modePaths as $path) {
-            if (!self::flatParameterWritable($flat, $path)) {
+            $existsInFlat = isset($flat[$path]);
+            if (!$existsInFlat && !self::isLikelyZteOrMjmWlan($wlanBase, $flat)) {
+                continue;
+            }
+
+            if ($existsInFlat && !self::flatParameterWritable($flat, $path)) {
                 continue;
             }
 
             $current = trim((string) (self::flatParameterValue($flat, $path) ?? ''));
-            if ($current === '' || strcasecmp($current, 'PSKAuthentication') !== 0) {
-                $assignments[] = [$path, 'PSKAuthentication', 'xsd:string'];
+            if ($current !== '' && strcasecmp($current, 'PSKAuthentication') === 0) {
+                continue;
             }
+
+            if (str_ends_with($path, 'BasicAuthenticationMode')) {
+                $assignments[] = [$path, 'None', 'xsd:string'];
+                continue;
+            }
+
+            $assignments[] = [$path, 'PSKAuthentication', 'xsd:string'];
         }
 
         return $assignments;
+    }
+
+    /**
+     * Heuristic: ZTE/MJM ONTs need auth-mode + KeyPassphrase even when not in ACS snapshot.
+     *
+     * @param  array<string, mixed>  $flat
+     */
+    private static function isLikelyZteOrMjmWlan(string $wlanBase, array $flat): bool
+    {
+        foreach (array_keys($flat) as $path) {
+            if (!str_starts_with($path, $wlanBase . '.')) {
+                continue;
+            }
+
+            if (preg_match('/X_ZTE|X_CT-COM|MJM|ZTE/i', $path)) {
+                return true;
+            }
+        }
+
+        return isset($flat["{$wlanBase}.PreSharedKey.1.KeyPassphrase"]);
     }
 
     /**
