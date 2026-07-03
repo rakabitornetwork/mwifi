@@ -471,9 +471,8 @@ class GenieAcsService
             if ($status === 200 || $status === 202) {
                 Log::info("GenieACS: WiFi credentials updated/queued on device {$deviceId}");
 
-                // Defer the Mikrotik PPPoE kick until after the response is flushed so a slow
-                // router connection cannot stall the request (avoids 502 on Simpan WiFi).
-                self::deferPppoeKickForDevice($deviceId);
+                // Do not kick/reboot PPPoE after WiFi-only changes — setParameterValues
+                // applies SSID/password on the ONT without interrupting the WAN session.
 
                 $username = self::extractUsername($rawDevice);
                 $freshRaw = self::fetchRawDeviceById($apiUrl, $deviceId) ?? $rawDevice;
