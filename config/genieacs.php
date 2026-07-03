@@ -23,4 +23,10 @@ return [
 
     'wifi_refresh_timeout' => max(5, (int) env('GENIEACS_WIFI_REFRESH_TIMEOUT', 20)),
 
+    // connection_request fired AFTER the response (afterResponse) to apply queued WiFi tasks.
+    // Runs off the request cycle, so a longer timeout here does not affect user-facing latency.
+    'connection_request_timeout' => max(5, (int) env('GENIEACS_CONNECTION_REQUEST_TIMEOUT', 30)),
+
+    'connection_request_apply_timeout' => max(5, (int) env('GENIEACS_CONNECTION_REQUEST_APPLY_TIMEOUT', 25)),
+
 ];

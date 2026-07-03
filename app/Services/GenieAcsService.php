@@ -474,6 +474,11 @@ class GenieAcsService
                 // Do not kick/reboot PPPoE after WiFi-only changes — setParameterValues
                 // applies SSID/password on the ONT without interrupting the WAN session.
 
+                // The task above is queued without connection_request (to keep the request
+                // fast). Trigger a connection_request AFTER the response is flushed so the ONT
+                // connects and applies the queued WiFi task immediately, without blocking.
+                self::deferConnectionRequestForDevice($deviceId);
+
                 // Use existing rawDevice data to build the response immediately instead
                 // of re-fetching from GenieACS (saves ~10s and avoids 502 on slow links).
                 // The SSID/password shown will update on next panel reload.
@@ -1088,6 +1093,40 @@ class GenieAcsService
         } catch (\Throwable $e) {
             // Fallback: run inline if deferred dispatch is unavailable (e.g. CLI/tests).
             Log::warning('GenieACS afterResponse dispatch unavailable, running kick inline: ' . $e->getMessage());
+            $runner();
+        }
+    }
+
+    /**
+     * After the HTTP response is flushed, ask GenieACS to connection-request the ONT so it
+     * checks in and applies any queued tasks (e.g. WiFi SSID/password) right away. Runs
+     * without a queue worker and never blocks the client request.
+     */
+    private static function deferConnectionRequestForDevice(string $deviceId): void
+    {
+        $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
+
+        $runner = function () use ($apiUrl, $deviceId): void {
+            try {
+                $encodedId = self::encodeDeviceIdForApi($deviceId);
+                Http::timeout((int) config('genieacs.connection_request_timeout', 30))->post(
+                    "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout="
+                    . (int) config('genieacs.connection_request_apply_timeout', 25),
+                    [
+                        'name' => 'getParameterValues',
+                        'parameterNames' => ['InternetGatewayDevice.DeviceInfo.UpTime'],
+                    ]
+                );
+                Log::info("GenieACS: connection_request sent to apply queued tasks for {$deviceId}");
+            } catch (\Throwable $e) {
+                Log::warning('GenieACS deferred connection_request failed for ' . $deviceId . ': ' . $e->getMessage());
+            }
+        };
+
+        try {
+            dispatch($runner)->afterResponse();
+        } catch (\Throwable $e) {
+            Log::warning('GenieACS afterResponse dispatch unavailable, running connection_request inline: ' . $e->getMessage());
             $runner();
         }
     }
