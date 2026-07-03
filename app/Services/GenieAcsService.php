@@ -959,18 +959,18 @@ class GenieAcsService
         $encodedId = self::encodeDeviceIdForApi($deviceId);
 
         try {
-            $response = Http::timeout(40)->post(
-                "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=30",
+            $connTimeout = (int) config('genieacs.probe_connection_timeout', 8);
+            $response = Http::timeout((int) config('genieacs.probe_timeout', 12))->post(
+                "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout={$connTimeout}",
                 [
                     'name' => 'getParameterValues',
                     'parameterNames' => ['InternetGatewayDevice.DeviceInfo.UpTime'],
                 ]
             );
 
-            self::kickPppoeSessionForDevice($rawDevice);
-
             if ($response->successful()) {
-                $refreshed = self::refreshWifiDeviceState($deviceId, '', true);
+                // Skip the extra TR-069 probe — the connection_request above already reached the ONT.
+                $refreshed = self::refreshWifiDeviceState($deviceId, '', false);
 
                 return [
                     'success' => true,
