@@ -68,7 +68,7 @@ class GenieAcsController extends Controller
         $validated = $request->validate([
             'username' => 'nullable|string|max:255',
             'customer_id' => 'nullable|integer|exists:customers,id',
-            'device_id' => 'nullable|string|max:255',
+            'device_id' => 'nullable|string|max:512',
             'ssid' => 'nullable|string|max:32',
             'password' => 'nullable|string|min:8|max:63',
         ]);
@@ -91,24 +91,27 @@ class GenieAcsController extends Controller
         }
 
         try {
-            $device = null;
+            $device = GenieAcsService::resolveDeviceForCustomer(
+                $username,
+                $validated['device_id'] ?? null
+            );
 
-            if (!empty($validated['device_id'])) {
-                $device = GenieAcsService::findDeviceByUsername($username);
-                if ($device === null || ($device['id'] ?? null) !== $validated['device_id']) {
+            if ($device === null && !empty($validated['device_id'])) {
+                $byId = GenieAcsService::findDeviceById((string) $validated['device_id']);
+                if ($byId !== null) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Perangkat ONT tidak cocok dengan pelanggan ini.',
+                        'message' => 'Perangkat ONT tidak cocok dengan username pelanggan "' . $username . '".',
                     ], 403);
                 }
-            } else {
-                $device = GenieAcsService::findDeviceByUsername($username);
             }
 
             if ($device === null) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'ONT tidak terdaftar di GenieACS untuk username "' . $username . '".',
+                    'message' => 'ONT tidak terdaftar di GenieACS untuk username "' . $username . '". '
+                        . 'Pastikan username PPPoE di mWiFi sama dengan di ONT, dan ONT sudah pernah inform ke GenieACS.',
+                    'registered_usernames_sample' => array_slice(GenieAcsService::listRegisteredOntUsernames(), 0, 10),
                 ], 404);
             }
 
@@ -154,23 +157,13 @@ class GenieAcsController extends Controller
     public function reboot(Request $request)
     {
         $request->validate([
-            'device_id' => 'required|string'
+            'device_id' => 'required|string|max:512',
         ]);
 
         $deviceId = $request->input('device_id');
-        $success = GenieAcsService::rebootDevice($deviceId);
+        $result = GenieAcsService::rebootDevice($deviceId);
 
-        if ($success) {
-            return response()->json([
-                'success' => true,
-                'message' => "Perintah reboot berhasil dikirim ke antrian GenieACS. ONT akan reboot saat terhubung ke ACS.",
-            ]);
-        }
-
-        return response()->json([
-            'success' => false,
-            'message' => "Gagal mengirim perintah reboot. Pastikan GenieACS berjalan dan device_id valid.",
-        ], 502);
+        return response()->json($result, ($result['success'] ?? false) ? 200 : (int) ($result['http_status'] ?? 502));
     }
 
     /**

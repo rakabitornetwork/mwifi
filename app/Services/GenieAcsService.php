@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Exception;
@@ -175,11 +176,11 @@ class GenieAcsService
         $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
 
         try {
-            $rawDevices = self::fetchRawDevicesForLookup($apiUrl);
+            $rawDevices = self::cachedRawDevicesForLookup($apiUrl);
         } catch (Exception $e) {
             Log::warning('GenieACS findDeviceByUsername failed: ' . $e->getMessage());
 
-            return null;
+            throw $e;
         }
 
         foreach ($rawDevices as $rawDev) {
@@ -208,6 +209,94 @@ class GenieAcsService
         }
 
         return null;
+    }
+
+    /**
+     * Find a parsed ONT device by GenieACS device ID (_id).
+     *
+     * @return array<string, mixed>|null Parsed device with optional _raw key
+     */
+    public static function findDeviceById(string $deviceId): ?array
+    {
+        $deviceId = trim($deviceId);
+        if ($deviceId === '') {
+            return null;
+        }
+
+        $cacheKey = 'genieacs:device:' . sha1($deviceId);
+
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
+        $rawDev = self::fetchRawDeviceById($apiUrl, $deviceId);
+        if ($rawDev === null) {
+            return null;
+        }
+
+        $parsed = self::parseRawDevice($rawDev);
+        if ($parsed === null) {
+            return null;
+        }
+
+        $ontUsername = self::extractUsername($rawDev);
+        if ($ontUsername !== '' && $ontUsername !== 'unknown_ont') {
+            $parsed['username'] = $ontUsername;
+        }
+
+        $parsed['_raw'] = $rawDev;
+        Cache::put($cacheKey, $parsed, 30);
+
+        return $parsed;
+    }
+
+    /**
+     * Resolve ONT for a customer — prefer device_id from the UI, fallback to PPPoE username.
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function resolveDeviceForCustomer(string $username, ?string $deviceId = null): ?array
+    {
+        $needle = trim($username);
+        $deviceId = trim((string) $deviceId);
+
+        if ($deviceId !== '') {
+            $device = self::findDeviceById($deviceId);
+            if ($device !== null) {
+                $ontUsername = trim((string) ($device['username'] ?? ''));
+                if ($ontUsername === '' || $ontUsername === 'unknown_ont' || self::usernameMatches($ontUsername, $needle)) {
+                    return $device;
+                }
+
+                return null;
+            }
+        }
+
+        if ($needle === '') {
+            return null;
+        }
+
+        return self::findDeviceByUsername($needle);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function cachedRawDevicesForLookup(string $apiUrl): array
+    {
+        $cacheKey = 'genieacs:devices:lookup:' . sha1($apiUrl);
+
+        $cached = Cache::get($cacheKey);
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $devices = self::fetchRawDevicesForLookup($apiUrl);
+        Cache::put($cacheKey, $devices, 30);
+
+        return $devices;
     }
 
     /**
@@ -367,7 +456,7 @@ class GenieAcsService
         }
 
         $encodedId = self::encodeDeviceIdForApi($deviceId);
-        $taskUrl = "{$apiUrl}/devices/{$encodedId}/tasks?connection_request&timeout=120";
+        $taskUrl = "{$apiUrl}/devices/{$encodedId}/tasks";
 
         Log::info('GenieACS WiFi update task', [
             'device_id' => $deviceId,
@@ -375,7 +464,7 @@ class GenieAcsService
         ]);
 
         try {
-            $response = Http::timeout(130)
+            $response = Http::timeout((int) config('genieacs.task_timeout', 15))
                 ->post($taskUrl, [
                     'name' => 'setParameterValues',
                     'parameterValues' => $parameterValues,
@@ -386,7 +475,9 @@ class GenieAcsService
             if ($status === 200 || $status === 202) {
                 Log::info("GenieACS: WiFi credentials updated/queued on device {$deviceId}");
 
-                self::kickPppoeSessionForDevice($rawDevice);
+                // Defer the Mikrotik PPPoE kick until after the response is flushed so a slow
+                // router connection cannot stall the request (avoids 502 on Simpan WiFi).
+                self::deferPppoeKickForDevice($deviceId);
 
                 $username = self::extractUsername($rawDevice);
                 $freshRaw = self::fetchRawDeviceById($apiUrl, $deviceId) ?? $rawDevice;
@@ -535,42 +626,67 @@ class GenieAcsService
 
     /**
      * Trigger a reboot task for a device in GenieACS.
+     *
+     * @return array{success: bool, message: string, http_status?: int, status?: string}
      */
-    public static function rebootDevice(string $deviceId): bool
+    public static function rebootDevice(string $deviceId): array
     {
         // Handle simulation/mock reboot if it's a mock device ID
         if (str_ends_with($deviceId, '_budi') || str_ends_with($deviceId, '_dewi') || str_ends_with($deviceId, '_ahmad') || str_ends_with($deviceId, '_joko')) {
             Log::info("GenieACS Simulator: Rebooting device {$deviceId} successfully.");
-            return true;
+
+            return [
+                'success' => true,
+                'status' => 'queued',
+                'message' => 'Perintah reboot berhasil diantre (simulator).',
+            ];
         }
 
         $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
 
         try {
-            // Hapus connection_request agar langsung terantre instan tanpa timeout
             $encodedId = self::encodeDeviceIdForApi($deviceId);
-            // Queue reboot immediately — avoid blocking PHP-FPM up to 120s on connection_request.
             $response = Http::timeout((int) config('genieacs.task_timeout', 15))
                 ->post("{$apiUrl}/devices/{$encodedId}/tasks", [
                     'name' => 'reboot',
                 ]);
 
+            $status = $response->status();
+
             if ($response->successful()) {
                 Log::info("GenieACS: Successfully queued reboot task for device {$deviceId}");
 
-                $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
-                if (is_array($rawDevice)) {
-                    self::kickPppoeSessionForDevice($rawDevice);
-                }
+                // Putuskan sesi PPPoE setelah respons dikirim agar koneksi router yang
+                // lambat/tak terjangkau tidak menahan request (penyebab 502 di VPS).
+                self::deferPppoeKickForDevice($deviceId);
 
-                return true;
+                return [
+                    'success' => true,
+                    'status' => $status === 200 ? 'executed' : 'queued',
+                    'http_status' => $status,
+                    'message' => $status === 200
+                        ? 'Perintah reboot berhasil dikirim ke ONT.'
+                        : 'Perintah reboot diantre di GenieACS. ONT akan reboot saat terhubung ke ACS.',
+                ];
             }
 
-            Log::error("GenieACS reboot task failed with status {$response->status()}: " . $response->body());
-            return false;
+            $body = trim($response->body());
+            Log::error("GenieACS reboot task failed with status {$status}: {$body}");
+
+            return [
+                'success' => false,
+                'http_status' => $status,
+                'message' => $body !== ''
+                    ? "GenieACS menolak reboot (HTTP {$status}): {$body}"
+                    : "GenieACS menolak reboot (HTTP {$status}). Periksa device_id dan URL GenieACS.",
+            ];
         } catch (Exception $e) {
-            Log::error("GenieACS reboot task connection error: " . $e->getMessage());
-            return false;
+            Log::error('GenieACS reboot task connection error: ' . $e->getMessage());
+
+            return [
+                'success' => false,
+                'message' => 'Tidak dapat terhubung ke GenieACS: ' . $e->getMessage(),
+            ];
         }
     }
 
@@ -891,6 +1007,20 @@ class GenieAcsService
                 return;
             }
 
+            self::kickPppoeSessionForUsername($username);
+        } catch (Exception $e) {
+            Log::error('GenieACS PPPoE kick error: ' . $e->getMessage());
+        }
+    }
+
+    private static function kickPppoeSessionForUsername(string $username): void
+    {
+        $username = trim($username);
+        if ($username === '' || $username === 'unknown_ont') {
+            return;
+        }
+
+        try {
             $customer = \App\Models\Customer::where('username', $username)->first();
             if (!$customer || !$customer->router) {
                 return;
@@ -899,8 +1029,41 @@ class GenieAcsService
             $connector = \App\Services\Router\RouterService::getConnector($customer->router);
             $connector->kickActiveConnection($customer->username);
             Log::info("GenieACS PPPoE kick: sesi {$username} diputus pada router {$customer->router->name}");
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('GenieACS PPPoE kick error: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Resolve the PPPoE username for a device and kick its session after the HTTP
+     * response has been flushed, so slow router I/O never blocks the request.
+     */
+    private static function deferPppoeKickForDevice(string $deviceId): void
+    {
+        $apiUrl = config('services.genieacs.api_url', 'http://localhost:7557');
+
+        $runner = function () use ($apiUrl, $deviceId): void {
+            try {
+                $rawDevice = self::fetchRawDeviceById($apiUrl, $deviceId);
+                if (!is_array($rawDevice)) {
+                    return;
+                }
+
+                $username = self::extractUsername($rawDevice);
+                self::kickPppoeSessionForUsername($username);
+            } catch (\Throwable $e) {
+                Log::error('GenieACS deferred PPPoE kick error: ' . $e->getMessage());
+            }
+        };
+
+        try {
+            // Runs after the response is sent to the client (PHP-FPM fastcgi_finish_request),
+            // without requiring a queue worker.
+            dispatch($runner)->afterResponse();
+        } catch (\Throwable $e) {
+            // Fallback: run inline if deferred dispatch is unavailable (e.g. CLI/tests).
+            Log::warning('GenieACS afterResponse dispatch unavailable, running kick inline: ' . $e->getMessage());
+            $runner();
         }
     }
 
