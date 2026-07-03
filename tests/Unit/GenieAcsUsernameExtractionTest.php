@@ -171,4 +171,44 @@ class GenieAcsUsernameExtractionTest extends TestCase
         $this->assertContains("{$base}.PreSharedKey.1.KeyPassphrase", $paths);
         $this->assertContains("{$base}.KeyPassphrase", $paths);
     }
+
+    public function test_wpa_auth_modes_skip_basic_authentication_mode(): void
+    {
+        $base = 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1';
+        $rawDev = [
+            "{$base}.Enable" => ['_value' => 'true', '_writable' => true],
+            "{$base}.SSID" => ['_value' => 'OLD', '_writable' => true],
+            "{$base}.IEEE11iAuthenticationMode" => ['_value' => 'Open', '_writable' => true],
+            "{$base}.WPAAuthenticationMode" => ['_value' => 'Open', '_writable' => true],
+            "{$base}.BasicAuthenticationMode" => ['_value' => 'SharedAuthentication', '_writable' => true],
+            "{$base}.KeyPassphrase" => ['_value' => '', '_writable' => true],
+        ];
+
+        $params = $this->buildWifiParameterValues($rawDev, null, 'secret123');
+        $paths = array_map(static fn ($p) => $p[0], $params);
+
+        $this->assertNotContains("{$base}.BasicAuthenticationMode", $paths);
+        $this->assertContains("{$base}.IEEE11iAuthenticationMode", $paths);
+        $this->assertContains("{$base}.WPAAuthenticationMode", $paths);
+    }
+
+    public function test_password_does_not_include_presharedkey_indices_beyond_one(): void
+    {
+        $base = 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1';
+        $rawDev = [
+            "{$base}.Enable" => ['_value' => 'true', '_writable' => true],
+            "{$base}.SSID" => ['_value' => 'OLD', '_writable' => true],
+            "{$base}.KeyPassphrase" => ['_value' => '', '_writable' => true],
+            "{$base}.PreSharedKey.1.KeyPassphrase" => ['_value' => '', '_writable' => true],
+            "{$base}.PreSharedKey.2.KeyPassphrase" => ['_value' => '', '_writable' => true],
+            "{$base}.PreSharedKey.3.KeyPassphrase" => ['_value' => '', '_writable' => true],
+        ];
+
+        $params = $this->buildWifiParameterValues($rawDev, null, 'secret123');
+        $paths = array_map(static fn ($p) => $p[0], $params);
+
+        $this->assertContains("{$base}.PreSharedKey.1.KeyPassphrase", $paths);
+        $this->assertNotContains("{$base}.PreSharedKey.2.KeyPassphrase", $paths);
+        $this->assertNotContains("{$base}.PreSharedKey.3.KeyPassphrase", $paths);
+    }
 }

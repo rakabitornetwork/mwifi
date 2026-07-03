@@ -1875,12 +1875,13 @@ class GenieAcsService
             }
         }
 
+        // Only PreSharedKey index 1 — indices 2–10 are often phantom slots that cause 9003 faults.
         foreach (array_keys($flat) as $path) {
             if (!str_starts_with($path, $wlanBase . '.')) {
                 continue;
             }
 
-            if (preg_match('/(?:KeyPassphrase|PreSharedKey|WLANPassphrase)$/i', $path)
+            if (preg_match('/\.PreSharedKey\.1\.(?:KeyPassphrase|PreSharedKey)$/i', $path)
                 && self::flatParameterWritable($flat, $path)) {
                 $paths[$path] = true;
             }
@@ -1917,16 +1918,10 @@ class GenieAcsService
         $modePaths = [
             "{$wlanBase}.IEEE11iAuthenticationMode",
             "{$wlanBase}.WPAAuthenticationMode",
-            "{$wlanBase}.BasicAuthenticationMode",
         ];
 
         foreach ($modePaths as $path) {
-            $existsInFlat = isset($flat[$path]);
-            if (!$existsInFlat && !self::isLikelyZteOrMjmWlan($wlanBase, $flat)) {
-                continue;
-            }
-
-            if ($existsInFlat && !self::flatParameterWritable($flat, $path)) {
+            if (!isset($flat[$path]) || !self::flatParameterWritable($flat, $path)) {
                 continue;
             }
 
@@ -1935,35 +1930,10 @@ class GenieAcsService
                 continue;
             }
 
-            if (str_ends_with($path, 'BasicAuthenticationMode')) {
-                $assignments[] = [$path, 'None', 'xsd:string'];
-                continue;
-            }
-
             $assignments[] = [$path, 'PSKAuthentication', 'xsd:string'];
         }
 
         return $assignments;
-    }
-
-    /**
-     * Heuristic: ZTE/MJM ONTs need auth-mode + KeyPassphrase even when not in ACS snapshot.
-     *
-     * @param  array<string, mixed>  $flat
-     */
-    private static function isLikelyZteOrMjmWlan(string $wlanBase, array $flat): bool
-    {
-        foreach (array_keys($flat) as $path) {
-            if (!str_starts_with($path, $wlanBase . '.')) {
-                continue;
-            }
-
-            if (preg_match('/X_ZTE|X_CT-COM|MJM|ZTE/i', $path)) {
-                return true;
-            }
-        }
-
-        return isset($flat["{$wlanBase}.PreSharedKey.1.KeyPassphrase"]);
     }
 
     /**
