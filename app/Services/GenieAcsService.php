@@ -1800,11 +1800,70 @@ class GenieAcsService
                 $parameterValues[] = ["{$base}.BeaconType", self::resolveWpaBeaconType($flat), 'xsd:string'];
             }
 
-            $passwordPath = self::resolvePasswordPathForWlan($flat, $base);
-            $parameterValues[] = [$passwordPath, $password, 'xsd:string'];
+            foreach (self::wpaAuthModeAssignments($flat, $base) as $assignment) {
+                $parameterValues[] = $assignment;
+            }
+
+            foreach (self::passwordAssignmentsForWlan($flat, $base, $password) as $assignment) {
+                $parameterValues[] = $assignment;
+            }
         }
 
         return $parameterValues;
+    }
+
+    /**
+     * Write the passphrase to every writable password parameter the ONT exposes.
+     * Some vendors (notably ZTE) ignore PreSharedKey.1.KeyPassphrase and only honor
+     * the WLAN-level KeyPassphrase or PreSharedKey.1.PreSharedKey, so we set all of them.
+     *
+     * @return list<array{0: string, 1: string, 2: string}>
+     */
+    private static function passwordAssignmentsForWlan(array $flat, string $wlanBase, string $password): array
+    {
+        $assignments = [];
+
+        foreach (self::passwordPathCandidates($wlanBase) as $path) {
+            if (self::flatParameterWritable($flat, $path)) {
+                $assignments[] = [$path, $password, 'xsd:string'];
+            }
+        }
+
+        if ($assignments === []) {
+            // Device data model did not expose the password params (not yet fetched);
+            // fall back to the most widely supported paths.
+            $assignments[] = ["{$wlanBase}.PreSharedKey.1.KeyPassphrase", $password, 'xsd:string'];
+            $assignments[] = ["{$wlanBase}.KeyPassphrase", $password, 'xsd:string'];
+        }
+
+        return $assignments;
+    }
+
+    /**
+     * Ensure WPA/WPA2-PSK authentication mode is active so the passphrase takes effect.
+     *
+     * @return list<array{0: string, 1: string, 2: string}>
+     */
+    private static function wpaAuthModeAssignments(array $flat, string $wlanBase): array
+    {
+        $assignments = [];
+        $modePaths = [
+            "{$wlanBase}.IEEE11iAuthenticationMode",
+            "{$wlanBase}.WPAAuthenticationMode",
+        ];
+
+        foreach ($modePaths as $path) {
+            if (!self::flatParameterWritable($flat, $path)) {
+                continue;
+            }
+
+            $current = trim((string) (self::flatParameterValue($flat, $path) ?? ''));
+            if ($current === '' || strcasecmp($current, 'PSKAuthentication') !== 0) {
+                $assignments[] = [$path, 'PSKAuthentication', 'xsd:string'];
+            }
+        }
+
+        return $assignments;
     }
 
     /**
@@ -2019,6 +2078,8 @@ class GenieAcsService
             "{$wlanBase}.KeyPassphrase",
             "{$wlanBase}.PreSharedKey.1.PreSharedKey",
             "{$wlanBase}.X_TP_PreSharedKey",
+            "{$wlanBase}.X_ZTE-COM_WLAN_KeyPassphrase",
+            "{$wlanBase}.X_CT-COM_KeyPassphrase",
         ];
     }
 

@@ -102,4 +102,57 @@ class GenieAcsUsernameExtractionTest extends TestCase
         );
         $this->assertSame('2400FA-XS%252520tech-CMHI2520F12D', $encode->invoke(null, $deviceId));
     }
+
+    /**
+     * @param array<string, mixed> $rawDev
+     * @return list<array{0:string,1:string,2?:string}>
+     */
+    private function buildWifiParameterValues(array $rawDev, ?string $ssid, ?string $password): array
+    {
+        $method = new ReflectionMethod(GenieAcsService::class, 'buildWifiParameterValues');
+        $method->setAccessible(true);
+
+        return $method->invoke(null, $rawDev, $ssid, $password);
+    }
+
+    public function test_password_written_to_all_writable_password_paths(): void
+    {
+        $base = 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1';
+        $rawDev = [
+            "{$base}.Enable" => ['_value' => 'true', '_writable' => true],
+            "{$base}.SSID" => ['_value' => 'OLD', '_writable' => true],
+            "{$base}.BeaconType" => ['_value' => 'WPA/WPA2', '_writable' => true],
+            "{$base}.PreSharedKey.1.KeyPassphrase" => ['_value' => '', '_writable' => true],
+            "{$base}.KeyPassphrase" => ['_value' => '', '_writable' => true],
+            "{$base}.PreSharedKey.1.PreSharedKey" => ['_value' => '', '_writable' => true],
+        ];
+
+        $params = $this->buildWifiParameterValues($rawDev, null, 'secret123');
+        $paths = array_map(static fn ($p) => $p[0], $params);
+
+        $this->assertContains("{$base}.PreSharedKey.1.KeyPassphrase", $paths);
+        $this->assertContains("{$base}.KeyPassphrase", $paths);
+        $this->assertContains("{$base}.PreSharedKey.1.PreSharedKey", $paths);
+
+        foreach ($params as $p) {
+            if (str_contains($p[0], 'Passphrase') || str_ends_with($p[0], 'PreSharedKey')) {
+                $this->assertSame('secret123', $p[1]);
+            }
+        }
+    }
+
+    public function test_password_falls_back_when_no_writable_paths_detected(): void
+    {
+        $base = 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1';
+        $rawDev = [
+            "{$base}.Enable" => ['_value' => 'true', '_writable' => true],
+            "{$base}.SSID" => ['_value' => 'OLD', '_writable' => true],
+        ];
+
+        $params = $this->buildWifiParameterValues($rawDev, null, 'secret123');
+        $paths = array_map(static fn ($p) => $p[0], $params);
+
+        $this->assertContains("{$base}.PreSharedKey.1.KeyPassphrase", $paths);
+        $this->assertContains("{$base}.KeyPassphrase", $paths);
+    }
 }
