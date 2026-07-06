@@ -118,10 +118,12 @@ export default function CustomerLogin({ phone: initialPhone = '', otp_sent: otpS
                             </form>
                         ) : (
                             <form onSubmit={handleVerifyOtp} className="space-y-4">
-                                {verifyForm.errors.otp && (
-                                    <div className="flex items-center space-x-2 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
-                                        <ShieldAlert className="w-5 h-5 flex-shrink-0" />
-                                        <span>{verifyForm.errors.otp}</span>
+                                {(verifyForm.errors.otp || requestForm.errors.phone_number) && (
+                                    <div className="flex flex-col space-y-1 text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl p-3">
+                                        <div className="flex items-center space-x-2">
+                                            <ShieldAlert className="w-5 h-5 flex-shrink-0" />
+                                            <span>{verifyForm.errors.otp || requestForm.errors.phone_number}</span>
+                                        </div>
                                     </div>
                                 )}
 

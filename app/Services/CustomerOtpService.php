@@ -80,26 +80,30 @@ class CustomerOtpService
         $brand = BrandingService::companyName();
         $message = "Kode OTP Portal Pelanggan {$brand}:\n\n*{$otp}*\n\nBerlaku 5 menit. Jangan bagikan kode ini kepada siapapun.";
 
-        if (! WhatsAppService::sendText($sendTo, $message, skipBulkDelay: true)) {
-            Cache::forget($cacheKey);
+        $sent = WhatsAppService::sendText($sendTo, $message, skipBulkDelay: true);
 
-            return [
-                'ok' => false,
-                'message' => 'Gagal mengirim OTP via WhatsApp. Pastikan gateway aktif di menu WhatsApp & Telegram, atau hubungi admin.',
-            ];
+        if (! $sent) {
+            Log::warning('Customer portal OTP send reported failure by gateway, keeping OTP cache.', [
+                'customer_id' => $customer->id,
+                'phone' => PhoneNumber::mask($normalized),
+                'send_to' => PhoneNumber::mask($sendTo),
+            ]);
         }
 
         self::recordRequest($normalized);
 
-        Log::info('Customer portal OTP sent.', [
+        Log::info('Customer portal OTP requested.', [
             'customer_id' => $customer->id,
             'phone' => PhoneNumber::mask($normalized),
             'send_to' => PhoneNumber::mask($sendTo),
+            'gateway_reported_success' => $sent,
         ]);
 
         return [
             'ok' => true,
-            'message' => 'Kode OTP telah dikirim ke WhatsApp Anda.',
+            'message' => $sent
+                ? 'Kode OTP telah dikirim ke WhatsApp Anda.'
+                : 'Kami belum dapat memastikan OTP terkirim dari gateway. Jika kode sudah masuk WhatsApp Anda, silakan gunakan kode tersebut. Jika belum, hubungi admin atau coba beberapa saat lagi.',
             'masked_phone' => PhoneNumber::mask($normalized),
         ];
     }
