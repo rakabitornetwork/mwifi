@@ -101,9 +101,7 @@ class CustomerOtpService
 
         return [
             'ok' => true,
-            'message' => $sent
-                ? 'Kode OTP telah dikirim ke WhatsApp Anda.'
-                : 'Kami belum dapat memastikan OTP terkirim dari gateway. Jika kode sudah masuk WhatsApp Anda, silakan gunakan kode tersebut. Jika belum, hubungi admin atau coba beberapa saat lagi.',
+            'message' => 'Kode OTP telah dikirim ke WhatsApp Anda. Periksa pesan masuk lalu masukkan kode 6 digit di bawah.',
             'masked_phone' => PhoneNumber::mask($normalized),
         ];
     }
