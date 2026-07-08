@@ -104,6 +104,8 @@ const emptyPackageForm = {
     queue_type_tx: '',
     only_one: true,
     validity: '',
+    use_validation_script: true,
+    lock_mac: true,
     description: '',
 };
 
@@ -384,6 +386,8 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                 queue_type_tx: editingPackage.queue_type_tx || '',
                 only_one: editingPackage.only_one !== false && editingPackage.only_one !== 0,
                 validity: editingPackage.validity || '',
+                use_validation_script: editingPackage.use_validation_script === true || editingPackage.use_validation_script === 1,
+                lock_mac: editingPackage.lock_mac === true || editingPackage.lock_mac === 1,
                 description: editingPackage.description || '',
             });
         } else {
@@ -958,6 +962,41 @@ function PackagesPageContent({ packages = [], routers = [] }) {
                                     themeLabel={themeLabel}
                                     disabled={isLoadingRouterProfiles || isLoadingFormOptions}
                                 />
+                            </div>
+                            <div className={`flex flex-col gap-2 p-2.5 rounded-lg border ${isDarkMode ? 'border-zinc-800 bg-zinc-950/40' : 'border-zinc-200 bg-zinc-50'}`}>
+                                <label className="inline-flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="use_validation_script"
+                                        checked={Boolean(packageForm.use_validation_script)}
+                                        onChange={(e) => {
+                                            const enabled = e.target.checked;
+                                            updatePackageForm('use_validation_script', enabled);
+                                            if (!enabled) {
+                                                updatePackageForm('lock_mac', false);
+                                            }
+                                        }}
+                                        className="rounded border-zinc-600 text-emerald-500 focus:ring-emerald-500"
+                                    />
+                                    <span className={`font-bold ${themeLabel}`}>Script Validasi (Auto Hapus &amp; Expired)</span>
+                                </label>
+                                <p className={`text-[10px] leading-relaxed ${themeTextSub}`}>
+                                    Pasang script on-login ke profil MikroTik: jadwalkan penghapusan user saat masa aktif habis dan catat tanggal expired di comment user.
+                                </p>
+                                <label className={`inline-flex items-center gap-2 ${packageForm.use_validation_script ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}>
+                                    <input
+                                        type="checkbox"
+                                        name="lock_mac"
+                                        checked={Boolean(packageForm.lock_mac)}
+                                        disabled={!packageForm.use_validation_script}
+                                        onChange={(e) => updatePackageForm('lock_mac', e.target.checked)}
+                                        className="rounded border-zinc-600 text-emerald-500 focus:ring-emerald-500 disabled:opacity-50"
+                                    />
+                                    <span className={`font-bold ${themeLabel}`}>Lock MAC Address</span>
+                                </label>
+                                <p className={`text-[10px] leading-relaxed ${themeTextSub}`}>
+                                    Saat login pertama, kunci voucher ke MAC perangkat tersebut. Voucher yang sudah dicetak tetap berlaku setelah paket disimpan ulang — script aktif pada login pertama berikutnya.
+                                </p>
                             </div>
                         </>
                     )}

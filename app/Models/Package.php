@@ -13,6 +13,8 @@ class Package extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'only_one' => 'boolean',
+        'use_validation_script' => 'boolean',
+        'lock_mac' => 'boolean',
     ];
 
     public function router(): BelongsTo
