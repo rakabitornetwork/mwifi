@@ -16,7 +16,7 @@ class HotspotProfileScriptBuilderTest extends TestCase
         $this->assertStringContainsString('comment=mwifi', $script);
         $this->assertStringContainsString('[:len [/system scheduler find where name=$user]] = 0', $script);
         $this->assertStringContainsString('/system scheduler get [find] name', $script);
-        $this->assertStringContainsString('mac-address] = ""', $script);
+        $this->assertStringContainsString('mac-address]] = 0', $script);
     }
 
     public function test_builds_without_mac_lock(): void

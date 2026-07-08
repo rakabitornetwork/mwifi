@@ -31,7 +31,7 @@ def profile_block(name: str, validity: str) -> str:
   /system scheduler add name=$user disabled=no start-date=[/system clock get date] start-time=[/system clock get time] interval={validity} on-event={REMOVE_EVENT} comment=mwifi;
 }};
 :if ([:len $mac] > 0) do={{
-  :if ([/ip hotspot user get [find where name=$user] mac-address] = "") do={{
+  :if ([:len [/ip hotspot user get [find where name=$user] mac-address]] = 0) do={{
     /ip hotspot user set mac-address=$mac [find where name=$user];
   }};
 }};

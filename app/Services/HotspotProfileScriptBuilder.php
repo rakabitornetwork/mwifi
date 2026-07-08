@@ -18,7 +18,7 @@ class HotspotProfileScriptBuilder
 
         $lockMacBlock = $lockMac
             ? ':if ([:len $mac] > 0) do={'
-            . ' :if ([/ip hotspot user get [find where name=$user] mac-address] = "") do={'
+            . ' :if ([:len [/ip hotspot user get [find where name=$user] mac-address]] = 0) do={'
             . ' /ip hotspot user set mac-address=$mac [find where name=$user];'
             . ' };'
             . ' };'
