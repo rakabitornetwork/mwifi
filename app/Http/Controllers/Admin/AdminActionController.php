@@ -958,21 +958,11 @@ class AdminActionController extends Controller
                 ];
 
                 if ($data['use_validation_script']) {
-                    $price = isset($data['price']) ? intval($data['price']) : 0;
                     $validity = $data['validity'] ?? '1d';
-                    $profileName = $data['mikrotik_profile'];
-                    $lockMac = $data['lock_mac'];
-
-                    $lockMacCode = $lockMac
-                        ? '[:local mac $"mac-address"; /ip hotspot user set mac-address=$mac [find where name=$user]]'
-                        : '';
-
-                    $lockMacStatus = $lockMac ? 'Enable' : 'Disable';
-
-                    // Trigger on first login only (no scheduler yet) so existing printed vouchers also work.
-                    $script = ':put (",remc,' . $price . ',' . $validity . ',' . $price . ',,' . $lockMacStatus . ',"); {:local date [ /system clock get date ];:local year [ :pick $date 0 4 ];:local month [ :pick $date 5 7 ]; :local comment [ /ip hotspot user get [/ip hotspot user find where name="$user"] comment]; :if ([/system scheduler find where name="$user"] = "") do={ /sys sch add name="$user" disable=no start-date=$date interval="' . $validity . '"; :delay 2s; :local exp [ /sys sch get [ /sys sch find where name="$user" ] next-run]; :local getxp [len $exp]; :if ($getxp = 15) do={ :local d [:pic $exp 0 6]; :local t [:pic $exp 7 16]; :local s ("/"); :local exp ("$d$s$year $t"); /ip hotspot user set comment=$exp [find where name="$user"];}; :if ($getxp = 8) do={ /ip hotspot user set comment="$date $exp" [find where name="$user"];}; :if ($getxp > 15) do={ /ip hotspot user set comment=$exp [find where name="$user"];}; /sys sch set [find where name="$user"] interval=0s on-event="/ip hotspot user remove [find where name=\\\"$user\\\"]; /system scheduler remove [find where name=\\\"$user\\\"]"; :local mac $"mac-address"; :local time [/system clock get time ]; /system script add name="$date-|-$time-|-$user-|-' . $price . '-|-$address-|-$mac-|-' . $validity . '-|-' . $profileName . '-|-$comment" owner="$month$year" source=$date comment=mikhmon; ' . $lockMacCode . '}}';
-
-                    $mkData['on-login'] = $script;
+                    $mkData['on-login'] = \App\Services\HotspotProfileScriptBuilder::buildOnLoginScript(
+                        $validity,
+                        $data['lock_mac']
+                    );
                 } else {
                     $mkData['on-login'] = '';
                 }
