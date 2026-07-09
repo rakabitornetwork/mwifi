@@ -10,14 +10,14 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-/* NOC shell — sidebar abu gelap, branding + navbar netral agar logo biru/cyan kontras */
+/* NOC shell — sidebar abu gelap, branding + navbar biru-abu lembut agar logo kontras */
 :root {
-    /* Branding bar (area logo di sidebar) */
-    --noc-brand-solid-light: #f8fafc;
+    /* Branding bar (area logo di sidebar) — biru-abu lembut, bukan putih polos */
+    --noc-brand-solid-light: #d5e4f2;
     --noc-brand-solid-dark: #1a2332;
 
-    /* Navbar kanan */
-    --noc-navbar-solid-light: #ffffff;
+    /* Navbar kanan — sedikit lebih terang dari branding */
+    --noc-navbar-solid-light: #e8f2fa;
     --noc-navbar-solid-dark: #151d28;
 
     /* Sidebar menu — abu-abu agak gelap */
@@ -25,7 +25,7 @@
     --noc-sidebar-solid-dark: #2a323d;
 
     /* Garis tipis antara branding (kiri) dan navbar (kanan) */
-    --noc-brand-navbar-separator-light: rgba(15, 23, 42, 0.08);
+    --noc-brand-navbar-separator-light: rgba(30, 64, 95, 0.14);
     --noc-brand-navbar-separator-dark: rgba(255, 255, 255, 0.08);
 }
 
@@ -55,9 +55,9 @@
 }
 
 .noc-brand-bar-light {
-    background-color: var(--noc-brand-solid-light);
+    background: linear-gradient(180deg, #e3edf8 0%, var(--noc-brand-solid-light) 100%);
     box-shadow: inset -1px 0 0 var(--noc-brand-navbar-separator-light);
-    border-bottom-color: rgba(15, 23, 42, 0.08);
+    border-bottom-color: rgba(30, 64, 95, 0.12);
 }
 
 .noc-brand-bar-dark {
@@ -82,8 +82,9 @@
 }
 
 .noc-navbar-light {
-    background-color: var(--noc-navbar-solid-light);
-    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+    background: linear-gradient(180deg, #f2f8fd 0%, var(--noc-navbar-solid-light) 100%);
+    border-bottom: 1px solid rgba(30, 64, 95, 0.12);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
 }
 
 .noc-navbar-dark {

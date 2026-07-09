@@ -14,6 +14,17 @@ export function isDarkByLocalTime(date = new Date()) {
 }
 
 /**
+ * Preferensi tema berikutnya saat pengguna menekan toggle.
+ * Membalik tampilan saat ini (gelap ↔ terang), bukan siklus auto → light → dark.
+ */
+export function resolveNextThemePreference(currentPreference, followsLocalTime) {
+    const currentlyDark = currentPreference === 'dark'
+        || (currentPreference === 'auto' && followsLocalTime);
+
+    return currentlyDark ? 'light' : 'dark';
+}
+
+/**
  * Milidetik hingga pergantian tema berikutnya (06:00 atau 18:00).
  */
 export function msUntilNextThemeBoundary(date = new Date()) {

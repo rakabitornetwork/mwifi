@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { isDarkByLocalTime, msUntilNextThemeBoundary } from '../utils/themeSchedule';
+import { isDarkByLocalTime, msUntilNextThemeBoundary, resolveNextThemePreference } from '../utils/themeSchedule';
 
 export const THEME_PREFERENCE_AUTO = 'auto';
 export const THEME_PREFERENCE_LIGHT = 'light';
@@ -91,17 +91,12 @@ export function useScheduledTheme(storageKey) {
 
     const toggleTheme = useCallback(() => {
         setThemePreference((current) => {
-            const next = current === THEME_PREFERENCE_AUTO
-                ? THEME_PREFERENCE_LIGHT
-                : current === THEME_PREFERENCE_LIGHT
-                    ? THEME_PREFERENCE_DARK
-                    : THEME_PREFERENCE_AUTO;
+            const next = resolveNextThemePreference(
+                current,
+                current === THEME_PREFERENCE_AUTO ? isDarkByLocalTime() : false,
+            );
 
             persistPreference(storageKey, next);
-
-            if (next === THEME_PREFERENCE_AUTO) {
-                setFollowsLocalTime(isDarkByLocalTime());
-            }
 
             return next;
         });
