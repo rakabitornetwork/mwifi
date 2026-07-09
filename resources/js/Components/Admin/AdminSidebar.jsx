@@ -46,12 +46,22 @@ export const adminNavItems = [
     { tab: 'update', icon: GitBranch, label: 'Update' },
 ];
 
-export function getAdminNavLinkClass(tabName, activeTab) {
+export function getAdminNavLinkClass(tabName, activeTab, isDarkMode = true) {
     const isActive = activeTab === tabName;
-    if (isActive) {
-        return 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all duration-150 border bg-white/16 text-white border-white/22 shadow-sm backdrop-blur-sm cursor-pointer';
+
+    if (isDarkMode) {
+        if (isActive) {
+            return 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all duration-150 border bg-white/14 text-sky-50 border-white/20 shadow-sm backdrop-blur-sm cursor-pointer';
+        }
+
+        return 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-medium text-xs transition-all duration-150 border border-transparent text-sky-100/80 hover:bg-white/10 hover:text-white hover:border-white/12 cursor-pointer';
     }
-    return 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-medium text-xs transition-all duration-150 border border-transparent text-blue-50/85 hover:bg-white/12 hover:text-white hover:border-white/14 cursor-pointer';
+
+    if (isActive) {
+        return 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all duration-150 border bg-white/55 text-slate-800 border-sky-300/45 shadow-sm backdrop-blur-sm cursor-pointer';
+    }
+
+    return 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-medium text-xs transition-all duration-150 border border-transparent text-slate-700 hover:bg-white/40 hover:text-slate-900 hover:border-sky-200/50 cursor-pointer';
 }
 
 export default function AdminSidebar({
@@ -136,7 +146,7 @@ export default function AdminSidebar({
                             key={tab}
                             href={`/${tab}`}
                             onClick={onNavClick}
-                            className={getAdminNavLinkClass(tab, activeTab)}
+                            className={getAdminNavLinkClass(tab, activeTab, isDarkMode)}
                         >
                             <Icon className="w-4 h-4" />
                             <span>{label}</span>
@@ -154,26 +164,42 @@ export default function AdminSidebar({
                         <img
                             src={auth.user.avatar_url}
                             alt={auth.user.name}
-                            className="w-11 h-11 rounded-lg object-cover shrink-0 border border-white/18"
+                            className={`w-11 h-11 rounded-lg object-cover shrink-0 border ${
+                                isDarkMode ? 'border-white/18' : 'border-sky-300/40'
+                            }`}
                         />
                     ) : (
-                        <div className="w-11 h-11 rounded-lg bg-white/12 text-white border border-white/18 flex items-center justify-center font-bold text-sm shrink-0">
+                        <div className={`w-11 h-11 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 border ${
+                            isDarkMode
+                                ? 'bg-white/12 text-white border-white/18'
+                                : 'bg-white/50 text-slate-700 border-sky-300/40'
+                        }`}>
                             {auth.user.initials || '?'}
                         </div>
                     )}
                     <div className="truncate min-w-0 flex flex-col gap-0 leading-tight">
                         <p className="flex items-center gap-1.5 mb-1 leading-none">
                             <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
-                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.95)]" />
+                                <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${
+                                    isDarkMode ? 'bg-emerald-400' : 'bg-emerald-500'
+                                }`} />
+                                <span className={`relative inline-flex h-2 w-2 rounded-full ${
+                                    isDarkMode
+                                        ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.95)]'
+                                        : 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.55)]'
+                                }`} />
                             </span>
-                            <span className="text-[10px] font-semibold text-emerald-300 tracking-wide">Online</span>
+                            <span className={`text-[10px] font-semibold tracking-wide ${
+                                isDarkMode ? 'text-emerald-300' : 'text-emerald-700'
+                            }`}>Online</span>
                         </p>
                         <p className={`text-xs font-semibold ${sidebarTextTitle} truncate`}>{auth.user.name}</p>
                         <Link
                             href="/profile"
                             onClick={onNavClick}
-                            className={`text-[10px] ${sidebarTextSub} font-medium tracking-wide uppercase text-left hover:underline cursor-pointer transition-colors leading-tight ${isDarkMode ? 'hover:text-white' : 'hover:text-indigo-900'}`}
+                            className={`text-[10px] ${sidebarTextSub} font-medium tracking-wide uppercase text-left hover:underline cursor-pointer transition-colors leading-tight ${
+                                isDarkMode ? 'hover:text-white' : 'hover:text-sky-900'
+                            }`}
                             title="Buka pengaturan profil"
                         >
                             {auth.user.profile_title || 'Super Admin'}

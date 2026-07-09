@@ -10,19 +10,23 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-/* NOC shell — sidebar abu gelap, branding + navbar biru-abu lembut agar logo kontras */
+/* NOC shell — palet biru-abu serasi: branding, navbar, sidebar */
 :root {
-    /* Branding bar (area logo di sidebar) — biru-abu lembut, bukan putih polos */
+    /* Branding bar (area logo di sidebar) */
     --noc-brand-solid-light: #d5e4f2;
     --noc-brand-solid-dark: #1a2332;
 
-    /* Navbar kanan — sedikit lebih terang dari branding */
+    /* Navbar kanan */
     --noc-navbar-solid-light: #e8f2fa;
     --noc-navbar-solid-dark: #151d28;
 
-    /* Sidebar menu — abu-abu agak gelap */
-    --noc-sidebar-solid-light: #3f4a58;
-    --noc-sidebar-solid-dark: #2a323d;
+    /* Sidebar menu — turunan biru dari branding */
+    --noc-sidebar-solid-light: #b8cfe4;
+    --noc-sidebar-solid-dark: #121c28;
+
+    /* Footer sidebar */
+    --noc-sidebar-footer-light: #a8c4de;
+    --noc-sidebar-footer-dark: #0f1824;
 
     /* Garis tipis antara branding (kiri) dan navbar (kanan) */
     --noc-brand-navbar-separator-light: rgba(30, 64, 95, 0.14);
@@ -30,16 +34,19 @@
 }
 
 .noc-sidebar {
-    color: #eff6ff;
-    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08);
+    box-shadow: inset -1px 0 0 rgba(30, 64, 95, 0.08);
 }
 
 .noc-sidebar-light {
-    background-color: var(--noc-sidebar-solid-light);
+    background: linear-gradient(180deg, #d0e3f4 0%, var(--noc-sidebar-solid-light) 55%, #aec5dc 100%);
+    color: #1e3a5f;
+    box-shadow: inset -1px 0 0 rgba(30, 64, 95, 0.12);
 }
 
 .noc-sidebar-dark {
-    background-color: var(--noc-sidebar-solid-dark);
+    background: linear-gradient(180deg, #1a2838 0%, var(--noc-sidebar-solid-dark) 55%, #0e1722 100%);
+    color: #e8f2fa;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
 }
 
 .noc-brand-bar {
@@ -61,7 +68,7 @@
 }
 
 .noc-brand-bar-dark {
-    background-color: var(--noc-brand-solid-dark);
+    background: linear-gradient(180deg, #1f2d3f 0%, var(--noc-brand-solid-dark) 100%);
     box-shadow: inset -1px 0 0 var(--noc-brand-navbar-separator-dark);
 }
 
@@ -72,9 +79,17 @@
 }
 
 .noc-sidebar-footer {
-    background-color: rgba(0, 0, 0, 0.1);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
     flex-shrink: 0;
+}
+
+.noc-sidebar-footer-light {
+    background: linear-gradient(180deg, rgba(190, 212, 232, 0.92) 0%, var(--noc-sidebar-footer-light) 100%);
+    border-top: 1px solid rgba(30, 64, 95, 0.16);
+}
+
+.noc-sidebar-footer-dark {
+    background: linear-gradient(180deg, rgba(20, 32, 48, 0.95) 0%, var(--noc-sidebar-footer-dark) 100%);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .noc-main-footer {
@@ -88,7 +103,7 @@
 }
 
 .noc-navbar-dark {
-    background-color: var(--noc-navbar-solid-dark);
+    background: linear-gradient(180deg, #1a2535 0%, var(--noc-navbar-solid-dark) 100%);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 

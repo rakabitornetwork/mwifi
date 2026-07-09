@@ -21,8 +21,8 @@ export default function SidebarMountain({ isDarkMode }) {
                         <stop offset="100%" stopColor="#e0f2fe" stopOpacity="0.5" />
                     </linearGradient>
                     <linearGradient id={darkSkyGrad} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#0f172a" stopOpacity="0.75" />
-                        <stop offset="100%" stopColor="#1e293b" stopOpacity="0.3" />
+                        <stop offset="0%" stopColor="#1a2838" stopOpacity="0.85" />
+                        <stop offset="100%" stopColor="#0e1722" stopOpacity="0.45" />
                     </linearGradient>
                 </defs>
 
@@ -71,21 +71,21 @@ export default function SidebarMountain({ isDarkMode }) {
 
                 <path
                     d="M0 80 L0 52 L42 22 L88 56 L140 18 L188 50 L224 36 L224 80 Z"
-                    fill={isDarkMode ? 'rgba(30, 41, 59, 0.35)' : 'rgba(165, 180, 252, 0.55)'}
+                    fill={isDarkMode ? 'rgba(26, 40, 56, 0.45)' : 'rgba(165, 180, 252, 0.55)'}
                     stroke={isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.08)'}
                     strokeWidth="0.5"
                 />
 
                 <path
                     d="M0 80 L0 60 L32 40 L78 32 L120 58 L162 36 L224 54 L224 80 Z"
-                    fill={isDarkMode ? 'rgba(15, 23, 42, 0.55)' : 'rgba(74, 117, 89, 0.7)'}
+                    fill={isDarkMode ? 'rgba(14, 23, 34, 0.65)' : 'rgba(74, 117, 89, 0.7)'}
                     stroke={isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.12)'}
                     strokeWidth="0.5"
                 />
 
                 <path
                     d="M0 80 L0 68 L24 55 L58 48 L100 65 L145 48 L190 62 L224 58 L224 80 Z"
-                    fill={isDarkMode ? 'rgba(3, 7, 18, 0.8)' : 'rgba(46, 82, 57, 0.85)'}
+                    fill={isDarkMode ? 'rgba(8, 14, 22, 0.85)' : 'rgba(46, 82, 57, 0.85)'}
                     stroke={isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(255, 255, 255, 0.15)'}
                     strokeWidth="0.5"
                 />
