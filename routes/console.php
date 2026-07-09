@@ -18,3 +18,6 @@ Schedule::command('billing:isolir-check')
 Schedule::command('bandwidth:sample')
     ->everyFiveMinutes()
     ->withoutOverlapping(30);
+Schedule::command('customers:service-schedule')
+    ->everyMinute()
+    ->withoutOverlapping(5);

@@ -578,6 +578,20 @@ export default function CustomerDetailPanel({
                         <SectionBlock icon={Receipt} title="Status & Billing" themeTextSub={themeTextSub}>
                             <div className="min-w-0">
                                 <InfoCell row label="Status Akun" value={status.label} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} />
+                                {customer.service_schedule_enabled && (
+                                    <InfoCell
+                                        row
+                                        label="Jadwal On/Off"
+                                        value={
+                                            customer.service_schedule_is_off
+                                                ? `Mati (jadwal aktif ${String(customer.service_schedule_off_at || '').slice(0, 5)}–${String(customer.service_schedule_on_at || '').slice(0, 5)})`
+                                                : `Aktif (${String(customer.service_schedule_off_at || '').slice(0, 5)}–${String(customer.service_schedule_on_at || '').slice(0, 5)})`
+                                        }
+                                        themeTextTitle={themeTextTitle}
+                                        themeTextSub={themeTextSub}
+                                        isDarkMode={isDarkMode}
+                                    />
+                                )}
                                 <InfoCell row label="Mulai Layanan" value={formatDate(customer.service_start_date)} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} />
                                 <InfoCell row label="Jatuh Tempo" value={resolveCustomerDueDate(customer) ? formatDisplayDate(resolveCustomerDueDate(customer)) : null} themeTextTitle={themeTextTitle} themeTextSub={themeTextSub} isDarkMode={isDarkMode} isLast />
                             </div>

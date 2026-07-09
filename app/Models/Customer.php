@@ -18,6 +18,8 @@ class Customer extends Model
         'billing_resume_date' => 'date',
         'billing_pause_date' => 'date',
         'cable_path' => 'array',
+        'service_schedule_enabled' => 'boolean',
+        'service_schedule_is_off' => 'boolean',
     ];
 
     protected function billingDate(): Attribute

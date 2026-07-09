@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\BillingService;
 use App\Services\BrandingService;
 use App\Services\CustomerNotificationService;
+use App\Services\CustomerServiceScheduleService;
 use App\Services\Customer\LegacyCsvImportService;
 use App\Services\HotspotVoucherService;
 use App\Services\StaffRouterScope;
@@ -350,7 +351,40 @@ class AdminActionController extends Controller
             'status' => 'required|in:active,isolated,inactive,suspended',
             'billing_date' => 'required|date',
             'service_start_date' => 'nullable|date',
+            'service_schedule_enabled' => 'nullable|boolean',
+            'service_schedule_off_at' => 'nullable|date_format:H:i',
+            'service_schedule_on_at' => 'nullable|date_format:H:i',
         ]);
+
+        $scheduleEnabled = filter_var($request->input('service_schedule_enabled'), FILTER_VALIDATE_BOOLEAN);
+        $data['service_schedule_enabled'] = $scheduleEnabled;
+
+        if ($scheduleEnabled) {
+            $request->validate([
+                'service_schedule_off_at' => 'required|date_format:H:i',
+                'service_schedule_on_at' => 'required|date_format:H:i',
+            ]);
+
+            if ($request->input('service_schedule_off_at') === $request->input('service_schedule_on_at')) {
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors(['service_schedule_off_at' => 'Jam mati dan jam nyala tidak boleh sama.']);
+            }
+
+            $data['service_schedule_off_at'] = $request->input('service_schedule_off_at') . ':00';
+            $data['service_schedule_on_at'] = $request->input('service_schedule_on_at') . ':00';
+        } else {
+            $data['service_schedule_off_at'] = null;
+            $data['service_schedule_on_at'] = null;
+            $data['service_schedule_is_off'] = false;
+        }
+
+        if (($data['service_type'] ?? 'pppoe') !== 'pppoe') {
+            $data['service_schedule_enabled'] = false;
+            $data['service_schedule_off_at'] = null;
+            $data['service_schedule_on_at'] = null;
+            $data['service_schedule_is_off'] = false;
+        }
 
         $id = $data['id'] ?? null;
         $requestedEmail = $data['email'] ?? null;
@@ -507,13 +541,16 @@ class AdminActionController extends Controller
             $package = Package::findOrFail($data['package_id']);
             $routerCustomer = $savedCustomer->fresh();
             $pendingPause = BillingService::customerHasPendingServicePause($routerCustomer);
+            $scheduleOff = CustomerServiceScheduleService::isScheduleEnabled($routerCustomer)
+                && CustomerServiceScheduleService::isInOffWindow($routerCustomer)
+                && CustomerServiceScheduleService::canApplySchedule($routerCustomer);
 
             if ($data['status'] === 'isolated') {
                 $profile = SettingService::get('mikrotik.isolir_profile', 'ISOLIR');
                 $disabled = 'no';
             } else {
                 $profile = $package->mikrotik_profile;
-                $disabled = ($data['status'] === 'active' && !$pendingPause) ? 'no' : 'yes';
+                $disabled = ($data['status'] === 'active' && ! $pendingPause && ! $scheduleOff) ? 'no' : 'yes';
             }
 
             $mkData = [
@@ -560,7 +597,8 @@ class AdminActionController extends Controller
                 }
 
                 $shouldKick = in_array($data['status'], ['isolated', 'inactive', 'suspended'], true)
-                    || $pendingPause;
+                    || $pendingPause
+                    || $scheduleOff;
 
                 if ($shouldKick) {
                     $connector->kickActiveConnection($data['username']);
@@ -573,6 +611,8 @@ class AdminActionController extends Controller
                     'error' => $mikrotikSyncWarning,
                 ]);
             }
+
+            CustomerServiceScheduleService::syncAfterScheduleChange($savedCustomer->fresh());
         } else {
             // If service type changed from pppoe to hotspot, remove old pppoe secret
             if ($oldServiceType === 'pppoe') {

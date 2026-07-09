@@ -50,7 +50,31 @@ function getModalEmailValue(customer) {
     return customer.portal_email || '';
 }
 
+function formatScheduleTimeInput(value) {
+    if (!value) {
+        return '';
+    }
+
+    const parts = String(value).split(':');
+    if (parts.length < 2) {
+        return '';
+    }
+
+    return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+}
+
 function resolveCustomerStatusDisplay(customer) {
+    if (customer?.service_schedule_is_off) {
+        const offAt = formatScheduleTimeInput(customer.service_schedule_off_at);
+        const onAt = formatScheduleTimeInput(customer.service_schedule_on_at);
+
+        return {
+            label: 'OFF (JADWAL)',
+            className: 'bg-indigo-500/10 text-indigo-500 border border-indigo-500/20',
+            title: `Layanan dimatikan otomatis oleh jadwal (${offAt} - ${onAt}).`,
+        };
+    }
+
     const pendingPause = customer?.pending_pause_status;
     if (pendingPause && ['inactive', 'suspended'].includes(pendingPause) && customer?.status === 'active') {
         return {
@@ -159,6 +183,7 @@ function CustomersPageContent({
     const [isImporting, setIsImporting] = useState(false);
     const [importResult, setImportResult] = useState(null);
     const [isSyncingCustomers, setIsSyncingCustomers] = useState(false);
+    const [scheduleEnabled, setScheduleEnabled] = useState(false);
 
     const [selectedRouterId, setSelectedRouterId] = useState('');
     const [selectedPackageId, setSelectedPackageId] = useState('');
@@ -292,6 +317,14 @@ function CustomersPageContent({
             setSelectedPackageId(editingCustomer ? String(editingCustomer.package_id || '') : '');
         }
     }, [showCustomerModal, editingCustomer, routers]);
+
+    useEffect(() => {
+        if (!showCustomerModal) {
+            return;
+        }
+
+        setScheduleEnabled(!!editingCustomer?.service_schedule_enabled);
+    }, [showCustomerModal, editingCustomer]);
 
     useEffect(() => {
         if (!selectedRouterId || !showCustomerModal) {
@@ -1333,6 +1366,53 @@ function CustomersPageContent({
                                 className={`p-2 border rounded-lg ${themeInput}`}
                             />
                         </div>
+                    </div>
+
+                    <div className={`p-3 rounded-xl border space-y-3 ${themeInnerWidget}`}>
+                        <label className="flex items-start gap-2.5 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="service_schedule_enabled"
+                                value="1"
+                                checked={scheduleEnabled}
+                                onChange={(e) => setScheduleEnabled(e.target.checked)}
+                                className={`mt-0.5 rounded text-indigo-500 focus:ring-indigo-500 ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}
+                            />
+                            <div className="space-y-0.5">
+                                <span className={`font-bold block ${themeTextTitle}`}>Jadwal On/Off Layanan</span>
+                                <span className={`text-[10px] block ${themeTextDesc}`}>
+                                    Matikan internet pelanggan secara otomatis pada jam tertentu. Status akun tetap Active; hanya koneksi PPPoE yang dinonaktifkan di Mikrotik.
+                                </span>
+                            </div>
+                        </label>
+
+                        {scheduleEnabled && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
+                                <div className="flex flex-col gap-1">
+                                    <label className={`font-bold ${themeLabel}`}>Jam Mati</label>
+                                    <input
+                                        required
+                                        name="service_schedule_off_at"
+                                        type="time"
+                                        defaultValue={formatScheduleTimeInput(editingCustomer?.service_schedule_off_at) || '22:00'}
+                                        className={`p-2 border rounded-lg ${themeInput}`}
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                    <label className={`font-bold ${themeLabel}`}>Jam Nyala</label>
+                                    <input
+                                        required
+                                        name="service_schedule_on_at"
+                                        type="time"
+                                        defaultValue={formatScheduleTimeInput(editingCustomer?.service_schedule_on_at) || '06:00'}
+                                        className={`p-2 border rounded-lg ${themeInput}`}
+                                    />
+                                </div>
+                                <p className={`sm:col-span-2 text-[10px] ${themeTextDesc}`}>
+                                    Contoh: mati 22:00 dan nyala 06:00 berarti internet dimatikan dari jam 22:00 malam hingga 06:00 pagi.
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     <div className="flex justify-end gap-2 pt-2">
