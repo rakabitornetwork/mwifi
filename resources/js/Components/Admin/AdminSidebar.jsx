@@ -84,7 +84,7 @@ export default function AdminSidebar({
                             variant="sidebar"
                             alt={branding.company_name || branding.app_name || 'Logo'}
                             fallbackIcon={Wifi}
-                            fallbackClassName="w-4 h-4 text-white"
+                            fallbackClassName={`w-4 h-4 ${isDarkMode ? 'text-white' : 'text-zinc-700'}`}
                         />
                     </div>
                 ) : (
@@ -94,7 +94,7 @@ export default function AdminSidebar({
                             variant="sidebar"
                             alt={branding.company_name || branding.app_name || 'Logo'}
                             fallbackIcon={Wifi}
-                            fallbackClassName="w-4 h-4 text-white"
+                            fallbackClassName={`w-4 h-4 ${isDarkMode ? 'text-white' : 'text-zinc-700'}`}
                         />
                         <div className="min-w-0 flex-1 overflow-hidden">
                             <BrandingCompanyName className={`text-xs font-black tracking-wide ${sidebarTextTitle}`}>
@@ -113,8 +113,12 @@ export default function AdminSidebar({
                     <button
                         type="button"
                         onClick={onClose}
-                        className={`p-1.5 rounded-lg border border-white/20 text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer shrink-0 ${
+                        className={`p-1.5 rounded-lg border transition-colors cursor-pointer shrink-0 ${
                             hasWideLogo(branding) ? 'absolute right-2 top-1/2 -translate-y-1/2' : ''
+                        } ${
+                            isDarkMode
+                                ? 'border-white/20 text-white/80 hover:text-white hover:bg-white/10'
+                                : 'border-zinc-200 text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100'
                         }`}
                         aria-label="Tutup menu"
                     >

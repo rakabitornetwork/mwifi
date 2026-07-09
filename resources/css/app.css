@@ -10,24 +10,23 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-/* NOC shell — sidebar abu gelap, branding + navbar biru */
+/* NOC shell — sidebar abu gelap, branding + navbar netral agar logo biru/cyan kontras */
 :root {
-    --noc-shell-blue-light: #136fc9;
-    --noc-shell-blue-dark: #064274;
+    /* Branding bar (area logo di sidebar) */
+    --noc-brand-solid-light: #f8fafc;
+    --noc-brand-solid-dark: #1a2332;
 
-    --noc-brand-solid-light: var(--noc-shell-blue-light);
-    --noc-brand-solid-dark: var(--noc-shell-blue-dark);
-
-    --noc-navbar-solid-light: var(--noc-shell-blue-light);
-    --noc-navbar-solid-dark: var(--noc-shell-blue-dark);
+    /* Navbar kanan */
+    --noc-navbar-solid-light: #ffffff;
+    --noc-navbar-solid-dark: #151d28;
 
     /* Sidebar menu — abu-abu agak gelap */
     --noc-sidebar-solid-light: #3f4a58;
     --noc-sidebar-solid-dark: #2a323d;
 
     /* Garis tipis antara branding (kiri) dan navbar (kanan) */
-    --noc-brand-navbar-separator-light: rgba(255, 255, 255, 0.16);
-    --noc-brand-navbar-separator-dark: rgba(255, 255, 255, 0.1);
+    --noc-brand-navbar-separator-light: rgba(15, 23, 42, 0.08);
+    --noc-brand-navbar-separator-dark: rgba(255, 255, 255, 0.08);
 }
 
 .noc-sidebar {
@@ -58,6 +57,7 @@
 .noc-brand-bar-light {
     background-color: var(--noc-brand-solid-light);
     box-shadow: inset -1px 0 0 var(--noc-brand-navbar-separator-light);
+    border-bottom-color: rgba(15, 23, 42, 0.08);
 }
 
 .noc-brand-bar-dark {
@@ -83,12 +83,12 @@
 
 .noc-navbar-light {
     background-color: var(--noc-navbar-solid-light);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 .noc-navbar-dark {
     background-color: var(--noc-navbar-solid-dark);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Efek garis putus-putus berjalan ke arah pelanggan (offset diatur via rAF di Dashboard) */
