@@ -1214,11 +1214,30 @@ class AdminActionController extends Controller
             $waNote = $sendWhatsApp
                 ? ' Notifikasi WhatsApp konfirmasi pembayaran dikirim ke pelanggan.'
                 : '';
+            $message = 'Tagihan berhasil dibayar secara manual.' . $waNote;
+            $printUrl = url('/admin/invoices/' . $invoice->id . '/print?position=top');
+
+            // JSON path used by Tagihan UI so cetak can open before the heavy Inertia reload.
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => true,
+                    'message' => $message,
+                    'print_url' => $printUrl,
+                    'print_invoice_id' => $invoice->id,
+                ]);
+            }
 
             return redirect()->back()->with([
-                'success' => 'Tagihan berhasil dibayar secara manual.' . $waNote,
+                'success' => $message,
                 'print_invoice_id' => $invoice->id,
             ]);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Gagal memproses pembayaran manual.',
+            ], 422);
         }
 
         return redirect()->back()->with('error', 'Gagal memproses pembayaran manual.');

@@ -8,6 +8,7 @@ import WhatsAppNotifyCheckbox from '../../../Components/Admin/WhatsAppNotifyChec
 import MonthlyRevenuePanel from '../../../Components/Admin/MonthlyRevenuePanel';
 import { readAdminWhatsAppPreference, writeAdminWhatsAppPreference } from '../../../utils/adminWhatsAppPreference';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
+import { useOptionalAdminToast } from '../../../hooks/useAdminToast';
 import { useStaffPermissions } from '../../../hooks/useStaffPermissions';
 import { useAssignedRouter, resolveDefaultRouterId } from '../../../hooks/useAssignedRouter';
 import AssignedRouterFilter from '../../../Components/Admin/AssignedRouterFilter';
@@ -146,6 +147,7 @@ function InvoicesPageContent({
     monthlyRevenue = {},
 }) {
     const theme = useAdminTheme();
+    const { showToast } = useOptionalAdminToast();
     const { canWrite, canPayManual } = useStaffPermissions();
     const { isRouterScoped, lockedRouterId } = useAssignedRouter(routers);
     const pageUrl = usePage().url;
@@ -354,7 +356,7 @@ function InvoicesPageContent({
         setPayManualModal(null);
     };
 
-    const confirmPayManual = () => {
+    const confirmPayManual = async () => {
         if (!payManualModal) {
             return;
         }
@@ -364,25 +366,49 @@ function InvoicesPageContent({
         const printWindow = window.open('about:blank', '_blank');
 
         setIsSubmittingPayManual(true);
-        router.post('/admin/invoices/pay-manual', {
-            invoice_id: invoiceId,
-            send_whatsapp: sendWhatsApp,
-        }, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setPayManualModal(null);
-                if (printWindow && !printWindow.closed) {
-                    printWindow.location.href = printUrl;
-                    printWindow.focus();
-                } else {
-                    window.open(printUrl, '_blank', 'noopener,noreferrer');
-                }
-            },
-            onError: () => {
+        try {
+            // Pay via JSON so cetak can open immediately — without waiting for the heavy Tagihan Inertia reload.
+            const response = await fetch('/admin/invoices/pay-manual', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({
+                    invoice_id: invoiceId,
+                    send_whatsapp: sendWhatsApp,
+                }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok || data.ok === false) {
                 printWindow?.close();
-            },
-            onFinish: () => setIsSubmittingPayManual(false),
-        });
+                showToast(data.message || 'Gagal memproses pembayaran manual.', 'error');
+                return;
+            }
+
+            setPayManualModal(null);
+            showToast(data.message || 'Tagihan berhasil dibayar secara manual.', 'success');
+
+            const resolvedPrintUrl = data.print_url || printUrl;
+            if (printWindow && !printWindow.closed) {
+                printWindow.location.href = resolvedPrintUrl;
+                printWindow.focus();
+            } else {
+                window.open(resolvedPrintUrl, '_blank', 'noopener,noreferrer');
+            }
+
+            // Refresh daftar Tagihan in the background after cetak already opened.
+            router.reload({ preserveScroll: true });
+        } catch (error) {
+            printWindow?.close();
+            showToast(error?.message || 'Gagal memproses pembayaran manual.', 'error');
+        } finally {
+            setIsSubmittingPayManual(false);
+        }
     };
 
     const openBulkPayModal = () => {

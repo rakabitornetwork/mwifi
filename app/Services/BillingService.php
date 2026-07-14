@@ -2395,9 +2395,23 @@ class BillingService
 
         $customer->update(['status' => 'active']);
 
+        return self::applyActiveProfileOnRouter($customer->fresh() ?? $customer);
+    }
+
+    /**
+     * Push the active PPPoE profile to MikroTik after DB status is already active.
+     */
+    public static function applyActiveProfileOnRouter(Customer $customer): bool
+    {
+        $customer->loadMissing(['router', 'package']);
+
+        if (!$customer->package) {
+            return false;
+        }
+
         $router = $customer->router;
         if (!$router || !$router->status) {
-            return $customer->fresh()->status === 'active';
+            return $customer->status === 'active';
         }
 
         try {
@@ -2415,11 +2429,60 @@ class BillingService
                 Log::warning("Failed to restore PPPoE profile for {$customer->username} on router {$router->name}");
             }
 
-            return $success || $customer->fresh()->status === 'active';
+            return $success || $customer->status === 'active';
         } catch (Exception $e) {
             Log::error("Failed to reactivate customer {$customer->username} on router: " . $e->getMessage());
 
-            return $customer->fresh()->status === 'active';
+            return $customer->status === 'active';
+        }
+    }
+
+    /**
+     * Run MikroTik / WhatsApp side-effects after the HTTP response when possible,
+     * so cashier flows (Bayar Manual + cetak invoice) are not blocked by gateway I/O.
+     *
+     * @param  array{phone: string, message: string}|null  $whatsApp
+     */
+    private static function runPaymentSideEffectsAfterResponse(?int $routerCustomerId, ?array $whatsApp): void
+    {
+        if ($routerCustomerId === null && $whatsApp === null) {
+            return;
+        }
+
+        $runner = function () use ($routerCustomerId, $whatsApp): void {
+            if ($routerCustomerId !== null) {
+                try {
+                    $customer = Customer::with(['router', 'package'])->find($routerCustomerId);
+                    if ($customer) {
+                        self::applyActiveProfileOnRouter($customer);
+                    }
+                } catch (Exception $e) {
+                    Log::error('Deferred router reactivation failed: ' . $e->getMessage());
+                }
+            }
+
+            if ($whatsApp !== null && class_exists(\App\Services\WhatsAppService::class)) {
+                try {
+                    \App\Services\WhatsAppService::sendText($whatsApp['phone'], $whatsApp['message']);
+                } catch (Exception $waEx) {
+                    Log::error('Failed to send WhatsApp payment receipt: ' . $waEx->getMessage());
+                }
+            }
+        };
+
+        // Console/jobs and PHPUnit must run inline so side-effects still execute & stay testable.
+        if (app()->runningInConsole() || app()->runningUnitTests()) {
+            $runner();
+
+            return;
+        }
+
+        try {
+            // Same pattern as GenieAcsService: flush after fastcgi_finish_request, no queue worker.
+            dispatch($runner)->afterResponse();
+        } catch (\Throwable $e) {
+            Log::warning('Payment side-effect afterResponse unavailable, running inline: ' . $e->getMessage());
+            $runner();
         }
     }
 
@@ -2467,8 +2530,13 @@ class BillingService
                 && ! self::customerHasPendingServicePause($customer)
                 && ! self::customerHasPastDueUnpaidInvoices($customer, $invoice->id);
 
+            $pendingRouterCustomerId = null;
+            $pendingWhatsApp = null;
+
             if ($shouldRestoreService) {
-                self::reactivateCustomerOnRouter($customer);
+                // Mark active in DB immediately; MikroTik push runs after the HTTP response.
+                $customer->update(['status' => 'active']);
+                $pendingRouterCustomerId = $customer->id;
             }
 
             if ($sendWhatsApp) {
@@ -2477,15 +2545,21 @@ class BillingService
                         $invoice,
                         includeReactivationNote: $shouldRestoreService && $wasIsolated
                     );
-                    if ($message && class_exists(\App\Services\WhatsAppService::class)) {
-                        \App\Services\WhatsAppService::sendText($customer->phone_number, $message);
+                    if ($message && $customer?->phone_number) {
+                        $pendingWhatsApp = [
+                            'phone' => $customer->phone_number,
+                            'message' => $message,
+                        ];
                     }
                 } catch (Exception $waEx) {
-                    Log::error("Failed to send WhatsApp payment receipt: " . $waEx->getMessage());
+                    Log::error('Failed to build WhatsApp payment receipt: ' . $waEx->getMessage());
                 }
             }
 
             DB::commit();
+
+            self::runPaymentSideEffectsAfterResponse($pendingRouterCustomerId, $pendingWhatsApp);
+
             return true;
         } catch (Exception $e) {
             DB::rollBack();

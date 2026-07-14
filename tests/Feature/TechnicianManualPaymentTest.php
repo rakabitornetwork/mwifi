@@ -90,6 +90,29 @@ class TechnicianManualPaymentTest extends TestCase
         $this->assertSame('paid', $invoice->fresh()->status);
     }
 
+    public function test_pay_manual_json_returns_print_url_without_redirect(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-06-20'));
+
+        [$technician, $router] = $this->makeTechnicianWithRouter(true);
+        $invoice = $this->makeUnpaidInvoice($router, 'A001J');
+
+        $response = $this->actingAs($technician)
+            ->postJson('/admin/invoices/pay-manual', [
+                'invoice_id' => $invoice->id,
+                'send_whatsapp' => false,
+            ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('ok', true);
+        $response->assertJsonPath('print_invoice_id', $invoice->id);
+        $this->assertStringContainsString(
+            '/admin/invoices/' . $invoice->id . '/print',
+            (string) $response->json('print_url')
+        );
+        $this->assertSame('paid', $invoice->fresh()->status);
+    }
+
     public function test_technician_without_permission_cannot_pay_manual(): void
     {
         [$technician, $router] = $this->makeTechnicianWithRouter(false);
