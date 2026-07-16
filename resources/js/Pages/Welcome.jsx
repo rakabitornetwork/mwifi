@@ -368,7 +368,7 @@ export default function Welcome({
                 </header>
 
                 {/* Hero — one composition: brand, headline, support, CTA, full-bleed visual */}
-                <section className="relative min-h-[calc(100vh-4rem)] flex items-end sm:items-center overflow-hidden">
+                <section className="relative min-h-[calc(100svh-4rem)] flex items-center overflow-hidden">
                     <div className={`landing-hero-photo ${isDarkMode ? 'landing-hero-photo-dark' : 'landing-hero-photo-light'}`} aria-hidden>
                         <picture>
                             <source
@@ -396,15 +396,15 @@ export default function Welcome({
                         }`}
                     />
 
-                    <div className="relative z-10 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-20 pb-24 sm:py-32">
-                        <div className="max-w-2xl space-y-7">
+                    <div className="relative z-10 w-full max-w-6xl mx-auto px-5 sm:px-6 py-14 sm:py-28">
+                        <div className="max-w-2xl mx-auto sm:mx-0 space-y-4 sm:space-y-7 text-center sm:text-left">
                             <div className="landing-reveal">
-                                <div className="landing-rule mb-6" />
+                                <div className="landing-rule mb-4 sm:mb-6 mx-auto sm:mx-0" />
                                 <p className={t.brandHero}>
                                     {companyName}
                                 </p>
                             </div>
-                            <h1 className={`font-display text-2xl sm:text-3xl lg:text-[2.15rem] font-normal italic tracking-tight leading-snug landing-reveal landing-reveal-delay-1 ${
+                            <h1 className={`font-display text-[1.25rem] sm:text-3xl lg:text-[2.15rem] font-normal italic tracking-tight leading-snug px-1 sm:px-0 landing-reveal landing-reveal-delay-1 ${
                                 isDarkMode ? 'text-[#c9b896]' : 'text-[#8a7355]'
                             }`}>
                                 Infrastruktur digital yang tenang, presisi, dan berkelas.
@@ -416,7 +416,7 @@ export default function Welcome({
                             >
                                 {tagline}
                             </BrandingTagline>
-                            <div className="flex flex-col sm:flex-row gap-3 pt-3 landing-reveal landing-reveal-delay-3">
+                            <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 pt-2 sm:pt-3 w-full max-w-[260px] sm:max-w-none mx-auto sm:mx-0 landing-reveal landing-reveal-delay-3">
                                 <a
                                     href="#pesan"
                                     onClick={(e) => handleSectionNav(e, 'pesan')}
