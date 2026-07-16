@@ -19,7 +19,7 @@ function BrandMark({ branding, isDark }) {
     const letter = (branding.company_name || branding.app_name || 'T').charAt(0).toUpperCase();
 
     return (
-        <span className={`inline-flex items-center justify-center w-9 h-9 rounded-lg text-white text-sm font-extrabold shadow-sm ${isDark ? 'bg-indigo-600' : 'bg-sky-600'}`}>
+        <span className={`inline-flex items-center justify-center w-9 h-9 rounded-md text-sm font-medium shadow-sm ${isDark ? 'bg-[#c9b896] text-[#0a0908]' : 'bg-[#1a1814] text-[#f0ebe3]'}`}>
             {letter}
         </span>
     );
@@ -52,31 +52,31 @@ export default function PublicSiteFooter({
     const contactLine = [email, phone].filter(Boolean).join(' · ');
 
     return (
-        <footer className={`mt-auto border-t ${isDark ? 'border-slate-800 bg-slate-950 text-slate-400' : 'border-slate-200/90 bg-slate-100/90 text-slate-500'}`}>
+        <footer className={`mt-auto border-t ${isDark ? 'border-[#c9b896]/10 bg-[#0a0908] text-[#9a958c]' : 'border-[#2a2824]/08 bg-[#e3e1dc] text-[#6e6a62]'}`}>
             <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-8">
                 <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr_1fr] gap-10 md:gap-8">
                     <div>
                         <Link href="/" className="inline-flex items-center gap-2.5 mb-4 group min-w-0">
                             <BrandMark branding={branding} isDark={isDark} />
                             {!hasWideLogo(branding) && (
-                            <span className={`text-sm font-extrabold tracking-[0.12em] transition-colors ${isDark ? 'text-slate-200 group-hover:text-indigo-400' : 'text-slate-800 group-hover:text-sky-700'}`}>
+                            <span className={`font-display text-lg font-medium tracking-[0.06em] transition-colors ${isDark ? 'text-[#f0ebe3] group-hover:text-[#c9b896]' : 'text-[#1a1814] group-hover:text-[#8a7355]'}`}>
                                 {brandLabel}
                             </span>
                             )}
                         </Link>
-                        <p className={`text-sm leading-relaxed max-w-md ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                        <p className={`text-sm leading-relaxed max-w-md ${isDark ? 'text-[#9a958c]' : 'text-[#6e6a62]'}`}>
                             {tagline}
                         </p>
                     </div>
 
                     <div>
-                        <h4 className={`text-sm font-bold mb-3 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Layanan</h4>
-                        <ul className="space-y-2">
+                        <h4 className={`text-[11px] font-medium uppercase tracking-[0.2em] mb-4 ${isDark ? 'text-[#c9b896]' : 'text-[#8a7355]'}`}>Layanan</h4>
+                        <ul className="space-y-2.5">
                             {serviceLinks.map((item) => (
                                 <li key={item.label}>
                                     <Link
                                         href={item.href}
-                                        className={`text-sm transition-colors ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-sky-600 hover:text-sky-700'}`}
+                                        className={`text-sm transition-colors ${isDark ? 'text-[#9a958c] hover:text-[#c9b896]' : 'text-[#6e6a62] hover:text-[#8a7355]'}`}
                                     >
                                         {item.label}
                                     </Link>
@@ -86,13 +86,13 @@ export default function PublicSiteFooter({
                     </div>
 
                     <div>
-                        <h4 className={`text-sm font-bold mb-3 ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>Kebijakan</h4>
-                        <ul className="space-y-2">
+                        <h4 className={`text-[11px] font-medium uppercase tracking-[0.2em] mb-4 ${isDark ? 'text-[#c9b896]' : 'text-[#8a7355]'}`}>Kebijakan</h4>
+                        <ul className="space-y-2.5">
                             {policies.map((link) => (
                                 <li key={link.url}>
                                     <Link
                                         href={link.url}
-                                        className={`text-sm transition-colors ${isDark ? 'text-indigo-400 hover:text-indigo-300' : 'text-sky-600 hover:text-sky-700'}`}
+                                        className={`text-sm transition-colors ${isDark ? 'text-[#9a958c] hover:text-[#c9b896]' : 'text-[#6e6a62] hover:text-[#8a7355]'}`}
                                     >
                                         {link.label}
                                     </Link>
@@ -103,7 +103,7 @@ export default function PublicSiteFooter({
                 </div>
 
                 <div className={`mt-10 pt-5 border-t text-xs sm:text-sm ${
-                    isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-500'
+                    isDark ? 'border-[#c9b896]/10 text-[#5c5850]' : 'border-[#2a2824]/08 text-[#9a958c]'
                 } ${centerCopyright ? 'text-center' : 'flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'}`}>
                     <span>{copyright}</span>
                     {showContactLine && contactLine && !centerCopyright && <span>{contactLine}</span>}

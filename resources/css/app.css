@@ -6,8 +6,212 @@
 @source '../views/**/*.blade.php';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Outfit', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+}
+
+.font-display {
+    font-family: var(--font-display);
+}
+
+/* Landing — luxury atmosphere + motion */
+.landing-hero-photo {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+.landing-hero-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 40%;
+    transform: scale(1.06);
+    animation: landing-hero-ken 28s ease-in-out infinite alternate;
+    will-change: transform;
+}
+
+.landing-hero-photo-dark {
+    opacity: 0.88;
+    filter: saturate(1) brightness(1.12) contrast(1.02);
+}
+
+.landing-hero-photo-light {
+    opacity: 0.72;
+    filter: saturate(0.95) brightness(1.22) contrast(1.02);
+}
+
+@keyframes landing-hero-ken {
+    from {
+        transform: scale(1.06) translate3d(0, 0, 0);
+    }
+    to {
+        transform: scale(1.12) translate3d(-1.2%, -0.8%, 0);
+    }
+}
+
+.landing-hero-mesh {
+    background:
+        radial-gradient(ellipse 90% 60% at 20% 10%, rgba(201, 184, 150, 0.1), transparent 55%),
+        radial-gradient(ellipse 70% 50% at 90% 30%, rgba(201, 184, 150, 0.05), transparent 50%),
+        radial-gradient(ellipse 80% 55% at 50% 100%, rgba(80, 60, 40, 0.18), transparent 55%);
+}
+
+.landing-hero-mesh-light {
+    background:
+        radial-gradient(ellipse 90% 55% at 15% 0%, rgba(201, 184, 150, 0.18), transparent 55%),
+        radial-gradient(ellipse 60% 45% at 95% 20%, rgba(201, 184, 150, 0.1), transparent 50%),
+        radial-gradient(ellipse 70% 50% at 40% 100%, rgba(42, 40, 36, 0.03), transparent 55%);
+}
+
+.landing-hero-scrim-dark {
+    background:
+        linear-gradient(90deg, rgba(10, 9, 8, 0.55) 0%, rgba(10, 9, 8, 0.22) 48%, rgba(10, 9, 8, 0.12) 100%),
+        linear-gradient(180deg, rgba(10, 9, 8, 0.18) 0%, transparent 40%, rgba(10, 9, 8, 0.45) 100%);
+}
+
+.landing-hero-scrim-light {
+    background:
+        linear-gradient(90deg, rgba(235, 234, 231, 0.62) 0%, rgba(235, 234, 231, 0.28) 48%, rgba(235, 234, 231, 0.16) 100%),
+        linear-gradient(180deg, rgba(235, 234, 231, 0.22) 0%, transparent 42%, rgba(235, 234, 231, 0.55) 100%);
+}
+
+.landing-vignette {
+    background: radial-gradient(ellipse 75% 70% at 50% 45%, transparent 40%, rgba(10, 9, 8, 0.28) 100%);
+}
+
+.landing-vignette-light {
+    background: radial-gradient(ellipse 75% 70% at 50% 45%, transparent 42%, rgba(235, 234, 231, 0.35) 100%);
+}
+
+.landing-grid-fade {
+    background-image:
+        linear-gradient(to right, rgba(201, 184, 150, 0.07) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(201, 184, 150, 0.07) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(ellipse 70% 60% at 55% 40%, #000 10%, transparent 72%);
+}
+
+.landing-reveal {
+    animation: landing-reveal 1.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.landing-reveal-delay-1 {
+    animation-delay: 0.18s;
+}
+
+.landing-reveal-delay-2 {
+    animation-delay: 0.34s;
+}
+
+.landing-reveal-delay-3 {
+    animation-delay: 0.5s;
+}
+
+.landing-reveal-delay-4 {
+    animation-delay: 0.66s;
+}
+
+@keyframes landing-reveal {
+    from {
+        opacity: 0;
+        transform: translateY(22px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.landing-pulse-ring {
+    animation: landing-pulse-ring 6s ease-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+@keyframes landing-pulse-ring {
+    0% {
+        opacity: 0.45;
+        transform: scale(0.94);
+    }
+    70% {
+        opacity: 0;
+        transform: scale(1.12);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.12);
+    }
+}
+
+.landing-orbit {
+    animation: landing-orbit 48s linear infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+@keyframes landing-orbit {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.landing-flow-line {
+    stroke-dasharray: 4 18;
+    animation: landing-flow 5.5s linear infinite;
+}
+
+@keyframes landing-flow {
+    to {
+        stroke-dashoffset: -44;
+    }
+}
+
+.landing-cta-shine {
+    position: relative;
+    overflow: hidden;
+}
+
+.landing-cta-shine::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, 0.22) 50%, transparent 60%);
+    transform: translateX(-120%);
+    transition: transform 0.85s ease;
+}
+
+.landing-cta-shine:hover::after {
+    transform: translateX(120%);
+}
+
+.landing-rule {
+    height: 1px;
+    width: 3.5rem;
+    background: linear-gradient(90deg, #c9b896, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .landing-reveal,
+    .landing-reveal-delay-1,
+    .landing-reveal-delay-2,
+    .landing-reveal-delay-3,
+    .landing-reveal-delay-4,
+    .landing-pulse-ring,
+    .landing-orbit,
+    .landing-flow-line,
+    .landing-cta-shine::after,
+    .landing-hero-photo img {
+        animation: none !important;
+        transition: none !important;
+        opacity: 1;
+        transform: none;
+    }
+
+    .landing-hero-photo img {
+        transform: scale(1.04);
+    }
 }
 
 /* NOC shell — palet biru-abu serasi: branding, navbar, sidebar */

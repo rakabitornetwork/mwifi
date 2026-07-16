@@ -75,8 +75,8 @@
       "_vendor-core-DcWVYapx.js"
     ]
   },
-  "_PublicSiteFooter-n436MYmy.js": {
-    "file": "assets/PublicSiteFooter-n436MYmy.js",
+  "_PublicSiteFooter-BOf-xevg.js": {
+    "file": "assets/PublicSiteFooter-BOf-xevg.js",
     "name": "PublicSiteFooter",
     "imports": [
       "_vendor-core-DcWVYapx.js",
@@ -128,6 +128,126 @@
     "file": "assets/cardAccentStyles-prMiIcZR.js",
     "name": "cardAccentStyles"
   },
+  "_cormorant-garamond-400-normal-4uxlocMh.woff": {
+    "file": "assets/cormorant-garamond-400-normal-4uxlocMh.woff",
+    "src": "_cormorant-garamond-400-normal-4uxlocMh.woff"
+  },
+  "_cormorant-garamond-400-normal-6K-YXo6g.woff2": {
+    "file": "assets/cormorant-garamond-400-normal-6K-YXo6g.woff2",
+    "src": "_cormorant-garamond-400-normal-6K-YXo6g.woff2"
+  },
+  "_cormorant-garamond-400-normal-B-1hWBU7.woff2": {
+    "file": "assets/cormorant-garamond-400-normal-B-1hWBU7.woff2",
+    "src": "_cormorant-garamond-400-normal-B-1hWBU7.woff2"
+  },
+  "_cormorant-garamond-400-normal-B7YtguxJ.woff": {
+    "file": "assets/cormorant-garamond-400-normal-B7YtguxJ.woff",
+    "src": "_cormorant-garamond-400-normal-B7YtguxJ.woff"
+  },
+  "_cormorant-garamond-400-normal-CVFrM67f.woff": {
+    "file": "assets/cormorant-garamond-400-normal-CVFrM67f.woff",
+    "src": "_cormorant-garamond-400-normal-CVFrM67f.woff"
+  },
+  "_cormorant-garamond-400-normal-DD2KOZkl.woff2": {
+    "file": "assets/cormorant-garamond-400-normal-DD2KOZkl.woff2",
+    "src": "_cormorant-garamond-400-normal-DD2KOZkl.woff2"
+  },
+  "_cormorant-garamond-400-normal-DLdKLAvx.woff": {
+    "file": "assets/cormorant-garamond-400-normal-DLdKLAvx.woff",
+    "src": "_cormorant-garamond-400-normal-DLdKLAvx.woff"
+  },
+  "_cormorant-garamond-400-normal-Drx2k2n9.woff2": {
+    "file": "assets/cormorant-garamond-400-normal-Drx2k2n9.woff2",
+    "src": "_cormorant-garamond-400-normal-Drx2k2n9.woff2"
+  },
+  "_cormorant-garamond-400-normal-W3Dto7M0.woff2": {
+    "file": "assets/cormorant-garamond-400-normal-W3Dto7M0.woff2",
+    "src": "_cormorant-garamond-400-normal-W3Dto7M0.woff2"
+  },
+  "_cormorant-garamond-400-normal-uvC0WHQr.woff": {
+    "file": "assets/cormorant-garamond-400-normal-uvC0WHQr.woff",
+    "src": "_cormorant-garamond-400-normal-uvC0WHQr.woff"
+  },
+  "_cormorant-garamond-500-normal-BZGLGj12.woff2": {
+    "file": "assets/cormorant-garamond-500-normal-BZGLGj12.woff2",
+    "src": "_cormorant-garamond-500-normal-BZGLGj12.woff2"
+  },
+  "_cormorant-garamond-500-normal-BsRWmXhO.woff2": {
+    "file": "assets/cormorant-garamond-500-normal-BsRWmXhO.woff2",
+    "src": "_cormorant-garamond-500-normal-BsRWmXhO.woff2"
+  },
+  "_cormorant-garamond-500-normal-CH1kM7og.woff2": {
+    "file": "assets/cormorant-garamond-500-normal-CH1kM7og.woff2",
+    "src": "_cormorant-garamond-500-normal-CH1kM7og.woff2"
+  },
+  "_cormorant-garamond-500-normal-CyAY5ZLS.woff2": {
+    "file": "assets/cormorant-garamond-500-normal-CyAY5ZLS.woff2",
+    "src": "_cormorant-garamond-500-normal-CyAY5ZLS.woff2"
+  },
+  "_cormorant-garamond-500-normal-DYeaGGzO.woff": {
+    "file": "assets/cormorant-garamond-500-normal-DYeaGGzO.woff",
+    "src": "_cormorant-garamond-500-normal-DYeaGGzO.woff"
+  },
+  "_cormorant-garamond-500-normal-DkJXBcIH.woff": {
+    "file": "assets/cormorant-garamond-500-normal-DkJXBcIH.woff",
+    "src": "_cormorant-garamond-500-normal-DkJXBcIH.woff"
+  },
+  "_cormorant-garamond-500-normal-DqXqCC0q.woff": {
+    "file": "assets/cormorant-garamond-500-normal-DqXqCC0q.woff",
+    "src": "_cormorant-garamond-500-normal-DqXqCC0q.woff"
+  },
+  "_cormorant-garamond-500-normal-Yta7XZ9C.woff2": {
+    "file": "assets/cormorant-garamond-500-normal-Yta7XZ9C.woff2",
+    "src": "_cormorant-garamond-500-normal-Yta7XZ9C.woff2"
+  },
+  "_cormorant-garamond-500-normal-lsPpqi9g.woff": {
+    "file": "assets/cormorant-garamond-500-normal-lsPpqi9g.woff",
+    "src": "_cormorant-garamond-500-normal-lsPpqi9g.woff"
+  },
+  "_cormorant-garamond-500-normal-zIXX3Q-H.woff": {
+    "file": "assets/cormorant-garamond-500-normal-zIXX3Q-H.woff",
+    "src": "_cormorant-garamond-500-normal-zIXX3Q-H.woff"
+  },
+  "_cormorant-garamond-600-normal-2CBVLo0M.woff": {
+    "file": "assets/cormorant-garamond-600-normal-2CBVLo0M.woff",
+    "src": "_cormorant-garamond-600-normal-2CBVLo0M.woff"
+  },
+  "_cormorant-garamond-600-normal-BMhMHfrj.woff2": {
+    "file": "assets/cormorant-garamond-600-normal-BMhMHfrj.woff2",
+    "src": "_cormorant-garamond-600-normal-BMhMHfrj.woff2"
+  },
+  "_cormorant-garamond-600-normal-BoXdMtcr.woff2": {
+    "file": "assets/cormorant-garamond-600-normal-BoXdMtcr.woff2",
+    "src": "_cormorant-garamond-600-normal-BoXdMtcr.woff2"
+  },
+  "_cormorant-garamond-600-normal-C2atO-64.woff2": {
+    "file": "assets/cormorant-garamond-600-normal-C2atO-64.woff2",
+    "src": "_cormorant-garamond-600-normal-C2atO-64.woff2"
+  },
+  "_cormorant-garamond-600-normal-C4HEjEaf.woff": {
+    "file": "assets/cormorant-garamond-600-normal-C4HEjEaf.woff",
+    "src": "_cormorant-garamond-600-normal-C4HEjEaf.woff"
+  },
+  "_cormorant-garamond-600-normal-Co1r35X9.woff2": {
+    "file": "assets/cormorant-garamond-600-normal-Co1r35X9.woff2",
+    "src": "_cormorant-garamond-600-normal-Co1r35X9.woff2"
+  },
+  "_cormorant-garamond-600-normal-CsIYWmWK.woff": {
+    "file": "assets/cormorant-garamond-600-normal-CsIYWmWK.woff",
+    "src": "_cormorant-garamond-600-normal-CsIYWmWK.woff"
+  },
+  "_cormorant-garamond-600-normal-DaBc-lu7.woff2": {
+    "file": "assets/cormorant-garamond-600-normal-DaBc-lu7.woff2",
+    "src": "_cormorant-garamond-600-normal-DaBc-lu7.woff2"
+  },
+  "_cormorant-garamond-600-normal-Dk3-quAP.woff": {
+    "file": "assets/cormorant-garamond-600-normal-Dk3-quAP.woff",
+    "src": "_cormorant-garamond-600-normal-Dk3-quAP.woff"
+  },
+  "_cormorant-garamond-600-normal-FNmA3REe.woff": {
+    "file": "assets/cormorant-garamond-600-normal-FNmA3REe.woff",
+    "src": "_cormorant-garamond-600-normal-FNmA3REe.woff"
+  },
   "_customerMetrics-CfFLhgso.js": {
     "file": "assets/customerMetrics-CfFLhgso.js",
     "name": "customerMetrics",
@@ -143,9 +263,9 @@
     "file": "assets/fetchRouterPackageProfiles-Cc5MZjgn.js",
     "name": "fetchRouterPackageProfiles"
   },
-  "_fonts-DkuEHybc.css": {
-    "file": "assets/fonts-DkuEHybc.css",
-    "src": "_fonts-DkuEHybc.css"
+  "_fonts-5V1vOBd5.css": {
+    "file": "assets/fonts-5V1vOBd5.css",
+    "src": "_fonts-5V1vOBd5.css"
   },
   "_formatBytes-BymiRaes.js": {
     "file": "assets/formatBytes-BymiRaes.js",
@@ -214,6 +334,54 @@
   "_instrument-sans-600-normal-DMks36a2.woff": {
     "file": "assets/instrument-sans-600-normal-DMks36a2.woff",
     "src": "_instrument-sans-600-normal-DMks36a2.woff"
+  },
+  "_outfit-400-normal-5tcqmc2S.woff2": {
+    "file": "assets/outfit-400-normal-5tcqmc2S.woff2",
+    "src": "_outfit-400-normal-5tcqmc2S.woff2"
+  },
+  "_outfit-400-normal-BGsTXAXT.woff2": {
+    "file": "assets/outfit-400-normal-BGsTXAXT.woff2",
+    "src": "_outfit-400-normal-BGsTXAXT.woff2"
+  },
+  "_outfit-400-normal-DHm7mdGe.woff": {
+    "file": "assets/outfit-400-normal-DHm7mdGe.woff",
+    "src": "_outfit-400-normal-DHm7mdGe.woff"
+  },
+  "_outfit-400-normal-DMwTpYkH.woff": {
+    "file": "assets/outfit-400-normal-DMwTpYkH.woff",
+    "src": "_outfit-400-normal-DMwTpYkH.woff"
+  },
+  "_outfit-500-normal-ClnHRwRh.woff": {
+    "file": "assets/outfit-500-normal-ClnHRwRh.woff",
+    "src": "_outfit-500-normal-ClnHRwRh.woff"
+  },
+  "_outfit-500-normal-DKnIMDSk.woff2": {
+    "file": "assets/outfit-500-normal-DKnIMDSk.woff2",
+    "src": "_outfit-500-normal-DKnIMDSk.woff2"
+  },
+  "_outfit-500-normal-DrCvqoFD.woff": {
+    "file": "assets/outfit-500-normal-DrCvqoFD.woff",
+    "src": "_outfit-500-normal-DrCvqoFD.woff"
+  },
+  "_outfit-500-normal-zeox_O30.woff2": {
+    "file": "assets/outfit-500-normal-zeox_O30.woff2",
+    "src": "_outfit-500-normal-zeox_O30.woff2"
+  },
+  "_outfit-600-normal-B7SfZ07L.woff2": {
+    "file": "assets/outfit-600-normal-B7SfZ07L.woff2",
+    "src": "_outfit-600-normal-B7SfZ07L.woff2"
+  },
+  "_outfit-600-normal-B85nYjL1.woff2": {
+    "file": "assets/outfit-600-normal-B85nYjL1.woff2",
+    "src": "_outfit-600-normal-B85nYjL1.woff2"
+  },
+  "_outfit-600-normal-BEfTtDA7.woff": {
+    "file": "assets/outfit-600-normal-BEfTtDA7.woff",
+    "src": "_outfit-600-normal-BEfTtDA7.woff"
+  },
+  "_outfit-600-normal-CWJcPgd7.woff": {
+    "file": "assets/outfit-600-normal-CWJcPgd7.woff",
+    "src": "_outfit-600-normal-CWJcPgd7.woff"
   },
   "_rolldown-runtime-QTnfLwEv.js": {
     "file": "assets/rolldown-runtime-QTnfLwEv.js",
@@ -292,7 +460,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-BQEk8qgY.css",
+    "file": "assets/app-DvuZAB50.css",
     "name": "app",
     "names": [
       "app.css"
@@ -654,19 +822,19 @@
     ]
   },
   "resources/js/Pages/Public/PolicyPage.jsx": {
-    "file": "assets/PolicyPage-BXcPFn53.js",
+    "file": "assets/PolicyPage-smSxflgs.js",
     "name": "PolicyPage",
     "src": "resources/js/Pages/Public/PolicyPage.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_vendor-core-DcWVYapx.js",
       "_BrandingLogo-DUwdJX-_.js",
-      "_PublicSiteFooter-n436MYmy.js",
+      "_PublicSiteFooter-BOf-xevg.js",
       "_PublicSupportContact-DvRHn11H.js"
     ]
   },
   "resources/js/Pages/Public/VpsCatalog.jsx": {
-    "file": "assets/VpsCatalog-C_SZRJUF.js",
+    "file": "assets/VpsCatalog-BWaKd0ln.js",
     "name": "VpsCatalog",
     "src": "resources/js/Pages/Public/VpsCatalog.jsx",
     "isDynamicEntry": true,
@@ -675,13 +843,13 @@
       "_vendor-BXfUUSDP.js",
       "_vendor-core-DcWVYapx.js",
       "_BrandingLogo-DUwdJX-_.js",
-      "_PublicSiteFooter-n436MYmy.js",
+      "_PublicSiteFooter-BOf-xevg.js",
       "_PublicSupportContact-DvRHn11H.js",
       "_formatRupiah-BPNt29Go.js"
     ]
   },
   "resources/js/Pages/Welcome.jsx": {
-    "file": "assets/Welcome-D5U3LEXK.js",
+    "file": "assets/Welcome-_bccg5iA.js",
     "name": "Welcome",
     "src": "resources/js/Pages/Welcome.jsx",
     "isDynamicEntry": true,
@@ -691,12 +859,12 @@
       "_vendor-core-DcWVYapx.js",
       "_BrandingLogo-DUwdJX-_.js",
       "_PullToRefresh-D9xoAYOk.js",
-      "_PublicSiteFooter-n436MYmy.js",
+      "_PublicSiteFooter-BOf-xevg.js",
       "_useScheduledTheme-C9uZa9-M.js"
     ]
   },
   "resources/js/app.jsx": {
-    "file": "assets/app-Pb8WkeKo.js",
+    "file": "assets/app-Cj1uOu0h.js",
     "name": "app",
     "src": "resources/js/app.jsx",
     "isEntry": true,

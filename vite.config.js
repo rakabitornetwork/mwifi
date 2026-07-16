@@ -13,6 +13,12 @@ export default defineConfig({
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
                 }),
+                bunny('Outfit', {
+                    weights: [400, 500, 600],
+                }),
+                bunny('Cormorant Garamond', {
+                    weights: [400, 500, 600],
+                }),
             ],
         }),
         react(),
