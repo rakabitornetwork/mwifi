@@ -1032,7 +1032,7 @@ function DashboardContent({
 
 export default function DashboardIndex(props) {
     return (
-        <AdminLayout title="Dashboard">
+        <AdminLayout title="Dasbor">
             <DashboardContent {...props} />
         </AdminLayout>
     );

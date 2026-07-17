@@ -10,11 +10,11 @@ Repositori resmi: [github.com/rakabitornetwork/mwifi](https://github.com/rakabit
 
 | Modul | Keterangan |
 |-------|------------|
-| **Dashboard NOC** | Ringkasan operasional, monitor resource server |
+| **Dasbor NOC** | Ringkasan operasional, monitor resource server |
 | **Router Mikrotik** | Koneksi REST API / legacy socket, sync profil PPPoE & Hotspot |
 | **Pelanggan PPPoE** | CRUD pelanggan, isolir/aktifkan, portal pelanggan |
 | **Paket Internet** | Manajemen profil & harga |
-| **Tagihan / Billing** | Invoice otomatis, pembayaran manual/gateway, isolir otomatis |
+| **Tagihan** | Invoice otomatis, pembayaran manual/gateway, isolir otomatis |
 | **Hotspot** | Generate voucher, penjualan, cetak voucher, sync MAC |
 | **Peta Jaringan** | ODP & topologi pelanggan di peta |
 | **Pengaturan** | Branding, payment gateway (Tripay/Midtrans), WhatsApp, GenieACS |
@@ -398,7 +398,7 @@ sudo supervisorctl start mwifi-worker:*
 | URL | Fungsi |
 |-----|--------|
 | `/login` | Login admin |
-| `/dashboard` | Dashboard NOC |
+| `/dashboard` | Dasbor NOC |
 | `/customer/dashboard` | Portal pelanggan (setelah login pelanggan) |
 | `/api/payment/callback` | Webhook gateway pembayaran (Tripay/Midtrans) |
 

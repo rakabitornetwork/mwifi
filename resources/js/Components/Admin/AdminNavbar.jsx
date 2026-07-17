@@ -1,4 +1,5 @@
-import { Menu, Moon, Sun } from 'lucide-react';
+import { Link } from '@inertiajs/react';
+import { Menu, Moon, Sun, UserRound } from 'lucide-react';
 
 export default function AdminNavbar({
     pageTitle,
@@ -33,23 +34,33 @@ export default function AdminNavbar({
                 <h1 className={`text-xs sm:text-sm font-bold truncate ${themeHeaderTextTitle}`}>{pageTitle}</h1>
             </div>
 
-            <button
-                type="button"
-                onClick={toggleTheme}
-                className={`p-1.5 rounded-lg border transition-all duration-200 cursor-pointer shrink-0 ${
-                    isDarkMode
-                        ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 hover:border-yellow-500/50 shadow-[0_0_8px_rgba(234,179,8,0.2)]'
-                        : 'border-zinc-200 bg-zinc-50 text-amber-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 shadow-sm'
-                }`}
-                aria-label={isAutoTheme ? 'Tema otomatis mengikuti waktu. Klik untuk ganti.' : 'Ganti tema'}
-                title={isAutoTheme ? 'Otomatis (06:00–18:00 terang)' : undefined}
-            >
-                {isDarkMode ? (
-                    <Sun className="w-4 h-4 fill-yellow-400/25" />
-                ) : (
-                    <Moon className="w-4 h-4 fill-amber-500/15" />
-                )}
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+                <Link
+                    href="/profile"
+                    className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${themeHeaderBtn}`}
+                    aria-label="Buka profil"
+                    title="Profil"
+                >
+                    <UserRound className="w-4 h-4" />
+                </Link>
+                <button
+                    type="button"
+                    onClick={toggleTheme}
+                    className={`p-1.5 rounded-lg border transition-all duration-200 cursor-pointer ${
+                        isDarkMode
+                            ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20 hover:border-yellow-500/50 shadow-[0_0_8px_rgba(234,179,8,0.2)]'
+                            : 'border-zinc-200 bg-zinc-50 text-amber-600 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 shadow-sm'
+                    }`}
+                    aria-label={isAutoTheme ? 'Tema otomatis mengikuti waktu. Klik untuk ganti.' : 'Ganti tema'}
+                    title={isAutoTheme ? 'Otomatis (06:00–18:00 terang)' : undefined}
+                >
+                    {isDarkMode ? (
+                        <Sun className="w-4 h-4 fill-yellow-400/25" />
+                    ) : (
+                        <Moon className="w-4 h-4 fill-amber-500/15" />
+                    )}
+                </button>
+            </div>
         </header>
     );
 }

@@ -456,7 +456,7 @@ function UsersPageContent({
                                     className={`p-2 border rounded-lg font-mono ${themeInput}`}
                                 />
                                 <p className={`text-[10px] ${themeTextDesc}`}>
-                                    Dipakai untuk notifikasi kasbon dan pelunasan dari menu Hutang & Piutang.
+                                    Dipakai untuk notifikasi kasbon dan pelunasan dari menu Kasbon Staff.
                                 </p>
                             </div>
                         )}

@@ -266,7 +266,7 @@ function VpsServicePageContent({ config = {}, landingOrderUrl = '', defaultPlans
                             <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2 mb-1">
                                     <h1 className={`text-lg sm:text-xl font-extrabold tracking-tight ${themeTextTitle}`}>
-                                        Layanan Sewa VPS
+                                        Katalog VPS (produk mWiFi)
                                     </h1>
                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
                                         enabled
@@ -278,8 +278,8 @@ function VpsServicePageContent({ config = {}, landingOrderUrl = '', defaultPlans
                                     </span>
                                 </div>
                                 <p className={`text-xs sm:text-sm leading-relaxed max-w-2xl ${themeTextDesc}`}>
-                                    Kelola showcase layanan cloud untuk verifikasi Midtrans. Katalog dapat dilihat publik;
-                                    checkout dibatasi ke pelanggan terpilih.
+                                    Katalog produk SaaS mWiFi (bukan operasional ISP harian). Showcase layanan cloud untuk
+                                    verifikasi Midtrans; checkout dibatasi ke pelanggan terpilih.
                                 </p>
                             </div>
                         </div>
@@ -416,7 +416,7 @@ function VpsServicePageContent({ config = {}, landingOrderUrl = '', defaultPlans
                                     </p>
                                     <p className="mt-2 opacity-80 text-amber-600 dark:text-amber-400 font-semibold">
                                         Penting: whitelist VPS tidak membuat akun otomatis. Pelanggan harus sudah terdaftar
-                                        di Manajemen PPPoE. Untuk username seperti <code className="font-mono">midtrans@demo</code>,
+                                        di Pelanggan PPPoE. Untuk username seperti <code className="font-mono">midtrans@demo</code>,
                                         cukup isi whitelist dengan <code className="font-mono">midtrans</code> atau nama lengkap.
                                     </p>
                                 </div>
@@ -488,7 +488,7 @@ function VpsServicePageContent({ config = {}, landingOrderUrl = '', defaultPlans
 
                                 {showcaseCustomers.length === 0 ? (
                                     <p className={`text-xs ${themeTextDesc}`}>
-                                        Belum ada pelanggan yang cocok dengan whitelist. Pastikan akun sudah ada di Manajemen PPPoE,
+                                        Belum ada pelanggan yang cocok dengan whitelist. Pastikan akun sudah ada di Pelanggan PPPoE,
                                         lalu simpan whitelist di atas.
                                     </p>
                                 ) : (
@@ -706,7 +706,7 @@ function VpsServicePageContent({ config = {}, landingOrderUrl = '', defaultPlans
 
 export default function VpsServiceIndex(props) {
     return (
-        <AdminLayout title="Layanan VPS">
+        <AdminLayout title="Katalog VPS">
             <VpsServicePageContent {...props} />
         </AdminLayout>
     );

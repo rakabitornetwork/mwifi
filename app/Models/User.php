@@ -33,19 +33,19 @@ class User extends Authenticatable
     public const ROLES = [
         self::ROLE_SUPER_ADMIN => [
             'label' => 'Super Admin',
-            'description' => 'Akses penuh: user, database, update, dan semua menu operasional.',
+            'description' => 'Akses penuh: user, database, pembaruan, dan semua menu operasional.',
         ],
         self::ROLE_ADMIN => [
             'label' => 'Administrator',
-            'description' => 'Kelola operasional harian, pengaturan, dan integrasi (tanpa database/update/user).',
+            'description' => 'Kelola operasional harian, pengaturan, dan integrasi (tanpa database/pembaruan/user).',
         ],
         self::ROLE_TECHNICIAN => [
             'label' => 'Teknisi Lapangan',
-            'description' => 'Dashboard, peta jaringan, PPPoE (tambah pelanggan), dan tagihan untuk satu router Mikrotik.',
+            'description' => 'Dasbor, peta jaringan, Pelanggan PPPoE (tambah pelanggan), dan tagihan untuk satu router Mikrotik.',
         ],
         self::ROLE_OPERATOR => [
             'label' => 'Operator Hotspot',
-            'description' => 'Pelanggan, voucher hotspot, dan tagihan dasar.',
+            'description' => 'Pelanggan PPPoE, voucher hotspot, dan tagihan dasar.',
         ],
     ];
 

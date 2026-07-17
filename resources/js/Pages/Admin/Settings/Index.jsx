@@ -597,7 +597,7 @@ function SettingsPageContent({ settings = [], routers = [], paymentCallbackUrl =
             >
                 <p className={`text-[11px] leading-relaxed ${themeTextDesc}`}>
                     Buka menu{' '}
-                    <a href="/messaging" className={`font-semibold hover:underline ${isDarkMode ? 'text-violet-300' : 'text-violet-700'}`}>WhatsApp & Telegram</a>
+                    <a href="/messaging" className={`font-semibold hover:underline ${isDarkMode ? 'text-violet-300' : 'text-violet-700'}`}>WhatsApp</a>
                     {' '}untuk mengatur gateway Baileys, template pesan, dan tes kirim.
                 </p>
             </SettingsSectionCard>

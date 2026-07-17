@@ -2095,7 +2095,7 @@ class AdminActionController extends Controller
         $config = \App\Services\WhatsAppService::configuration();
 
         if (!$config['enabled']) {
-            return redirect()->back()->with('error', 'Integrasi WhatsApp dinonaktifkan. Aktifkan di menu WhatsApp & Telegram lalu simpan.');
+            return redirect()->back()->with('error', 'Integrasi WhatsApp dinonaktifkan. Aktifkan di menu WhatsApp lalu simpan.');
         }
 
         $health = \App\Services\WhatsAppService::checkGatewayHealth();
@@ -2493,6 +2493,8 @@ class AdminActionController extends Controller
             'router_id' => 'required|exists:routers,id',
         ]);
 
+        StaffRouterScope::for($request->user())->ensureCanAccessRouter((int) $request->input('router_id'));
+
         $router = Router::findOrFail($request->input('router_id'));
 
         try {
@@ -2853,13 +2855,16 @@ class AdminActionController extends Controller
     /**
      * Sync MAC addresses for hotspot vouchers from MikroTik user/active sessions.
      */
-    public function syncHotspotMacAddresses()
+    public function syncHotspotMacAddresses(Request $request)
     {
         $updated = 0;
         $soldCount = 0;
         $purgedCount = 0;
 
-        foreach (Router::all() as $router) {
+        $scope = StaffRouterScope::for($request->user());
+        $routers = $scope->routersQuery()->get();
+
+        foreach ($routers as $router) {
             try {
                 $result = $this->syncHotspotMacAddressesForRouter($router);
                 $updated += $result['updated'];
@@ -2870,7 +2875,9 @@ class AdminActionController extends Controller
             }
         }
 
-        $macAddresses = HotspotVoucher::pluck('mac_address', 'id')
+        $macQuery = HotspotVoucher::query();
+        $scope->scopeHotspotVouchers($macQuery);
+        $macAddresses = $macQuery->pluck('mac_address', 'id')
             ->map(fn ($mac) => $mac ?: null)
             ->toArray();
 
@@ -3015,6 +3022,8 @@ class AdminActionController extends Controller
             'user_id' => 'nullable|exists:users,id',
         ]);
 
+        StaffRouterScope::for($request->user())->ensureCanAccessRouter((int) $data['router_id']);
+
         $router = Router::findOrFail($data['router_id']);
         $package = Package::findOrFail($data['package_id']);
 
@@ -3127,6 +3136,7 @@ class AdminActionController extends Controller
         ]);
 
         $voucher = HotspotVoucher::findOrFail($data['voucher_id']);
+        StaffRouterScope::for($request->user())->ensureCanAccessRouter($voucher->router_id ? (int) $voucher->router_id : null);
         if ($voucher->status !== 'unused') {
             return redirect()->back()->with('error', "Voucher ini sudah terjual atau kedaluwarsa.");
         }
@@ -3153,6 +3163,7 @@ class AdminActionController extends Controller
         ]);
 
         $voucher = HotspotVoucher::findOrFail($request->input('id'));
+        StaffRouterScope::for($request->user())->ensureCanAccessRouter($voucher->router_id ? (int) $voucher->router_id : null);
 
         try {
             if ($voucher->router) {
@@ -3187,6 +3198,7 @@ class AdminActionController extends Controller
 
         $comment = $request->input('comment');
         $routerId = $request->input('router_id');
+        StaffRouterScope::for($request->user())->ensureCanAccessRouter((int) $routerId);
 
         $vouchers = HotspotVoucher::where('comment', $comment)
             ->where('router_id', $routerId)
@@ -3307,6 +3319,8 @@ class AdminActionController extends Controller
             'router_id' => 'required|exists:routers,id',
         ]);
 
+        StaffRouterScope::for($request->user())->ensureCanAccessRouter((int) $request->input('router_id'));
+
         $router = Router::findOrFail($request->input('router_id'));
 
         try {
@@ -3367,6 +3381,8 @@ class AdminActionController extends Controller
             'login_url' => 'nullable|string',
             'color_palette' => 'nullable|string',
         ]);
+
+        StaffRouterScope::for($request->user())->ensureCanAccessRouter((int) $request->input('router_id'));
 
         $router = Router::findOrFail($request->input('router_id'));
         $comment = $request->input('comment');

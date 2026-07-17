@@ -18,65 +18,19 @@ import {
     Wifi,
     X,
 } from 'lucide-react';
-import {
-    ResponsiveContainer,
-    AreaChart,
-    Area,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-} from 'recharts';
 import AdminLayout from '../../../Layouts/AdminLayout';
 import AdminPageCard from '../../../Components/Admin/AdminPageCard';
+import AssignedRouterFilter from '../../../Components/Admin/AssignedRouterFilter';
 import TransitionModal from '../../../Components/Admin/TransitionModal';
 import { useAdminTheme } from '../../../hooks/useAdminTheme.jsx';
 import { useAdminToast } from '../../../hooks/useAdminToast';
+import { useAssignedRouter } from '../../../hooks/useAssignedRouter';
 import { formatRupiah } from '../../../utils/formatRupiah';
 import { formatBytes } from '../../../utils/formatBytes';
 import { formatDateInputValue, todayDateInputValue } from '../../../utils/formatDateInputValue';
 import getVisiblePages from '../../../utils/getVisiblePages';
-
-function buildHotspotDailyRevenueChartData(sales, days = 10) {
-    const groups = new Map();
-
-    sales.forEach((sale) => {
-        if (!sale.created_at) {
-            return;
-        }
-
-        const date = new Date(sale.created_at);
-        const sortKey = [
-            date.getFullYear(),
-            String(date.getMonth() + 1).padStart(2, '0'),
-            String(date.getDate()).padStart(2, '0'),
-        ].join('-');
-        const label = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-        const revenue = parseFloat(sale.price || 0);
-        const existing = groups.get(sortKey);
-
-        if (existing) {
-            existing.revenue += revenue;
-        } else {
-            groups.set(sortKey, { date: label, revenue });
-        }
-    });
-
-    const sorted = [...groups.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([, value]) => value);
-
-    if (sorted.length === 0) {
-        return [{ date: 'Tidak ada data', revenue: 0 }];
-    }
-
-    return sorted.slice(-days);
-}
-
-function displayRouterOsDuration(value) {
-    const text = String(value ?? '').trim();
-    return text !== '' ? text : '-';
-}
+import HotspotDailyRevenueChart from './HotspotDailyRevenueChart';
+import { displayRouterOsDuration } from './hotspotUtils';
 
 function HotspotPageContent({
     routers = [],
@@ -92,6 +46,7 @@ function HotspotPageContent({
     const { branding = {}, auth } = usePage().props;
     const canManageCommissionSettings = Boolean(auth?.user?.can_write) && auth?.user?.role !== 'operator';
     const isOperatorView = auth?.user?.role === 'operator';
+    const { lockedRouterId, initialRouterId, isRouterScoped } = useAssignedRouter(routers);
 
     const {
         isDarkMode,
@@ -109,7 +64,7 @@ function HotspotPageContent({
 
     const [searchTerm, setSearchTerm] = useState('');
     const [hotspotSubTab, setHotspotSubTab] = useState('vouchers');
-    const [voucherRouterFilter, setVoucherRouterFilter] = useState('');
+    const [voucherRouterFilter, setVoucherRouterFilter] = useState(initialRouterId || '');
     const [voucherStatusFilter, setVoucherStatusFilter] = useState('');
     const [voucherCommentFilter, setVoucherCommentFilter] = useState('');
     const [voucherMacMap, setVoucherMacMap] = useState({});
@@ -126,16 +81,16 @@ function HotspotPageContent({
     const customerPageSize = 10;
 
     const [showPrintVouchersModal, setShowPrintVouchersModal] = useState(false);
-    const [printRouterId, setPrintRouterId] = useState('');
+    const [printRouterId, setPrintRouterId] = useState(initialRouterId || '');
     const [printComment, setPrintComment] = useState('');
     const [printLoginUrl, setPrintLoginUrl] = useState('http://10.0.0.1');
     const [printColorPalette, setPrintColorPalette] = useState('price_based');
 
     const [showBulkDeleteVouchersModal, setShowBulkDeleteVouchersModal] = useState(false);
-    const [bulkDeleteVouchersRouterId, setBulkDeleteVouchersRouterId] = useState('');
+    const [bulkDeleteVouchersRouterId, setBulkDeleteVouchersRouterId] = useState(initialRouterId || '');
     const [bulkDeleteVouchersComment, setBulkDeleteVouchersComment] = useState('');
 
-    const [generateRouterId, setGenerateRouterId] = useState('');
+    const [generateRouterId, setGenerateRouterId] = useState(initialRouterId || '');
     const [hotspotServers, setHotspotServers] = useState([]);
     const [isLoadingServers, setIsLoadingServers] = useState(false);
     const [generateComment, setGenerateComment] = useState('');
@@ -152,7 +107,7 @@ function HotspotPageContent({
     const [memberToDelete, setMemberToDelete] = useState(null);
     const [deleteMode, setDeleteMode] = useState('local_only');
 
-    const [sessionRouterFilter, setSessionRouterFilter] = useState('');
+    const [sessionRouterFilter, setSessionRouterFilter] = useState(initialRouterId || '');
     const [activeSessions, setActiveSessions] = useState([]);
     const [sessionErrors, setSessionErrors] = useState([]);
     const [isLoadingSessions, setIsLoadingSessions] = useState(false);
@@ -178,6 +133,18 @@ function HotspotPageContent({
     useEffect(() => {
         setDefaultCommissionInput(String(defaultHotspotCommissionPercent ?? 0));
     }, [defaultHotspotCommissionPercent]);
+
+    useEffect(() => {
+        if (!lockedRouterId) {
+            return;
+        }
+
+        setVoucherRouterFilter(lockedRouterId);
+        setSessionRouterFilter(lockedRouterId);
+        setGenerateRouterId(lockedRouterId);
+        setPrintRouterId(lockedRouterId);
+        setBulkDeleteVouchersRouterId(lockedRouterId);
+    }, [lockedRouterId]);
 
     const fetchAgentReport = async () => {
         setIsLoadingAgentReport(true);
@@ -568,11 +535,14 @@ function HotspotPageContent({
 
     const filteredHotspotMembers = customers.filter((cust) => {
         const term = searchTerm.toLowerCase();
+        const matchRouter = voucherRouterFilter === '' || String(cust.router_id) === String(voucherRouterFilter);
         return (
-            cust.name.toLowerCase().includes(term) ||
-            cust.username.toLowerCase().includes(term) ||
-            cust.phone_number?.toLowerCase().includes(term) ||
-            (cust.package && cust.package.name.toLowerCase().includes(term))
+            matchRouter && (
+                cust.name.toLowerCase().includes(term) ||
+                cust.username.toLowerCase().includes(term) ||
+                cust.phone_number?.toLowerCase().includes(term) ||
+                (cust.package && cust.package.name.toLowerCase().includes(term))
+            )
         );
     });
 
@@ -759,16 +729,13 @@ function HotspotPageContent({
                     <div className="space-y-4">
                         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full lg:flex-1 lg:max-w-3xl">
-                                <select
+                                <AssignedRouterFilter
+                                    routers={routers}
                                     value={voucherRouterFilter}
                                     onChange={(e) => setVoucherRouterFilter(e.target.value)}
+                                    showAllOption={!isRouterScoped}
                                     className={`w-full min-w-0 px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${themeInput}`}
-                                >
-                                    <option value="">Semua Router</option>
-                                    {routers.map((r) => (
-                                        <option key={r.id} value={r.id}>{r.name}</option>
-                                    ))}
-                                </select>
+                                />
                                 <select
                                     value={voucherStatusFilter}
                                     onChange={(e) => setVoucherStatusFilter(e.target.value)}
@@ -976,16 +943,13 @@ function HotspotPageContent({
                                     Daftar pengguna hotspot yang sedang online di RouterOS (<span className="font-mono">IP → Hotspot → Active</span>).
                                     Data diperbarui otomatis setiap 3 detik.
                                 </p>
-                                <select
+                                <AssignedRouterFilter
+                                    routers={routers}
                                     value={sessionRouterFilter}
                                     onChange={(e) => setSessionRouterFilter(e.target.value)}
+                                    showAllOption={!isRouterScoped}
                                     className={`w-full lg:max-w-xs px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/30 ${themeInput}`}
-                                >
-                                    <option value="">Semua Router</option>
-                                    {routers.map((r) => (
-                                        <option key={r.id} value={r.id}>{r.name}</option>
-                                    ))}
-                                </select>
+                                />
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2 justify-end shrink-0">
@@ -1207,39 +1171,12 @@ function HotspotPageContent({
                                 </div>
 
                                 {/* Daily Trend Chart */}
-                                {(() => {
-                                    const sales = filteredSales;
-                                    const finalChartData = buildHotspotDailyRevenueChartData(sales);
-                                    if (finalChartData.length === 0) return null;
-
-                                    return (
-                                        <div className={`border rounded-2xl p-5 ${themeInnerWidget} space-y-3`}>
-                                            <h3 className={`text-xs font-bold uppercase tracking-wider ${themeTextTitle}`}>Grafik Tren Pendapatan Harian</h3>
-                                            <div className="h-64 w-full">
-                                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                                                    <AreaChart data={finalChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                                        <defs>
-                                                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                                                <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                                                                <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                                                            </linearGradient>
-                                                        </defs>
-                                                        <CartesianGrid strokeDasharray="3 3" stroke={isDarkMode ? '#27272a' : '#e4e4e7'} />
-                                                        <XAxis dataKey="date" stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={10} tickLine={false} />
-                                                        <YAxis stroke={isDarkMode ? '#a1a1aa' : '#71717a'} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => formatRupiah(v)} />
-                                                        <Tooltip
-                                                            contentStyle={{ backgroundColor: isDarkMode ? '#18181b' : '#ffffff', borderColor: isDarkMode ? '#27272a' : '#e4e4e7', borderRadius: '12px' }}
-                                                            labelStyle={{ color: isDarkMode ? '#ffffff' : '#18181b', fontWeight: 'bold', fontSize: '12px' }}
-                                                            itemStyle={{ color: '#10b981', fontSize: '12px' }}
-                                                            formatter={(value) => [formatRupiah(value), 'Pendapatan']}
-                                                        />
-                                                        <Area type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
-                                                    </AreaChart>
-                                                </ResponsiveContainer>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
+                                <HotspotDailyRevenueChart
+                                    sales={filteredSales}
+                                    isDarkMode={isDarkMode}
+                                    themeInnerWidget={themeInnerWidget}
+                                    themeTextTitle={themeTextTitle}
+                                />
 
                                 {!isOperatorView && (filteredAgents.length || 0) > 0 && (
                                     <div className="space-y-3">

@@ -528,7 +528,7 @@ function UpdatePageContent({ appUpdateInfo: initialUpdateInfo = {} }) {
 
 export default function UpdateIndex({ appUpdateInfo }) {
     return (
-        <AdminLayout title="Update">
+        <AdminLayout title="Pembaruan">
             <UpdatePageContent appUpdateInfo={appUpdateInfo} />
         </AdminLayout>
     );

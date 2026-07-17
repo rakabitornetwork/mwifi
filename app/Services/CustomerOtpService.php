@@ -48,7 +48,7 @@ class CustomerOtpService
                 return [
                     'ok' => false,
                     'message' => 'Nomor ada di whitelist VPS, tetapi akun pelanggan belum ditemukan. '
-                        . 'Buat pelanggan di Manajemen PPPoE dengan username yang sama seperti di whitelist Layanan VPS.',
+                        . 'Buat pelanggan di Pelanggan PPPoE dengan username yang sama seperti di whitelist Katalog VPS.',
                 ];
             }
 

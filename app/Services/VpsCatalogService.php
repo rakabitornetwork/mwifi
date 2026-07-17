@@ -450,7 +450,7 @@ class VpsCatalogService
         $plan = self::resolveDisplayPlanForCustomer($customer);
 
         if (! $plan) {
-            throw new \InvalidArgumentException('Belum ada paket VPS yang dikonfigurasi di menu Layanan VPS.');
+            throw new \InvalidArgumentException('Belum ada paket VPS yang dikonfigurasi di menu Katalog VPS.');
         }
 
         $dueDate = self::resolveManualInvoiceDueDate($customer, $dueExtensionDays);

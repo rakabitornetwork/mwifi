@@ -782,7 +782,7 @@ function CustomersPageContent({
             <AdminPageCard
                 icon={Users}
                 accent="emerald"
-                title="Manajemen Pelanggan PPPoE"
+                title="Pelanggan PPPoE"
                 description={selectedRouter ? `Router: ${selectedRouter.name} · ${routerScopedCustomers.length} pelanggan` : undefined}
                 themeCard={themeCard}
                 isDarkMode={isDarkMode}
@@ -1741,7 +1741,7 @@ function CustomersPageContent({
 
 export default function CustomersIndex({ customers, routers, packages, odps }) {
     return (
-        <AdminLayout title="Manajemen PPPoE">
+        <AdminLayout title="Pelanggan PPPoE">
             <CustomersPageContent
                 customers={customers}
                 routers={routers}

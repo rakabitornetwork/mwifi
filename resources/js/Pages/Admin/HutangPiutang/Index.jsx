@@ -148,8 +148,8 @@ function HutangPiutangContent({
             <AdminPageCard
                 icon={HandCoins}
                 accent="violet"
-                title="Hutang & Piutang"
-                description="Catat kasbon teknisi lapangan, pelunasan, serta hutang operasional perusahaan."
+                title="Kasbon Staff"
+                description="Catat kasbon teknisi lapangan, pelunasan, serta hutang operasional staf — bukan piutang pelanggan (itu ada di Tagihan)."
                 themeCard={themeCard}
                 isDarkMode={isDarkMode}
                 themeTextTitle={themeTextTitle}
@@ -476,7 +476,7 @@ function HutangPiutangContent({
 
 export default function HutangPiutangIndex(props) {
     return (
-        <AdminLayout title="Hutang & Piutang">
+        <AdminLayout title="Kasbon Staff">
             <HutangPiutangContent {...props} />
         </AdminLayout>
     );

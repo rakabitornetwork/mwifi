@@ -76,6 +76,24 @@ class StaffRouterScope
         return $query;
     }
 
+    public function scopeHotspotVouchers(Builder $query): Builder
+    {
+        if ($this->isScoped()) {
+            $query->where('router_id', $this->routerId());
+        }
+
+        return $query;
+    }
+
+    public function scopeHotspotSales(Builder $query): Builder
+    {
+        if ($this->isScoped()) {
+            $query->where('router_id', $this->routerId());
+        }
+
+        return $query;
+    }
+
     public function scopeInvoices(Builder $query): Builder
     {
         if ($this->isScoped()) {

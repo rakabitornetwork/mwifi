@@ -86,7 +86,7 @@ function AdminLayoutShell({ title, children }) {
         }
     }, [isMobileMenuOpen]);
 
-    const pageTitle = title || branding.display_name || branding.app_name || 'Dashboard';
+    const pageTitle = title || branding.display_name || branding.app_name || 'Dasbor';
 
     return (
         <>

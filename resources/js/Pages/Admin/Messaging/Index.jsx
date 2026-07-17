@@ -5,7 +5,6 @@ import AdminLayout, { useAdminToast } from '../../../Layouts/AdminLayout';
 import SettingsSectionCard from '../../../Components/Admin/SettingsSectionCard';
 import { useAdminFormTheme } from '../../../hooks/useAdminFormTheme';
 import WhatsAppBrandIcon from '../../../Components/Icons/WhatsAppBrandIcon';
-import TelegramBrandIcon from '../../../Components/Icons/TelegramBrandIcon';
 import WhatsAppGatewayPanel from '../../../Components/Admin/Messaging/WhatsAppGatewayPanel';
 import WhatsAppTemplatesPanel from '../../../Components/Admin/Messaging/WhatsAppTemplatesPanel';
 
@@ -95,8 +94,8 @@ function MessagingPageContent({
             <SettingsSectionCard
                 icon={MessageSquare}
                 accent="violet"
-                title="WhatsApp & Telegram"
-                description="Atur gateway WhatsApp terlebih dahulu, lalu sesuaikan template pesan. Tab Telegram menyusul."
+                title="WhatsApp"
+                description="Atur gateway WhatsApp terlebih dahulu, lalu sesuaikan template pesan tagihan dan notifikasi."
                 themeCard={themeCard}
                 isDarkMode={isDarkMode}
                 themeTextTitle={themeTextTitle}
@@ -110,10 +109,6 @@ function MessagingPageContent({
                     <button type="button" onClick={() => setMessagingSubTab('templates')} className={subTabClass('templates')}>
                         <WhatsAppBrandIcon className="w-3.5 h-3.5 shrink-0 text-[#25D366]" />
                         Template WhatsApp
-                    </button>
-                    <button type="button" disabled className={`${subTabClass('telegram')} opacity-50 cursor-not-allowed`} title="Segera hadir">
-                        <TelegramBrandIcon className="w-3.5 h-3.5 shrink-0 text-[#229ED9]" />
-                        Telegram
                     </button>
                 </div>
             </SettingsSectionCard>
@@ -150,19 +145,6 @@ function MessagingPageContent({
                 />
             )}
 
-            {messagingSubTab === 'telegram' && (
-                <SettingsSectionCard
-                    icon={TelegramBrandIcon}
-                    accent="sky"
-                    title="Telegram — Segera hadir"
-                    description="Pengaturan bot Telegram akan ditambahkan di halaman ini."
-                    themeCard={themeCard}
-                    isDarkMode={isDarkMode}
-                    themeTextTitle={themeTextTitle}
-                    themeTextSub={themeTextSub}
-                />
-            )}
-
             {(messagingSubTab === 'templates' || messagingSubTab === 'gateway') && (
                 <div className="flex justify-end">
                     <button
@@ -180,7 +162,7 @@ function MessagingPageContent({
 
 export default function MessagingIndex(props) {
     return (
-        <AdminLayout title="WhatsApp & Telegram">
+        <AdminLayout title="WhatsApp">
             <MessagingPageContent {...props} />
         </AdminLayout>
     );

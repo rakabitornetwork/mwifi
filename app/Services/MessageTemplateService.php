@@ -5,7 +5,7 @@ namespace App\Services;
 class MessageTemplateService
 {
     /**
-     * Urutan tampilan template di halaman WhatsApp & Telegram (alur siklus pelanggan).
+     * Urutan tampilan template di halaman WhatsApp (alur siklus pelanggan).
      *
      * @return array<int, string>
      */
@@ -382,7 +382,7 @@ TEMPLATE,
 • Catatan     : {notes}
 • Dicatat oleh: {recorded_by}{balance_line}
 
-Panel Admin → Hutang & Piutang
+Panel Admin → Kasbon Staff
 TEMPLATE,
 
             'whatsapp.template.staff_advance_technician' => <<<'TEMPLATE'

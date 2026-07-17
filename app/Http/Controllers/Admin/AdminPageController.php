@@ -360,6 +360,8 @@ class AdminPageController extends Controller
 
     public function hotspot(): Response
     {
+        $scope = $this->routerScope();
+
         $agents = User::query()
             ->whereNotNull('role')
             ->whereDoesntHave('customer')
@@ -368,12 +370,24 @@ class AdminPageController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'role', 'hotspot_commission_percent']);
 
+        $packageQuery = Package::where('type', 'hotspot')->with('router');
+        $scope->scopePackages($packageQuery);
+
+        $customerQuery = Customer::with(['package', 'router'])->where('service_type', 'hotspot');
+        $scope->scopeCustomers($customerQuery);
+
+        $voucherQuery = HotspotVoucher::with('router')->orderByDesc('created_at');
+        $scope->scopeHotspotVouchers($voucherQuery);
+
+        $saleQuery = HotspotSale::with(['router', 'soldBy:id,name'])->orderByDesc('created_at');
+        $scope->scopeHotspotSales($saleQuery);
+
         return Inertia::render('Admin/Hotspot/Index', [
-            'routers' => Router::all(),
-            'packages' => Package::where('type', 'hotspot')->with('router')->orderBy('mikrotik_profile')->get(),
-            'customers' => Customer::with(['package', 'router'])->where('service_type', 'hotspot')->get(),
-            'hotspotVouchers' => HotspotVoucher::with('router')->orderByDesc('created_at')->get(),
-            'hotspotSales' => HotspotSale::with(['router', 'soldBy:id,name'])->orderByDesc('created_at')->get(),
+            'routers' => $scope->routersQuery()->orderBy('name')->get(),
+            'packages' => $packageQuery->orderBy('mikrotik_profile')->get(),
+            'customers' => $customerQuery->get(),
+            'hotspotVouchers' => $voucherQuery->get(),
+            'hotspotSales' => $saleQuery->get(),
             'hotspotAgents' => $agents,
             'defaultHotspotCommissionPercent' => \App\Services\HotspotAgentCommissionService::defaultCommissionPercent(),
         ]);

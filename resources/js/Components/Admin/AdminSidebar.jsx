@@ -23,28 +23,52 @@ import BrandingTagline, { BrandingCompanyName } from '../BrandingTagline';
 import BrandingLogo, { hasWideLogo } from '../BrandingLogo';
 import SidebarMountain from './SidebarMountain';
 
-export const adminNavItems = [
-    // Ringkasan
-    { tab: 'dashboard', icon: Activity, label: 'Dashboard' },
-    // Infrastruktur & layanan
-    { tab: 'routers', icon: Wifi, label: 'Router Mikrotik' },
-    { tab: 'network-map', icon: Map, label: 'Peta Jaringan' },
-    { tab: 'packages', icon: Layers, label: 'Paket Internet' },
-    // Operasional pelanggan
-    { tab: 'customers', icon: Users, label: 'Manajemen PPPoE' },
-    { tab: 'hotspot', icon: Radio, label: 'Manajemen Hotspot' },
-    { tab: 'invoices', icon: CreditCard, label: 'Tagihan / Billing' },
-    { tab: 'finance', icon: Wallet, label: 'Laporan Keuangan' },
-    { tab: 'hutang-piutang', icon: HandCoins, label: 'Hutang & Piutang' },
-    { tab: 'inventory', icon: Boxes, label: 'Manajemen Inventaris' },
-    // Administrasi sistem
-    { tab: 'users', icon: ShieldCheck, label: 'Manajemen User' },
-    { tab: 'messaging', icon: MessageSquare, label: 'WhatsApp & Telegram' },
-    { tab: 'layanan-vps', icon: Server, label: 'Layanan VPS' },
-    { tab: 'settings', icon: Settings, label: 'Pengaturan' },
-    { tab: 'database', icon: Database, label: 'Database' },
-    { tab: 'update', icon: GitBranch, label: 'Update' },
+export const adminNavGroups = [
+    {
+        label: 'Ringkasan',
+        items: [
+            { tab: 'dashboard', icon: Activity, label: 'Dasbor' },
+        ],
+    },
+    {
+        label: 'Infrastruktur',
+        items: [
+            { tab: 'routers', icon: Wifi, label: 'Router Mikrotik' },
+            { tab: 'network-map', icon: Map, label: 'Peta Jaringan' },
+            { tab: 'packages', icon: Layers, label: 'Paket Internet' },
+        ],
+    },
+    {
+        label: 'Operasional',
+        items: [
+            { tab: 'customers', icon: Users, label: 'Pelanggan PPPoE' },
+            { tab: 'hotspot', icon: Radio, label: 'Manajemen Hotspot' },
+            { tab: 'invoices', icon: CreditCard, label: 'Tagihan' },
+            { tab: 'inventory', icon: Boxes, label: 'Manajemen Inventaris' },
+        ],
+    },
+    {
+        label: 'Keuangan',
+        items: [
+            { tab: 'finance', icon: Wallet, label: 'Laporan Keuangan' },
+            { tab: 'hutang-piutang', icon: HandCoins, label: 'Kasbon Staff' },
+        ],
+    },
+    {
+        label: 'Sistem',
+        items: [
+            { tab: 'users', icon: ShieldCheck, label: 'Manajemen User' },
+            { tab: 'messaging', icon: MessageSquare, label: 'WhatsApp' },
+            { tab: 'settings', icon: Settings, label: 'Pengaturan' },
+            { tab: 'layanan-vps', icon: Server, label: 'Katalog VPS' },
+            { tab: 'database', icon: Database, label: 'Database' },
+            { tab: 'update', icon: GitBranch, label: 'Pembaruan' },
+        ],
+    },
 ];
+
+/** Flat list for callers that only need tab keys / labels. */
+export const adminNavItems = adminNavGroups.flatMap((group) => group.items);
 
 export function getAdminNavLinkClass(tabName, activeTab, isDarkMode = true) {
     const isActive = activeTab === tabName;
@@ -64,6 +88,12 @@ export function getAdminNavLinkClass(tabName, activeTab, isDarkMode = true) {
     return 'w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg font-medium text-xs transition-all duration-150 border border-transparent text-slate-700 hover:bg-white/40 hover:text-slate-900 hover:border-sky-200/50 cursor-pointer';
 }
 
+function sectionHeadingClass(isDarkMode) {
+    return isDarkMode
+        ? 'px-3 pt-3 pb-1 text-[9px] font-bold uppercase tracking-[0.14em] text-sky-200/45'
+        : 'px-3 pt-3 pb-1 text-[9px] font-bold uppercase tracking-[0.14em] text-slate-500/70';
+}
+
 export default function AdminSidebar({
     branding,
     auth,
@@ -79,6 +109,8 @@ export default function AdminSidebar({
     showCloseButton = false,
     onClose,
 }) {
+    const allowedTabs = auth?.user?.allowed_tabs || [];
+
     return (
         <div className="flex flex-col h-full min-h-0 w-full">
             <div
@@ -139,19 +171,29 @@ export default function AdminSidebar({
 
             <div className="flex-1 min-h-0 overflow-y-auto">
                 <nav className="p-2.5 space-y-0.5">
-                    {adminNavItems
-                        .filter(({ tab }) => (auth?.user?.allowed_tabs || []).includes(tab))
-                        .map(({ tab, icon: Icon, label }) => (
-                        <Link
-                            key={tab}
-                            href={`/${tab}`}
-                            onClick={onNavClick}
-                            className={getAdminNavLinkClass(tab, activeTab, isDarkMode)}
-                        >
-                            <Icon className="w-4 h-4" />
-                            <span>{label}</span>
-                        </Link>
-                    ))}
+                    {adminNavGroups.map((group) => {
+                        const visibleItems = group.items.filter(({ tab }) => allowedTabs.includes(tab));
+                        if (visibleItems.length === 0) {
+                            return null;
+                        }
+
+                        return (
+                            <div key={group.label} className="space-y-0.5">
+                                <p className={sectionHeadingClass(isDarkMode)}>{group.label}</p>
+                                {visibleItems.map(({ tab, icon: Icon, label }) => (
+                                    <Link
+                                        key={tab}
+                                        href={`/${tab}`}
+                                        onClick={onNavClick}
+                                        className={getAdminNavLinkClass(tab, activeTab, isDarkMode)}
+                                    >
+                                        <Icon className="w-4 h-4" />
+                                        <span>{label}</span>
+                                    </Link>
+                                ))}
+                            </div>
+                        );
+                    })}
                 </nav>
             </div>
 

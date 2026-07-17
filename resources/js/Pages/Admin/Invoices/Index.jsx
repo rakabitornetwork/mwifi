@@ -925,7 +925,7 @@ function InvoicesPageContent({
                                                 <p className="text-[10px] text-amber-500 font-bold">
                                                     {customer.invoiceCount > 0
                                                         ? 'Tidak ada tagihan belum bayar — periksa riwayat invoice lunas di bawah.'
-                                                        : 'Belum ada invoice — generate tagihan dari menu Pelanggan.'}
+                                                        : 'Belum ada invoice — generate tagihan dari menu Pelanggan PPPoE.'}
                                                 </p>
                                             )}
                                         </div>
@@ -1566,7 +1566,7 @@ export default function InvoicesIndex({
     monthlyRevenue,
 }) {
     return (
-        <AdminLayout title="Tagihan / Billing">
+        <AdminLayout title="Tagihan">
             <InvoicesPageContent
                 invoices={invoices}
                 routers={routers}
